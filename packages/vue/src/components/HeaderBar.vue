@@ -22,7 +22,7 @@ const props = withDefaults(
     starred: false,
     currentUserId: '',
     simulatorsActive: false,
-    userName: 'Demo User',
+    userName: '',
     userAvatar: '',
   },
 )

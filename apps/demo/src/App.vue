@@ -207,14 +207,6 @@ function createFolder(name: string) {
   folders.value.push({ id: generateId(), name: trimmed })
 }
 
-function getInitials(name: string) {
-  return name
-    .split(' ')
-    .map((part) => part[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase()
-}
 
 const LS_DOCUMENTS_KEY = 'docs-editor-documents'
 const LS_FOLDERS_KEY = 'docs-editor-folders'
@@ -272,8 +264,8 @@ watch(
   { deep: true },
 )
 
-const userName = 'Demo User'
-const userAvatar = getInitials(userName)
+const userName = ''
+const userAvatar = ''
 </script>
 
 <template>

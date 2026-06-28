@@ -22,7 +22,7 @@ const collaborationOptions = computed(() => {
   return {
     room: props.room.trim(),
     provider: 'webrtc' as const,
-    user: { name: 'Demo User', color: '#3b82f6' },
+    user: { name: 'User', color: '#3b82f6' },
   }
 })
 
