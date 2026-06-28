@@ -245,7 +245,14 @@
   font-family: var(--font-sans);
 }
 
+/* Print page setup — standard document margins */
+@page {
+  margin: 20mm;
+  size: auto;
+}
+
 @media print {
+  /* ── Hide editor chrome ───────────────────────────────────────────── */
   header,
   #editor-toolbar-row,
   #editor-footer-row,
@@ -258,21 +265,90 @@
   .ai-sidebar,
   .toc-sidebar,
   button,
-  nav {
+  nav,
+  .docs-editor-ruler,
+  .docs-editor-vertical-ruler,
+  .docs-editor-quick-actions {
     display: none !important;
+  }
+
+  /* ── Reset layout constraints so pages flow naturally ─────────────── */
+  html,
+  body,
+  #app,
+  .docs-editor {
+    height: auto !important;
+    min-height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    position: static !important;
+    display: block !important;
+    background: transparent !important;
+    background-color: transparent !important;
+  }
+
+  .docs-editor__body,
+  .docs-editor-scroll,
+  .docs-editor-scroll > div {
+    display: block !important;
+    height: auto !important;
+    min-height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    background: transparent !important;
+    background-color: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    position: static !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  /* ── Content container ────────────────────────────────────────────── */
+  .docs-editor-scroll .relative.w-full.max-w-\[794px\],
+  .docs-editor-scroll .max-w-\[794px\] {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    position: static !important;
+    background: transparent !important;
+    background-color: transparent !important;
   }
 
   html,
   body {
     background: #ffffff !important;
     color: #000000 !important;
-    height: auto !important;
-    overflow: visible !important;
     font-size: 11pt !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
 
+  /* ── PaginationPlus — hide screen-only page containers ────────────── */
+  .rm-with-pagination {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 0 !important;
+    border: none !important;
+    min-height: auto !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  [data-rm-pagination] .rm-page-break > .page,
+  [data-rm-pagination] .rm-page-break > .breaker,
+  .rm-first-page-header {
+    display: none !important;
+  }
+
+  [data-rm-pagination] {
+    display: none !important;
+  }
+
+  /* ── Legacy .docs-editor-page support (from PageView.vue) ─────────── */
   #printable-document,
   .docs-editor-page {
     border: none !important;
@@ -288,12 +364,26 @@
     display: block !important;
   }
 
+  .docs-editor__paper {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+    background-color: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+    color: #000000 !important;
+  }
+
   .ProseMirror {
     min-height: auto !important;
     color: #111111 !important;
     background: transparent !important;
   }
 
+  /* ── Heading / block break prevention ─────────────────────────────── */
   h1,
   h2,
   h3,
@@ -317,6 +407,7 @@
     break-inside: avoid !important;
   }
 
+  /* ── Code / blockquote / link overrides for print ─────────────────── */
   pre,
   .ProseMirror pre {
     background: #f8fafc !important;
