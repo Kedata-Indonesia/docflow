@@ -123,17 +123,7 @@ const editor = createEditor({
 })
 ```
 
----
 
-## ❓ Status CDN
-
-| CDN | Status | Keterangan |
-|-----|--------|------------|
-| **esm.sh** | ❌ Belum | Hanya serve dari npm publik, bukan GitHub Packages |
-| **jsDelivr** | ❌ Belum | Bisa serve file dari GitHub, tapi dependency imports tidak ter-resolve |
-| **unpkg** | ❌ Belum | Sama seperti di atas |
-
-**Solusi:** Ikuti panduan instalasi via GitHub Packages di atas.
 
 ---
 
