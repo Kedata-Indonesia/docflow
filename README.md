@@ -10,9 +10,9 @@ Built on [TipTap](https://tiptap.dev) / [ProseMirror](https://prosemirror.net) w
 
 | Package | Description | Integration |
 |---------|-------------|-------------|
+| `@kedata-indonesia/docflow-core` | Headless editor factory + plugin system | Any framework |
 | `@kedata-indonesia/docflow-vue` | Vue 3 component + composables | Vue apps |
 | `@kedata-indonesia/docflow-element` | Web Component (`<docs-editor>`) | Any HTML/JS |
-| `@kedata-indonesia/docflow-core` | Headless editor factory + plugin system | Any framework |
 | `@kedata-indonesia/docflow-plugins` | Built-in plugins (table, image, link, etc.) | Shared |
 | `@kedata-indonesia/docflow-layout-engine` | Page split / pagination engine | Internal |
 
@@ -20,19 +20,56 @@ Built on [TipTap](https://tiptap.dev) / [ProseMirror](https://prosemirror.net) w
 
 ## Quick Start
 
-> **📦 Packages are published via GitHub Packages.**  
-> To install, create a `.npmrc` file in your project:
-> ```
-> @kedata-indonesia:registry=https://npm.pkg.github.com
-> ```
-> Then authenticate with a GitHub token that has `read:packages` scope.  
-> [See GitHub docs →](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-npm-registry#authenticating-to-github-packages)
+### 📦 Instalasi (via GitHub Packages)
 
-### Vue 3
+> Packages dipublikasikan ke **GitHub Packages** (bukan npm publik).  
+> Untuk menginstall, ikuti langkah-langkah berikut:
+
+**Langkah 1 — Buat `.npmrc` di root project kamu**
+
+```
+@kedata-indonesia:registry=https://npm.pkg.github.com
+```
+
+**Langkah 2 — Buat GitHub Personal Access Token**
+
+1. Buka https://github.com/settings/tokens
+2. Klik **Generate new token (classic)**
+3. Beri scope `read:packages`
+4. Copy token-nya
+
+**Langkah 3 — Autentikasi**
+
+Simpan token ke `~/.npmrc` (global) atau gunakan via environment variable:
+
+```bash
+npm login --registry=https://npm.pkg.github.com
+# Username: GitHub username
+# Password: token yang dibuat
+# Email: email GitHub
+```
+
+Atau via `~/.npmrc`:
+
+```
+//npm.pkg.github.com/:_authToken=TOKEN_KAMU
+```
+
+**Langkah 4 — Install packages**
 
 ```bash
 npm install @kedata-indonesia/docflow-vue @kedata-indonesia/docflow-plugins
 ```
+
+> 📘 [Dokumentasi GitHub Packages →](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-npm-registry#authenticating-to-github-packages)
+
+---
+
+### 🖥️ Integrasi Vue 3
+
+**Langkah 1 — Install** (lihat panduan instalasi di atas)
+
+**Langkah 2 — Buat komponen**
 
 ```vue
 <script setup lang="ts">
@@ -59,20 +96,37 @@ function handleUpdate(json: object) {
 </template>
 ```
 
-### Web Component (CDN — any framework / vanilla HTML)
+**Langkah 3 — Jalankan**
+
+```bash
+npm run dev
+```
+
+---
+
+### 🌐 Web Component (framework apapun)
+
+**Langkah 1 — Install**
+
+```bash
+npm install @kedata-indonesia/docflow-element @kedata-indonesia/docflow-plugins
+```
+
+**Langkah 2 — Import dan gunakan di HTML/JS**
 
 ```html
 <script type="module">
-  import 'https://esm.sh/@kedata-indonesia/docflow-element'
-  import 'https://esm.sh/@kedata-indonesia/docflow-plugins'
+  import '@kedata-indonesia/docflow-element'
+  import { defaultPlugins } from '@kedata-indonesia/docflow-plugins'
+
+  const editor = document.querySelector('docs-editor')
+  editor.plugins = defaultPlugins
 </script>
 
-<docs-editor room="my-doc" theme="light"></docs-editor>
+<docs-editor room="my-doc"></docs-editor>
 ```
 
-> **Note:** Web Component is built on Vue internally but exposed as a framework-agnostic custom element. Works in any JS environment (React, Angular, Svelte, vanilla HTML).
-
-### Vanilla JS (headless core)
+### 🧩 Vanilla JS / Headless (tanpa UI)
 
 ```bash
 npm install @kedata-indonesia/docflow-core @kedata-indonesia/docflow-plugins
@@ -89,17 +143,28 @@ const editor = createEditor({
   onUpdate: (json) => console.log(json),
 })
 
-// Access TipTap editor instance
+// Akses TipTap editor
 editor.editor.commands.toggleBold()
 ```
+
+---
+
+## ❓ Status CDN
+
+| CDN | Status | Keterangan |
+|-----|--------|------------|
+| **esm.sh** | ❌ Belum | esm.sh hanya serve dari npm publik, bukan GitHub Packages |
+| **jsDelivr** | ❌ Belum | Bisa serve file dari GitHub, tapi dependency imports tidak ter-resolve |
+| **unpkg** | ❌ Belum | Sama seperti di atas |
+| **npm publik** | 🚧 Rencana | Akan dipublikasikan ke npm publik setelah versi stabil |
+
+**Solusi sementara:** Ikuti panduan instalasi via GitHub Packages di atas.
 
 ---
 
 ## Features
 
 ### Rich Text
-
-All standard formatting via the toolbar or keyboard shortcuts:
 
 | Style | Shortcut |
 |-------|----------|
@@ -116,46 +181,40 @@ All standard formatting via the toolbar or keyboard shortcuts:
 
 ### Page Layout
 
-- **Auto page break** — content flows across A4-sized pages automatically
-- **Manual page break** — insert page breaks with a toolbar button or `pagebreak` extension
-- **Page size options** — A4, Letter, Legal, or custom dimensions
-- **Header / Footer** — per-document header and footer with `{page}` and `{total}` variables
-- **Dark mode** — built-in theme toggle
+- **Auto page break** — konten terbagi otomatis per halaman A4
+- **Manual page break** — sisipkan page break via toolbar
+- **Page size** — A4, Letter, Legal, atau custom
+- **Header / Footer** — dukungan variabel `{page}` dan `{total}`
+- **Dark mode** — theme toggle built-in
 
 ### Real-time Collaboration
 
-Powered by Yjs — conflicts resolved automatically via CRDT.
+Powered by Yjs (CRDT) — konflik terselesaikan otomatis.
 
 ```vue
 <script setup lang="ts">
 import { DocsEditor } from '@kedata-indonesia/docflow-vue'
 import { defaultPlugins } from '@kedata-indonesia/docflow-plugins'
-import '@kedata-indonesia/docflow-vue/dist/style.css'
 
 const collaboration = {
   room: 'my-document-room',
-  provider: 'webrtc',  // peer-to-peer, no server needed
+  provider: 'webrtc',  // peer-to-peer, tanpa server
   user: { name: 'Alice', color: '#3b82f6' },
 }
 </script>
 
 <template>
-  <DocsEditor
-    :plugins="defaultPlugins"
-    :collaboration="collaboration"
-  />
+  <DocsEditor :plugins="defaultPlugins" :collaboration="collaboration" />
 </template>
 ```
-
-Two providers available:
 
 | Provider | Setup | Use Case |
 |----------|-------|----------|
 | `webrtc` | Zero-config, P2P | Prototyping, small teams |
-| `websocket` | Requires server (e.g. Hocuspocus) | Production, persistence |
+| `websocket` | Butuh server (Hocuspocus) | Production, persistence |
 
 ```ts
-// WebSocket example
+// WebSocket
 const collaboration = {
   room: 'doc-123',
   provider: 'websocket',
@@ -168,18 +227,16 @@ const collaboration = {
 
 ## Plugin System
 
-Plugins are how you add or remove editor capabilities.
-
-### Using built-in plugins
+### Menggunakan built-in plugins
 
 ```ts
-import { defaultPlugins, definePlugin } from '@kedata-indonesia/docflow-plugins'
-// defaultPlugins includes: bold, italic, underline, strike, heading,
-// bulletList, orderedList, taskList, blockquote, codeBlock, link,
-// image, table, textAlign, placeholder
+import { defaultPlugins } from '@kedata-indonesia/docflow-plugins'
+// defaultPlugins: bold, italic, underline, strike, heading,
+// bulletList, orderedList, taskList, blockquote, codeBlock,
+// link, image, table, textAlign, placeholder, pageBreak
 ```
 
-### Creating a custom plugin
+### Membuat plugin kustom
 
 ```ts
 import { definePlugin } from '@kedata-indonesia/docflow-core'
@@ -191,9 +248,6 @@ const MyPlugin = definePlugin({
   toolbar: [
     { id: 'my-action', iconComponent: 'Bold', label: 'My Action', action: 'toggleBold' },
   ],
-  slashCommands: [
-    { name: 'My Feature', command: 'toggleBold' },
-  ],
   commands: {
     toggleBold: (editor) => editor.chain().focus().toggleBold().run(),
   },
@@ -204,52 +258,48 @@ const MyPlugin = definePlugin({
 })
 ```
 
-### Passing plugins to the editor
-
 ```vue
-<DocsEditor :plugins="[MyPlugin, AnotherPlugin]" />
+<DocsEditor :plugins="[MyPlugin]" />
 ```
 
 ---
 
-## `<DocsEditor>` Props (Vue)
+## API Reference
+
+### `<DocsEditor>` Props (Vue)
 
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
 | `modelValue` | `object \| string` | — | Document content (ProseMirror JSON) |
 | `plugins` | `DocsEditorPlugin[]` | `[]` | Active plugins |
 | `editable` | `boolean` | `true` | Toggle editing |
-| `collaboration` | `object` | — | [Collaboration config](#real-time-collaboration) |
+| `collaboration` | `object` | — | Collaboration config |
 | `pageSize` | `string` | `'a4'` | `'a4'`, `'letter'`, `'legal'`, or custom |
 | `title` | `string` | `'Untitled Document'` | Document title (header bar) |
 | `starred` | `boolean` | `false` | Star toggle state |
 | `connectionState` | `string` | `'connected'` | Status bar indicator |
-| `userName` | `string` | `'Demo User'` | Display name for collaboration |
+| `userName` | `string` | `'Demo User'` | Display name |
 | `userAvatar` | `string` | `''` | Initials for avatar |
 
-### Emitted Events
+### Events
 
 | Event | Payload | Description |
 |-------|---------|-------------|
-| `update:modelValue` | `object` | Document content changed |
+| `update:modelValue` | `object` | Content changed |
 | `update:title` | `string` | Title changed |
 | `update:pageSize` | `string` | Page size changed |
-| `toggle-star` | — | Star button clicked |
-| `back` | — | Back button clicked |
-| `share` | — | Share button clicked |
-| `menu-click` | `string` | Menu action triggered |
+| `toggle-star` | — | Star clicked |
+| `back` | — | Back clicked |
+| `share` | — | Share clicked |
+| `menu-click` | `string` | Menu action |
 
 ### Slots
 
 | Slot | Description |
 |------|-------------|
-| `#header-actions` | Custom buttons in the header bar |
+| `#header-actions` | Custom buttons in header |
 
----
-
-## Web Component API
-
-### Attributes
+### Web Component Attributes
 
 ```html
 <docs-editor
@@ -261,23 +311,7 @@ const MyPlugin = definePlugin({
 ></docs-editor>
 ```
 
-### Setting plugins (JavaScript)
-
-```html
-<script type="module">
-  import 'https://esm.sh/@kedata-indonesia/docflow-element'
-  import { defaultPlugins } from 'https://esm.sh/@kedata-indonesia/docflow-plugins'
-  
-  const el = document.querySelector('docs-editor')
-  el.plugins = defaultPlugins
-</script>
-```
-
----
-
-## Headless Core API
-
-The `@kedata-indonesia/docflow-core` package exposes the editor factory without any UI bindings.
+### Headless Core API
 
 ```ts
 import { createEditor } from '@kedata-indonesia/docflow-core'
@@ -292,18 +326,14 @@ const editor = createEditor({
   paginationOptions: { /* pageHeight, pageWidth, margins */ },
 })
 
-editor.getJSON()     // → object
-editor.getHTML()     // → string
+editor.getJSON()      // → object
+editor.getHTML()      // → string
 editor.destroy()
-editor.use(plugin)   // add plugin at runtime
-editor.pluginActions // → Record<string, Function>
+editor.use(plugin)    // add plugin at runtime
+editor.pluginActions  // → Record<string, Function>
 ```
 
----
-
-## useEditor Composables (Vue)
-
-For custom editor UIs built from individual components:
+### useEditor Composables (Vue - custom UI)
 
 ```vue
 <script setup lang="ts">
@@ -328,28 +358,24 @@ const { editorRef, editor, pluginActions, isReady } = useEditor({
 ## Development
 
 ```bash
-# Clone & install
+# 1. Clone
 git clone git@github.com:Kedata-Indonesia/docflow.git
 cd docflow
+
+# 2. Install dependencies
 pnpm install
 
-# Run the demo app
-pnpm dev
-
-# Build all packages
+# 3. Build semua package
 pnpm build
 
-# Type check
-pnpm typecheck
+# 4. Jalankan demo
+pnpm dev
 
-# Unit tests
-pnpm test:unit
-
-# Lint
-pnpm lint
-
-# E2E tests
-pnpm test:e2e
+# Testing
+pnpm typecheck      # TypeScript check
+pnpm test:unit      # Unit test
+pnpm lint           # ESLint
+pnpm test:e2e       # Playwright E2E
 ```
 
 ### Project Structure
@@ -359,7 +385,7 @@ docs-editor/
 ├── packages/
 │   ├── core/              @kedata-indonesia/docflow-core
 │   ├── vue/               @kedata-indonesia/docflow-vue
-│   ├── element/           @kedata-indonesia/docflow-element (Web Component)
+│   ├── element/           @kedata-indonesia/docflow-element
 │   ├── plugins/           @kedata-indonesia/docflow-plugins
 │   └── layout-engine/     @kedata-indonesia/docflow-layout-engine
 ├── apps/
@@ -375,18 +401,14 @@ docs-editor/
 ```
 User input
     ↓
-ProseMirror state (single source of truth)
+ProseMirror state (single source of truth — satu-satunya yang bisa diedit)
     ↓
-Layout Engine (split konten ke halaman — derived view, tidak mengubah state)
+Layout Engine (split konten ke halaman — read-only derived view)
     ↓
 DOM render (halaman 1, 2, 3...)
     ↓
 Collab? → Yjs sync ke peer/server
 ```
-
-- **ProseMirror state** adalah satu-satunya model yang bisa diedit.
-- **Layout Engine** hanya membaca state dan menghasilkan model halaman untuk rendering.
-- **Collaboration** (Yjs) menyinkronkan state antar pengguna.
 
 ---
 
