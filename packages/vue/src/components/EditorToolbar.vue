@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { computed, ref, watch, onUnmounted } from 'vue'
 import type { Editor } from '@tiptap/core'
-import type { DocsEditorPlugin, ToolbarItem } from '@docs-editor/core'
+import type { DocsEditorPlugin, ToolbarItem } from '@kedata-indonesia/docflow-core'
 import {
   Bold,
   Italic,

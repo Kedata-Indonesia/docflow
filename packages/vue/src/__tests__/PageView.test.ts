@@ -1,7 +1,7 @@
 import { mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
 import type { Editor } from '@tiptap/core'
-import type { Page } from '@docs-editor/layout-engine'
+import type { Page } from '@kedata-indonesia/docflow-layout-engine'
 import PageView from '../components/PageView.vue'
 
 function createMockEditor(html: string): { editor: Editor; container: HTMLElement } {

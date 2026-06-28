@@ -1,5 +1,5 @@
 {
-  "name": "@docs-editor/core",
+  "name": "@kedata-indonesia/docflow-core",
   "version": "0.0.1",
   "type": "module",
   "main": "./dist/index.js",
@@ -11,6 +11,9 @@
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
     }
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
   },
   "files": [
     "dist"

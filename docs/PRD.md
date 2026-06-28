@@ -105,11 +105,11 @@ Auto page break dijalankan oleh **Layout Engine** sebagai *derived view* dari Pr
 | Fitur | Prioritas | Keterangan |
 |-------|-----------|------------|
 | Web Component (`<docs-editor>`) | P0 | Framework-agnostic |
-| NPM package (`@docs-editor/core`) | P0 | |
+| NPM package (`@kedata-indonesia/docflow-core`) | P0 | |
 | CDN distribution | P1 | unpkg, jsdelivr, esm.sh |
 | Plugin system API | P0 | `definePlugin()` |
-| Vue binding (`@docs-editor/vue`) | P1 | |
-| React binding (`@docs-editor/react`) | P2 | |
+| Vue binding (`@kedata-indonesia/docflow-vue`) | P1 | |
+| React binding (`@kedata-indonesia/docflow-react`) | P2 | |
 
 ---
 
@@ -120,18 +120,18 @@ Auto page break dijalankan oleh **Layout Engine** sebagai *derived view* dari Pr
 ```
 ┌──────────────────────────────────────┐
 │         Framework Bindings            │
-│  @docs-editor/vue, @docs-editor/react  │
+│  @kedata-indonesia/docflow-vue, @kedata-indonesia/docflow-react  │
 ├──────────────────────────────────────┤
 │         Web Component                 │
-│  @docs-editor/element (<docs-editor>)  │
+│  @kedata-indonesia/docflow-element (<docs-editor>)  │
 ├──────────────────────────────────────┤
 │              Core                     │
-│  @docs-editor/core                    │
+│  @kedata-indonesia/docflow-core                    │
 │  └─ createEditor()                   │
 │  └─ PluginSystem                     │
 ├──────────────────────────────────────┤
 │         Layout Engine                │
-│  @docs-editor/layout-engine           │
+│  @kedata-indonesia/docflow-layout-engine           │
 │  └─ PageLayout (page split)          │
 │  └─ PageBreaker (overflow calc)      │
 ├──────────────────────────────────────┤
@@ -184,26 +184,26 @@ docs-editor/
 ├── docs/
 │   └── PRD.md
 ├── packages/
-│   ├── core/                     ← @docs-editor/core
+│   ├── core/                     ← @kedata-indonesia/docflow-core
 │   │   ├── src/
 │   │   │   ├── Editor.ts         ← TipTap wrapper
 │   │   │   ├── PluginSystem.ts   ← definePlugin()
 │   │   │   ├── Collaboration.ts  ← Yjs setup
 │   │   │   └── index.ts
 │   │   └── package.json
-│   ├── layout-engine/            ← @docs-editor/layout-engine
+│   ├── layout-engine/            ← @kedata-indonesia/docflow-layout-engine
 │   │   ├── src/
 │   │   │   ├── PageLayout.ts     ← Split content ke halaman
 │   │   │   ├── PageBreaker.ts    ← Overflow calculation
 │   │   │   ├── types.ts
 │   │   │   └── index.ts
 │   │   └── package.json
-│   ├── element/                  ← @docs-editor/element
+│   ├── element/                  ← @kedata-indonesia/docflow-element
 │   │   ├── src/
 │   │   │   ├── DocsEditor.ts     ← Custom Element
 │   │   │   └── index.ts
 │   │   └── package.json
-│   ├── vue/                      ← @docs-editor/vue
+│   ├── vue/                      ← @kedata-indonesia/docflow-vue
 │   │   ├── src/
 │   │   │   ├── components/
 │   │   │   │   ├── DocsEditor.vue
@@ -213,7 +213,7 @@ docs-editor/
 │   │   │   │   └── useEditor.ts
 │   │   │   └── index.ts
 │   │   └── package.json
-│   └── plugins/                  ← @docs-editor/plugins
+│   └── plugins/                  ← @kedata-indonesia/docflow-plugins
 │       ├── src/
 │       │   ├── image/
 │       │   ├── table/
@@ -232,7 +232,7 @@ docs-editor/
 
 ```ts
 // API desain
-import { definePlugin } from '@docs-editor/core'
+import { definePlugin } from '@kedata-indonesia/docflow-core'
 
 const ImagePlugin = definePlugin({
   id: 'image',
@@ -265,14 +265,14 @@ const editor = createEditor({
 ### Web Component (CDN)
 
 ```html
-<script type="module" src="https://esm.sh/@docs-editor/element"></script>
+<script type="module" src="https://esm.sh/@kedata-indonesia/docflow-element"></script>
 <docs-editor room="doc-123" theme="light"></docs-editor>
 ```
 
 ### NPM
 
 ```bash
-npm install @docs-editor/vue
+npm install @kedata-indonesia/docflow-vue
 ```
 
 ```vue
@@ -281,7 +281,7 @@ npm install @docs-editor/vue
 </template>
 
 <script setup>
-import { DocsEditor } from '@docs-editor/vue'
+import { DocsEditor } from '@kedata-indonesia/docflow-vue'
 </script>
 ```
 
@@ -289,7 +289,7 @@ import { DocsEditor } from '@docs-editor/vue'
 
 ```html
 <script type="module">
-import { createEditor } from 'https://esm.sh/@docs-editor/core'
+import { createEditor } from 'https://esm.sh/@kedata-indonesia/docflow-core'
 const editor = createEditor({ target: document.body })
 </script>
 ```

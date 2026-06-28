@@ -1,5 +1,5 @@
 {
-  "name": "@docs-editor/element",
+  "name": "@kedata-indonesia/docflow-element",
   "version": "0.0.1",
   "type": "module",
   "main": "./dist/index.js",
@@ -12,6 +12,9 @@
       "require": "./dist/index.cjs"
     }
   },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
   "files": ["dist"],
   "scripts": {
     "build": "vite build && tsup src/index.ts --format cjs && vue-tsc --project tsconfig.build.json --emitDeclarationOnly",
@@ -19,8 +22,8 @@
     "test:unit": "vitest run"
   },
   "dependencies": {
-    "@docs-editor/core": "workspace:*",
-    "@docs-editor/vue": "workspace:*",
+    "@kedata-indonesia/docflow-core": "workspace:*",
+    "@kedata-indonesia/docflow-vue": "workspace:*",
     "vue": "^3.5.0"
   },
   "devDependencies": {

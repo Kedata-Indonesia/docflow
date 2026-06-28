@@ -1,4 +1,4 @@
-import { definePlugin } from '@docs-editor/core'
+import { definePlugin } from '@kedata-indonesia/docflow-core'
 import Link from '@tiptap/extension-link'
 import type { Editor } from '@tiptap/core'
 

@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import type { BlockInfo, LayoutOptions, Page } from '@docs-editor/layout-engine'
-import type { DocsEditor } from '@docs-editor/core'
+import type { BlockInfo, LayoutOptions, Page } from '@kedata-indonesia/docflow-layout-engine'
+import type { DocsEditor } from '@kedata-indonesia/docflow-core'
 import { computed, ref, watch, onUnmounted } from 'vue'
 
 type Editor = DocsEditor['editor']

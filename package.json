@@ -1,5 +1,5 @@
 {
-  "name": "@docs-editor/root",
+  "name": "@kedata-indonesia/docflow-root",
   "private": true,
   "version": "0.0.1",
   "type": "module",
@@ -8,7 +8,7 @@
     "typecheck": "pnpm -r run typecheck",
     "test:unit": "pnpm -r run test:unit",
     "lint": "eslint . --ext .ts,.vue",
-    "dev": "pnpm --filter @docs-editor/demo dev",
+    "dev": "pnpm --filter @kedata-indonesia/docflow-demo dev",
     "test:e2e": "playwright test",
     "test:visual": "percy exec -- playwright test"
   },

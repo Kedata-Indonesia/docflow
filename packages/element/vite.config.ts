@@ -12,7 +12,7 @@ export default defineConfig({
       formats: ['es'],
     },
     rollupOptions: {
-      external: ['vue', '@docs-editor/core', '@docs-editor/vue'],
+      external: ['vue', '@kedata-indonesia/docflow-core', '@kedata-indonesia/docflow-vue'],
     },
   },
 })

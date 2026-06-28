@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { DocsEditorElement, registerDocsEditor } from '../index.js'
-import type { DocsEditorPlugin } from '@docs-editor/core'
+import type { DocsEditorPlugin } from '@kedata-indonesia/docflow-core'
 
 describe('DocsEditorElement', () => {
   it('exports a custom element class extending HTMLElement', () => {

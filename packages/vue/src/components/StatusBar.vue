@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { RefreshCw } from 'lucide-vue-next'
-import type { PageSize } from '@docs-editor/layout-engine'
+import type { PageSize } from '@kedata-indonesia/docflow-layout-engine'
 import type { ConnectionState, SavingStatus } from '../types.js'
 
 const props = withDefaults(

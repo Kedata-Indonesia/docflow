@@ -18,16 +18,16 @@
     "noFallthroughCasesInSwitch": true,
     "isolatedModules": true,
     "paths": {
-      "@docs-editor/core": ["./packages/core/src"],
-      "@docs-editor/core/*": ["./packages/core/src/*"],
-      "@docs-editor/layout-engine": ["./packages/layout-engine/src"],
-      "@docs-editor/layout-engine/*": ["./packages/layout-engine/src/*"],
-      "@docs-editor/plugins": ["./packages/plugins/src"],
-      "@docs-editor/plugins/*": ["./packages/plugins/src/*"],
-      "@docs-editor/vue": ["./packages/vue/src"],
-      "@docs-editor/vue/*": ["./packages/vue/src/*"],
-      "@docs-editor/element": ["./packages/element/src"],
-      "@docs-editor/element/*": ["./packages/element/src/*"]
+      "@kedata-indonesia/docflow-core": ["./packages/core/src"],
+      "@kedata-indonesia/docflow-core/*": ["./packages/core/src/*"],
+      "@kedata-indonesia/docflow-layout-engine": ["./packages/layout-engine/src"],
+      "@kedata-indonesia/docflow-layout-engine/*": ["./packages/layout-engine/src/*"],
+      "@kedata-indonesia/docflow-plugins": ["./packages/plugins/src"],
+      "@kedata-indonesia/docflow-plugins/*": ["./packages/plugins/src/*"],
+      "@kedata-indonesia/docflow-vue": ["./packages/vue/src"],
+      "@kedata-indonesia/docflow-vue/*": ["./packages/vue/src/*"],
+      "@kedata-indonesia/docflow-element": ["./packages/element/src"],
+      "@kedata-indonesia/docflow-element/*": ["./packages/element/src/*"]
     }
   },
   "exclude": ["node_modules", "dist", "build", "e2e"]

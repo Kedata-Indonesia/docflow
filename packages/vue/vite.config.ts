@@ -12,12 +12,12 @@ export default defineConfig({
       formats: ['es', 'cjs'],
     },
     rollupOptions: {
-      external: ['vue', '@docs-editor/core', '@docs-editor/layout-engine'],
+      external: ['vue', '@kedata-indonesia/docflow-core', '@kedata-indonesia/docflow-layout-engine'],
       output: {
         globals: {
           vue: 'Vue',
-          '@docs-editor/core': 'DocsEditorCore',
-          '@docs-editor/layout-engine': 'DocsEditorLayoutEngine',
+          '@kedata-indonesia/docflow-core': 'DocsEditorCore',
+          '@kedata-indonesia/docflow-layout-engine': 'DocsEditorLayoutEngine',
         },
       },
     },

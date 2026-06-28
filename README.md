@@ -10,27 +10,35 @@ Built on [TipTap](https://tiptap.dev) / [ProseMirror](https://prosemirror.net) w
 
 | Package | Description | Integration |
 |---------|-------------|-------------|
-| `@docs-editor/vue` | Vue 3 component + composables | Vue apps |
-| `@docs-editor/element` | Web Component (`<docs-editor>`) | Any HTML/JS |
-| `@docs-editor/core` | Headless editor factory + plugin system | Any framework |
-| `@docs-editor/plugins` | Built-in plugins (table, image, link, etc.) | Shared |
-| `@docs-editor/layout-engine` | Page split / pagination engine | Internal |
+| `@kedata-indonesia/docflow-vue` | Vue 3 component + composables | Vue apps |
+| `@kedata-indonesia/docflow-element` | Web Component (`<docs-editor>`) | Any HTML/JS |
+| `@kedata-indonesia/docflow-core` | Headless editor factory + plugin system | Any framework |
+| `@kedata-indonesia/docflow-plugins` | Built-in plugins (table, image, link, etc.) | Shared |
+| `@kedata-indonesia/docflow-layout-engine` | Page split / pagination engine | Internal |
 
 ---
 
 ## Quick Start
 
+> **📦 Packages are published via GitHub Packages.**  
+> To install, create a `.npmrc` file in your project:
+> ```
+> @kedata-indonesia:registry=https://npm.pkg.github.com
+> ```
+> Then authenticate with a GitHub token that has `read:packages` scope.  
+> [See GitHub docs →](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-npm-registry#authenticating-to-github-packages)
+
 ### Vue 3
 
 ```bash
-npm install @docs-editor/vue @docs-editor/plugins
+npm install @kedata-indonesia/docflow-vue @kedata-indonesia/docflow-plugins
 ```
 
 ```vue
 <script setup lang="ts">
-import { DocsEditor } from '@docs-editor/vue'
-import { defaultPlugins } from '@docs-editor/plugins'
-import '@docs-editor/vue/dist/style.css'
+import { DocsEditor } from '@kedata-indonesia/docflow-vue'
+import { defaultPlugins } from '@kedata-indonesia/docflow-plugins'
+import '@kedata-indonesia/docflow-vue/dist/style.css'
 
 const content = {
   type: 'doc',
@@ -55,8 +63,8 @@ function handleUpdate(json: object) {
 
 ```html
 <script type="module">
-  import 'https://esm.sh/@docs-editor/element'
-  import 'https://esm.sh/@docs-editor/plugins'
+  import 'https://esm.sh/@kedata-indonesia/docflow-element'
+  import 'https://esm.sh/@kedata-indonesia/docflow-plugins'
 </script>
 
 <docs-editor room="my-doc" theme="light"></docs-editor>
@@ -67,12 +75,12 @@ function handleUpdate(json: object) {
 ### Vanilla JS (headless core)
 
 ```bash
-npm install @docs-editor/core @docs-editor/plugins
+npm install @kedata-indonesia/docflow-core @kedata-indonesia/docflow-plugins
 ```
 
 ```ts
-import { createEditor } from '@docs-editor/core'
-import { defaultPlugins } from '@docs-editor/plugins'
+import { createEditor } from '@kedata-indonesia/docflow-core'
+import { defaultPlugins } from '@kedata-indonesia/docflow-plugins'
 
 const editor = createEditor({
   target: document.getElementById('editor-root')!,
@@ -120,9 +128,9 @@ Powered by Yjs — conflicts resolved automatically via CRDT.
 
 ```vue
 <script setup lang="ts">
-import { DocsEditor } from '@docs-editor/vue'
-import { defaultPlugins } from '@docs-editor/plugins'
-import '@docs-editor/vue/dist/style.css'
+import { DocsEditor } from '@kedata-indonesia/docflow-vue'
+import { defaultPlugins } from '@kedata-indonesia/docflow-plugins'
+import '@kedata-indonesia/docflow-vue/dist/style.css'
 
 const collaboration = {
   room: 'my-document-room',
@@ -165,7 +173,7 @@ Plugins are how you add or remove editor capabilities.
 ### Using built-in plugins
 
 ```ts
-import { defaultPlugins, definePlugin } from '@docs-editor/plugins'
+import { defaultPlugins, definePlugin } from '@kedata-indonesia/docflow-plugins'
 // defaultPlugins includes: bold, italic, underline, strike, heading,
 // bulletList, orderedList, taskList, blockquote, codeBlock, link,
 // image, table, textAlign, placeholder
@@ -174,7 +182,7 @@ import { defaultPlugins, definePlugin } from '@docs-editor/plugins'
 ### Creating a custom plugin
 
 ```ts
-import { definePlugin } from '@docs-editor/core'
+import { definePlugin } from '@kedata-indonesia/docflow-core'
 import { Extension } from '@tiptap/core'
 
 const MyPlugin = definePlugin({
@@ -257,8 +265,8 @@ const MyPlugin = definePlugin({
 
 ```html
 <script type="module">
-  import 'https://esm.sh/@docs-editor/element'
-  import { defaultPlugins } from 'https://esm.sh/@docs-editor/plugins'
+  import 'https://esm.sh/@kedata-indonesia/docflow-element'
+  import { defaultPlugins } from 'https://esm.sh/@kedata-indonesia/docflow-plugins'
   
   const el = document.querySelector('docs-editor')
   el.plugins = defaultPlugins
@@ -269,10 +277,10 @@ const MyPlugin = definePlugin({
 
 ## Headless Core API
 
-The `@docs-editor/core` package exposes the editor factory without any UI bindings.
+The `@kedata-indonesia/docflow-core` package exposes the editor factory without any UI bindings.
 
 ```ts
-import { createEditor } from '@docs-editor/core'
+import { createEditor } from '@kedata-indonesia/docflow-core'
 
 const editor = createEditor({
   target: document.getElementById('root')!,
@@ -299,7 +307,7 @@ For custom editor UIs built from individual components:
 
 ```vue
 <script setup lang="ts">
-import { useEditor, EditorToolbar, BubbleMenu } from '@docs-editor/vue'
+import { useEditor, EditorToolbar, BubbleMenu } from '@kedata-indonesia/docflow-vue'
 
 const { editorRef, editor, pluginActions, isReady } = useEditor({
   content: { type: 'doc', content: [] },
@@ -349,11 +357,11 @@ pnpm test:e2e
 ```
 docs-editor/
 ├── packages/
-│   ├── core/              @docs-editor/core
-│   ├── vue/               @docs-editor/vue
-│   ├── element/           @docs-editor/element (Web Component)
-│   ├── plugins/           @docs-editor/plugins
-│   └── layout-engine/     @docs-editor/layout-engine
+│   ├── core/              @kedata-indonesia/docflow-core
+│   ├── vue/               @kedata-indonesia/docflow-vue
+│   ├── element/           @kedata-indonesia/docflow-element (Web Component)
+│   ├── plugins/           @kedata-indonesia/docflow-plugins
+│   └── layout-engine/     @kedata-indonesia/docflow-layout-engine
 ├── apps/
 │   └── demo/              Demo app (Vite + Vue 3)
 ├── e2e/                   Playwright E2E tests

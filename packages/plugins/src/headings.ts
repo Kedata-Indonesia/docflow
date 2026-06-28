@@ -1,4 +1,4 @@
-import { definePlugin } from '@docs-editor/core'
+import { definePlugin } from '@kedata-indonesia/docflow-core'
 import type { Editor } from '@tiptap/core'
 
 type Level = 1 | 2 | 3 | 4 | 5 | 6

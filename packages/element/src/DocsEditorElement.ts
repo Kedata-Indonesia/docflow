@@ -1,6 +1,6 @@
-import { DocsEditor } from '@docs-editor/vue'
+import { DocsEditor } from '@kedata-indonesia/docflow-vue'
 import { defineCustomElement } from 'vue'
-import type { DocsEditorPlugin } from '@docs-editor/core'
+import type { DocsEditorPlugin } from '@kedata-indonesia/docflow-core'
 
 const VueDocsEditorElement = defineCustomElement(DocsEditor)
 

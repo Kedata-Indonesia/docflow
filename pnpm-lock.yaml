@@ -53,13 +53,13 @@ importers:
 
   apps/demo:
     dependencies:
-      '@docs-editor/element':
+      '@kedata-indonesia/docflow-element':
         specifier: workspace:*
         version: link:../../packages/element
-      '@docs-editor/plugins':
+      '@kedata-indonesia/docflow-plugins':
         specifier: workspace:*
         version: link:../../packages/plugins
-      '@docs-editor/vue':
+      '@kedata-indonesia/docflow-vue':
         specifier: workspace:*
         version: link:../../packages/vue
       lucide-vue-next:
@@ -148,10 +148,10 @@ importers:
 
   packages/element:
     dependencies:
-      '@docs-editor/core':
+      '@kedata-indonesia/docflow-core':
         specifier: workspace:*
         version: link:../core
-      '@docs-editor/vue':
+      '@kedata-indonesia/docflow-vue':
         specifier: workspace:*
         version: link:../vue
       vue:
@@ -179,7 +179,7 @@ importers:
 
   packages/layout-engine:
     dependencies:
-      '@docs-editor/core':
+      '@kedata-indonesia/docflow-core':
         specifier: workspace:*
         version: link:../core
       '@tiptap/pm':
@@ -201,7 +201,7 @@ importers:
 
   packages/plugins:
     dependencies:
-      '@docs-editor/core':
+      '@kedata-indonesia/docflow-core':
         specifier: workspace:*
         version: link:../core
       '@tiptap/core':
@@ -259,10 +259,10 @@ importers:
 
   packages/vue:
     dependencies:
-      '@docs-editor/core':
+      '@kedata-indonesia/docflow-core':
         specifier: workspace:*
         version: link:../core
-      '@docs-editor/layout-engine':
+      '@kedata-indonesia/docflow-layout-engine':
         specifier: workspace:*
         version: link:../layout-engine
       lucide-vue-next:
@@ -3661,9 +3661,11 @@ snapshots:
     dependencies:
       '@percy/cli-command': 1.32.2(typanion@3.14.0)(typescript@5.9.3)
     transitivePeerDependencies:
+      - bufferutil
       - supports-color
       - typanion
       - typescript
+      - utf-8-validate
 
   '@percy/cli-command@1.32.2(typanion@3.14.0)(typescript@5.9.3)':
     dependencies:
@@ -3685,9 +3687,11 @@ snapshots:
     dependencies:
       '@percy/cli-command': 1.32.2(typanion@3.14.0)(typescript@5.9.3)
     transitivePeerDependencies:
+      - bufferutil
       - supports-color
       - typanion
       - typescript
+      - utf-8-validate
 
   '@percy/cli-doctor@1.32.2(typanion@3.14.0)(typescript@5.9.3)':
     dependencies:
@@ -3725,9 +3729,11 @@ snapshots:
       '@percy/cli-command': 1.32.2(typanion@3.14.0)(typescript@5.9.3)
       yaml: 2.9.0
     transitivePeerDependencies:
+      - bufferutil
       - supports-color
       - typanion
       - typescript
+      - utf-8-validate
 
   '@percy/cli-upload@1.32.2(typanion@3.14.0)(typescript@5.9.3)':
     dependencies:
@@ -3735,9 +3741,11 @@ snapshots:
       fast-glob: 3.3.3
       image-size: 1.2.1
     transitivePeerDependencies:
+      - bufferutil
       - supports-color
       - typanion
       - typescript
+      - utf-8-validate
 
   '@percy/cli@1.32.2(typanion@3.14.0)(typescript@5.9.3)':
     dependencies:
