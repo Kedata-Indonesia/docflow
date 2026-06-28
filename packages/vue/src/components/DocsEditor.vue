@@ -37,7 +37,7 @@ const props = withDefaults(
     collaborators: () => [],
     starred: false,
     connectionState: 'connected',
-    userName: 'Demo User',
+    userName: '',
     userAvatar: '',
   },
 )
