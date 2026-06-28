@@ -1,0 +1,29 @@
+{
+  "name": "@docs-editor/demo",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc --noEmit && vite build",
+    "typecheck": "vue-tsc --noEmit",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@docs-editor/element": "workspace:*",
+    "@docs-editor/plugins": "workspace:*",
+    "@docs-editor/vue": "workspace:*",
+    "lucide-vue-next": "^1.0.0",
+    "vue": "^3.5.0",
+    "yjs": "^13.6.20"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.1.4",
+    "autoprefixer": "^10.5.2",
+    "postcss": "^8.5.15",
+    "tailwindcss": "^3.4.1",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.10",
+    "vue-tsc": "^2.1.6"
+  }
+}

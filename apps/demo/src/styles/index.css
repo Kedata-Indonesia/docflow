@@ -1,0 +1,346 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Lora:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  }
+
+  * {
+    scrollbar-width: thin;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+  }
+
+  .dark ::-webkit-scrollbar-thumb {
+    background: #475569;
+  }
+
+  .dark ::-webkit-scrollbar-thumb:hover {
+    background: #64748b;
+  }
+}
+
+@layer components {
+  .editor-page-shadow {
+    box-shadow:
+      0 4px 6px -1px rgb(0 0 0 / 0.05),
+      0 2px 4px -2px rgb(0 0 0 / 0.05),
+      0 0 0 1px rgb(0 0 0 / 0.03);
+  }
+
+  .dark .editor-page-shadow {
+    box-shadow:
+      0 4px 6px -1px rgb(0 0 0 / 0.3),
+      0 2px 4px -2px rgb(0 0 0 / 0.3),
+      0 0 0 1px rgb(255 255 255 / 0.03);
+  }
+
+  /* Page edge shadows above and below each gutter — mimics Google Docs page separation */
+  .docs-editor-page-top-edge {
+    box-shadow: inset 0 4px 8px rgba(0, 0, 0, 0.07);
+  }
+  .docs-editor-page-bottom-edge {
+    box-shadow: inset 0 -4px 8px rgba(0, 0, 0, 0.07);
+  }
+
+  /* Page container: ensure TipTap content fills it and the paper looks editable */
+  .docs-editor__paper {
+    display: block;
+    position: relative;
+    box-sizing: border-box;
+  }
+}
+
+@layer utilities {
+  .docs-editor-page-break {
+    break-after: page;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-fadeIn {
+    animation: fadeIn 0.2s ease-out;
+  }
+}
+
+/* ProseMirror editor overrides */
+.ProseMirror {
+  outline: none;
+  cursor: text;
+  caret-color: #1e293b;
+  /* In paged mode, height is controlled by the paper wrapper div.
+     In pageless mode, the below min-height keeps the editor clickable. */
+  min-height: 200px;
+}
+
+.dark .ProseMirror {
+  caret-color: #e2e8f0;
+}
+
+.ProseMirror p.is-editor-empty:first-child::before {
+  color: #64748b;
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+.ProseMirror ul {
+  list-style-type: disc !important;
+  padding-left: 1.5rem !important;
+  margin: 0.5rem 0 !important;
+}
+
+.ProseMirror ol {
+  list-style-type: decimal !important;
+  padding-left: 1.5rem !important;
+  margin: 0.5rem 0 !important;
+}
+
+.ProseMirror li {
+  margin: 0.25rem 0 !important;
+}
+
+.ProseMirror blockquote {
+  border-left: 4px solid #22d3ee !important;
+  background-color: rgba(34, 211, 238, 0.05) !important;
+  padding: 0.5rem 1rem !important;
+  font-style: italic !important;
+  margin: 1rem 0 !important;
+}
+
+.ProseMirror code {
+  background-color: rgba(148, 163, 184, 0.1) !important;
+  color: #ef4444 !important;
+  padding: 0.2rem 0.4rem !important;
+  border-radius: 0.25rem !important;
+  font-family: var(--font-mono) !important;
+  font-size: 0.85em !important;
+}
+
+.dark .ProseMirror code {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+  color: #f87171 !important;
+}
+
+.ProseMirror pre {
+  background: #02040a !important;
+  color: #e2e8f0 !important;
+  padding: 1rem !important;
+  border-radius: 0.5rem !important;
+  font-family: var(--font-mono) !important;
+  overflow-x: auto !important;
+}
+
+.ProseMirror h1 {
+  font-size: 1.875rem !important;
+  font-weight: 700 !important;
+  line-height: 1.25 !important;
+  margin-top: 1.5rem !important;
+  margin-bottom: 0.75rem !important;
+}
+
+.ProseMirror h2 {
+  font-size: 1.5rem !important;
+  font-weight: 700 !important;
+  line-height: 1.35 !important;
+  margin-top: 1.25rem !important;
+  margin-bottom: 0.5rem !important;
+}
+
+.ProseMirror h3 {
+  font-size: 1.25rem !important;
+  font-weight: 700 !important;
+  line-height: 1.4 !important;
+  margin-top: 1rem !important;
+  margin-bottom: 0.375rem !important;
+}
+
+.ProseMirror ul[data-type='taskList'] {
+  list-style: none !important;
+  padding: 0 !important;
+}
+
+.ProseMirror li[data-type='taskItem'] {
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 0.5rem !important;
+  margin: 0.25rem 0 !important;
+}
+
+.ProseMirror li[data-type='taskItem'] > label {
+  margin-top: 0.25rem !important;
+  user-select: none !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+.ProseMirror li[data-type='taskItem'] > label input[type='checkbox'] {
+  accent-color: #22d3ee !important;
+  cursor: pointer !important;
+  width: 14px !important;
+  height: 14px !important;
+}
+
+.ProseMirror li[data-type='taskItem'] > div {
+  flex: 1 !important;
+}
+
+.ProseMirror li[data-type='taskItem'][data-checked='true'] > div {
+  text-decoration: line-through !important;
+  color: #64748b !important;
+}
+
+.collaborator-cursor {
+  position: relative;
+  display: inline-block;
+  width: 2px;
+  height: 1.25em;
+  vertical-align: middle;
+  margin-left: -1px;
+  margin-right: -1px;
+}
+
+.collaborator-cursor-label {
+  position: absolute;
+  top: -1.4em;
+  left: 0;
+  white-space: nowrap;
+  font-size: 10px;
+  padding: 1px 4px;
+  border-radius: 2px;
+  color: white;
+  font-weight: 500;
+  pointer-events: none;
+  z-index: 10;
+  font-family: var(--font-sans);
+}
+
+@media print {
+  header,
+  #editor-toolbar-row,
+  #editor-footer-row,
+  aside,
+  [role='dialog'],
+  .collaborator-cursor-label,
+  .collaborator-cursor,
+  .comments-sidebar,
+  .history-sidebar,
+  .ai-sidebar,
+  .toc-sidebar,
+  button,
+  nav {
+    display: none !important;
+  }
+
+  html,
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    height: auto !important;
+    overflow: visible !important;
+    font-size: 11pt !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  #printable-document,
+  .docs-editor-page {
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    color: #000000 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    min-height: auto !important;
+    overflow: visible !important;
+    display: block !important;
+  }
+
+  .ProseMirror {
+    min-height: auto !important;
+    color: #111111 !important;
+    background: transparent !important;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+    color: #000000 !important;
+    font-weight: bold !important;
+  }
+
+  p,
+  pre,
+  blockquote,
+  ul,
+  ol,
+  li,
+  .ProseMirror pre {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  pre,
+  .ProseMirror pre {
+    background: #f8fafc !important;
+    color: #0f172a !important;
+    border: 1px solid #cbd5e1 !important;
+    white-space: pre-wrap !important;
+    word-wrap: break-word !important;
+    padding: 10px !important;
+    font-size: 9pt !important;
+  }
+
+  blockquote,
+  .ProseMirror blockquote {
+    border-left: 3px solid #475569 !important;
+    background-color: #f1f5f9 !important;
+    color: #334155 !important;
+    font-style: italic !important;
+    padding: 8px 16px !important;
+  }
+
+  .ProseMirror a[href]::after {
+    content: ' (' attr(href) ')';
+    font-size: 8.5pt;
+    color: #475569;
+    text-decoration: underline;
+  }
+}
