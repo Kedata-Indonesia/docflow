@@ -1,4 +1,4 @@
-import { definePlugin } from '@docs-editor/core'
+import { definePlugin } from '@kedata-indonesia/docflow-core'
 import Placeholder from '@tiptap/extension-placeholder'
 
 export interface PlaceholderPluginOptions {

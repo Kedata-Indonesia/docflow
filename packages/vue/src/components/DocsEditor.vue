@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { type DocsEditorPlugin, type EditorOptions } from '@docs-editor/core'
-import { PAGE_SIZES, getPageSize } from '@docs-editor/layout-engine'
+import { type DocsEditorPlugin, type EditorOptions } from '@kedata-indonesia/docflow-core'
+import { PAGE_SIZES, getPageSize } from '@kedata-indonesia/docflow-layout-engine'
 import { computed, onUnmounted, ref, watch } from 'vue'
 import { useEditor } from '../composables/useEditor.js'
 import type { Collaborator, ConnectionState, SavingStatus, SidebarKey } from '../types.js'

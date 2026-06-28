@@ -1,5 +1,5 @@
 import { Node, mergeAttributes } from '@tiptap/core'
-import { definePlugin } from '@docs-editor/core'
+import { definePlugin } from '@kedata-indonesia/docflow-core'
 import type { Editor } from '@tiptap/core'
 
 export const PageBreak = Node.create({

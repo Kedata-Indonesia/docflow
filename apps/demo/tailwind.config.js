@@ -3,7 +3,7 @@ export default {
   darkMode: 'class',
   content: [
     './src/**/*.{vue,ts,tsx,html}',
-    './node_modules/@docs-editor/vue/src/**/*.{vue,ts,tsx}'
+    './node_modules/@kedata-indonesia/docflow-vue/src/**/*.{vue,ts,tsx}'
   ],
   theme: {
     extend: {

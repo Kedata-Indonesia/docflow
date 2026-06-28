@@ -1,4 +1,4 @@
-import { createEditor, type DocsEditor, type EditorOptions } from '@docs-editor/core'
+import { createEditor, type DocsEditor, type EditorOptions } from '@kedata-indonesia/docflow-core'
 import { computed, onMounted, onUnmounted, ref, shallowRef, watch, type ComputedRef, type Ref, type ShallowRef, nextTick, unref } from 'vue'
 
 export interface UseEditorOptions extends Omit<EditorOptions, 'target' | 'onUpdate' | 'content' | 'collaboration'> {

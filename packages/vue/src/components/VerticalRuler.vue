@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { LayoutOptions } from '@docs-editor/layout-engine'
+import type { LayoutOptions } from '@kedata-indonesia/docflow-layout-engine'
 import { computed } from 'vue'
 
 const props = defineProps<{

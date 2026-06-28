@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { useTheme } from '@docs-editor/vue'
+import { useTheme } from '@kedata-indonesia/docflow-vue'
 import type { DocumentItem, FolderItem } from './types.js'
 import Dashboard from './components/Dashboard.vue'
 import EditorView from './components/EditorView.vue'

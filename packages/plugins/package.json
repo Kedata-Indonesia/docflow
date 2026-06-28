@@ -1,5 +1,5 @@
 {
-  "name": "@docs-editor/plugins",
+  "name": "@kedata-indonesia/docflow-plugins",
   "version": "0.0.1",
   "type": "module",
   "main": "./dist/index.js",
@@ -12,6 +12,9 @@
       "require": "./dist/index.cjs"
     }
   },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
   "files": ["dist"],
   "scripts": {
     "build": "tsup src/index.ts --format esm,cjs --dts",
@@ -19,7 +22,7 @@
     "test:unit": "vitest run"
   },
   "dependencies": {
-    "@docs-editor/core": "workspace:*",
+    "@kedata-indonesia/docflow-core": "workspace:*",
     "@tiptap/core": "^2.11.0",
     "@tiptap/extension-image": "^2.11.0",
     "@tiptap/extension-link": "^2.11.0",

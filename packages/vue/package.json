@@ -1,5 +1,5 @@
 {
-  "name": "@docs-editor/vue",
+  "name": "@kedata-indonesia/docflow-vue",
   "version": "0.0.1",
   "type": "module",
   "main": "./dist/index.js",
@@ -12,6 +12,9 @@
       "require": "./dist/index.cjs"
     }
   },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
   "files": [
     "dist"
   ],
@@ -21,8 +24,8 @@
     "test:unit": "vitest run"
   },
   "dependencies": {
-    "@docs-editor/core": "workspace:*",
-    "@docs-editor/layout-engine": "workspace:*",
+    "@kedata-indonesia/docflow-core": "workspace:*",
+    "@kedata-indonesia/docflow-layout-engine": "workspace:*",
     "lucide-vue-next": "^1.0.0",
     "vue": "^3.5.0"
   },

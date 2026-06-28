@@ -10,9 +10,9 @@ export default defineConfig({
   resolve: {
     dedupe: ['vue', 'yjs'],
     alias: {
-      '@docs-editor/vue': path.resolve(__dirname, '../../packages/vue/src/index.ts'),
-      '@docs-editor/core': path.resolve(__dirname, '../../packages/core/src/index.ts'),
-      '@docs-editor/layout-engine': path.resolve(__dirname, '../../packages/layout-engine/src/index.ts'),
+      '@kedata-indonesia/docflow-vue': path.resolve(__dirname, '../../packages/vue/src/index.ts'),
+      '@kedata-indonesia/docflow-core': path.resolve(__dirname, '../../packages/core/src/index.ts'),
+      '@kedata-indonesia/docflow-layout-engine': path.resolve(__dirname, '../../packages/layout-engine/src/index.ts'),
     },
   },
 });

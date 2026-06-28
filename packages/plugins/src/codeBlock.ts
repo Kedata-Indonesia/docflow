@@ -1,4 +1,4 @@
-import { definePlugin } from '@docs-editor/core'
+import { definePlugin } from '@kedata-indonesia/docflow-core'
 
 export const codeBlockPlugin = definePlugin({
   id: 'code-block',

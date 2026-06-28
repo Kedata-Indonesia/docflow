@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { Printer } from 'lucide-vue-next'
-import { DocsEditor } from '@docs-editor/vue'
-import { defaultPlugins } from '@docs-editor/plugins'
+import { DocsEditor } from '@kedata-indonesia/docflow-vue'
+import { defaultPlugins } from '@kedata-indonesia/docflow-plugins'
 import type { DocumentItem } from '../types.js'
 
 const props = defineProps<{

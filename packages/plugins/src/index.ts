@@ -36,4 +36,4 @@ export const defaultPlugins = [
   pageBreakPlugin,
 ]
 
-export type { DocsEditorPlugin, ToolbarItem, SlashCommand } from '@docs-editor/core'
+export type { DocsEditorPlugin, ToolbarItem, SlashCommand } from '@kedata-indonesia/docflow-core'

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { collectExtensions, createEditor, type DocsEditorPlugin } from '@docs-editor/core'
+import { collectExtensions, createEditor, type DocsEditorPlugin } from '@kedata-indonesia/docflow-core'
 import {
   defaultPlugins,
   formattingPlugin,
