@@ -1,0 +1,27 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "default_agent": "orchestrator",
+  "instructions": ["AGENTS.md"],
+  "agent": {
+    "orchestrator": {
+      "description": "Primary orchestrator for the DocsEditor project. Plans work, delegates to domain specialists, and verifies every change end-to-end.",
+      "mode": "primary"
+    },
+    "page-layout-engineer": {
+      "description": "Subagent for ProseMirror/TipTap page layout, pagination, and auto page break algorithm.",
+      "mode": "subagent"
+    },
+    "collab-engineer": {
+      "description": "Subagent for Yjs CRDT, TipTap collaboration, awareness, and real-time multi-user features.",
+      "mode": "subagent"
+    },
+    "tiptap-extender": {
+      "description": "Subagent for TipTap extensions, ProseMirror schema, commands, and editor commands.",
+      "mode": "subagent"
+    },
+    "bug-hunter": {
+      "description": "Subagent that reviews code changes, finds edge cases, and validates against the PRD and tests.",
+      "mode": "subagent"
+    }
+  }
+}
