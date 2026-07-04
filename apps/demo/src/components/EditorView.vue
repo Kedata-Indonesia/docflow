@@ -23,6 +23,8 @@ const pageSize = ref('a4')
 const editorInstance = ref<DocsEditorType['editor'] | null>(null)
 const saveTimer = ref<ReturnType<typeof setInterval> | null>(null)
 const shareToast = ref('')
+const onlineUsers = ref<Array<{ userId: string; userName: string }>>([])
+const heartbeatTimer = ref<ReturnType<typeof setInterval> | null>(null)
 
 // Generate consistent color from username
 function nameToColor(name: string): string {
@@ -109,15 +111,60 @@ function stopAutoSave() {
 
 onMounted(async () => {
   await loadCollabSnapshot()
+  startHeartbeat()
 })
 
 onUnmounted(async () => {
   stopAutoSave()
-  await saveCollabSnapshot() // final save
+  stopHeartbeat()
+  await saveCollabSnapshot()
   if (editorInstance.value) {
     delete (window as unknown as { __docsEditor?: DocsEditorType['editor'] }).__docsEditor
   }
 })
+
+// ── Presence Heartbeat ──────────────────────────────────────────────────────
+
+async function sendHeartbeat() {
+  try {
+    await fetch('/api/collab/heartbeat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        roomId: props.room,
+        userName: props.collabUser?.name || 'Anonymous',
+      }),
+    })
+  } catch { /* ignore */ }
+}
+
+async function fetchOnlineUsers() {
+  try {
+    const res = await fetch(`/api/collab/online/${encodeURIComponent(props.room)}`, {
+      credentials: 'include',
+    })
+    if (!res.ok) return
+    const data = await res.json()
+    onlineUsers.value = data.users || []
+  } catch { /* ignore */ }
+}
+
+function startHeartbeat() {
+  stopHeartbeat()
+  sendHeartbeat()
+  heartbeatTimer.value = setInterval(() => {
+    sendHeartbeat()
+    fetchOnlineUsers()
+  }, 15_000) // every 15 seconds
+}
+
+function stopHeartbeat() {
+  if (heartbeatTimer.value) {
+    clearInterval(heartbeatTimer.value)
+    heartbeatTimer.value = null
+  }
+}
 
 // ── Handlers ─────────────────────────────────────────────────────────────────
 
@@ -182,6 +229,24 @@ function handleEditorReady(editor: DocsEditorType['editor']) {
       @share="handleShare"
     >
       <template #header-actions>
+        <!-- Online user avatars -->
+        <div v-if="onlineUsers.length > 1" class="flex items-center -space-x-2 mr-2">
+          <div
+            v-for="u in onlineUsers.slice(0, 5)"
+            :key="u.userId"
+            :title="u.userName"
+            class="flex h-7 w-7 items-center justify-center rounded-full border-2 border-white text-[10px] font-bold text-white shadow-sm dark:border-slate-800"
+            :style="{ backgroundColor: nameToColor(u.userName) }"
+          >
+            {{ u.userName.charAt(0).toUpperCase() }}
+          </div>
+          <div
+            v-if="onlineUsers.length > 5"
+            class="flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-slate-200 text-[10px] font-bold text-slate-600 shadow-sm dark:border-slate-800 dark:bg-slate-700 dark:text-slate-300"
+          >
+            +{{ onlineUsers.length - 5 }}
+          </div>
+        </div>
         <button
           type="button"
           class="flex h-8 items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition-all hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-700"
