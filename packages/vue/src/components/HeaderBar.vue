@@ -126,6 +126,7 @@ const menus: Record<string, { label: string; items: MenuItem[] }> = {
       { label: 'divider', divider: true },
       { label: 'Header', action: 'insert-header' },
       { label: 'Footer', action: 'insert-footer' },
+      { label: 'Catatan Kaki', action: 'insert-footnote' },
     ],
   },
   Format: {
