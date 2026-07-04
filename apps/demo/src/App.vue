@@ -90,8 +90,19 @@ const folders = ref<FolderItem[]>([
   { id: 'folder-work', name: 'Work' },
   { id: 'folder-personal', name: 'Personal' },
 ])
-const room = ref('demo-room')
 const saveError = ref<string | null>(null)
+
+// Room per document (each doc has its own collaboration room)
+const room = computed(() => currentDocId.value ? `doc-${currentDocId.value}` : '')
+// Collaboration user identity from Better Auth session
+const collabUser = computed(() => {
+  if (!user.value) return undefined
+  let hash = 0
+  const name = user.value.displayName
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash)
+  const hue = Math.abs(hash) % 360
+  return { name, color: `hsl(${hue}, 60%, 50%)` }
+})
 
 const currentDoc = computed(() => documents.value.find((d) => d.id === currentDocId.value) ?? null)
 
@@ -681,6 +692,7 @@ const userAvatar = computed(() => {
             v-else-if="currentDoc"
             :doc="currentDoc"
             :room="room"
+            :collab-user="collabUser"
             @back="goBack"
             @update:doc="updateDocument"
           />
