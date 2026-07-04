@@ -53,15 +53,24 @@ export interface AuthProvider {
   type: 'social' | 'credentials'
 }
 
-export async function getAuthProviders(): Promise<AuthProvider[]> {
-  try {
-    const res = await fetch(`${BASE}/api/auth/providers`)
-    if (!res.ok) return []
-    const data = await res.json()
-    return data.providers || []
-  } catch {
-    return []
+export class RateLimitError extends Error {
+  retryAfter: number
+  constructor(retryAfter = 60) {
+    super('Rate limit exceeded')
+    this.name = 'RateLimitError'
+    this.retryAfter = retryAfter
   }
+}
+
+export async function getAuthProviders(): Promise<AuthProvider[]> {
+  const res = await fetch(`${BASE}/api/auth/providers`)
+  if (res.status === 429) {
+    const retryAfter = parseInt(res.headers.get('Retry-After') || '60', 10)
+    throw new RateLimitError(retryAfter)
+  }
+  if (!res.ok) return []
+  const data = await res.json()
+  return data.providers || []
 }
 
 export async function signInWithProvider(provider: string): Promise<void> {

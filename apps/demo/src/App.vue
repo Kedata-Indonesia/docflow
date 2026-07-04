@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useTheme } from '@kedata-indonesia/docflow-vue'
 import type { DocumentItem, FolderItem, UserInfo } from './types.js'
 import * as api from './api.js'
+import { RateLimitError } from './api.js'
 import Dashboard from './components/Dashboard.vue'
 import EditorView from './components/EditorView.vue'
 
@@ -22,6 +23,30 @@ const nameInput = ref('')
 const emailError = ref('')
 const emailSuccess = ref('')
 const emailLoading = ref(false)
+const providersError = ref<'rate-limited' | 'network' | null>(null)
+const rateLimitRetryIn = ref(0)
+
+async function loadProviders() {
+  try {
+    providersError.value = null
+    providers.value = await api.getAuthProviders()
+  } catch (err) {
+    if (err instanceof RateLimitError) {
+      providersError.value = 'rate-limited'
+      rateLimitRetryIn.value = err.retryAfter
+      // countdown
+      const tick = setInterval(() => {
+        rateLimitRetryIn.value--
+        if (rateLimitRetryIn.value <= 0) {
+          clearInterval(tick)
+          loadProviders()
+        }
+      }, 1000)
+    } else {
+      providersError.value = 'network'
+    }
+  }
+}
 
 async function checkAuth() {
   authLoading.value = true
@@ -43,7 +68,7 @@ async function checkAuth() {
     authLoading.value = false
   }
   // Fetch available providers
-  api.getAuthProviders().then(p => { providers.value = p }).catch(() => {})
+  loadProviders()
 }
 
 async function handleLogin(provider: string) {
@@ -600,7 +625,16 @@ const userAvatar = computed(() => {
           </button>
         </template>
 
-        <p v-if="providers.length === 0" class="text-center text-xs text-slate-400">
+        <p v-if="providersError === 'rate-limited'" class="text-center text-xs text-amber-500">
+          Server sedang membatasi permintaan (rate limit).<br />
+          <span v-if="rateLimitRetryIn > 0">Mencoba ulang dalam {{ rateLimitRetryIn }} detik…</span>
+          <button v-else type="button" class="underline" @click="loadProviders">Coba lagi</button>
+        </p>
+        <p v-else-if="providersError === 'network'" class="text-center text-xs text-red-400">
+          Tidak bisa menghubungi server. Periksa koneksi Anda.
+          <button type="button" class="ml-1 underline" @click="loadProviders">Coba lagi</button>
+        </p>
+        <p v-else-if="providers.length === 0" class="text-center text-xs text-slate-400">
           No authentication providers configured.<br />Check your server environment variables.
         </p>
       </div>

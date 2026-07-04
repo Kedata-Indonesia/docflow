@@ -15,4 +15,5 @@ export { default as HistorySidebar } from './components/sidebars/HistorySidebar.
 export { default as TOCSidebar } from './components/sidebars/TOCSidebar.vue'
 export { default as DocumentTabsSidebar } from './components/DocumentTabsSidebar.vue'
 export { default as SlashMenu } from './components/SlashMenu.vue'
+export { default as FontSizeSelect } from './components/FontSizeSelect.vue'
 export type * from './types.js'

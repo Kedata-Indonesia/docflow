@@ -10,6 +10,7 @@ export { codeBlockPlugin } from './codeBlock.js'
 export { placeholderPlugin, createPlaceholderPlugin, type PlaceholderPluginOptions } from './placeholder.js'
 export { pageBreakPlugin, PageBreak } from './pageBreak.js'
 export { footnotePlugin, FootnoteNode } from './footnote.js'
+export { fontSizePlugin, FontSizeExtension } from './fontSize.js'
 
 import { formattingPlugin } from './formatting.js'
 import { headingsPlugin } from './headings.js'
@@ -23,6 +24,7 @@ import { codeBlockPlugin } from './codeBlock.js'
 import { placeholderPlugin } from './placeholder.js'
 import { pageBreakPlugin } from './pageBreak.js'
 import { footnotePlugin } from './footnote.js'
+import { fontSizePlugin } from './fontSize.js'
 
 export const defaultPlugins = [
   formattingPlugin,
@@ -37,6 +39,7 @@ export const defaultPlugins = [
   placeholderPlugin,
   pageBreakPlugin,
   footnotePlugin,
+  fontSizePlugin,
 ]
 
 export type { DocsEditorPlugin, ToolbarItem, SlashCommand } from '@kedata-indonesia/docflow-core'

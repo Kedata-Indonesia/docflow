@@ -283,16 +283,34 @@ const currentParagraphStyle = computed(() => {
   return 'paragraph'
 })
 
+const FONT_SIZES = [8, 9, 10, 11, 12, 14, 16, 18, 20, 22, 24, 26, 28, 36, 48, 72]
+const DEFAULT_FONT_SIZE = 11
+
+/** Reactively read the font-size from the current selection's TextStyle mark. */
+const currentFontSize = computed<number>(() => {
+  void selectionTick.value
+  const editor = props.editor
+  if (!editor) return DEFAULT_FONT_SIZE
+  const attrs = editor.getAttributes('textStyle')
+  const raw: string | undefined = attrs?.fontSize
+  if (!raw) return DEFAULT_FONT_SIZE
+  // fontSize stored as '12px' or '12pt' — strip unit and parse
+  const parsed = parseInt(raw, 10)
+  return isNaN(parsed) ? DEFAULT_FONT_SIZE : parsed
+})
+
 function handleFontSize(delta: number) {
-  // Cosmetic only until font-size extension is installed.
   if (!props.editor) return
-  const sizes = [8, 9, 10, 11, 12, 14, 16, 18, 20, 22, 24, 26, 28, 36, 48, 72]
-  const current = 11
-  const idx = sizes.indexOf(current)
-  const next = sizes[Math.min(Math.max(idx + delta, 0), sizes.length - 1)]
-  // eslint-disable-next-line no-console
-  console.log('font size change requested', next)
-  props.editor.commands.focus()
+  const idx = FONT_SIZES.indexOf(currentFontSize.value)
+  // If exact match not found, find the closest larger size's index
+  const startIdx = idx >= 0
+    ? idx
+    : FONT_SIZES.findIndex(s => s >= currentFontSize.value)
+  const nextIdx = Math.min(Math.max((startIdx >= 0 ? startIdx : 0) + delta, 0), FONT_SIZES.length - 1)
+  const nextSize = FONT_SIZES[nextIdx]
+  // Use a single chain: no separate focus() to avoid a second transaction
+  // that could interfere with the selection after the mark is applied.
+  ;(props.editor.chain() as any).setFontSize(`${nextSize}px`).run()
 }
 </script>
 
@@ -414,7 +432,7 @@ function handleFontSize(delta: number) {
       >
         <Minus class="h-3.5 w-3.5" />
       </button>
-      <span class="flex h-8 w-5 flex-shrink-0 select-none items-center justify-center text-xs text-slate-700 dark:text-slate-200">11</span>
+      <span class="flex h-8 w-7 flex-shrink-0 select-none items-center justify-center text-xs text-slate-700 dark:text-slate-200">{{ currentFontSize }}</span>
       <button
         type="button"
         :class="[controlBaseClass, 'w-7 text-sm']"
