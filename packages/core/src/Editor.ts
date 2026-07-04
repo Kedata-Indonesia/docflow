@@ -28,6 +28,7 @@ export interface EditorOptions {
 
 export interface DocsEditor {
   editor: TiptapEditor
+  collab?: CollaborationSetup
   getJSON: () => object
   getHTML: () => string
   destroy: () => void
@@ -124,6 +125,7 @@ export function createEditor(options: EditorOptions = {}): DocsEditor {
     get editor() {
       return tiptapEditor
     },
+    collab: collaborationSetup,
     getJSON: () => tiptapEditor.getJSON(),
     getHTML: () => tiptapEditor.getHTML(),
     destroy: () => {

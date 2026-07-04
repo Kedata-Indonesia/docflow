@@ -50,7 +50,7 @@ const emit = defineEmits<{
   back: []
   share: []
   'menu-click': [menu: string]
-  ready: [editor: DocsEditor['editor']]
+  ready: [docsEditor: DocsEditor]
 }>()
 
 // ─── Page Size ────────────────────────────────────────────────────────────────
@@ -133,7 +133,7 @@ const savingStatus = ref<SavingStatus>('saved')
 const lastSaved = ref(Date.now())
 const saveTimer = ref<ReturnType<typeof setTimeout> | null>(null)
 
-const { editorRef, editor, pluginActions, isReady } = useEditor({
+const { editorRef, editor, pluginActions, isReady, docsEditor: docEditor } = useEditor({
   content: activeTabContent,
   plugins: props.plugins,
   editable: props.editable,
@@ -303,7 +303,7 @@ watch(isReady, (ready) => {
     // Apply header & footer with correct page stats
     applyHeaderFooter()
 
-    emit('ready', editor.value)
+    emit('ready', docEditor.value)
     editor.value.on('selectionUpdate', () => {
       updateBubbleMenu()
       updatePageStats()
