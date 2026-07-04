@@ -118,6 +118,7 @@ onMounted(async () => {
 onUnmounted(async () => {
   stopAutoSave()
   stopHeartbeat()
+  awarenessCleanup?.()
   await saveCollabSnapshot()
   if (editorInstance.value) {
     delete (window as unknown as { __docsEditor?: DocsEditorType['editor'] }).__docsEditor
@@ -169,6 +170,48 @@ function stopHeartbeat() {
 
 // ── Handlers ─────────────────────────────────────────────────────────────────
 
+// Remote collaboration cursors (Google Docs-style overlay)
+const remoteCursors = ref<Array<{ clientId: number; name: string; color: string; x: number; y: number }>>([])
+let awarenessCleanup: (() => void) | null = null
+
+function setupCursors(editor: DocsEditorType['editor']) {
+  const ydoc = ((editor.storage as Record<string, unknown>).collaboration as Record<string, unknown> | undefined)?.ydoc as Y.Doc | undefined
+  if (!ydoc) return
+
+  // Access awareness through Y.Doc (y-webrtc attaches it)
+  const awareness = (ydoc as unknown as Record<string, unknown>)._awareness as Record<string, unknown> | undefined
+  if (!awareness) return
+
+  const onChange = () => {
+    const cursors: typeof remoteCursors.value = []
+    const states = (awareness.getStates as () => Map<number, Record<string, unknown>>)()
+    const localId = (ydoc as unknown as { clientID: number }).clientID
+    const editorDom = editor.view.dom
+    const rect = editorDom.getBoundingClientRect()
+
+    states.forEach((state, clientId) => {
+      if (clientId === localId) return
+      const cursor = state.cursor as { from: number } | null
+      const user = state.user as { name: string; color: string } | undefined
+      if (!cursor || !user) return
+      try {
+        const coords = editor.view.coordsAtPos(cursor.from)
+        cursors.push({
+          clientId, name: user.name, color: user.color,
+          x: coords.left - rect.left,
+          y: coords.top - rect.top,
+        })
+      } catch { /* out of range */ }
+    })
+    remoteCursors.value = cursors
+  }
+
+  ;(awareness.on as (e: string, cb: () => void) => void)('change', onChange)
+  awarenessCleanup = () => {
+    ;(awareness.off as (e: string, cb: () => void) => void)('change', onChange)
+  }
+}
+
 function handleUpdateTitle(title: string) {
   emit('update:doc', { ...props.doc, title })
 }
@@ -205,13 +248,32 @@ function handleEditorReady(editor: DocsEditorType['editor']) {
   if (typeof window !== 'undefined') {
     ;(window as unknown as { __docsEditor?: DocsEditorType['editor'] }).__docsEditor = editor
   }
-  // Start auto-saving collaboration state
   startAutoSave()
+  setupCursors(editor)
 }
 </script>
 
 <template>
   <div class="relative flex-1">
+    <!-- Remote collaboration cursors overlay -->
+    <div
+      v-for="c in remoteCursors"
+      :key="c.clientId"
+      class="pointer-events-none absolute z-50"
+      :style="{ left: c.x + 'px', top: c.y + 'px' }"
+    >
+      <div
+        class="absolute top-0 w-0.5 bg-current"
+        :style="{ backgroundColor: c.color, height: '1.4em' }"
+      />
+      <div
+        class="absolute -top-5 left-0 whitespace-nowrap rounded-sm px-1.5 py-0.5 text-[10px] font-semibold text-white shadow"
+        :style="{ backgroundColor: c.color }"
+      >
+        {{ c.name }}
+      </div>
+    </div>
+
     <DocsEditor
       :model-value="doc.content"
       :plugins="defaultPlugins"

@@ -247,29 +247,60 @@
   color: #64748b !important;
 }
 
+/* ── Collaboration Cursors (Google Docs style) ─────────────────────── */
+
+/* The colored caret line */
 .collaborator-cursor {
   position: relative;
-  display: inline-block;
-  width: 2px;
-  height: 1.25em;
-  vertical-align: middle;
+  display: inline;
+  border-left: 2px solid;
   margin-left: -1px;
   margin-right: -1px;
+  pointer-events: none;
+  z-index: 100;
 }
 
+/* The name flag above the cursor */
 .collaborator-cursor-label {
   position: absolute;
-  top: -1.4em;
-  left: 0;
+  top: -1.6em;
+  left: -2px;
   white-space: nowrap;
   font-size: 10px;
-  padding: 1px 4px;
-  border-radius: 2px;
-  color: white;
-  font-weight: 500;
+  font-weight: 600;
+  line-height: 1;
+  padding: 2px 6px;
+  border-radius: 3px 3px 3px 0;
+  color: #fff;
   pointer-events: none;
-  z-index: 10;
-  font-family: var(--font-sans);
+  z-index: 101;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+}
+
+/* Avatar circle with initial (Google Docs style) */
+.collaborator-cursor-avatar {
+  position: absolute;
+  top: -2.2em;
+  left: -2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: 700;
+  color: #fff;
+  pointer-events: none;
+  z-index: 102;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+/* Selection by other users (colored background highlight) */
+.collaborator-selection {
+  pointer-events: none;
+  opacity: 0.3;
 }
 
 /* ── Footnote (Catatan Kaki) ── Google Docs-style inline ──────────────── */
