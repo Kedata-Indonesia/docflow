@@ -1,5 +1,6 @@
 import { AnyExtension, Editor as TiptapEditor, getSchema } from '@tiptap/core'
 import StarterKit from '@tiptap/starter-kit'
+import TextStyle from '@tiptap/extension-text-style'
 import { prosemirrorJSONToYXmlFragment } from 'y-prosemirror'
 import {
   collectExtensions,
@@ -13,6 +14,7 @@ import {
   type CollaborationSetup,
 } from './Collaboration.js'
 import { BlockAttributesExtension } from './BlockAttributes.js'
+import { FontSizeExtension } from './FontSize.js'
 import { PaginationPlus, type PaginationPlusOptions } from 'tiptap-pagination-plus'
 
 export interface EditorOptions {
@@ -168,6 +170,8 @@ function createTiptapEditor(
 
   let extensions: AnyExtension[] = [
     baseStarterKit,
+    TextStyle,
+    FontSizeExtension,
     blockAttrs,
     paginationExt,
     ...pluginExtensions,
@@ -177,7 +181,7 @@ function createTiptapEditor(
   if (options.collaboration && collaborationSetup) {
     const fragment = collaborationSetup.ydoc.getXmlFragment('default')
     if (fragment.length === 0 && options.content && typeof options.content === 'object') {
-      const schema = getSchema([baseStarterKit, blockAttrs, paginationExt, ...pluginExtensions])
+      const schema = getSchema([baseStarterKit, TextStyle, FontSizeExtension, blockAttrs, paginationExt, ...pluginExtensions])
       prosemirrorJSONToYXmlFragment(schema, options.content, fragment)
     }
 

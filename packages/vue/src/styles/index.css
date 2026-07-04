@@ -484,14 +484,89 @@
 
 /* ── Responsive: full-width on mobile ────────────────────────────── */
 @media (max-width: 768px) {
+  /* Scroll container: remove horizontal padding, clip overflow */
+  .docs-editor-scroll {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    overflow-x: hidden !important;
+    background-color: #f1f5f9 !important; /* slate-100 */
+  }
+
+  .dark .docs-editor-scroll {
+    background-color: #02040a !important;
+  }
+
+  /* Hide horizontal ruler on mobile */
+  .docs-editor-ruler {
+    display: none !important;
+  }
+
+  /* Hide vertical ruler on mobile */
+  .docs-editor-vertical-ruler {
+    display: none !important;
+  }
+
+  /* The inner flex-col container holding the page */
+  .docs-editor-scroll > .flex {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    gap: 0 !important;
+  }
+
+  /* The 794px container — make it fill the viewport */
+  .docs-editor-scroll .relative.w-full.max-w-\[794px\] {
+    max-width: 100vw !important;
+    width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* The paper element itself */
   .docs-editor__paper {
     max-width: 100vw !important;
     width: 100% !important;
     border-radius: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  /* Override pagination CSS variables on mobile */
+  .rm-with-pagination {
+    --rm-page-width: 100% !important;
+    --rm-margin-left: 16px !important;
+    --rm-margin-right: 16px !important;
+    --rm-margin-top: 20px !important;
+    --rm-margin-bottom: 20px !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+    border: none !important;
+    box-shadow: none !important;
+    box-sizing: border-box !important;
+  }
+
+  .ProseMirror {
+    width: 100% !important;
+    max-width: 100vw !important;
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+    box-sizing: border-box !important;
   }
 
   [data-rm-pagination] {
     max-width: 100vw !important;
+    width: 100% !important;
+  }
+
+  .rm-page-break {
+    max-width: 100vw !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    border-left: none !important;
+    border-right: none !important;
   }
 
   .rm-page-break > .page {
@@ -499,6 +574,32 @@
     width: 100% !important;
     padding-left: 16px !important;
     padding-right: 16px !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  .rm-page-break > .breaker {
+    width: 100% !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
+
+  /* Pagination gap (page separator line) full width */
+  .rm-pagination-gap {
+    width: 100% !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
+
+  /* Make toolbar horizontally scrollable, hide scrollbar */
+  .docs-editor-toolbar > div {
+    overflow-x: auto !important;
+    scrollbar-width: none !important;
+    flex-wrap: nowrap !important;
+  }
+  .docs-editor-toolbar > div::-webkit-scrollbar {
+    display: none !important;
   }
 }
 

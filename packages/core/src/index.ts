@@ -1,5 +1,6 @@
 export { createEditor, type EditorOptions, type DocsEditor } from './Editor.js'
 export { BlockAttributesExtension } from './BlockAttributes.js'
+export { FontSizeExtension } from './FontSize.js'
 export { PaginationPlus, type PaginationPlusOptions, PAGE_SIZES, type PageSize } from 'tiptap-pagination-plus'
 export {
   definePlugin,

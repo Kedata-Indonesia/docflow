@@ -4,6 +4,7 @@ import { PAGE_SIZES, getPageSize } from '@kedata-indonesia/docflow-layout-engine
 import { computed, onUnmounted, ref, watch } from 'vue'
 import { useEditor } from '../composables/useEditor.js'
 import SlashMenuVue from './SlashMenu.vue'
+import FontSizeSelect from './FontSizeSelect.vue'
 import type { Collaborator, ConnectionState, SavingStatus, SidebarKey } from '../types.js'
 import HeaderBar from './HeaderBar.vue'
 import EditorToolbar from './EditorToolbar.vue'
@@ -134,8 +135,6 @@ const savingStatus = ref<SavingStatus>('saved')
 const lastSaved = ref(Date.now())
 const saveTimer = ref<ReturnType<typeof setTimeout> | null>(null)
 
-const { editorRef, editor, pluginActions, isReady, docsEditor: docEditor } = useEditor({
-
 // Collect slash commands from all plugins
 const slashCommands = computed(() => {
   const cmds: Array<{ name: string; command: string }> = []
@@ -146,6 +145,8 @@ const slashCommands = computed(() => {
   }
   return cmds
 })
+
+const { editorRef, editor, pluginActions, isReady, docsEditor: docEditor } = useEditor({
   content: activeTabContent,
   plugins: props.plugins,
   editable: props.editable,
@@ -660,6 +661,10 @@ watch(isReady, (ready) => {
     <EditorToolbar :actions="pluginActions" :plugins="plugins" :editor="editor" :active-sidebar="activeSidebar"
       @toggle-sidebar="toggleSidebar"       @print="handlePrint" @toggle-left-sidebar="leftSidebarOpen = !leftSidebarOpen" />
     <RulerBar :layout-options="resolvedLayoutOptions" />
+    <div class="flex items-center gap-2 border-b border-slate-200 bg-white px-3 py-1 dark:border-white/5 dark:bg-[#0a0f1e]">
+      <span class="text-[10px] font-medium text-slate-400">Size:</span>
+      <FontSizeSelect :editor="editor" />
+    </div>
     <BubbleMenu :visible="showBubbleMenu" :actions="pluginActions" :position="bubblePosition" :editor="editor" />
     <SlashMenuVue :editor="editor" :commands="slashCommands" />
     <div class="docs-editor__body flex flex-1 overflow-hidden">
