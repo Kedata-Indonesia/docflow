@@ -110,7 +110,8 @@ function stopAutoSave() {
 }
 
 onMounted(async () => {
-  await loadCollabSnapshot()
+  // Don't load snapshot on initial load — document content from API is the source of truth.
+  // Snapshot is only for backup recovery. Loading it on top of API content causes duplication.
   startHeartbeat()
 })
 
