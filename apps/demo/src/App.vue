@@ -1,11 +1,43 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useTheme } from '@kedata-indonesia/docflow-vue'
-import type { DocumentItem, FolderItem } from './types.js'
+import type { DocumentItem, FolderItem, UserInfo } from './types.js'
+import * as api from './api.js'
 import Dashboard from './components/Dashboard.vue'
 import EditorView from './components/EditorView.vue'
 
 const { isDark, toggle: toggleTheme } = useTheme()
+
+// ─── Auth State ──────────────────────────────────────────────────────────────
+
+const user = ref<UserInfo | null>(null)
+const authLoading = ref(true)
+const dataLoading = ref(false)
+
+async function checkAuth() {
+  authLoading.value = true
+  try {
+    const u = await api.getCurrentUser()
+    user.value = u
+  } catch {
+    user.value = null
+  } finally {
+    authLoading.value = false
+  }
+}
+
+function handleLogin() {
+  api.loginWithGoogle()
+}
+
+async function handleLogout() {
+  await api.logout()
+  user.value = null
+  documents.value = []
+  currentDocId.value = null
+}
+
+// ─── Document State ──────────────────────────────────────────────────────────
 
 const currentDocId = ref<string | null>(null)
 const documents = ref<DocumentItem[]>([])
@@ -14,8 +46,35 @@ const folders = ref<FolderItem[]>([
   { id: 'folder-personal', name: 'Personal' },
 ])
 const room = ref('demo-room')
+const saveError = ref<string | null>(null)
 
 const currentDoc = computed(() => documents.value.find((d) => d.id === currentDocId.value) ?? null)
+
+// ─── Load documents from API ─────────────────────────────────────────────────
+
+async function loadDocuments() {
+  if (!user.value) return
+  dataLoading.value = true
+  try {
+    const docs = await api.fetchDocuments()
+    documents.value = docs.map((d) => ({
+      id: d._id,
+      title: d.title,
+      content: { type: 'doc', content: [{ type: 'paragraph' }] } as object, // placeholder, loaded on open
+      folderId: d.folderId,
+      starred: d.starred,
+      updatedAt: new Date(d.updatedAt).getTime(),
+      createdAt: new Date(d.createdAt).getTime(),
+    }))
+  } catch (err) {
+    console.error('Failed to load documents:', err)
+    saveError.value = 'Failed to load documents. Is the server running?'
+  } finally {
+    dataLoading.value = false
+  }
+}
+
+// ─── Templates ───────────────────────────────────────────────────────────────
 
 function generateId() {
   return Math.random().toString(36).slice(2, 11)
@@ -36,9 +95,7 @@ function heading(level: number, text: string) {
 function blankContent() {
   return {
     type: 'doc',
-    content: [
-      paragraph(),
-    ],
+    content: [paragraph()],
   }
 }
 
@@ -96,49 +153,67 @@ function letterContent() {
 
 function getTemplateContent(templateId: string): object {
   switch (templateId) {
-    case 'meeting-notes':
-      return meetingNotesContent()
-    case 'project-proposal':
-      return projectProposalContent()
-    case 'letter':
-      return letterContent()
-    default:
-      return blankContent()
+    case 'meeting-notes': return meetingNotesContent()
+    case 'project-proposal': return projectProposalContent()
+    case 'letter': return letterContent()
+    default: return blankContent()
   }
 }
 
 function getTemplateTitle(templateId: string): string {
   switch (templateId) {
-    case 'meeting-notes':
-      return 'Meeting Notes'
-    case 'project-proposal':
-      return 'Project Proposal'
-    case 'letter':
-      return 'Official Letter'
-    default:
-      return 'Untitled Document'
+    case 'meeting-notes': return 'Meeting Notes'
+    case 'project-proposal': return 'Project Proposal'
+    case 'letter': return 'Official Letter'
+    default: return 'Untitled Document'
   }
 }
 
-function createDocument(templateId: string) {
-  const now = Date.now()
-  const doc: DocumentItem = {
-    id: generateId(),
-    title: getTemplateTitle(templateId),
-    content: getTemplateContent(templateId),
-    folderId: null,
-    starred: false,
-    updatedAt: now,
-    createdAt: now,
+// ─── Document Actions (API-backed) ──────────────────────────────────────────
+
+async function createDocument(templateId: string) {
+  if (!user.value) return
+  const title = getTemplateTitle(templateId)
+  const content = getTemplateContent(templateId)
+  try {
+    const doc = await api.createDocument({ title, content })
+    const now = Date.now()
+    documents.value.unshift({
+      id: doc._id,
+      title: doc.title,
+      content: doc.content,
+      folderId: doc.folderId,
+      starred: doc.starred,
+      updatedAt: now,
+      createdAt: now,
+    })
+    selectDocument(doc._id)
+  } catch (err) {
+    console.error('Failed to create document:', err)
   }
-  documents.value.unshift(doc)
-  selectDocument(doc.id)
 }
 
 function selectDocument(id: string) {
   if (documents.value.some((d) => d.id === id)) {
     currentDocId.value = id
     history.pushState({ docId: id }, '', `/${id}`)
+    // Load full content from API
+    loadDocumentContent(id)
+  }
+}
+
+async function loadDocumentContent(id: string) {
+  try {
+    const doc = await api.fetchDocument(id)
+    const existing = documents.value.find((d) => d.id === id)
+    if (existing) {
+      existing.content = doc.content
+      existing.title = doc.title
+      existing.starred = doc.starred
+      existing.folderId = doc.folderId
+    }
+  } catch (err) {
+    console.error('Failed to load document content:', err)
   }
 }
 
@@ -147,45 +222,80 @@ function goBack() {
   history.pushState({ docId: null }, '', '/')
 }
 
-function updateDocument(doc: DocumentItem) {
+async function updateDocument(doc: DocumentItem) {
   const index = documents.value.findIndex((d) => d.id === doc.id)
   if (index !== -1) {
     documents.value[index] = doc
   }
+  // Persist to API (debounced in parent, but we save on every meaningful change)
+  try {
+    await api.updateDocument(doc.id, {
+      title: doc.title,
+      content: doc.content,
+      starred: doc.starred,
+      folderId: doc.folderId,
+    })
+  } catch (err) {
+    console.error('Failed to save document:', err)
+  }
 }
 
-function toggleStar(id: string) {
+async function toggleStar(id: string) {
   const doc = documents.value.find((d) => d.id === id)
   if (doc) {
     doc.starred = !doc.starred
     doc.updatedAt = Date.now()
+    try {
+      await api.updateDocument(id, { starred: doc.starred })
+    } catch (err) {
+      console.error('Failed to toggle star:', err)
+    }
   }
 }
 
-function renameDocument(id: string, title: string) {
+async function renameDocument(id: string, title: string) {
   const doc = documents.value.find((d) => d.id === id)
   if (doc && title.trim()) {
     doc.title = title.trim()
     doc.updatedAt = Date.now()
+    try {
+      await api.updateDocument(id, { title: doc.title })
+    } catch (err) {
+      console.error('Failed to rename document:', err)
+    }
   }
 }
 
-function duplicateDocument(id: string) {
+async function duplicateDocument(id: string) {
   const doc = documents.value.find((d) => d.id === id)
   if (!doc) return
-  const now = Date.now()
-  const copy: DocumentItem = {
-    ...doc,
-    id: generateId(),
-    title: `Copy of ${doc.title}`,
-    updatedAt: now,
-    createdAt: now,
+  try {
+    const copy = await api.createDocument({
+      title: `Copy of ${doc.title}`,
+      content: doc.content,
+    })
+    const now = Date.now()
+    documents.value.unshift({
+      id: copy._id,
+      title: copy.title,
+      content: copy.content,
+      folderId: copy.folderId,
+      starred: false,
+      updatedAt: now,
+      createdAt: now,
+    })
+  } catch (err) {
+    console.error('Failed to duplicate document:', err)
   }
-  documents.value.unshift(copy)
 }
 
-function deleteDocument(id: string) {
+async function deleteDocument(id: string) {
   if (!confirm('Are you sure you want to delete this document?')) return
+  try {
+    await api.deleteDocument(id)
+  } catch (err) {
+    console.error('Failed to delete document:', err)
+  }
   documents.value = documents.value.filter((d) => d.id !== id)
   if (currentDocId.value === id) {
     currentDocId.value = null
@@ -193,11 +303,16 @@ function deleteDocument(id: string) {
   }
 }
 
-function moveDocument(id: string, folderId: string | null) {
+async function moveDocument(id: string, folderId: string | null) {
   const doc = documents.value.find((d) => d.id === id)
   if (doc) {
     doc.folderId = folderId
     doc.updatedAt = Date.now()
+    try {
+      await api.updateDocument(id, { folderId })
+    } catch (err) {
+      console.error('Failed to move document:', err)
+    }
   }
 }
 
@@ -207,39 +322,24 @@ function createFolder(name: string) {
   folders.value.push({ id: generateId(), name: trimmed })
 }
 
+// ─── Lifecycle ───────────────────────────────────────────────────────────────
 
-const LS_DOCUMENTS_KEY = 'docs-editor-documents'
-const LS_FOLDERS_KEY = 'docs-editor-folders'
+onMounted(async () => {
+  await checkAuth()
+  if (user.value) {
+    await loadDocuments()
+  }
 
-// Load persisted data on mount
-onMounted(() => {
-  try {
-    const savedDocs = localStorage.getItem(LS_DOCUMENTS_KEY)
-    if (savedDocs) {
-      const parsed = JSON.parse(savedDocs)
-      if (Array.isArray(parsed)) documents.value = parsed
-    }
-  } catch { /* ignore corrupt data */ }
-
-  try {
-    const savedFolders = localStorage.getItem(LS_FOLDERS_KEY)
-    if (savedFolders) {
-      const parsed = JSON.parse(savedFolders)
-      if (Array.isArray(parsed)) folders.value = parsed
-    }
-  } catch { /* ignore corrupt data */ }
-
-  // Restore document from URL path (e.g. /<doc-id>)
+  // Restore document from URL path
   const path = window.location.pathname.replace(/^\/+/, '')
-  if (path && documents.value.some(d => d.id === path)) {
+  if (path && documents.value.some((d) => d.id === path)) {
     currentDocId.value = path
   }
 
-  // Handle browser back/forward
   window.addEventListener('popstate', () => {
     const p = window.location.pathname.replace(/^\/+/, '')
     if (p) {
-      const doc = documents.value.find(d => d.id === p)
+      const doc = documents.value.find((d) => d.id === p)
       currentDocId.value = doc ? doc.id : null
     } else {
       currentDocId.value = null
@@ -247,25 +347,20 @@ onMounted(() => {
   })
 })
 
-// Persist on every change (debounced via nextTick / deep watch)
-watch(
-  documents,
-  (val) => {
-    localStorage.setItem(LS_DOCUMENTS_KEY, JSON.stringify(val))
-  },
-  { deep: true },
-)
+// Reload docs when user logs in
+watch(user, async (newUser) => {
+  if (newUser) {
+    await loadDocuments()
+  }
+})
 
-watch(
-  folders,
-  (val) => {
-    localStorage.setItem(LS_FOLDERS_KEY, JSON.stringify(val))
-  },
-  { deep: true },
-)
+// ─── Template helpers ────────────────────────────────────────────────────────
 
-const userName = ''
-const userAvatar = ''
+const userName = computed(() => user.value?.displayName || '')
+const userAvatar = computed(() => {
+  if (user.value?.avatar) return user.value.avatar
+  return user.value?.displayName?.charAt(0)?.toUpperCase() || '?'
+})
 </script>
 
 <template>
@@ -279,103 +374,183 @@ const userAvatar = ''
       class="pointer-events-none absolute bottom-[-100px] right-[-100px] z-0 h-[400px] w-[400px] rounded-full bg-indigo-900/10 blur-[100px] dark:bg-indigo-950/20"
     />
 
-    <header
-      v-if="!currentDocId"
-      class="relative z-10 flex items-center justify-between border-b border-slate-200 bg-white/80 px-6 py-4 backdrop-blur-xl transition-colors dark:border-white/5 dark:bg-[#0a0f1e]/80"
+    <!-- Auth Loading -->
+    <div
+      v-if="authLoading"
+      class="relative z-10 flex flex-1 items-center justify-center"
     >
-      <div class="flex items-center gap-3">
+      <p class="text-sm text-slate-500 animate-pulse">Loading...</p>
+    </div>
+
+    <!-- Not Authenticated -->
+    <div
+      v-else-if="!user"
+      class="relative z-10 flex flex-1 flex-col items-center justify-center gap-6"
+    >
+      <div
+        class="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-400 to-blue-600 text-2xl font-bold text-white shadow-[0_0_25px_rgba(34,211,238,0.35)]"
+      >
+        dE
+      </div>
+      <h1 class="text-2xl font-extrabold text-slate-900 dark:text-white">
+        DocsEditor
+      </h1>
+      <p class="text-sm text-slate-500 dark:text-slate-400">
+        Sign in to create and edit documents
+      </p>
+      <button
+        type="button"
+        class="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-6 py-3 text-sm font-semibold text-slate-700 shadow-sm transition-all hover:border-slate-300 hover:shadow-md dark:border-white/10 dark:bg-slate-800 dark:text-slate-200 dark:hover:border-white/20"
+        @click="handleLogin"
+      >
+        <svg class="h-5 w-5" viewBox="0 0 24 24">
+          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/>
+          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+        </svg>
+        Sign in with Google
+      </button>
+    </div>
+
+    <!-- Authenticated -->
+    <template v-else>
+      <header
+        v-if="!currentDocId"
+        class="relative z-10 flex items-center justify-between border-b border-slate-200 bg-white/80 px-6 py-4 backdrop-blur-xl transition-colors dark:border-white/5 dark:bg-[#0a0f1e]/80"
+      >
+        <div class="flex items-center gap-3">
+          <div
+            class="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-400 to-blue-600 text-base font-bold text-white shadow-[0_0_15px_rgba(34,211,238,0.3)]"
+          >
+            dE
+          </div>
+          <div class="flex items-center">
+            <span
+              class="bg-clip-text text-xl font-extrabold tracking-tight text-transparent bg-gradient-to-r from-slate-900 to-slate-700 dark:from-white dark:to-slate-400"
+            >
+              DocsEditor
+            </span>
+            <span
+              class="ml-2 rounded-full border border-transparent bg-cyan-500/10 px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wide text-cyan-600 dark:border-cyan-500/20 dark:text-cyan-400"
+            >
+              Beta
+            </span>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-4">
+          <button
+            type="button"
+            class="rounded-lg border border-slate-200 bg-slate-50 p-2 text-slate-500 transition-all hover:border-slate-300 dark:border-white/10 dark:bg-white/5 dark:text-slate-400 dark:hover:border-white/20"
+            :title="isDark ? 'Light Mode' : 'Dark Mode'"
+            @click="toggleTheme"
+          >
+            <svg
+              v-if="isDark"
+              class="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m2.828 9.9a5 5 0 117.07 0l-.707-.707"
+              />
+            </svg>
+            <svg
+              v-else
+              class="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"
+              />
+            </svg>
+          </button>
+
+          <div class="flex items-center gap-2">
+            <img
+              v-if="user.avatar"
+              :src="user.avatar"
+              :alt="userName"
+              class="h-8 w-8 rounded-full border border-blue-200 object-cover dark:border-white/10"
+            />
+            <div
+              v-else
+              class="flex h-8 w-8 items-center justify-center rounded-full border border-blue-200 bg-blue-100 text-xs font-bold text-blue-600 dark:border-white/10 dark:bg-slate-800 dark:text-cyan-400"
+            >
+              {{ userAvatar }}
+            </div>
+            <div class="hidden text-left md:block">
+              <p class="text-xs font-semibold text-slate-800 dark:text-slate-200">{{ userName }}</p>
+              <button
+                type="button"
+                class="font-mono text-[10px] text-slate-400 hover:text-red-500 transition-colors"
+                @click="handleLogout"
+              >
+                Sign out
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div class="relative z-10 flex flex-1 overflow-hidden">
+        <!-- Data loading indicator -->
         <div
-          class="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-400 to-blue-600 text-base font-bold text-white shadow-[0_0_15px_rgba(34,211,238,0.3)]"
+          v-if="dataLoading"
+          class="flex w-full items-center justify-center"
         >
-          dE
+          <p class="text-sm text-slate-500 animate-pulse">Loading documents...</p>
         </div>
-        <div class="flex items-center">
-          <span
-            class="bg-clip-text text-xl font-extrabold tracking-tight text-transparent bg-gradient-to-r from-slate-900 to-slate-700 dark:from-white dark:to-slate-400"
-          >
-            DocsEditor
-          </span>
-          <span
-            class="ml-2 rounded-full border border-transparent bg-cyan-500/10 px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wide text-cyan-600 dark:border-cyan-500/20 dark:text-cyan-400"
-          >
-            Beta
-          </span>
-        </div>
+
+        <template v-else>
+          <Dashboard
+            v-if="!currentDocId"
+            :documents="documents"
+            :folders="folders"
+            @select-document="selectDocument"
+            @create-document="createDocument"
+            @toggle-star="toggleStar"
+            @rename="renameDocument"
+            @duplicate="duplicateDocument"
+            @delete="deleteDocument"
+            @move="moveDocument"
+            @create-folder="createFolder"
+          />
+
+          <EditorView
+            v-else-if="currentDoc"
+            :doc="currentDoc"
+            :room="room"
+            @back="goBack"
+            @update:doc="updateDocument"
+          />
+        </template>
       </div>
 
-      <div class="flex items-center gap-4">
+      <!-- Error banner -->
+      <div
+        v-if="saveError"
+        class="fixed bottom-4 right-4 z-50 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 shadow-lg dark:border-red-800 dark:bg-red-950 dark:text-red-300"
+      >
+        {{ saveError }}
         <button
           type="button"
-          class="rounded-lg border border-slate-200 bg-slate-50 p-2 text-slate-500 transition-all hover:border-slate-300 dark:border-white/10 dark:bg-white/5 dark:text-slate-400 dark:hover:border-white/20"
-          :title="isDark ? 'Light Mode' : 'Dark Mode'"
-          @click="toggleTheme"
+          class="ml-3 font-semibold underline"
+          @click="saveError = null"
         >
-          <svg
-            v-if="isDark"
-            class="h-4 w-4"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m2.828 9.9a5 5 0 117.07 0l-.707-.707"
-            />
-          </svg>
-          <svg
-            v-else
-            class="h-4 w-4"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"
-            />
-          </svg>
+          Dismiss
         </button>
-
-        <div class="flex items-center gap-2">
-          <div
-            class="flex h-8 w-8 items-center justify-center rounded-full border border-blue-200 bg-blue-100 text-xs font-bold text-blue-600 dark:border-white/10 dark:bg-slate-800 dark:text-cyan-400"
-          >
-            {{ userAvatar }}
-          </div>
-          <div class="hidden text-left md:block">
-            <p class="text-xs font-semibold text-slate-800 dark:text-slate-200">{{ userName }}</p>
-            <p class="font-mono text-[10px] text-slate-400">My Account</p>
-          </div>
-        </div>
       </div>
-    </header>
-
-    <div class="relative z-10 flex flex-1 overflow-hidden">
-      <Dashboard
-        v-if="!currentDocId"
-        :documents="documents"
-        :folders="folders"
-        @select-document="selectDocument"
-        @create-document="createDocument"
-        @toggle-star="toggleStar"
-        @rename="renameDocument"
-        @duplicate="duplicateDocument"
-        @delete="deleteDocument"
-        @move="moveDocument"
-        @create-folder="createFolder"
-      />
-
-      <EditorView
-        v-else-if="currentDoc"
-        :doc="currentDoc"
-        :room="room"
-        @back="goBack"
-        @update:doc="updateDocument"
-      />
-    </div>
+    </template>
   </div>
 </template>

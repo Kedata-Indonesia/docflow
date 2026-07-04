@@ -6,6 +6,16 @@ export default defineConfig({
   plugins: [vue()],
   server: {
     port: 5173,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+      },
+      '/auth': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+      },
+    },
   },
   resolve: {
     dedupe: ['vue', 'yjs'],
