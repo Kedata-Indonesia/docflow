@@ -257,6 +257,7 @@ async function selectDocument(id: string) {
 }
 
 async function openDocumentById(id: string) {
+  currentDocId.value = id
   // If not in our document list, fetch from API and add placeholder
   if (!documents.value.some((d) => d.id === id)) {
     try {
