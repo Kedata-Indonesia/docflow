@@ -74,6 +74,38 @@
   caret-color: #e2e8f0; /* slate-200 — visible on dark page */
 }
 
+/* ── Collaboration Cursor ────────────────────────────────────────── */
+.ProseMirror .collaboration-cursor {
+  position: relative;
+  margin-left: -1px;
+  margin-right: -1px;
+  border-left: 2px solid;
+  border-right: 2px solid;
+  border-color: currentColor;
+  word-break: normal;
+  pointer-events: none;
+}
+
+.ProseMirror .collaboration-cursor__label {
+  position: absolute;
+  top: -1.6em;
+  left: -2px;
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 600;
+  color: #fff;
+  background-color: currentColor;
+  padding: 1px 6px;
+  border-radius: 3px 3px 3px 0;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 50;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  display: inline-block;
+  line-height: 1.2;
+}
+
+
 .ProseMirror .docs-editor-page-break {
   position: relative;
   margin: 2rem 0 !important;

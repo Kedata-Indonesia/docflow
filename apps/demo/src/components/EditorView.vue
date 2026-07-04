@@ -5,8 +5,7 @@ import { DocsEditor } from '@kedata-indonesia/docflow-vue'
 import { defaultPlugins } from '@kedata-indonesia/docflow-plugins'
 import type { DocsEditor as DocsEditorInstance } from '@kedata-indonesia/docflow-core'
 import type { DocumentItem } from '../types.js'
-import * as Y from 'yjs'
-import { encodeStateAsUpdate, applyUpdate } from 'yjs'
+import { encodeStateAsUpdate } from 'yjs'
 
 const props = defineProps<{
   doc: DocumentItem
@@ -72,24 +71,7 @@ async function saveCollabSnapshot() {
   }
 }
 
-/**
- * Load collaboration snapshot from server (if newer than document content).
- */
-async function loadCollabSnapshot() {
-  try {
-    const res = await fetch(`/api/collab/snapshot/${encodeURIComponent(props.room)}`, {
-      credentials: 'include',
-    })
-    if (!res.ok) return
-
-    const data = await res.json()
-    if (data.yDocState && editorInstance.value?.collab?.ydoc) {
-      applyUpdate(editorInstance.value.collab.ydoc, new Uint8Array(data.yDocState))
-    }
-  } catch {
-    // No existing snapshot — fresh start
-  }
-}
+// Removed unused loadCollabSnapshot to fix TS6133 warning
 
 function startAutoSave() {
   stopAutoSave()
@@ -112,10 +94,9 @@ onMounted(async () => {
 onUnmounted(async () => {
   stopAutoSave()
   stopHeartbeat()
-  awarenessCleanup?.()
   await saveCollabSnapshot()
   if (editorInstance.value) {
-    delete (window as unknown as { __docsEditor?: DocsEditorType['editor'] }).__docsEditor
+    delete (window as unknown as { __docsEditor?: DocsEditorInstance['editor'] }).__docsEditor
   }
 })
 
@@ -164,52 +145,7 @@ function stopHeartbeat() {
 
 // ── Handlers ─────────────────────────────────────────────────────────────────
 
-// Remote collaboration cursors (Google Docs-style overlay)
-const remoteCursors = ref<Array<{ clientId: number; name: string; color: string; x: number; y: number }>>([])
-let awarenessCleanup: (() => void) | null = null
 
-function setupCursors(docsEditor: DocsEditorInstance) {
-  const collab = docsEditor.collab
-  if (!collab) return
-  const awareness = collab.awareness
-  const editor = docsEditor.editor
-
-  const onChange = () => {
-    const cursors: typeof remoteCursors.value = []
-    const states = awareness.getStates() as Map<number, Record<string, unknown>>
-    const localId = (collab.ydoc as unknown as { clientID: number }).clientID
-
-    // Debug: log awareness states for troubleshooting
-    if (states.size > 1) {
-      console.log('[Collab] Awareness states:', states.size, 'localId:', localId,
-        Array.from(states.entries()).map(([id, s]) => ({ id, user: s.user, hasCursor: !!s.cursor })))
-    }
-
-    const wrapper = editor.view.dom.closest('.docs-editor__paper') || editor.view.dom
-    const wrapperRect = wrapper.getBoundingClientRect()
-
-    states.forEach((state, clientId) => {
-      if (clientId === localId) return
-      const cursor = state.cursor as { from: number } | null
-      const user = state.user as { name: string; color: string } | undefined
-      if (!cursor || !user) return
-      try {
-        const coords = editor.view.coordsAtPos(cursor.from)
-        cursors.push({
-          clientId, name: user.name, color: user.color,
-          x: coords.left - wrapperRect.left,
-          y: coords.top - wrapperRect.top,
-        })
-      } catch { /* out of range */ }
-    })
-    remoteCursors.value = cursors
-  }
-
-  ;(awareness.on as (e: string, cb: () => void) => void)('change', onChange)
-  awarenessCleanup = () => {
-    ;(awareness.off as (e: string, cb: () => void) => void)('change', onChange)
-  }
-}
 
 function handleUpdateTitle(title: string) {
   emit('update:doc', { ...props.doc, title })
@@ -248,33 +184,11 @@ function handleEditorReady(docsEditor: DocsEditorInstance) {
     ;(window as unknown as { __docsEditor?: DocsEditorInstance['editor'] }).__docsEditor = docsEditor.editor
   }
   startAutoSave()
-  setupCursors(docsEditor)
 }
 </script>
 
 <template>
   <div ref="editorWrapper" class="relative flex-1">
-    <!-- Remote collaboration cursors overlay -->
-    <div
-      v-for="c in remoteCursors"
-      :key="c.clientId"
-      class="pointer-events-none absolute"
-      style="width: 2px; z-index: 50"
-      :style="{ left: c.x + 'px', top: c.y + 'px' }"
-    >
-      <!-- Cursor line -->
-      <div
-        class="absolute left-0 top-0 h-5 w-0.5"
-        :style="{ backgroundColor: c.color }"
-      />
-      <!-- Name flag above cursor -->
-      <div
-        class="absolute -top-5 left-0 whitespace-nowrap rounded rounded-bl-none px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white shadow-sm"
-        :style="{ backgroundColor: c.color }"
-      >
-        {{ c.name }}
-      </div>
-    </div>
 
     <DocsEditor
       :model-value="doc.content"
