@@ -174,12 +174,14 @@ function createTiptapEditor(
 
   if (options.collaboration && collaborationSetup) {
     if (options.content && typeof options.content === 'object') {
-      const schema = getSchema([baseStarterKit, blockAttrs, paginationExt, ...pluginExtensions])
-      prosemirrorJSONToYXmlFragment(
-        schema,
-        options.content,
-        collaborationSetup.ydoc.getXmlFragment('default'),
-      )
+      const fragment = collaborationSetup.ydoc.getXmlFragment('default')
+      // Only load API content if Y.Doc is empty (first load).
+      // If Y.Doc already has data (e.g. from WebRTC sync / cached signaling state),
+      // don't overwrite — prevents text duplication on refresh.
+      if (fragment.length === 0) {
+        const schema = getSchema([baseStarterKit, blockAttrs, paginationExt, ...pluginExtensions])
+        prosemirrorJSONToYXmlFragment(schema, options.content, fragment)
+      }
     }
 
     extensions = [...extensions, ...collaborationExtensions(collaborationSetup)]

@@ -186,8 +186,9 @@ function setupCursors(editor: DocsEditorType['editor']) {
     const cursors: typeof remoteCursors.value = []
     const states = (awareness.getStates as () => Map<number, Record<string, unknown>>)()
     const localId = (ydoc as unknown as { clientID: number }).clientID
-    const editorDom = editor.view.dom
-    const rect = editorDom.getBoundingClientRect()
+    // Use editor wrapper as reference for cursor positioning
+    const wrapper = editor.view.dom.closest('.docs-editor__paper') || editor.view.dom
+    const wrapperRect = wrapper.getBoundingClientRect()
 
     states.forEach((state, clientId) => {
       if (clientId === localId) return
@@ -198,8 +199,8 @@ function setupCursors(editor: DocsEditorType['editor']) {
         const coords = editor.view.coordsAtPos(cursor.from)
         cursors.push({
           clientId, name: user.name, color: user.color,
-          x: coords.left - rect.left,
-          y: coords.top - rect.top,
+          x: coords.left - wrapperRect.left,
+          y: coords.top - wrapperRect.top,
         })
       } catch { /* out of range */ }
     })
@@ -254,20 +255,23 @@ function handleEditorReady(editor: DocsEditorType['editor']) {
 </script>
 
 <template>
-  <div class="relative flex-1">
+  <div ref="editorWrapper" class="relative flex-1">
     <!-- Remote collaboration cursors overlay -->
     <div
       v-for="c in remoteCursors"
       :key="c.clientId"
-      class="pointer-events-none absolute z-50"
+      class="pointer-events-none absolute"
+      style="width: 2px; z-index: 50"
       :style="{ left: c.x + 'px', top: c.y + 'px' }"
     >
+      <!-- Cursor line -->
       <div
-        class="absolute top-0 w-0.5 bg-current"
-        :style="{ backgroundColor: c.color, height: '1.4em' }"
+        class="absolute left-0 top-0 h-5 w-0.5"
+        :style="{ backgroundColor: c.color }"
       />
+      <!-- Name flag above cursor -->
       <div
-        class="absolute -top-5 left-0 whitespace-nowrap rounded-sm px-1.5 py-0.5 text-[10px] font-semibold text-white shadow"
+        class="absolute -top-5 left-0 whitespace-nowrap rounded rounded-bl-none px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white shadow-sm"
         :style="{ backgroundColor: c.color }"
       >
         {{ c.name }}
