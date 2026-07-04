@@ -249,13 +249,34 @@ async function createDocument(templateId: string) {
   }
 }
 
-function selectDocument(id: string) {
-  if (documents.value.some((d) => d.id === id)) {
-    currentDocId.value = id
-    history.pushState({ docId: id }, '', `/${id}`)
-    // Load full content from API
-    loadDocumentContent(id)
+async function selectDocument(id: string) {
+  currentDocId.value = id
+  history.pushState({ docId: id }, '', `/${id}`)
+  // Load full content from API
+  await openDocumentById(id)
+}
+
+async function openDocumentById(id: string) {
+  // If not in our document list, fetch from API and add placeholder
+  if (!documents.value.some((d) => d.id === id)) {
+    try {
+      const doc = await api.fetchDocument(id)
+      documents.value.unshift({
+        id: doc._id,
+        title: doc.title,
+        content: doc.content,
+        folderId: doc.folderId,
+        starred: doc.starred,
+        updatedAt: new Date(doc.updatedAt).getTime(),
+        createdAt: new Date(doc.createdAt).getTime(),
+      })
+    } catch (err) {
+      console.error('Document not found:', err)
+      currentDocId.value = null
+      return
+    }
   }
+  await loadDocumentContent(id)
 }
 
 async function loadDocumentContent(id: string) {
@@ -386,17 +407,27 @@ onMounted(async () => {
     await loadDocuments()
   }
 
-  // Restore document from URL path
+  // Restore document from URL path (even if not in our list — fetch from API)
   const path = window.location.pathname.replace(/^\/+/, '')
-  if (path && documents.value.some((d) => d.id === path)) {
-    currentDocId.value = path
+  if (path) {
+    if (documents.value.some((d) => d.id === path)) {
+      currentDocId.value = path
+      loadDocumentContent(path)
+    } else if (user.value) {
+      // Document not in our list — try loading from API (shared document)
+      openDocumentById(path)
+    }
   }
 
   window.addEventListener('popstate', () => {
     const p = window.location.pathname.replace(/^\/+/, '')
     if (p) {
       const doc = documents.value.find((d) => d.id === p)
-      currentDocId.value = doc ? doc.id : null
+      if (doc) {
+        currentDocId.value = doc.id
+      } else if (user.value) {
+        openDocumentById(p)
+      }
     } else {
       currentDocId.value = null
     }
