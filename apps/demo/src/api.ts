@@ -48,8 +48,24 @@ export function loginWithGoogle(): void {
   window.location.href = `${BASE}/auth/google`
 }
 
+export function loginWithSSO(): void {
+  window.location.href = `${BASE}/auth/sso`
+}
+
 export async function logout(): Promise<void> {
   await fetch(`${BASE}/auth/logout`, { method: 'POST', credentials: 'include' })
+}
+
+/** Returns list of enabled auth providers (e.g. ['google', 'sso']) */
+export async function getAuthProviders(): Promise<string[]> {
+  try {
+    const res = await fetch(`${BASE}/auth/providers`, { credentials: 'include' })
+    if (!res.ok) return ['google']
+    const data = await res.json()
+    return data.providers || ['google']
+  } catch {
+    return ['google']
+  }
 }
 
 // ─── Documents ───────────────────────────────────────────────────────────────
