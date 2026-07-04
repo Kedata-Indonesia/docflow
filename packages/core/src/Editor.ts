@@ -177,13 +177,11 @@ function createTiptapEditor(
   if (options.collaboration && collaborationSetup) {
     if (options.content && typeof options.content === 'object') {
       const fragment = collaborationSetup.ydoc.getXmlFragment('default')
-      // Only load API content if Y.Doc is empty (first load).
-      // If Y.Doc already has data (e.g. from WebRTC sync / cached signaling state),
-      // don't overwrite — prevents text duplication on refresh.
-      if (fragment.length === 0) {
-        const schema = getSchema([baseStarterKit, blockAttrs, paginationExt, ...pluginExtensions])
-        prosemirrorJSONToYXmlFragment(schema, options.content, fragment)
-      }
+      // Always load API content as the source of truth.
+      // Clear any cached WebRTC state first to prevent duplication.
+      fragment.delete(0, fragment.length)
+      const schema = getSchema([baseStarterKit, blockAttrs, paginationExt, ...pluginExtensions])
+      prosemirrorJSONToYXmlFragment(schema, options.content, fragment)
     }
 
     extensions = [...extensions, ...collaborationExtensions(collaborationSetup)]
