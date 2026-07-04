@@ -1,17 +1,16 @@
 /**
  * DocsEditor API Client
  *
- * All requests include credentials (cookies) for session-based auth.
- * In dev mode, Vite proxies /api and /auth to the backend server.
+ * Auth endpoints handled by Better Auth at /api/auth/*
  */
 
-const BASE = '' // relative to origin; Vite proxies /api/* and /auth/*
+const BASE = ''
 
 export interface ApiUser {
   id: string
   email: string
-  displayName: string
-  avatar?: string
+  name: string
+  image?: string
 }
 
 export interface ApiDoc {
@@ -35,37 +34,42 @@ export interface ApiDocListItem {
   updatedAt: string
 }
 
-// ─── Auth ────────────────────────────────────────────────────────────────────
+// ─── Auth (Better Auth) ─────────────────────────────────────────────────────
 
 export async function getCurrentUser(): Promise<ApiUser | null> {
-  const res = await fetch(`${BASE}/auth/user`, { credentials: 'include' })
-  if (!res.ok) return null
-  const data = await res.json()
-  return data.authenticated ? data.user : null
-}
-
-export function loginWithGoogle(): void {
-  window.location.href = `${BASE}/auth/google`
-}
-
-export function loginWithSSO(): void {
-  window.location.href = `${BASE}/auth/sso`
-}
-
-export async function logout(): Promise<void> {
-  await fetch(`${BASE}/auth/logout`, { method: 'POST', credentials: 'include' })
-}
-
-/** Returns list of enabled auth providers (e.g. ['google', 'sso']) */
-export async function getAuthProviders(): Promise<string[]> {
   try {
-    const res = await fetch(`${BASE}/auth/providers`, { credentials: 'include' })
-    if (!res.ok) return ['google']
+    const res = await fetch(`${BASE}/api/auth/session`, { credentials: 'include' })
+    if (!res.ok) return null
     const data = await res.json()
-    return data.providers || ['google']
+    return data?.user ?? null
   } catch {
-    return ['google']
+    return null
   }
+}
+
+export async function signInWithGoogle(): Promise<void> {
+  const res = await fetch(`${BASE}/api/auth/sign-in/social`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({
+      provider: 'google',
+      callbackURL: window.location.origin,
+    }),
+  })
+  if (!res.ok) throw new Error('Failed to initiate sign-in')
+  const data = await res.json()
+  // Better Auth returns { url } — redirect browser to Google OAuth
+  if (data.url) {
+    window.location.href = data.url
+  }
+}
+
+export async function signOut(): Promise<void> {
+  await fetch(`${BASE}/api/auth/sign-out`, {
+    method: 'POST',
+    credentials: 'include',
+  })
 }
 
 // ─── Documents ───────────────────────────────────────────────────────────────

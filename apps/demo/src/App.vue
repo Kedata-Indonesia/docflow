@@ -13,32 +13,38 @@ const { isDark, toggle: toggleTheme } = useTheme()
 const user = ref<UserInfo | null>(null)
 const authLoading = ref(true)
 const dataLoading = ref(false)
-const authProviders = ref<string[]>(['google'])
 
 async function checkAuth() {
   authLoading.value = true
   try {
     const u = await api.getCurrentUser()
-    user.value = u
+    if (u) {
+      user.value = {
+        id: u.id,
+        email: u.email,
+        displayName: u.name,
+        avatar: u.image,
+      }
+    } else {
+      user.value = null
+    }
   } catch {
     user.value = null
   } finally {
     authLoading.value = false
   }
-  // Fetch enabled providers in background
-  api.getAuthProviders().then(p => { authProviders.value = p }).catch(() => {})
 }
 
-function handleLogin() {
-  api.loginWithGoogle()
-}
-
-function handleSSOLogin() {
-  api.loginWithSSO()
+async function handleLogin() {
+  try {
+    await api.signInWithGoogle()
+  } catch (err) {
+    console.error('Sign in failed:', err)
+  }
 }
 
 async function handleLogout() {
-  await api.logout()
+  await api.signOut()
   user.value = null
   documents.value = []
   currentDocId.value = null
@@ -418,19 +424,6 @@ const userAvatar = computed(() => {
             <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
           </svg>
           Sign in with Google
-        </button>
-        <button
-          v-if="authProviders.includes('sso')"
-          type="button"
-          class="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-6 py-3 text-sm font-semibold text-slate-700 shadow-sm transition-all hover:border-slate-300 hover:shadow-md dark:border-white/10 dark:bg-slate-800 dark:text-slate-200 dark:hover:border-white/20"
-          @click="handleSSOLogin"
-        >
-          <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
-            <polyline points="10 17 15 12 10 7"/>
-            <line x1="15" y1="12" x2="3" y2="12"/>
-          </svg>
-          Sign in with SSO
         </button>
       </div>
     </div>
