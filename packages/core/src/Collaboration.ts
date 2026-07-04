@@ -19,6 +19,7 @@ export interface CollaborationOptions {
   signaling?: string[]
   user: { name: string; color: string }
   onAwarenessChange?: (states: AwarenessState[]) => void
+  initialStorageState?: Uint8Array
 }
 
 export interface CollaborationSetup {
@@ -48,6 +49,9 @@ function createAwarenessStates(awareness: Awareness): AwarenessState[] {
 
 export function createCollaboration(options: CollaborationOptions): CollaborationSetup {
   const ydoc = new Y.Doc()
+  if (options.initialStorageState) {
+    Y.applyUpdate(ydoc, options.initialStorageState)
+  }
   let provider: WebrtcProvider | WebsocketProvider | null = null
 
   if (options.provider === 'webrtc') {
