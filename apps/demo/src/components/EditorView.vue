@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onUnmounted, ref } from 'vue'
 import { Printer } from 'lucide-vue-next'
 import { DocsEditor } from '@kedata-indonesia/docflow-vue'
 import { defaultPlugins } from '@kedata-indonesia/docflow-plugins'
+import type { DocsEditor as DocsEditorType } from '@kedata-indonesia/docflow-core'
 import type { DocumentItem } from '../types.js'
 
 const props = defineProps<{
@@ -45,6 +46,18 @@ function handlePrint() {
 function handleUpdatePageSize(size: string) {
   pageSize.value = size
 }
+
+function handleEditorReady(editor: DocsEditorType['editor']) {
+  if (typeof window !== 'undefined') {
+    ;(window as unknown as { __docsEditor?: DocsEditorType['editor'] }).__docsEditor = editor
+  }
+}
+
+onUnmounted(() => {
+  if (typeof window !== 'undefined') {
+    delete (window as unknown as { __docsEditor?: DocsEditorType['editor'] }).__docsEditor
+  }
+})
 </script>
 
 <template>
@@ -62,6 +75,7 @@ function handleUpdatePageSize(size: string) {
     @toggle-star="handleToggleStar"
     @update:model-value="handleUpdateContent"
     @update:page-size="handleUpdatePageSize"
+    @ready="handleEditorReady"
   >
     <template #header-actions>
       <button

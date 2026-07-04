@@ -42,9 +42,9 @@ export function useEditor(options: UseEditorOptions): UseEditorReturn {
 
     docsEditor.value = nextEditor
 
-    setTimeout(() => {
+    nextTick(() => {
       isReady.value = true
-    }, 500)
+    })
   }
 
   const destroyEditor = () => {

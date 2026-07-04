@@ -133,4 +133,30 @@ describe('DocsEditor', () => {
     expect(wrapper.findAll('.docs-editor__paper').length).toBeGreaterThanOrEqual(1)
     wrapper.unmount()
   })
+
+  it('can insert footnote and render its ref element', async () => {
+    const { footnotePlugin } = await import('../../../plugins/src/footnote')
+    const wrapper = mount(DocsEditor, {
+      props: {
+        plugins: [...defaultPlugins, footnotePlugin],
+      },
+    })
+    await new Promise((resolve) => setTimeout(resolve, 50))
+
+    const vm = wrapper.vm as any
+    vm.editor?.commands.focus()
+    // Trigger insert footnote menu action
+    vm.menuClick('insert-footnote')
+
+    await new Promise((resolve) => setTimeout(resolve, 250))
+    await wrapper.vm.$nextTick()
+
+    // Footnote ref span should be rendered
+    const ref = wrapper.find('.docs-footnote-ref')
+    expect(ref.exists()).toBe(true)
+    expect(ref.text()).toBe('1')
+
+    wrapper.unmount()
+  })
 })
+

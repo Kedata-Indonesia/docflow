@@ -271,11 +271,142 @@
   font-family: var(--font-sans);
 }
 
+/* ── Footnote (Catatan Kaki) ── Google Docs-style inline ──────────────── */
+
+/* Inline superscript anchor in the document body */
+.docs-footnote-ref {
+  display: inline;
+  font-size: 0.65em;
+  vertical-align: super;
+  line-height: 1;
+  color: #2563eb;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.1s, background 0.1s;
+  border-radius: 2px;
+}
+
+.ProseMirror-selectednode .docs-footnote-ref,
+.docs-footnote-ref:hover {
+  background: #dbeafe;
+}
+
+/* ── Footnote area at the bottom of each page ──────────────────────── */
+.docs-page-footnotes {
+  position: relative;
+  width: 100%;
+  /* Indent left/right to match page margins (since it is inside full-width .breaker) */
+  padding: 12px var(--rm-margin-right, 72px) 4px var(--rm-margin-left, 72px);
+  margin-top: 20px;
+  background: transparent;
+  pointer-events: auto;
+  box-sizing: border-box;
+}
+
+/* For pageless mode or during loading, place at the bottom relative to text flow */
+.docs-pageless-footnotes {
+  position: relative;
+  margin-top: 40px;
+  padding-bottom: 20px;
+  /* Pageless mode is outside breaker, so use standard margins */
+  padding-left: 72px;
+  padding-right: 72px;
+}
+
+
+
+
+/* Separator line — matches Google Docs' short horizontal rule */
+.docs-footnotes-sep {
+  width: 120px;
+  height: 1px;
+  background: #64748b;
+  margin: 0 0 4px;
+  pointer-events: none;
+}
+
+/* Each footnote entry row */
+.docs-footnote-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  font-size: 0.8em;
+  line-height: 1.55;
+  color: #1e293b;
+  pointer-events: auto;
+  padding: 0 0 1px;
+}
+
+/* The superscript number before each footnote */
+.docs-footnote-item-num {
+  font-size: 0.7em;
+  vertical-align: super;
+  color: #2563eb;
+  font-weight: 700;
+  flex-shrink: 0;
+  line-height: 1;
+  padding-top: 2px;
+  user-select: none;
+}
+
+/* The editable text area — mimics Google Docs footnote text */
+.docs-footnote-item-text {
+  flex: 1;
+  min-width: 0;
+  outline: none;
+  border: none;
+  background: transparent;
+  word-break: break-word;
+  caret-color: #1e293b;
+  cursor: text;
+  padding: 0;
+}
+
+.docs-footnote-item-text:focus {
+  background: transparent;
+}
+
+/* Placeholder when empty */
+.docs-footnote-item-text[data-empty='true']::before {
+  content: 'Ketik teks catatan kaki…';
+  color: #94a3b8;
+  font-style: italic;
+  pointer-events: none;
+}
+
+/* Dark mode */
+.dark .docs-footnote-ref {
+  color: #60a5fa;
+}
+
+.dark .docs-footnote-ref:hover,
+.dark .ProseMirror-selectednode .docs-footnote-ref {
+  background: #1e3a5f;
+}
+
+.dark .docs-footnotes-sep {
+  background: #475569;
+}
+
+.dark .docs-footnote-item {
+  color: #e2e8f0;
+}
+
+.dark .docs-footnote-item-num {
+  color: #60a5fa;
+}
+
+.dark .docs-footnote-item-text[data-empty='true']::before {
+  color: #64748b;
+}
+
 /* Print page setup — standard document margins */
 @page {
   margin: 20mm;
   size: auto;
 }
+
 
 @media print {
   /* ── Hide editor chrome ───────────────────────────────────────────── */

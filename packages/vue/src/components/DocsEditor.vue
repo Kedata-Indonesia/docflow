@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { type DocsEditorPlugin, type EditorOptions } from '@kedata-indonesia/docflow-core'
+import { type DocsEditor, type DocsEditorPlugin, type EditorOptions } from '@kedata-indonesia/docflow-core'
 import { PAGE_SIZES, getPageSize } from '@kedata-indonesia/docflow-layout-engine'
 import { computed, onUnmounted, ref, watch } from 'vue'
 import { useEditor } from '../composables/useEditor.js'
@@ -50,6 +50,7 @@ const emit = defineEmits<{
   back: []
   share: []
   'menu-click': [menu: string]
+  ready: [editor: DocsEditor['editor']]
 }>()
 
 // ─── Page Size ────────────────────────────────────────────────────────────────
@@ -95,7 +96,15 @@ const paginationOptions = computed(() => ({
 // ─── Editor ───────────────────────────────────────────────────────────────────
 
 interface TabItem { id: string; label: string; content: any }
-interface TabbedDoc { type: 'tabbed-doc'; activeTabId: string; tabs: TabItem[] }
+interface TabbedDoc {
+  type: 'tabbed-doc'
+  activeTabId: string
+  tabs: TabItem[]
+  headerLeft?: string
+  headerRight?: string
+  footerLeft?: string
+  footerRight?: string
+}
 
 const parseModelValue = (val: any): TabbedDoc => {
   if (val && typeof val === 'object' && val.type === 'tabbed-doc' && Array.isArray(val.tabs)) return val as TabbedDoc
@@ -103,6 +112,11 @@ const parseModelValue = (val: any): TabbedDoc => {
 }
 
 const initialDoc = parseModelValue(props.modelValue)
+const userHeaderLeft = ref(initialDoc.headerLeft || '')
+const userHeaderRight = ref(initialDoc.headerRight || '')
+const userFooterLeft = ref(initialDoc.footerLeft || '')
+const userFooterRight = ref(initialDoc.footerRight || '')
+
 const tabs = ref<Array<{ id: string; label: string; active: boolean }>>(initialDoc.tabs.map(t => ({ id: t.id, label: t.label, active: t.id === initialDoc.activeTabId })))
 const tabContents = ref<Record<string, any>>({})
 initialDoc.tabs.forEach(t => { tabContents.value[t.id] = t.content })
@@ -128,7 +142,15 @@ const { editorRef, editor, pluginActions, isReady } = useEditor({
   paginationOptions: paginationOptions.value,
   onUpdate: (json) => {
     tabContents.value[activeTabId.value] = json
-    const fullDoc: TabbedDoc = { type: 'tabbed-doc', activeTabId: activeTabId.value, tabs: tabs.value.map(t => ({ id: t.id, label: t.label, content: tabContents.value[t.id] })) }
+    const fullDoc: TabbedDoc = {
+      type: 'tabbed-doc',
+      activeTabId: activeTabId.value,
+      tabs: tabs.value.map(t => ({ id: t.id, label: t.label, content: tabContents.value[t.id] })),
+      headerLeft: userHeaderLeft.value,
+      headerRight: userHeaderRight.value,
+      footerLeft: userFooterLeft.value,
+      footerRight: userFooterRight.value,
+    }
     emit('update:modelValue', fullDoc)
     savingStatus.value = 'saving'
     if (saveTimer.value) clearTimeout(saveTimer.value)
@@ -243,13 +265,10 @@ watch(resolvedLayoutOptions, (newOptions) => {
   updatePageStats()
 })
 
-const userHeaderLeft = ref('')
-const userHeaderRight = ref('')
-const userFooterLeft = ref('')
-const userFooterRight = ref('')
+// Header & footer refs are defined above to support initialization from props
 
 const applyHeaderFooter = () => {
-  if (!editor.value) return
+  if (!editor.value || !isReady.value) return
   const resolvedHeaderLeft = userHeaderLeft.value.replace(/{total}/g, String(pageCount.value))
   const resolvedHeaderRight = userHeaderRight.value.replace(/{total}/g, String(pageCount.value))
   const resolvedFooterLeft = userFooterLeft.value.replace(/{total}/g, String(pageCount.value))
@@ -273,6 +292,18 @@ watch(isDark, (darkVal) => {
 
 watch(isReady, (ready) => {
   if (ready && editor.value) {
+    // Populate raw inputs from stored/loaded configuration if not already set by props
+    if (!userHeaderLeft.value && !userHeaderRight.value && !userFooterLeft.value && !userFooterRight.value) {
+      userHeaderLeft.value = editor.value.storage.PaginationPlus?.appliedConfig?.headerLeft || ''
+      userHeaderRight.value = editor.value.storage.PaginationPlus?.appliedConfig?.headerRight || ''
+      userFooterLeft.value = editor.value.storage.PaginationPlus?.appliedConfig?.footerLeft || ''
+      userFooterRight.value = editor.value.storage.PaginationPlus?.appliedConfig?.footerRight || ''
+    }
+
+    // Apply header & footer with correct page stats
+    applyHeaderFooter()
+
+    emit('ready', editor.value)
     editor.value.on('selectionUpdate', () => {
       updateBubbleMenu()
       updatePageStats()
@@ -328,18 +359,283 @@ const saveHeaderFooter = () => {
   userFooterRight.value = footerRightInput.value
   
   applyHeaderFooter()
+
+  // Manually update the persisted modelValue!
+  const fullDoc: TabbedDoc = {
+    type: 'tabbed-doc',
+    activeTabId: activeTabId.value,
+    tabs: tabs.value.map(t => ({ id: t.id, label: t.label, content: tabContents.value[t.id] })),
+    headerLeft: userHeaderLeft.value,
+    headerRight: userHeaderRight.value,
+    footerLeft: userFooterLeft.value,
+    footerRight: userFooterRight.value,
+  }
+  emit('update:modelValue', fullDoc)
+  savingStatus.value = 'saving'
+  if (saveTimer.value) clearTimeout(saveTimer.value)
+  saveTimer.value = setTimeout(() => { try { localStorage.setItem('docs-editor-current-doc', JSON.stringify(fullDoc)) } catch { /* ignore */ }; savingStatus.value = 'saved'; lastSaved.value = Date.now() }, 800)
+
   showHeaderFooterModal.value = false
 }
 
 let menuClick = (action: string) => {
   if (action === 'insert-header' || action === 'insert-footer') {
     openHeaderFooterModal()
+  } else if (action === 'insert-footnote') {
+    // Use ProseMirror's transaction API directly — more reliable than chain()
+    // because chain().focus() can fail when focus has left the editor via menu click.
+    if (!editor.value) return
+    const { state, view } = editor.value
+    const footnoteType = state.schema.nodes['footnote']
+    if (!footnoteType) {
+      console.error('[DocsEditor] footnote node type not registered in schema')
+      return
+    }
+    // Insert at the last known cursor position
+    const insertPos = state.selection.head
+    const footnoteNode = footnoteType.create({ content: '' })
+    const tr = state.tr.insert(insertPos, footnoteNode)
+    view.dispatch(tr)
+    view.focus()
+
+    // After DOM settles: build footnote list and focus the new text area
+    setTimeout(() => {
+      updateFootnotes()
+      const items = document.querySelectorAll<HTMLElement>('.docs-footnote-item-text')
+      const last = items[items.length - 1]
+      if (last) {
+        last.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+        last.focus()
+      }
+    }, 160)
   } else {
     emit('menu-click', action)
   }
 }
 let toggleSidebar = (key: SidebarKey) => { activeSidebar.value = activeSidebar.value === key ? null : key }
 let handlePrint = () => window.print()
+
+// ─── Footnote (Catatan Kaki) ──────────────────────────────────────────────────
+
+/**
+ * Save edited footnote content from a contenteditable div back to the
+ * ProseMirror node attribute when the user blurs the item.
+ */
+const saveFootnoteItemContent = (refEl: HTMLElement, newContent: string) => {
+  if (!editor.value) return
+  const view = editor.value.view
+  view.state.doc.descendants((node, pos): boolean | undefined | void => {
+    if (node.type.name === 'footnote') {
+      if (view.nodeDOM(pos) === refEl) {
+        view.dispatch(view.state.tr.setNodeMarkup(pos, undefined, { content: newContent }))
+        return false
+      }
+    }
+    return undefined
+  })
+}
+
+/**
+ * Build / refresh the inline footnote area at the bottom of each page.
+ * ─ Numbers the inline <sup> refs per-page (restarting at 1).
+ * ─ Creates contenteditable footnote items that sync back to ProseMirror on blur.
+ * ─ Skips rebuilding any page whose footnote area is currently focused.
+ */
+const updateFootnotes = () => {
+  if (!editor.value || !isReady.value) return
+  const editorDom = editor.value.view.dom
+
+  const paginationEl = editorDom.querySelector('[data-rm-pagination]')
+  if (!paginationEl) return
+
+  const pageBreaks = Array.from(paginationEl.querySelectorAll<HTMLElement>('.rm-page-break'))
+  const allRefs = Array.from(editorDom.querySelectorAll<HTMLElement>('.docs-footnote-ref'))
+
+  if (pageBreaks.length === 0) {
+    // Pageless mode or layout not computed yet: render footnotes at the very bottom of the paper
+    allRefs.forEach((ref, i) => { ref.textContent = String(i + 1) })
+
+    // Find paper container
+    const paper = editorRef.value
+    if (!paper) return
+
+    // Remove existing pageless container
+    paper.querySelector('.docs-pageless-footnotes')?.remove()
+
+    if (allRefs.length === 0) return
+
+    // Skip if a footnote text input inside this container is currently focused
+    const existing = paper.querySelector<HTMLElement>('.docs-pageless-footnotes')
+    if (existing?.querySelector<HTMLElement>('.docs-footnote-item-text:focus')) return
+
+    const container = document.createElement('div')
+    container.className = 'docs-page-footnotes docs-pageless-footnotes'
+
+    const sep = document.createElement('div')
+    sep.className = 'docs-footnotes-sep'
+    container.appendChild(sep)
+
+    allRefs.forEach((ref, n) => {
+      const content = ref.getAttribute('data-footnote-content') ?? ''
+      const row = document.createElement('div')
+      row.className = 'docs-footnote-item'
+
+      const num = document.createElement('sup')
+      num.className = 'docs-footnote-item-num'
+      num.textContent = String(n + 1)
+
+      const textDiv = document.createElement('div')
+      textDiv.className = 'docs-footnote-item-text'
+      textDiv.contentEditable = 'true'
+      textDiv.textContent = content
+      if (!content) textDiv.setAttribute('data-empty', 'true')
+
+      textDiv.addEventListener('input', () => {
+        textDiv.removeAttribute('data-empty')
+        if (!textDiv.textContent) textDiv.setAttribute('data-empty', 'true')
+      })
+
+      textDiv.addEventListener('blur', () => {
+        const newContent = textDiv.textContent?.trim() ?? ''
+        saveFootnoteItemContent(ref, newContent)
+      })
+
+      ref.dataset.footnoteItemId = `fn-pageless-${n}`
+      row.id = `fn-pageless-${n}`
+
+      row.appendChild(num)
+      row.appendChild(textDiv)
+      container.appendChild(row)
+    })
+
+    paper.appendChild(container)
+    return
+  }
+
+
+  // Map page index → footnote refs on that page
+  const pageRefs = new Map<number, HTMLElement[]>()
+  pageBreaks.forEach((_, i) => pageRefs.set(i, []))
+
+  allRefs.forEach(ref => {
+    const top = ref.getBoundingClientRect().top
+    let assigned = pageBreaks.length - 1
+    for (let i = 0; i < pageBreaks.length - 1; i++) {
+      const breaker = pageBreaks[i].querySelector<HTMLElement>('.breaker')
+      if (breaker && top < breaker.getBoundingClientRect().top) { assigned = i; break }
+    }
+    pageRefs.get(assigned)!.push(ref)
+  })
+
+  pageBreaks.forEach((pb, pageIdx) => {
+    const refs = pageRefs.get(pageIdx) ?? []
+
+    // Number inline refs
+    refs.forEach((ref, n) => { ref.textContent = String(n + 1) })
+
+    // Skip rebuild if a footnote item on this page has focus
+    const existing = pb.querySelector<HTMLElement>('.docs-page-footnotes')
+    if (existing?.querySelector<HTMLElement>('.docs-footnote-item-text:focus')) return
+
+    existing?.remove()
+    if (refs.length === 0) return
+
+    // Build inline footnote area
+    const container = document.createElement('div')
+    container.className = 'docs-page-footnotes'
+
+    // Separator line
+    const sep = document.createElement('div')
+    sep.className = 'docs-footnotes-sep'
+    container.appendChild(sep)
+
+    refs.forEach((ref, n) => {
+      const content = ref.getAttribute('data-footnote-content') ?? ''
+
+      const row = document.createElement('div')
+      row.className = 'docs-footnote-item'
+
+      const num = document.createElement('sup')
+      num.className = 'docs-footnote-item-num'
+      num.textContent = String(n + 1)
+
+      const textDiv = document.createElement('div')
+      textDiv.className = 'docs-footnote-item-text'
+      textDiv.contentEditable = 'true'
+      textDiv.textContent = content
+      if (!content) textDiv.setAttribute('data-empty', 'true')
+
+      textDiv.addEventListener('input', () => {
+        textDiv.removeAttribute('data-empty')
+        if (!textDiv.textContent) textDiv.setAttribute('data-empty', 'true')
+      })
+
+      textDiv.addEventListener('blur', () => {
+        const newContent = textDiv.textContent?.trim() ?? ''
+        saveFootnoteItemContent(ref, newContent)
+      })
+
+      // Clicking the sup ref in the text jumps here
+      ref.dataset.footnoteItemId = `fn-${pageIdx}-${n}`
+      row.id = `fn-${pageIdx}-${n}`
+
+      row.appendChild(num)
+      row.appendChild(textDiv)
+      container.appendChild(row)
+    })
+
+    // Find the page breaker (the layout divider which contains the footer)
+    const breaker = pb.querySelector('.breaker')
+    if (breaker) {
+      // Prepend so it sits exactly above the footer content inside the breaker
+      breaker.insertBefore(container, breaker.firstChild)
+    } else {
+      pb.appendChild(container)
+    }
+  })
+}
+
+
+// Click on sup ref → scroll to + focus corresponding footnote item
+watch(isReady, (ready) => {
+  if (!ready || !editor.value) return
+  editor.value.view.dom.addEventListener('click', (e) => {
+    const target = (e.target as HTMLElement).closest<HTMLElement>('.docs-footnote-ref')
+    if (!target) return
+    e.preventDefault()
+    e.stopPropagation()
+    const id = target.dataset.footnoteItemId
+    if (!id) return
+    const itemRow = document.getElementById(id)
+    const textEl = itemRow?.querySelector<HTMLElement>('.docs-footnote-item-text')
+    if (textEl) {
+      textEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+      textEl.focus()
+      // Place cursor at end
+      const range = document.createRange()
+      range.selectNodeContents(textEl)
+      range.collapse(false)
+      const sel = window.getSelection()
+      sel?.removeAllRanges()
+      sel?.addRange(range)
+    }
+  })
+})
+
+// Re-render footnotes after each editor update & lifecycle changes
+watch(isReady, (ready) => {
+  if (!ready || !editor.value) return
+
+  // Run immediately
+  setTimeout(updateFootnotes, 150)
+
+  // Run on update & selection changes
+  editor.value.on('update', () => { setTimeout(updateFootnotes, 60) })
+  editor.value.on('selectionUpdate', () => { setTimeout(updateFootnotes, 100) })
+
+  // Listen to window resize because pagination calculations layout can shift
+  window.addEventListener('resize', updateFootnotes)
+})
 </script>
 
 <template>
