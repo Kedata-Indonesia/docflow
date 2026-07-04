@@ -47,22 +47,72 @@ export async function getCurrentUser(): Promise<ApiUser | null> {
   }
 }
 
-export async function signInWithGoogle(): Promise<void> {
+export interface AuthProvider {
+  id: string
+  name: string
+  type: 'social' | 'credentials'
+}
+
+export async function getAuthProviders(): Promise<AuthProvider[]> {
+  try {
+    const res = await fetch(`${BASE}/api/auth/providers`)
+    if (!res.ok) return []
+    const data = await res.json()
+    return data.providers || []
+  } catch {
+    return []
+  }
+}
+
+export async function signInWithProvider(provider: string): Promise<void> {
   const res = await fetch(`${BASE}/api/auth/sign-in/social`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
     body: JSON.stringify({
-      provider: 'google',
+      provider,
       callbackURL: window.location.origin,
     }),
   })
-  if (!res.ok) throw new Error('Failed to initiate sign-in')
+  if (!res.ok) throw new Error(`Failed to sign in with ${provider}`)
   const data = await res.json()
-  // Better Auth returns { url } — redirect browser to Google OAuth
   if (data.url) {
     window.location.href = data.url
   }
+}
+
+export async function signUpWithEmail(email: string, password: string, name: string): Promise<ApiUser> {
+  const res = await fetch(`${BASE}/api/auth/sign-up/email`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ email, password, name }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(err.message || 'Sign up failed')
+  }
+  const data = await res.json()
+  return data.user
+}
+
+export async function signInWithEmail(email: string, password: string): Promise<ApiUser> {
+  const res = await fetch(`${BASE}/api/auth/sign-in/email`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ email, password }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(err.message || 'Invalid email or password')
+  }
+  const data = await res.json()
+  return data.user
+}
+
+export async function signInWithGoogle(): Promise<void> {
+  return signInWithProvider('google')
 }
 
 export async function signOut(): Promise<void> {

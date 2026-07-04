@@ -13,6 +13,14 @@ const { isDark, toggle: toggleTheme } = useTheme()
 const user = ref<UserInfo | null>(null)
 const authLoading = ref(true)
 const dataLoading = ref(false)
+const providers = ref<Array<{ id: string; name: string; type: string }>>([])
+const showEmailForm = ref(false)
+const emailFormMode = ref<'signin' | 'signup'>('signin')
+const emailInput = ref('')
+const passwordInput = ref('')
+const nameInput = ref('')
+const emailError = ref('')
+const emailLoading = ref(false)
 
 async function checkAuth() {
   authLoading.value = true
@@ -33,13 +41,34 @@ async function checkAuth() {
   } finally {
     authLoading.value = false
   }
+  // Fetch available providers
+  api.getAuthProviders().then(p => { providers.value = p }).catch(() => {})
 }
 
-async function handleLogin() {
+async function handleLogin(provider: string) {
   try {
-    await api.signInWithGoogle()
+    await api.signInWithProvider(provider)
   } catch (err) {
     console.error('Sign in failed:', err)
+  }
+}
+
+async function handleEmailSubmit() {
+  emailError.value = ''
+  emailLoading.value = true
+  try {
+    if (emailFormMode.value === 'signup') {
+      await api.signUpWithEmail(emailInput.value, passwordInput.value, nameInput.value || emailInput.value)
+    } else {
+      await api.signInWithEmail(emailInput.value, passwordInput.value)
+    }
+    // Reload to refresh auth state
+    await checkAuth()
+    if (user.value) await loadDocuments()
+  } catch (err) {
+    emailError.value = (err as Error).message
+  } finally {
+    emailLoading.value = false
   }
 }
 
@@ -411,20 +440,122 @@ const userAvatar = computed(() => {
       <p class="text-sm text-slate-500 dark:text-slate-400">
         Sign in to create and edit documents
       </p>
-      <div class="flex flex-col gap-3">
-        <button
-          type="button"
-          class="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-6 py-3 text-sm font-semibold text-slate-700 shadow-sm transition-all hover:border-slate-300 hover:shadow-md dark:border-white/10 dark:bg-slate-800 dark:text-slate-200 dark:hover:border-white/20"
-          @click="handleLogin"
-        >
-          <svg class="h-5 w-5" viewBox="0 0 24 24">
-            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/>
-            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-          </svg>
-          Sign in with Google
-        </button>
+      <div class="flex w-full max-w-sm flex-col gap-4">
+        <!-- Social provider buttons -->
+        <template v-for="p in providers.filter(x => x.type === 'social')" :key="p.id">
+          <!-- Google -->
+          <button
+            v-if="p.id === 'google'"
+            type="button"
+            class="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-6 py-3 text-sm font-semibold text-slate-700 shadow-sm transition-all hover:border-slate-300 hover:shadow-md dark:border-white/10 dark:bg-slate-800 dark:text-slate-200 dark:hover:border-white/20"
+            @click="handleLogin('google')"
+          >
+            <svg class="h-5 w-5" viewBox="0 0 24 24">
+              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/>
+              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+            </svg>
+            Sign in with Google
+          </button>
+          <!-- GitHub -->
+          <button
+            v-if="p.id === 'github'"
+            type="button"
+            class="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-6 py-3 text-sm font-semibold text-slate-700 shadow-sm transition-all hover:border-slate-300 hover:shadow-md dark:border-white/10 dark:bg-slate-800 dark:text-slate-200 dark:hover:border-white/20"
+            @click="handleLogin('github')"
+          >
+            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/>
+            </svg>
+            Sign in with GitHub
+          </button>
+          <!-- Microsoft -->
+          <button
+            v-if="p.id === 'microsoft'"
+            type="button"
+            class="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-6 py-3 text-sm font-semibold text-slate-700 shadow-sm transition-all hover:border-slate-300 hover:shadow-md dark:border-white/10 dark:bg-slate-800 dark:text-slate-200 dark:hover:border-white/20"
+            @click="handleLogin('microsoft')"
+          >
+            <svg class="h-5 w-5" viewBox="0 0 24 24">
+              <rect x="1" y="1" width="10" height="10" fill="#F25022"/>
+              <rect x="13" y="1" width="10" height="10" fill="#7FBA00"/>
+              <rect x="1" y="13" width="10" height="10" fill="#00A4EF"/>
+              <rect x="13" y="13" width="10" height="10" fill="#FFB900"/>
+            </svg>
+            Sign in with Microsoft
+          </button>
+          <!-- Generic social fallback -->
+          <button
+            v-if="!['google','github','microsoft'].includes(p.id)"
+            type="button"
+            class="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-6 py-3 text-sm font-semibold text-slate-700 shadow-sm transition-all hover:border-slate-300 hover:shadow-md dark:border-white/10 dark:bg-slate-800 dark:text-slate-200 dark:hover:border-white/20"
+            @click="handleLogin(p.id)"
+          >
+            Sign in with {{ p.name }}
+          </button>
+        </template>
+
+        <!-- Email/Password section -->
+        <template v-if="providers.some(p => p.type === 'credentials')">
+          <div class="flex items-center gap-3">
+            <div class="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
+            <span class="text-xs text-slate-400">or</span>
+            <div class="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
+          </div>
+
+          <form v-if="showEmailForm" class="flex flex-col gap-3" @submit.prevent="handleEmailSubmit">
+            <p v-if="emailError" class="text-xs text-red-500">{{ emailError }}</p>
+            <input
+              v-model="emailInput"
+              type="email"
+              required
+              placeholder="Email"
+              class="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 outline-none transition focus:border-cyan-400 dark:border-white/10 dark:bg-slate-800 dark:text-slate-200"
+            />
+            <input
+              v-if="emailFormMode === 'signup'"
+              v-model="nameInput"
+              type="text"
+              placeholder="Name"
+              class="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 outline-none transition focus:border-cyan-400 dark:border-white/10 dark:bg-slate-800 dark:text-slate-200"
+            />
+            <input
+              v-model="passwordInput"
+              type="password"
+              required
+              minlength="8"
+              placeholder="Password"
+              class="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 outline-none transition focus:border-cyan-400 dark:border-white/10 dark:bg-slate-800 dark:text-slate-200"
+            />
+            <button
+              type="submit"
+              :disabled="emailLoading"
+              class="rounded-lg bg-cyan-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-cyan-600 disabled:opacity-50"
+            >
+              {{ emailLoading ? 'Loading...' : emailFormMode === 'signup' ? 'Create Account' : 'Sign In' }}
+            </button>
+            <button
+              type="button"
+              class="text-xs text-cyan-500 hover:underline"
+              @click="emailFormMode = emailFormMode === 'signin' ? 'signup' : 'signin'"
+            >
+              {{ emailFormMode === 'signin' ? "Don't have an account? Sign up" : 'Already have an account? Sign in' }}
+            </button>
+          </form>
+          <button
+            v-else
+            type="button"
+            class="rounded-lg border border-slate-200 bg-white px-6 py-3 text-sm font-semibold text-slate-700 shadow-sm transition-all hover:border-slate-300 hover:shadow-md dark:border-white/10 dark:bg-slate-800 dark:text-slate-200 dark:hover:border-white/20"
+            @click="showEmailForm = true"
+          >
+            Sign in with Email
+          </button>
+        </template>
+
+        <p v-if="providers.length === 0" class="text-xs text-slate-400">
+          No authentication providers configured.
+        </p>
       </div>
     </div>
 
