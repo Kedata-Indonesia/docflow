@@ -85,7 +85,6 @@ async function loadCollabSnapshot() {
     const data = await res.json()
     if (data.yDocState && editorInstance.value?.collab?.ydoc) {
       applyUpdate(editorInstance.value.collab.ydoc, new Uint8Array(data.yDocState))
-      }
     }
   } catch {
     // No existing snapshot — fresh start
