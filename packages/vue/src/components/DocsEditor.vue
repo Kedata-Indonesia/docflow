@@ -3,6 +3,7 @@ import { type DocsEditor, type DocsEditorPlugin, type EditorOptions } from '@ked
 import { PAGE_SIZES, getPageSize } from '@kedata-indonesia/docflow-layout-engine'
 import { computed, onUnmounted, ref, watch } from 'vue'
 import { useEditor } from '../composables/useEditor.js'
+import SlashMenuVue from './SlashMenu.vue'
 import type { Collaborator, ConnectionState, SavingStatus, SidebarKey } from '../types.js'
 import HeaderBar from './HeaderBar.vue'
 import EditorToolbar from './EditorToolbar.vue'
@@ -134,6 +135,17 @@ const lastSaved = ref(Date.now())
 const saveTimer = ref<ReturnType<typeof setTimeout> | null>(null)
 
 const { editorRef, editor, pluginActions, isReady, docsEditor: docEditor } = useEditor({
+
+// Collect slash commands from all plugins
+const slashCommands = computed(() => {
+  const cmds: Array<{ name: string; command: string }> = []
+  for (const plugin of props.plugins) {
+    for (const sc of plugin.slashCommands || []) {
+      cmds.push({ name: sc.name, command: sc.command })
+    }
+  }
+  return cmds
+})
   content: activeTabContent,
   plugins: props.plugins,
   editable: props.editable,
@@ -649,6 +661,7 @@ watch(isReady, (ready) => {
       @toggle-sidebar="toggleSidebar"       @print="handlePrint" @toggle-left-sidebar="leftSidebarOpen = !leftSidebarOpen" />
     <RulerBar :layout-options="resolvedLayoutOptions" />
     <BubbleMenu :visible="showBubbleMenu" :actions="pluginActions" :position="bubblePosition" :editor="editor" />
+    <SlashMenuVue :editor="editor" :commands="slashCommands" />
     <div class="docs-editor__body flex flex-1 overflow-hidden">
       <div ref="scrollContainerRef" class="docs-editor-scroll relative flex flex-1 overflow-auto px-4 py-6 bg-slate-100 dark:bg-[#02040a]" @scroll="handleScroll">
         <VerticalRuler :layout-options="resolvedLayoutOptions" />

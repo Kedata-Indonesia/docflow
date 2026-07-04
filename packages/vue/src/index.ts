@@ -14,4 +14,5 @@ export { default as CommentsSidebar } from './components/sidebars/CommentsSideba
 export { default as HistorySidebar } from './components/sidebars/HistorySidebar.vue'
 export { default as TOCSidebar } from './components/sidebars/TOCSidebar.vue'
 export { default as DocumentTabsSidebar } from './components/DocumentTabsSidebar.vue'
+export { default as SlashMenu } from './components/SlashMenu.vue'
 export type * from './types.js'
