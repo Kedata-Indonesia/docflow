@@ -1,67 +1,54 @@
+import { Mark, mergeAttributes } from '@tiptap/core'
 import { definePlugin } from '@kedata-indonesia/docflow-core'
-import { Extension } from '@tiptap/core'
 import type { Editor } from '@tiptap/core'
 
-const FONT_SIZES = [
-  { label: '10px', value: '10px' },
-  { label: '12px', value: '12px' },
-  { label: '14px', value: '14px' },
-  { label: '16px', value: '16px' },
-  { label: '18px', value: '18px' },
-  { label: '20px', value: '20px' },
-  { label: '24px', value: '24px' },
-  { label: '30px', value: '30px' },
-  { label: '36px', value: '36px' },
-]
-
-export const FontSizeExtension = Extension.create({
+export const FontSizeMark = Mark.create({
   name: 'fontSize',
 
-  addGlobalAttributes() {
-    return [
-      {
-        types: ['textStyle'],
-        attributes: {
-          fontSize: {
-            default: null,
-            parseHTML: el => el.style.fontSize || null,
-            renderHTML: attrs => {
-              if (!attrs.fontSize) return {}
-              return { style: `font-size: ${attrs.fontSize}` }
-            },
-          },
+  addAttributes() {
+    return {
+      size: {
+        default: null,
+        parseHTML: el => el.style.fontSize?.replace('px', '') ? `${el.style.fontSize}` : null,
+        renderHTML: attrs => {
+          if (!attrs.size) return {}
+          return { style: `font-size: ${attrs.size}` }
         },
       },
-    ]
+    }
+  },
+
+  parseHTML() {
+    return [{ style: 'font-size' }]
+  },
+
+  renderHTML({ HTMLAttributes }) {
+    return ['span', mergeAttributes(HTMLAttributes, { class: 'docs-font-size' }), 0]
   },
 
   addCommands() {
     return {
-      setFontSize: (fontSize: string) => ({ chain }) => {
-        return chain()
-          .setMark('textStyle', { fontSize })
-          .run()
+      setFontSize: (size: string) => ({ commands }) => {
+        if (size === '16px' || size === '16') {
+          return commands.unsetMark('fontSize')
+        }
+        return commands.setMark('fontSize', { size })
       },
-      unsetFontSize: () => ({ chain }) => {
-        return chain()
-          .setMark('textStyle', { fontSize: null })
-          .removeEmptyTextStyle()
-          .run()
-      },
-    } as Record<string, (fontSize: string) => ReturnType<ReturnType<Editor['commands']['chain']>['run']>>
+      unsetFontSize: () => ({ commands }) => commands.unsetMark('fontSize'),
+    }
   },
 })
 
 export const fontSizePlugin = definePlugin({
   id: 'font-size',
-  tiptapExtensions: [FontSizeExtension],
-  toolbar: [
-    { id: 'font-size', label: 'Font Size', action: 'setFontSize', iconComponent: 'Type' },
-  ],
+  tiptapExtensions: [FontSizeMark],
   commands: {
     setFontSize: (editor: Editor, ...args: unknown[]) => {
       const size = (args[0] as string) || '16px'
-      return editor.chain().focus().setMark('textStyle', { fontSize: size }).run()
+      if (size === '16px') {
+        return editor.chain().focus().unsetFontSize().run()
+      }
+      return editor.chain().focus().setFontSize(size).run()
     },
   },
 })
