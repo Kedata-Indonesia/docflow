@@ -409,6 +409,16 @@
 }
 
 
+/* ── Pagination paper background (screen) ─────────────────────────── */
+.rm-with-pagination {
+  background-color: #ffffff;
+}
+
+.dark .rm-with-pagination {
+  background-color: #0a0f1e;
+}
+
+
 @media print {
   /* ── Hide editor chrome ───────────────────────────────────────────── */
   header,
