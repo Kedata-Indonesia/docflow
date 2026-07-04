@@ -16,6 +16,7 @@ export interface CollaborationOptions {
   room: string
   provider?: 'webrtc' | 'websocket'
   websocketUrl?: string
+  signaling?: string[]
   user: { name: string; color: string }
   onAwarenessChange?: (states: AwarenessState[]) => void
 }
@@ -50,7 +51,13 @@ export function createCollaboration(options: CollaborationOptions): Collaboratio
   let provider: WebrtcProvider | WebsocketProvider | null = null
 
   if (options.provider === 'webrtc') {
-    provider = new WebrtcProvider(options.room, ydoc)
+    provider = new WebrtcProvider(options.room, ydoc, {
+      signaling: options.signaling || [
+        'ws://localhost:4444',
+        'wss://signaling.yjs.dev',
+        'wss://y-webrtc-eu.fly.dev'
+      ]
+    })
   } else if (options.provider === 'websocket') {
     if (!options.websocketUrl) {
       throw new Error('[Collaboration] websocketUrl is required when provider is "websocket"')

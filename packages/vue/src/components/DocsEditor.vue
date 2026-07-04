@@ -303,7 +303,9 @@ watch(isReady, (ready) => {
     // Apply header & footer with correct page stats
     applyHeaderFooter()
 
-    emit('ready', docEditor.value)
+    if (docEditor.value) {
+      emit('ready', docEditor.value)
+    }
     editor.value.on('selectionUpdate', () => {
       updateBubbleMenu()
       updatePageStats()
