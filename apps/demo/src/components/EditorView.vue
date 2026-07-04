@@ -22,6 +22,7 @@ const emit = defineEmits<{
 const pageSize = ref('a4')
 const editorInstance = ref<DocsEditorType['editor'] | null>(null)
 const saveTimer = ref<ReturnType<typeof setInterval> | null>(null)
+const shareToast = ref('')
 
 // Generate consistent color from username
 function nameToColor(name: string): string {
@@ -136,6 +137,17 @@ function handlePrint() {
   window.print()
 }
 
+async function handleShare() {
+  const url = window.location.href
+  try {
+    await navigator.clipboard.writeText(url)
+    shareToast.value = 'Link copied! Share this URL with collaborators.'
+  } catch {
+    shareToast.value = url
+  }
+  setTimeout(() => { shareToast.value = '' }, 3000)
+}
+
 function handleUpdatePageSize(size: string) {
   pageSize.value = size
 }
@@ -151,32 +163,45 @@ function handleEditorReady(editor: DocsEditorType['editor']) {
 </script>
 
 <template>
-  <DocsEditor
-    :model-value="doc.content"
-    :plugins="defaultPlugins"
-    :editable="true"
-    :collaboration="collaborationOptions"
-    :title="doc.title"
-    :starred="doc.starred"
-    :page-size="pageSize"
-    connection-state="connected"
-    @back="emit('back')"
-    @update:title="handleUpdateTitle"
-    @toggle-star="handleToggleStar"
-    @update:model-value="handleUpdateContent"
-    @update:page-size="handleUpdatePageSize"
-    @ready="handleEditorReady"
-  >
-    <template #header-actions>
-      <button
-        type="button"
-        class="flex h-8 items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition-all hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-700"
-        title="Print document"
-        @click="handlePrint"
+  <div class="relative flex-1">
+    <DocsEditor
+      :model-value="doc.content"
+      :plugins="defaultPlugins"
+      :editable="true"
+      :collaboration="collaborationOptions"
+      :title="doc.title"
+      :starred="doc.starred"
+      :page-size="pageSize"
+      connection-state="connected"
+      @back="emit('back')"
+      @update:title="handleUpdateTitle"
+      @toggle-star="handleToggleStar"
+      @update:model-value="handleUpdateContent"
+      @update:page-size="handleUpdatePageSize"
+      @ready="handleEditorReady"
+      @share="handleShare"
+    >
+      <template #header-actions>
+        <button
+          type="button"
+          class="flex h-8 items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition-all hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-700"
+          title="Print document"
+          @click="handlePrint"
+        >
+          <Printer class="h-3.5 w-3.5 text-slate-500 dark:text-slate-400" />
+          <span class="hidden sm:inline">Print</span>
+        </button>
+      </template>
+    </DocsEditor>
+
+    <!-- Share toast -->
+    <Transition name="fade">
+      <div
+        v-if="shareToast"
+        class="absolute bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-lg border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm font-medium text-cyan-800 shadow-lg dark:border-cyan-800 dark:bg-cyan-950 dark:text-cyan-200"
       >
-        <Printer class="h-3.5 w-3.5 text-slate-500 dark:text-slate-400" />
-        <span class="hidden sm:inline">Print</span>
-      </button>
-    </template>
-  </DocsEditor>
+        {{ shareToast }}
+      </div>
+    </Transition>
+  </div>
 </template>
