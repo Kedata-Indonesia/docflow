@@ -553,8 +553,8 @@ const userAvatar = computed(() => {
           </button>
         </template>
 
-        <p v-if="providers.length === 0" class="text-xs text-slate-400">
-          No authentication providers configured.
+        <p v-if="providers.length === 0" class="text-center text-xs text-slate-400">
+          No authentication providers configured.<br />Check your server environment variables.
         </p>
       </div>
     </div>
