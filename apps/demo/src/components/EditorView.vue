@@ -3,7 +3,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { Printer } from 'lucide-vue-next'
 import { DocsEditor } from '@kedata-indonesia/docflow-vue'
 import { defaultPlugins } from '@kedata-indonesia/docflow-plugins'
-import type { DocsEditor as DocsEditorType } from '@kedata-indonesia/docflow-core'
+import type { DocsEditor as DocsEditorInstance } from '@kedata-indonesia/docflow-core'
 import type { DocumentItem } from '../types.js'
 import * as Y from 'yjs'
 import { encodeStateAsUpdate, applyUpdate } from 'yjs'
@@ -20,7 +20,7 @@ const emit = defineEmits<{
 }>()
 
 const pageSize = ref('a4')
-const editorInstance = ref<DocsEditorType['editor'] | null>(null)
+const editorInstance = ref<DocsEditorInstance | null>(null)
 const saveTimer = ref<ReturnType<typeof setInterval> | null>(null)
 const shareToast = ref('')
 const onlineUsers = ref<Array<{ userId: string; userName: string }>>([])
@@ -54,10 +54,7 @@ const collaborationOptions = computed(() => {
  */
 async function saveCollabSnapshot() {
   try {
-    // Access Y.Doc through TipTap collaboration extension
-    const editor = editorInstance.value
-    if (!editor) return
-    const ydoc = ((editor.storage as Record<string, unknown>).collaboration as Record<string, unknown> | undefined)?.ydoc as Y.Doc | undefined
+    const ydoc = editorInstance.value?.collab?.ydoc
     if (!ydoc) return
 
     const update = encodeStateAsUpdate(ydoc)
@@ -86,10 +83,8 @@ async function loadCollabSnapshot() {
     if (!res.ok) return
 
     const data = await res.json()
-    if (data.yDocState && editorInstance.value) {
-      const ydoc = ((editorInstance.value.storage as Record<string, unknown>).collaboration as Record<string, unknown> | undefined)?.ydoc as Y.Doc | undefined
-      if (ydoc) {
-        applyUpdate(ydoc, new Uint8Array(data.yDocState))
+    if (data.yDocState && editorInstance.value?.collab?.ydoc) {
+      applyUpdate(editorInstance.value.collab.ydoc, new Uint8Array(data.yDocState))
       }
     }
   } catch {
@@ -174,19 +169,16 @@ function stopHeartbeat() {
 const remoteCursors = ref<Array<{ clientId: number; name: string; color: string; x: number; y: number }>>([])
 let awarenessCleanup: (() => void) | null = null
 
-function setupCursors(editor: DocsEditorType['editor']) {
-  const ydoc = ((editor.storage as Record<string, unknown>).collaboration as Record<string, unknown> | undefined)?.ydoc as Y.Doc | undefined
-  if (!ydoc) return
-
-  // Access awareness through Y.Doc (y-webrtc attaches it)
-  const awareness = (ydoc as unknown as Record<string, unknown>)._awareness as Record<string, unknown> | undefined
-  if (!awareness) return
+function setupCursors(docsEditor: DocsEditorInstance) {
+  const collab = docsEditor.collab
+  if (!collab) return
+  const awareness = collab.awareness
+  const editor = docsEditor.editor
 
   const onChange = () => {
     const cursors: typeof remoteCursors.value = []
-    const states = (awareness.getStates as () => Map<number, Record<string, unknown>>)()
-    const localId = (ydoc as unknown as { clientID: number }).clientID
-    // Use editor wrapper as reference for cursor positioning
+    const states = awareness.getStates() as Map<number, Record<string, unknown>>
+    const localId = (collab.ydoc as unknown as { clientID: number }).clientID
     const wrapper = editor.view.dom.closest('.docs-editor__paper') || editor.view.dom
     const wrapperRect = wrapper.getBoundingClientRect()
 
@@ -244,13 +236,13 @@ function handleUpdatePageSize(size: string) {
   pageSize.value = size
 }
 
-function handleEditorReady(editor: DocsEditorType['editor']) {
-  editorInstance.value = editor
+function handleEditorReady(docsEditor: DocsEditorInstance) {
+  editorInstance.value = docsEditor
   if (typeof window !== 'undefined') {
-    ;(window as unknown as { __docsEditor?: DocsEditorType['editor'] }).__docsEditor = editor
+    ;(window as unknown as { __docsEditor?: DocsEditorInstance['editor'] }).__docsEditor = docsEditor.editor
   }
   startAutoSave()
-  setupCursors(editor)
+  setupCursors(docsEditor)
 }
 </script>
 
