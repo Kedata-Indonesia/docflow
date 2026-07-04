@@ -179,6 +179,13 @@ function setupCursors(docsEditor: DocsEditorInstance) {
     const cursors: typeof remoteCursors.value = []
     const states = awareness.getStates() as Map<number, Record<string, unknown>>
     const localId = (collab.ydoc as unknown as { clientID: number }).clientID
+
+    // Debug: log awareness states for troubleshooting
+    if (states.size > 1) {
+      console.log('[Collab] Awareness states:', states.size, 'localId:', localId,
+        Array.from(states.entries()).map(([id, s]) => ({ id, user: s.user, hasCursor: !!s.cursor })))
+    }
+
     const wrapper = editor.view.dom.closest('.docs-editor__paper') || editor.view.dom
     const wrapperRect = wrapper.getBoundingClientRect()
 

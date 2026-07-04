@@ -486,7 +486,7 @@ const userAvatar = computed(() => {
       <p class="text-sm text-slate-500 dark:text-slate-400">
         Sign in to create and edit documents
       </p>
-      <div class="flex w-full max-w-sm flex-col gap-4">
+      <div class="flex w-full max-w-sm flex-col gap-4 px-4"> ... </div>
         <!-- Social provider buttons -->
         <template v-for="p in providers.filter(x => x.type === 'social')" :key="p.id">
           <!-- Google -->
