@@ -24,17 +24,25 @@
     "test:unit": "vitest run"
   },
   "dependencies": {
+    "@tiptap/pm": "^2.11.0",
+    "y-protocols": "^1.0.7"
+  },
+  "peerDependencies": {
     "@tiptap/core": "^2.11.0",
     "@tiptap/extension-collaboration": "^2.27.2",
     "@tiptap/extension-collaboration-cursor": "^2.26.2",
-    "@tiptap/pm": "^2.11.0",
     "@tiptap/starter-kit": "^2.11.0",
     "tiptap-pagination-plus": "3.1.0",
     "y-prosemirror": "^1.2.12",
-    "y-protocols": "^1.0.7",
     "y-webrtc": "^10.3.0",
     "y-websocket": "^2.0.4",
     "yjs": "^13.6.20"
+  },
+  "peerDependenciesMeta": {
+    "@tiptap/extension-collaboration": { "optional": true },
+    "@tiptap/extension-collaboration-cursor": { "optional": true },
+    "y-webrtc": { "optional": true },
+    "y-websocket": { "optional": true }
   },
   "devDependencies": {
     "@vitest/coverage-v8": "^2.1.3",

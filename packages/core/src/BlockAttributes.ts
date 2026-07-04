@@ -24,7 +24,6 @@ export const BlockAttributesExtension = Extension.create<BlockAttributesOptions>
           decorations(state) {
             const decorations: Decoration[] = []
             const pageMap = getPageMap()
-            console.log('[BlockAttributes] pageMap.size=' + pageMap.size + ' state.doc.content.size=' + state.doc.content.size)
             if (pageMap.size === 0) return DecorationSet.create(state.doc, decorations)
 
             // Compute max blockIndex per page (to find last block of each page)

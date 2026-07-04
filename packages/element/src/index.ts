@@ -11,6 +11,6 @@ export function registerDocsEditor(
   }
 }
 
-if (typeof window !== 'undefined') {
-  registerDocsEditor()
-}
+// Auto-registration is intentionally NOT called here.
+// Consumers must explicitly call registerDocsEditor() to define the custom element.
+// This prevents unwanted side effects when importing the module.
