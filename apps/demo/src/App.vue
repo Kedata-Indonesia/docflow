@@ -20,6 +20,7 @@ const emailInput = ref('')
 const passwordInput = ref('')
 const nameInput = ref('')
 const emailError = ref('')
+const emailSuccess = ref('')
 const emailLoading = ref(false)
 
 async function checkAuth() {
@@ -55,10 +56,12 @@ async function handleLogin(provider: string) {
 
 async function handleEmailSubmit() {
   emailError.value = ''
+  emailSuccess.value = ''
   emailLoading.value = true
   try {
     if (emailFormMode.value === 'signup') {
       await api.signUpWithEmail(emailInput.value, passwordInput.value, nameInput.value || emailInput.value)
+      emailSuccess.value = 'Account created! You are now signed in.'
     } else {
       await api.signInWithEmail(emailInput.value, passwordInput.value)
     }
@@ -505,7 +508,8 @@ const userAvatar = computed(() => {
           </div>
 
           <form v-if="showEmailForm" class="flex flex-col gap-3" @submit.prevent="handleEmailSubmit">
-            <p v-if="emailError" class="text-xs text-red-500">{{ emailError }}</p>
+            <p v-if="emailSuccess" class="rounded-lg bg-green-50 px-3 py-2 text-xs font-medium text-green-700 dark:bg-green-950 dark:text-green-300">{{ emailSuccess }}</p>
+            <p v-if="emailError" class="rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-700 dark:bg-red-950 dark:text-red-300">{{ emailError }}</p>
             <input
               v-model="emailInput"
               type="email"

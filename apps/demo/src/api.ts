@@ -38,7 +38,7 @@ export interface ApiDocListItem {
 
 export async function getCurrentUser(): Promise<ApiUser | null> {
   try {
-    const res = await fetch(`${BASE}/api/auth/session`, { credentials: 'include' })
+    const res = await fetch(`${BASE}/api/auth/get-session`, { credentials: 'include' })
     if (!res.ok) return null
     const data = await res.json()
     return data?.user ?? null

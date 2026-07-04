@@ -494,6 +494,7 @@
     min-height: auto !important;
     height: auto !important;
     overflow: visible !important;
+    background-color: white !important;
   }
 
   [data-rm-pagination] .rm-page-break > .page,
