@@ -9,6 +9,7 @@
     "test:unit": "pnpm -r run test:unit",
     "lint": "eslint . --ext .ts,.vue",
     "dev": "pnpm --filter @kedata-indonesia/docflow-demo dev",
+    "dev:server": "pnpm --filter @kedata-indonesia/docflow-server dev",
     "test:e2e": "playwright test",
     "test:visual": "percy exec -- playwright test"
   },
