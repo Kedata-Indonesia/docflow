@@ -5,37 +5,38 @@
 @tailwind utilities;
 
 @layer base {
-  html {
+  /* Scoped to .docs-editor so consumer's page is unaffected */
+  .docs-editor {
     font-family: Inter, ui-sans-serif, system-ui, sans-serif;
   }
 
-  * {
+  .docs-editor * {
     scrollbar-width: thin;
   }
 
-  ::-webkit-scrollbar {
+  .docs-editor ::-webkit-scrollbar {
     width: 6px;
     height: 6px;
   }
 
-  ::-webkit-scrollbar-track {
+  .docs-editor ::-webkit-scrollbar-track {
     background: transparent;
   }
 
-  ::-webkit-scrollbar-thumb {
+  .docs-editor ::-webkit-scrollbar-thumb {
     background: #cbd5e1;
     border-radius: 4px;
   }
 
-  ::-webkit-scrollbar-thumb:hover {
+  .docs-editor ::-webkit-scrollbar-thumb:hover {
     background: #94a3b8;
   }
 
-  .dark ::-webkit-scrollbar-thumb {
+  .dark .docs-editor ::-webkit-scrollbar-thumb {
     background: #475569;
   }
 
-  .dark ::-webkit-scrollbar-thumb:hover {
+  .dark .docs-editor ::-webkit-scrollbar-thumb:hover {
     background: #64748b;
   }
 }

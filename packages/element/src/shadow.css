@@ -1,0 +1,11 @@
+/*
+ * Shadow DOM styles for <docs-editor> custom element.
+ * Imports the full editor stylesheet from @kedata-indonesia/docflow-vue.
+ * At build time, Vite processes @tailwind directives (via PostCSS) and bundles all CSS.
+ * At runtime, DocsEditorElement injects the resulting CSS into the shadow root.
+ *
+ * NOTE: @tailwind directives live in the imported vue stylesheet.
+ * This file only re-exports them for the element's build pipeline.
+ */
+
+@import '../../vue/src/styles/index.css';

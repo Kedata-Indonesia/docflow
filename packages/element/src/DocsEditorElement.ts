@@ -2,6 +2,10 @@ import { DocsEditor } from '@kedata-indonesia/docflow-vue'
 import { defineCustomElement } from 'vue'
 import type { DocsEditorPlugin } from '@kedata-indonesia/docflow-core'
 
+// At build time, Vite resolves this import and returns the processed CSS as a string.
+// This enables Tailwind + ProseMirror styles inside the Shadow DOM.
+import shadowStyles from './shadow.css?inline'
+
 const VueDocsEditorElement = defineCustomElement(DocsEditor)
 
 export class DocsEditorElement extends HTMLElement {
@@ -26,6 +30,13 @@ export class DocsEditorElement extends HTMLElement {
     if (typeof window === 'undefined' || typeof document === 'undefined') return
 
     this._shadowRoot = this.attachShadow({ mode: 'open' })
+
+    // Inject editor styles into the shadow root so Tailwind utilities,
+    // ProseMirror overrides, and page layout styles work inside Shadow DOM.
+    const styleEl = document.createElement('style')
+    styleEl.textContent = shadowStyles
+    this._shadowRoot.appendChild(styleEl)
+
     const props = this._buildProps()
     this._vueElement = new VueDocsEditorElement(props)
     this._shadowRoot.appendChild(this._vueElement)
