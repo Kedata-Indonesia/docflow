@@ -24,6 +24,8 @@ const saveTimer = ref<ReturnType<typeof setInterval> | null>(null)
 const shareToast = ref('')
 const onlineUsers = ref<Array<{ userId: string; userName: string }>>([])
 const heartbeatTimer = ref<ReturnType<typeof setInterval> | null>(null)
+const isSnapshotLoading = ref(true)
+const initialSnapshot = ref<Uint8Array | undefined>(undefined)
 
 // Generate consistent color from username
 function nameToColor(name: string): string {
@@ -38,6 +40,7 @@ const collaborationOptions = computed(() => {
   return {
     room: props.room.trim(),
     provider: 'webrtc' as const,
+    initialStorageState: initialSnapshot.value,
     user: {
       name: props.collabUser?.name || 'Anonymous',
       color: props.collabUser?.color || nameToColor(props.collabUser?.name || 'anon'),
@@ -86,9 +89,22 @@ function stopAutoSave() {
 }
 
 onMounted(async () => {
-  // Don't load snapshot on initial load — document content from API is the source of truth.
-  // Snapshot is only for backup recovery. Loading it on top of API content causes duplication.
-  startHeartbeat()
+  try {
+    const res = await fetch(`/api/collab/snapshot/${encodeURIComponent(props.room)}`, {
+      credentials: 'include',
+    })
+    if (res.ok) {
+      const data = await res.json()
+      if (data.yDocState) {
+        initialSnapshot.value = new Uint8Array(data.yDocState)
+      }
+    }
+  } catch (err) {
+    console.error('Failed to load initial snapshot:', err)
+  } finally {
+    isSnapshotLoading.value = false
+    startHeartbeat()
+  }
 })
 
 onUnmounted(async () => {
@@ -191,6 +207,7 @@ function handleEditorReady(docsEditor: DocsEditorInstance) {
   <div ref="editorWrapper" class="relative flex-1">
 
     <DocsEditor
+      v-if="!isSnapshotLoading"
       :model-value="doc.content"
       :plugins="defaultPlugins"
       :editable="true"

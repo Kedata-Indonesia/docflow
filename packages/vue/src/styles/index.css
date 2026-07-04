@@ -75,12 +75,11 @@
 }
 
 /* ── Collaboration Cursor ────────────────────────────────────────── */
-.ProseMirror .collaboration-cursor {
+.ProseMirror .collaboration-cursor__caret {
   position: relative;
   margin-left: -1px;
   margin-right: -1px;
   border-left: 2px solid;
-  border-right: 2px solid;
   border-color: currentColor;
   word-break: normal;
   pointer-events: none;
@@ -88,8 +87,9 @@
 
 .ProseMirror .collaboration-cursor__label {
   position: absolute;
-  top: -1.6em;
-  left: -2px;
+  bottom: 100%;
+  left: 0;
+  margin-bottom: 2px;
   font-family: inherit;
   font-size: 10px;
   font-weight: 600;
@@ -100,10 +100,11 @@
   white-space: nowrap;
   pointer-events: none;
   z-index: 50;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
   display: inline-block;
   line-height: 1.2;
 }
+
 
 
 .ProseMirror .docs-editor-page-break {
