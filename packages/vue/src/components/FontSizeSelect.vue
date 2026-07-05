@@ -10,18 +10,19 @@ const sizes = ['10px', '12px', '14px', '16px', '18px', '20px', '24px', '30px', '
 
 const currentSize = computed(() => {
   if (!props.editor) return '16px'
-  const attrs = props.editor.getAttributes('fontSize')
-  return attrs.size || '16px'
+  const attrs = props.editor.getAttributes('textStyle')
+  return attrs.fontSize || '16px'
 })
 
 function setSize(size: string, e: Event) {
   e.preventDefault()
   if (!props.editor) return
   if (size === '16px') {
-    props.editor.chain().focus().unsetFontSize().run()
+    props.editor.commands.unsetFontSize()
   } else {
-    props.editor.chain().focus().setFontSize(size).run()
+    props.editor.commands.setFontSize(size)
   }
+  props.editor.commands.focus()
 }
 </script>
 
