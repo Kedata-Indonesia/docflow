@@ -1,54 +1,30 @@
-import { Mark, mergeAttributes } from '@tiptap/core'
-import { definePlugin } from '@kedata-indonesia/docflow-core'
+import { definePlugin, FontSizeExtension } from '@kedata-indonesia/docflow-core'
 import type { Editor } from '@tiptap/core'
 
-export const FontSizeMark = Mark.create({
-  name: 'fontSize',
-
-  addAttributes() {
-    return {
-      size: {
-        default: null,
-        parseHTML: el => el.style.fontSize?.replace('px', '') ? `${el.style.fontSize}` : null,
-        renderHTML: attrs => {
-          if (!attrs.size) return {}
-          return { style: `font-size: ${attrs.size}` }
-        },
-      },
-    }
-  },
-
-  parseHTML() {
-    return [{ style: 'font-size' }]
-  },
-
-  renderHTML({ HTMLAttributes }) {
-    return ['span', mergeAttributes(HTMLAttributes, { class: 'docs-font-size' }), 0]
-  },
-
-  addCommands() {
-    return {
-      setFontSize: (size: string) => ({ commands }) => {
-        if (size === '16px' || size === '16') {
-          return commands.unsetMark('fontSize')
-        }
-        return commands.setMark('fontSize', { size })
-      },
-      unsetFontSize: () => ({ commands }) => commands.unsetMark('fontSize'),
-    }
-  },
-})
-
+/**
+ * fontSizePlugin — provides the `setFontSize` command action for toolbar use.
+ *
+ * Registers FontSizeExtension (fontSize attribute on TextStyle mark) via
+ * tiptapExtensions so it is only added ONCE through the plugin system.
+ * Previously it was hardcoded in Editor.ts which, combined with Vite
+ * module alias duplication, caused "Duplicate extension names" warnings.
+ */
 export const fontSizePlugin = definePlugin({
   id: 'font-size',
-  tiptapExtensions: [FontSizeMark],
+  tiptapExtensions: [FontSizeExtension],
   commands: {
     setFontSize: (editor: Editor, ...args: unknown[]) => {
       const size = (args[0] as string) || '16px'
       if (size === '16px') {
-        return editor.chain().focus().unsetFontSize().run()
+        editor.commands.unsetFontSize()
+      } else {
+        editor.commands.setFontSize(size)
       }
-      return editor.chain().focus().setFontSize(size).run()
+      editor.commands.focus()
+      return true
     },
   },
 })
+
+// Re-export for external consumers.
+export { FontSizeExtension }

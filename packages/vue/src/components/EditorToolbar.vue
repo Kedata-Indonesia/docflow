@@ -291,26 +291,58 @@ const currentFontSize = computed<number>(() => {
   void selectionTick.value
   const editor = props.editor
   if (!editor) return DEFAULT_FONT_SIZE
+
+  // Check document textStyle mark at selection first
   const attrs = editor.getAttributes('textStyle')
-  const raw: string | undefined = attrs?.fontSize
-  if (!raw) return DEFAULT_FONT_SIZE
-  // fontSize stored as '12px' or '12pt' — strip unit and parse
-  const parsed = parseInt(raw, 10)
-  return isNaN(parsed) ? DEFAULT_FONT_SIZE : parsed
+  if (attrs?.fontSize) {
+    const parsed = parseInt(attrs.fontSize, 10)
+    if (!isNaN(parsed)) return parsed
+  }
+
+  // Check stored marks (marks set at cursor position but not yet applied)
+  const storedMarks = editor.state.storedMarks
+  if (storedMarks) {
+    for (const mark of storedMarks) {
+      if (mark.type.name === 'textStyle' && mark.attrs.fontSize) {
+        const parsed = parseInt(mark.attrs.fontSize as string, 10)
+        if (!isNaN(parsed)) return parsed
+      }
+    }
+  }
+
+  // Fallback: read actual rendered font size from the DOM
+  if (editor.view?.dom) {
+    const baseSize = parseFloat(getComputedStyle(editor.view.dom).fontSize)
+    if (!isNaN(baseSize)) {
+      const px = Math.round(baseSize)
+      // Clamp to nearest FONT_SIZE
+      const nearest = FONT_SIZES.reduce((prev, curr) =>
+        Math.abs(curr - px) < Math.abs(prev - px) ? curr : prev
+      )
+      return nearest
+    }
+  }
+
+  return DEFAULT_FONT_SIZE
 })
 
 function handleFontSize(delta: number) {
+  console.log('[FontSize] handleFontSize called, delta:', delta, 'editor:', !!props.editor)
   if (!props.editor) return
   const idx = FONT_SIZES.indexOf(currentFontSize.value)
-  // If exact match not found, find the closest larger size's index
   const startIdx = idx >= 0
     ? idx
     : FONT_SIZES.findIndex(s => s >= currentFontSize.value)
   const nextIdx = Math.min(Math.max((startIdx >= 0 ? startIdx : 0) + delta, 0), FONT_SIZES.length - 1)
   const nextSize = FONT_SIZES[nextIdx]
-  // Use a single chain: no separate focus() to avoid a second transaction
-  // that could interfere with the selection after the mark is applied.
-  ;(props.editor.chain() as any).setFontSize(`${nextSize}px`).run()
+  console.log('[FontSize] currentFontSize:', currentFontSize.value, '→ nextSize:', nextSize)
+  // Use direct command (not chain) to avoid chaining-proxy conflict with the
+  // inner setMark calls inside FontSizeExtension.
+  const commands = props.editor.commands as any
+  console.log('[FontSize] commands.setFontSize type:', typeof commands.setFontSize)
+  const result = commands.setFontSize(`${nextSize}px`)
+  console.log('[FontSize] setFontSize returned:', result)
+  props.editor.commands.focus()
 }
 </script>
 
@@ -427,8 +459,7 @@ function handleFontSize(delta: number) {
         title="Decrease font size"
         aria-label="Decrease font size"
         :disabled="!editor"
-        @mousedown.prevent
-        @click="handleFontSize(-1)"
+        @mousedown.prevent="handleFontSize(-1)"
       >
         <Minus class="h-3.5 w-3.5" />
       </button>
@@ -439,8 +470,7 @@ function handleFontSize(delta: number) {
         title="Increase font size"
         aria-label="Increase font size"
         :disabled="!editor"
-        @mousedown.prevent
-        @click="handleFontSize(1)"
+        @mousedown.prevent="handleFontSize(1)"
       >
         <Plus class="h-3.5 w-3.5" />
       </button>

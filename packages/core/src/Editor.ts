@@ -14,8 +14,11 @@ import {
   type CollaborationSetup,
 } from './Collaboration.js'
 import { BlockAttributesExtension } from './BlockAttributes.js'
-import { FontSizeExtension } from './FontSize.js'
 import { PaginationPlus, type PaginationPlusOptions } from 'tiptap-pagination-plus'
+
+// FontSizeExtension is no longer hardcoded here — it is registered
+// by fontSizePlugin (packages/plugins/src/fontSize.ts) to avoid
+// duplicate extension name collisions caused by Vite modualiasi.
 
 export interface EditorOptions {
   target?: HTMLElement
@@ -171,7 +174,6 @@ function createTiptapEditor(
   let extensions: AnyExtension[] = [
     baseStarterKit,
     TextStyle,
-    FontSizeExtension,
     blockAttrs,
     paginationExt,
     ...pluginExtensions,
@@ -181,7 +183,7 @@ function createTiptapEditor(
   if (options.collaboration && collaborationSetup) {
     const fragment = collaborationSetup.ydoc.getXmlFragment('default')
     if (fragment.length === 0 && options.content && typeof options.content === 'object') {
-      const schema = getSchema([baseStarterKit, TextStyle, FontSizeExtension, blockAttrs, paginationExt, ...pluginExtensions])
+      const schema = getSchema([baseStarterKit, TextStyle, blockAttrs, paginationExt, ...pluginExtensions])
       prosemirrorJSONToYXmlFragment(schema, options.content, fragment)
     }
 
