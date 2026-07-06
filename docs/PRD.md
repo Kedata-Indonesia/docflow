@@ -260,7 +260,62 @@ const editor = createEditor({
 
 ---
 
-## 9. Distribusi
+## 9. Deployment & Domain
+
+### 9.1 Backend Domain
+
+DocsEditor mendukung dua mode deployment:
+
+| Mode | Frontend | Backend API | Keterangan |
+|------|----------|-------------|------------|
+| Same-domain | `https://docs.example.com` | `https://docs.example.com/api/*` | Frontend proxy `/api` ke backend. Mode default untuk Docker Compose. |
+| Separate-domain | `https://app.example.com` | `https://api.example.com` | Frontend mengakses backend via `VITE_API_BASE_URL`. Diperlukan untuk OAuth cross-site. |
+
+### 9.2 Environment Variables
+
+**Frontend (`apps/demo/.env`)**
+
+```bash
+# Same-domain: kosongkan
+VITE_API_BASE_URL=
+
+# Separate-domain
+VITE_API_BASE_URL=https://api.example.com
+```
+
+**Backend (`apps/server/.env`)**
+
+```bash
+# Comma-separated allowed frontend origins
+CLIENT_ORIGIN=https://app.example.com
+
+# Better Auth public URL (harus domain backend)
+BETTER_AUTH_URL=https://api.example.com
+
+# Google OAuth
+GOOGLE_CLIENT_ID=...
+GOOGLE_CLIENT_SECRET=...
+GOOGLE_CALLBACK_URL=https://api.example.com/api/auth/callback/google
+```
+
+### 9.3 Google OAuth Setup
+
+1. Buat OAuth 2.0 Client ID di [Google Cloud Console](https://console.cloud.google.com/apis/credentials).
+2. Tambahkan **Authorized redirect URIs**:
+   - `{BETTER_AUTH_URL}/api/auth/callback/google`
+   - Contoh: `https://api.example.com/api/auth/callback/google`
+3. Pastikan `BETTER_AUTH_URL` dan `GOOGLE_CALLBACK_URL` mengarah ke **domain backend**, bukan frontend.
+4. Frontend mengirim `callbackURL: window.location.origin` ke `/api/auth/sign-in/social` agar Better Auth redirect kembali ke frontend setelah sukses.
+
+### 9.4 Cross-Domain OAuth Notes
+
+- Better Auth menyimpan OAuth state di database (`account.storeStateStrategy: 'database'`) agar callback dari Google (cross-site) tidak bergantung pada cookie browser.
+- `account.skipStateCookieCheck: true` diaktifkan untuk cross-domain deployment.
+- Cookie session Better Auth mengikuti konfigurasi default `SameSite=Lax`. Untuk full cross-domain HTTPS, sesuaikan `advanced.cookie` Better Auth jika diperlukan.
+
+---
+
+## 10. Distribusi
 
 ### Web Component (CDN)
 
@@ -296,7 +351,7 @@ const editor = createEditor({ target: document.body })
 
 ---
 
-## 10. Milestone
+## 11. Milestone
 
 | Fase | Durasi Estimasi | Output |
 |------|----------------|--------|
@@ -308,7 +363,7 @@ const editor = createEditor({ target: document.body })
 
 ---
 
-## 11. Risiko & Mitigasi
+## 12. Risiko & Mitigasi
 
 | Risiko | Dampak | Mitigasi |
 |--------|--------|----------|
@@ -316,10 +371,11 @@ const editor = createEditor({ target: document.body })
 | Yjs + TipTap conflict dengan page layout | Tinggi | Layout engine hanya baca ProseMirror state, tidak mengubah; render sebagai derived view |
 | Performa split tiap ketikan | Lag pada dokumen besar | Debounce + virtual scrolling untuk banyak halaman |
 | Web Component tidak support semua browser | Kompatibilitas | Target modern browsers (Chrome, Firefox, Safari, Edge) |
+| Cross-domain OAuth cookie/session | Tinggi | Gunakan `storeStateStrategy: 'database'` dan sesuaikan cookie config untuk HTTPS |
 
 ---
 
-## 12. Glossary
+## 13. Glossary
 
 | Istilah | Definisi |
 |---------|----------|

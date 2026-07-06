@@ -2,6 +2,9 @@
 import { ref } from 'vue'
 import { Sparkles, Send, Copy, Check, ArrowDownToLine, AlignLeft, BadgeCheck, Wand2, Globe } from 'lucide-vue-next'
 
+// Base URL for backend API (set at build time for separate-domain deployments)
+const API_BASE = import.meta.env.VITE_API_BASE_URL ?? ''
+
 const props = defineProps<{
   documentContent?: string
 }>()
@@ -21,7 +24,7 @@ async function handleAICall(action?: string, promptText?: string) {
   inserted.value = false
 
   try {
-    const response = await fetch('/api/ai/copilot', {
+    const response = await fetch(`${API_BASE}/api/ai/copilot`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
