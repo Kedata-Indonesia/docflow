@@ -2,9 +2,16 @@
  * DocsEditor API Client
  *
  * Auth endpoints handled by Better Auth at /api/auth/*
+ *
+ * Environment:
+ *   VITE_API_BASE_URL  - optional absolute base URL for the backend API.
+ *                        When unset, requests stay same-origin (/api/*).
+ *                        Example: https://api.example.com
  */
 
-const BASE = ''
+// Allows the demo to talk to a backend on a different domain (e.g. https://api.example.com)
+// Falls back to same-origin /api when not set.
+const BASE = import.meta.env.VITE_API_BASE_URL ?? ''
 
 export interface ApiUser {
   id: string
@@ -74,13 +81,22 @@ export async function getAuthProviders(): Promise<AuthProvider[]> {
 }
 
 export async function signInWithProvider(provider: string): Promise<void> {
+  // Google (and other OAuth providers) will redirect to the backend callback
+  // URL ({API_BASE}/api/auth/callback/{provider}) and then the backend will
+  // redirect to callbackURL (frontend) on success/error.
+  const callbackURL = window.location.origin
+  const errorCallbackURL = `${window.location.origin}/auth/error`
+  const newUserCallbackURL = `${window.location.origin}/auth/callback`
+
   const res = await fetch(`${BASE}/api/auth/sign-in/social`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
     body: JSON.stringify({
       provider,
-      callbackURL: window.location.origin,
+      callbackURL,
+      errorCallbackURL,
+      newUserCallbackURL,
     }),
   })
   if (!res.ok) throw new Error(`Failed to sign in with ${provider}`)

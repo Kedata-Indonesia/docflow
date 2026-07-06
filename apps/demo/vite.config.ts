@@ -2,20 +2,24 @@ import { defineConfig } from 'vite';
 import vue from '@vitejs/plugin-vue';
 import path from 'path';
 
+const apiBaseUrl = process.env.VITE_API_BASE_URL;
+
 export default defineConfig({
   plugins: [vue()],
   server: {
     port: 5173,
-    proxy: {
-      '/api': {
-        target: 'http://localhost:3001',
-        changeOrigin: true,
-      },
-      '/auth': {
-        target: 'http://localhost:3001',
-        changeOrigin: true,
-      },
-    },
+    proxy: apiBaseUrl
+      ? undefined
+      : {
+          '/api': {
+            target: 'http://localhost:3001',
+            changeOrigin: true,
+          },
+          '/auth': {
+            target: 'http://localhost:3001',
+            changeOrigin: true,
+          },
+        },
   },
   resolve: {
     dedupe: ['vue', 'yjs'],

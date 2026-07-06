@@ -7,6 +7,9 @@ import type { DocsEditor as DocsEditorInstance } from '@kedata-indonesia/docflow
 import type { DocumentItem } from '../types.js'
 import { encodeStateAsUpdate } from 'yjs'
 
+// Base URL for backend API — matches api.ts (VITE_API_BASE_URL or same-origin)
+const API_BASE = import.meta.env.VITE_API_BASE_URL ?? ''
+
 const props = defineProps<{
   doc: DocumentItem
   room: string
@@ -60,7 +63,7 @@ async function saveCollabSnapshot() {
     if (!ydoc) return
 
     const update = encodeStateAsUpdate(ydoc)
-    await fetch('/api/collab/snapshot', {
+    await fetch(`${API_BASE}/api/collab/snapshot`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
@@ -90,7 +93,7 @@ function stopAutoSave() {
 
 onMounted(async () => {
   try {
-    const res = await fetch(`/api/collab/snapshot/${encodeURIComponent(props.room)}`, {
+    const res = await fetch(`${API_BASE}/api/collab/snapshot/${encodeURIComponent(props.room)}`, {
       credentials: 'include',
     })
     if (res.ok) {
@@ -120,7 +123,7 @@ onUnmounted(async () => {
 
 async function sendHeartbeat() {
   try {
-    await fetch('/api/collab/heartbeat', {
+    await fetch(`${API_BASE}/api/collab/heartbeat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
@@ -134,7 +137,7 @@ async function sendHeartbeat() {
 
 async function fetchOnlineUsers() {
   try {
-    const res = await fetch(`/api/collab/online/${encodeURIComponent(props.room)}`, {
+    const res = await fetch(`${API_BASE}/api/collab/online/${encodeURIComponent(props.room)}`, {
       credentials: 'include',
     })
     if (!res.ok) return
