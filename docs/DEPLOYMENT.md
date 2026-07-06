@@ -72,8 +72,8 @@ LOG_LEVEL=info
 
 ```bash
 # Build images
-docker build -f docker/Dockerfile.server -t docflow-server:latest .
-docker build -f docker/Dockerfile.demo -t docflow-demo:latest .
+docker build -f Dockerfile.server -t docflow-server:latest .
+docker build -f Dockerfile.demo -t docflow-demo:latest .
 
 # Tag for registry
 docker tag docflow-server:latest registry.yourcompany.com/docflow-server:v1.0.0
