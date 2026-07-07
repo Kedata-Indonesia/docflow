@@ -10,6 +10,17 @@ import { encodeStateAsUpdate } from 'yjs'
 // Base URL for backend API — matches api.ts (VITE_API_BASE_URL or same-origin)
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? ''
 
+// WebSocket collaboration URL. When not set, default to a same-origin WebSocket
+// path so Docker / Dokploy deployments work without build-time env vars.
+const WS_PROTOCOL = typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+const DEFAULT_WS_URL = typeof window !== 'undefined' ? `${WS_PROTOCOL}//${window.location.host}/collab` : ''
+const envWsUrl = import.meta.env.VITE_COLLAB_WEBSOCKET_URL
+const COLLAB_WS_URL = envWsUrl && String(envWsUrl).trim()
+  ? String(envWsUrl).trim()
+  : import.meta.env.PROD
+    ? DEFAULT_WS_URL
+    : ''
+
 const props = defineProps<{
   doc: DocumentItem
   room: string
@@ -40,6 +51,18 @@ function nameToColor(name: string): string {
 
 const collaborationOptions = computed(() => {
   if (!props.room.trim()) return undefined
+  if (COLLAB_WS_URL) {
+    return {
+      room: props.room.trim(),
+      provider: 'websocket' as const,
+      websocketUrl: COLLAB_WS_URL,
+      initialStorageState: initialSnapshot.value,
+      user: {
+        name: props.collabUser?.name || 'Anonymous',
+        color: props.collabUser?.color || nameToColor(props.collabUser?.name || 'anon'),
+      },
+    }
+  }
   return {
     room: props.room.trim(),
     provider: 'webrtc' as const,
