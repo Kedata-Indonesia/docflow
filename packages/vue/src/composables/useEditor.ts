@@ -2,9 +2,12 @@ import { createEditor, type DocsEditor, type EditorOptions } from '@kedata-indon
 import { computed, onMounted, onUnmounted, ref, shallowRef, watch, type ComputedRef, type Ref, type ShallowRef, nextTick, unref } from 'vue'
 
 export interface UseEditorOptions extends Omit<EditorOptions, 'target' | 'onUpdate' | 'content' | 'collaboration'> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   content?: any
   onUpdate?: (json: object) => void
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   collaboration?: any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   paginationOptions?: any
 }
 

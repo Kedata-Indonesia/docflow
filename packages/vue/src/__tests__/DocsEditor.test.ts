@@ -143,7 +143,7 @@ describe('DocsEditor', () => {
     })
     await new Promise((resolve) => setTimeout(resolve, 50))
 
-    const vm = wrapper.vm as any
+    const vm = wrapper.vm as unknown as { editor?: { commands: { focus: () => void } }; menuClick: (id: string) => void }
     vm.editor?.commands.focus()
     // Trigger insert footnote menu action
     vm.menuClick('insert-footnote')

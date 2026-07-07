@@ -30,7 +30,9 @@ describe('DocsEditorElement', () => {
   })
 
   it('forwards plugins to the Vue component props', () => {
-    const element = new DocsEditorElement()
+    const tagName = 'docs-editor-test'
+    customElements.define(tagName, DocsEditorElement)
+    const element = document.createElement(tagName) as DocsEditorElement
     const plugins: DocsEditorPlugin[] = [{ id: 'demo' }]
     element.plugins = plugins
     const props = (element as unknown as { _buildProps: () => Record<string, unknown> })._buildProps()

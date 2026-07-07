@@ -305,6 +305,9 @@ importers:
         specifier: ^2.11.0
         version: 2.27.2(@tiptap/core@2.27.2(@tiptap/pm@2.27.2))
     devDependencies:
+      '@tiptap/pm':
+        specifier: ^2.11.0
+        version: 2.27.2
       happy-dom:
         specifier: ^20.10.6
         version: 20.10.6

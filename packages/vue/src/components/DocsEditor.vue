@@ -97,7 +97,7 @@ const paginationOptions = computed(() => ({
 
 // ─── Editor ───────────────────────────────────────────────────────────────────
 
-interface TabItem { id: string; label: string; content: any }
+interface TabItem { id: string; label: string; content: object }
 interface TabbedDoc {
   type: 'tabbed-doc'
   activeTabId: string
@@ -108,8 +108,9 @@ interface TabbedDoc {
   footerRight?: string
 }
 
-const parseModelValue = (val: any): TabbedDoc => {
-  if (val && typeof val === 'object' && val.type === 'tabbed-doc' && Array.isArray(val.tabs)) return val as TabbedDoc
+const parseModelValue = (val: unknown): TabbedDoc => {
+  const obj = val as Record<string, unknown> | null
+  if (obj && typeof obj === 'object' && obj.type === 'tabbed-doc' && Array.isArray(obj.tabs)) return obj as unknown as TabbedDoc
   return { type: 'tabbed-doc', activeTabId: 'tab-1', tabs: [{ id: 'tab-1', label: 'Tab 1', content: val || { type: 'doc', content: [{ type: 'paragraph' }] } }] }
 }
 
@@ -120,7 +121,7 @@ const userFooterLeft = ref(initialDoc.footerLeft || '')
 const userFooterRight = ref(initialDoc.footerRight || '')
 
 const tabs = ref<Array<{ id: string; label: string; active: boolean }>>(initialDoc.tabs.map(t => ({ id: t.id, label: t.label, active: t.id === initialDoc.activeTabId })))
-const tabContents = ref<Record<string, any>>({})
+const tabContents = ref<Record<string, object>>({})
 initialDoc.tabs.forEach(t => { tabContents.value[t.id] = t.content })
 const activeTabId = ref(initialDoc.activeTabId)
 const activeTabContent = computed(() => tabContents.value[activeTabId.value])
@@ -175,7 +176,7 @@ const isEmptyDocument = computed(() => {
   if (!editor.value) return true
   const json = editor.value.getJSON()
   if (!json.content || json.content.length === 0) return true
-  return json.content.every((n: any) => n.type === 'paragraph' && (!n.content || n.content.length === 0))
+  return json.content.every((n) => n.type === 'paragraph' && (!n.content || n.content.length === 0))
 })
 
 const updateCounts = () => {
@@ -655,10 +656,12 @@ watch(isReady, (ready) => {
 
 <template>
   <div class="docs-editor flex h-screen w-full flex-col overflow-hidden bg-slate-50 transition-colors dark:bg-[#02040a]">
-    <HeaderBar :title="title" :editable="editable" :collaborators="collaborators" :starred="starred" :user-name="userName" :user-avatar="userAvatar"
+    <HeaderBar
+:title="title" :editable="editable" :collaborators="collaborators" :starred="starred" :user-name="userName" :user-avatar="userAvatar"
       @menu-click="menuClick" @back="$emit('back')" @update:title="$emit('update:title', $event)" @toggle-star="$emit('toggle-star')"
       @export="() => {}" @share="$emit('share')"><template #actions><slot name="header-actions" /></template></HeaderBar>
-    <EditorToolbar :actions="pluginActions" :plugins="plugins" :editor="editor" :active-sidebar="activeSidebar"
+    <EditorToolbar
+:actions="pluginActions" :plugins="plugins" :editor="editor" :active-sidebar="activeSidebar"
       @toggle-sidebar="toggleSidebar"       @print="handlePrint" @toggle-left-sidebar="leftSidebarOpen = !leftSidebarOpen" />
     <RulerBar :layout-options="resolvedLayoutOptions" />
     <div class="flex items-center gap-2 border-b border-slate-200 bg-white px-3 py-1 dark:border-white/5 dark:bg-[#0a0f1e]">
@@ -684,7 +687,8 @@ watch(isReady, (ready) => {
         </div>
       </div>
     </div>
-    <StatusBar :connection-state="connectionState" :saving-status="savingStatus" :last-saved="lastSaved"
+    <StatusBar
+:connection-state="connectionState" :saving-status="savingStatus" :last-saved="lastSaved"
       :word-count="wordCount" :char-count="charCount" :page-count="pageCount" :current-page="currentPage"
       :page-size="pageSizeId" :page-sizes="PAGE_SIZES"
       @update:page-size="pageSizeId = $event; emit('update:pageSize', $event)" />
@@ -698,7 +702,7 @@ watch(isReady, (ready) => {
         <div class="mb-4">
           <div class="flex justify-between items-center mb-2">
             <h3 class="text-sm font-semibold text-slate-500 dark:text-slate-400">Header</h3>
-            <button @click="headerLeftInput = ''; headerRightInput = ''" type="button" class="text-[11px] text-red-500 hover:text-red-600 font-medium transition-colors">Kosongkan</button>
+            <button type="button" class="text-[11px] text-red-500 hover:text-red-600 font-medium transition-colors" @click="headerLeftInput = ''; headerRightInput = ''">Kosongkan</button>
           </div>
           <div class="grid grid-cols-2 gap-3">
             <div>
@@ -716,7 +720,7 @@ watch(isReady, (ready) => {
         <div class="mb-6">
           <div class="flex justify-between items-center mb-2">
             <h3 class="text-sm font-semibold text-slate-500 dark:text-slate-400">Footer</h3>
-            <button @click="footerLeftInput = ''; footerRightInput = ''" type="button" class="text-[11px] text-red-500 hover:text-red-600 font-medium transition-colors">Kosongkan</button>
+            <button type="button" class="text-[11px] text-red-500 hover:text-red-600 font-medium transition-colors" @click="footerLeftInput = ''; footerRightInput = ''">Kosongkan</button>
           </div>
           <div class="grid grid-cols-2 gap-3">
             <div>
@@ -737,10 +741,10 @@ watch(isReady, (ready) => {
 
         <!-- Actions -->
         <div class="flex justify-end gap-2">
-          <button @click="showHeaderFooterModal = false" type="button" class="rounded-md px-3 py-1.5 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-white/5">
+          <button type="button" class="rounded-md px-3 py-1.5 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-white/5" @click="showHeaderFooterModal = false">
             Batal
           </button>
-          <button @click="saveHeaderFooter" type="button" class="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700">
+          <button type="button" class="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700" @click="saveHeaderFooter">
             Simpan
           </button>
         </div>

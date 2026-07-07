@@ -1,9 +1,7 @@
-import { Extension } from '@tiptap/core'
+import { Extension, type Editor } from '@tiptap/core'
 import { Plugin, PluginKey } from '@tiptap/pm/state'
-import { Decoration, DecorationSet } from '@tiptap/pm/view'
 import type { EditorView } from '@tiptap/pm/view'
 import { definePlugin } from '@kedata-indonesia/docflow-core'
-import type { Editor } from '@tiptap/core'
 
 // ─── Slash Menu State ─────────────────────────────────────────────────────
 
@@ -41,18 +39,12 @@ function closeSlashMenu() {
 }
 
 function openSlashMenu(view: EditorView, query: string) {
-  const { doc, selection } = view.state
+  const { selection } = view.state
   const pos = selection.head
   const coords = view.coordsAtPos(pos)
 
-  // Collect all slash commands from extensions
-  const commands: SlashState['commands'] = []
-  view.state.doc.descendants(() => {
-    // Commands come from extensions
-  })
-
   // Build command list from registered slash commands
-  const allCommands = getRegisteredCommands(view)
+  const allCommands = getRegisteredCommands()
   const filtered = query
     ? allCommands.filter(c => c.name.toLowerCase().includes(query.toLowerCase()))
     : allCommands
@@ -76,7 +68,7 @@ export function registerSlashCommands(editorId: string, commands: Array<{ name: 
   registeredCommands.set(editorId, [...existing, ...commands])
 }
 
-function getRegisteredCommands(view: EditorView): Array<{ name: string; command: string }> {
+function getRegisteredCommands(): Array<{ name: string; command: string }> {
   const all: Array<{ name: string; command: string }> = []
   registeredCommands.forEach(cmds => {
     all.push(...cmds)
@@ -100,7 +92,7 @@ export const SlashMenuExtension = Extension.create({
       new Plugin({
         key: new PluginKey('slashMenu'),
         props: {
-          handleTextInput(view, from, to, text) {
+          handleTextInput(view, from, _to, text) {
             // Detect '/' typed at start of line or after space
             if (text === '/') {
               const $pos = view.state.doc.resolve(from)
@@ -197,7 +189,7 @@ export const slashMenuPlugin = definePlugin({
   id: 'slash-menu',
   tiptapExtensions: [SlashMenuExtension],
   hooks: {
-    onInit(editor) {
+    onInit(_editor) {
       // Collect slash commands from all registered plugins
       const commands: Array<{ name: string; command: string }> = []
       // Commands come from plugins' slashCommands definitions
