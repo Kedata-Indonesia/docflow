@@ -41,40 +41,40 @@ export interface DocsEditor {
   pluginActions: Record<string, (...args: unknown[]) => boolean>
 }
 
-function migrateContent(content: any): any {
+function migrateContent(content: unknown): unknown {
   if (!content) return content
   if (typeof content === 'string') {
     try {
-      const parsed = JSON.parse(content)
+      const parsed = JSON.parse(content) as unknown
       return JSON.stringify(migrateContent(parsed))
     } catch {
       return content
     }
   }
-  if (typeof content !== 'object') return content
+  if (typeof content !== 'object' || content === null) return content
 
-  if (content.type === 'doc' && Array.isArray(content.content)) {
-    const newContentList: any[] = []
-    for (const child of content.content) {
-      if (child && child.type === 'page' && Array.isArray(child.content)) {
-        newContentList.push(...child.content)
+  const obj = content as Record<string, unknown>
+
+  if (obj.type === 'doc' && Array.isArray(obj.content)) {
+    const newContentList: unknown[] = []
+    for (const child of obj.content) {
+      const childObj = child as Record<string, unknown> | null
+      if (childObj && childObj.type === 'page' && Array.isArray(childObj.content)) {
+        newContentList.push(...childObj.content)
       } else {
         newContentList.push(child)
       }
     }
-    return {
-      ...content,
-      content: newContentList,
-    }
+    return { ...obj, content: newContentList }
   }
 
-  if (content.type === 'tabbed-doc' && Array.isArray(content.tabs)) {
+  if (obj.type === 'tabbed-doc' && Array.isArray(obj.tabs)) {
     return {
-      ...content,
-      tabs: content.tabs.map((tab: any) => ({
-        ...tab,
-        content: migrateContent(tab.content)
-      }))
+      ...obj,
+      tabs: obj.tabs.map((tab) => ({
+        ...(tab as Record<string, unknown>),
+        content: migrateContent((tab as Record<string, unknown>).content),
+      })),
     }
   }
 
@@ -84,7 +84,7 @@ function migrateContent(content: any): any {
 export function createEditor(options: EditorOptions = {}): DocsEditor {
   const migratedOptions = {
     ...options,
-    content: options.content ? migrateContent(options.content) : options.content
+    content: options.content ? (migrateContent(options.content) as string | object | undefined) : options.content
   }
   const plugins = migratedOptions.plugins ?? []
   const collaborationSetup = migratedOptions.collaboration

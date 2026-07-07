@@ -3,11 +3,12 @@ import vue from '@vitejs/plugin-vue';
 import path from 'path';
 
 const apiBaseUrl = process.env.VITE_API_BASE_URL;
+const port = Number(process.env.DEMO_PORT) || 5173;
 
 export default defineConfig({
   plugins: [vue()],
   server: {
-    port: 5173,
+    port,
     proxy: apiBaseUrl
       ? undefined
       : {
