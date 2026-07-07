@@ -10,15 +10,27 @@ import { encodeStateAsUpdate } from 'yjs'
 // Base URL for backend API — matches api.ts (VITE_API_BASE_URL or same-origin)
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? ''
 
-// WebSocket collaboration URL. When not set, default to a same-origin WebSocket
-// path so Docker / Dokploy deployments work without build-time env vars.
+// WebSocket collaboration URL. Resolution order:
+// 1. VITE_COLLAB_WEBSOCKET_URL if explicitly provided.
+// 2. VITE_API_BASE_URL + /collab when separate-domain API is configured.
+// 3. Same-origin /collab as the final fallback.
 const WS_PROTOCOL = typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-const DEFAULT_WS_URL = typeof window !== 'undefined' ? `${WS_PROTOCOL}//${window.location.host}/collab` : ''
+
+function resolveDefaultCollabUrl(): string {
+  if (typeof window === 'undefined') return ''
+  const apiBase = import.meta.env.VITE_API_BASE_URL
+  if (apiBase && String(apiBase).trim()) {
+    const base = String(apiBase).trim().replace(/\/$/, '')
+    return base.replace(/^http/, 'ws') + '/collab'
+  }
+  return `${WS_PROTOCOL}//${window.location.host}/collab`
+}
+
 const envWsUrl = import.meta.env.VITE_COLLAB_WEBSOCKET_URL
 const COLLAB_WS_URL = envWsUrl && String(envWsUrl).trim()
   ? String(envWsUrl).trim()
   : import.meta.env.PROD
-    ? DEFAULT_WS_URL
+    ? resolveDefaultCollabUrl()
     : ''
 
 const props = defineProps<{
