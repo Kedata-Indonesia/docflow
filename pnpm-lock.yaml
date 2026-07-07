@@ -111,6 +111,12 @@ importers:
       express-rate-limit:
         specifier: ^7.4.0
         version: 7.5.1(express@4.22.2)
+      lib0:
+        specifier: ^0.2.42
+        version: 0.2.117
+      lodash.debounce:
+        specifier: ^4.0.8
+        version: 4.0.8
       mongoose:
         specifier: ^8.8.0
         version: 8.24.1(socks@2.8.9)
@@ -123,6 +129,9 @@ importers:
       ws:
         specifier: ^8.18.0
         version: 8.21.0
+      y-protocols:
+        specifier: ^1.0.7
+        version: 1.0.7(yjs@13.6.31)
       y-websocket:
         specifier: ^2.1.0
         version: 2.1.0(yjs@13.6.31)
