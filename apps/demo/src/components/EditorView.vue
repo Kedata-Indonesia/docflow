@@ -48,6 +48,12 @@ const pageSize = ref('a4')
 const editorInstance = ref<DocsEditorInstance | null>(null)
 const saveTimer = ref<ReturnType<typeof setInterval> | null>(null)
 const shareToast = ref('')
+const shareDialogOpen = ref(false)
+const shareUrl = ref('')
+const collaborators = ref<Array<{ userId: string; name: string; email: string }>>([])
+const newCollaboratorEmail = ref('')
+const shareLoading = ref(false)
+const shareError = ref('')
 const onlineUsers = ref<Array<{ userId: string; userName: string }>>([])
 const heartbeatTimer = ref<ReturnType<typeof setInterval> | null>(null)
 const isSnapshotLoading = ref(true)
@@ -218,12 +224,79 @@ function handlePrint() {
 }
 
 async function handleShare() {
-  const url = window.location.href
+  shareUrl.value = window.location.href
+  shareDialogOpen.value = true
   try {
-    await navigator.clipboard.writeText(url)
+    await navigator.clipboard.writeText(shareUrl.value)
     shareToast.value = 'Link copied! Share this URL with collaborators.'
   } catch {
-    shareToast.value = url
+    shareToast.value = shareUrl.value
+  }
+  setTimeout(() => { shareToast.value = '' }, 3000)
+  await fetchCollaborators()
+}
+
+async function fetchCollaborators() {
+  try {
+    const res = await fetch(`${API_BASE}/api/documents/${props.doc.id}/collaborators`, {
+      credentials: 'include',
+    })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      console.error('Failed to fetch collaborators:', data.error || res.statusText)
+      collaborators.value = []
+      return
+    }
+    collaborators.value = (await res.json()) as Array<{ userId: string; name: string; email: string }>
+  } catch (err) {
+    console.error('Failed to fetch collaborators:', err)
+    collaborators.value = []
+  }
+}
+
+async function addCollaborator() {
+  const email = newCollaboratorEmail.value.trim()
+  if (!email) return
+
+  shareLoading.value = true
+  shareError.value = ''
+  try {
+    const lookupRes = await fetch(`${API_BASE}/api/users/lookup?email=${encodeURIComponent(email)}`, {
+      credentials: 'include',
+    })
+    if (!lookupRes.ok) {
+      const data = await lookupRes.json().catch(() => ({}))
+      shareError.value = data.error || 'User not found'
+      return
+    }
+    const user = (await lookupRes.json()) as { userId: string; name: string; email: string }
+    const addRes = await fetch(`${API_BASE}/api/documents/${props.doc.id}/collaborators`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ collaboratorId: user.userId }),
+    })
+    if (!addRes.ok) {
+      const data = await addRes.json().catch(() => ({}))
+      shareError.value = data.error || 'Failed to add collaborator'
+      return
+    }
+    newCollaboratorEmail.value = ''
+    await fetchCollaborators()
+  } catch (err) {
+    console.error('Failed to add collaborator:', err)
+    shareError.value = 'Failed to add collaborator'
+  } finally {
+    shareLoading.value = false
+  }
+}
+
+async function copyShareLink() {
+  try {
+    await navigator.clipboard.writeText(shareUrl.value)
+    shareToast.value = 'Link copied to clipboard'
+  } catch {
+    shareToast.value = 'Could not copy link'
   }
   setTimeout(() => { shareToast.value = '' }, 3000)
 }
@@ -292,6 +365,96 @@ function handleEditorReady(docsEditor: DocsEditorInstance) {
         </button>
       </template>
     </DocsEditor>
+
+    <!-- Share modal -->
+    <div
+      v-if="shareDialogOpen"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      @click.self="shareDialogOpen = false"
+    >
+      <div class="w-full max-w-md rounded-lg border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-700 dark:bg-slate-800">
+        <div class="mb-4 flex items-center justify-between">
+          <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100">
+            Share document
+          </h3>
+          <button
+            type="button"
+            class="rounded-md p-1 text-sm text-slate-400 transition-all hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-700 dark:hover:text-slate-300"
+            @click="shareDialogOpen = false"
+          >
+            Close
+          </button>
+        </div>
+
+        <div class="mb-4">
+          <label class="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">
+            Shareable link
+          </label>
+          <div class="flex gap-2">
+            <input
+              type="text"
+              :value="shareUrl"
+              readonly
+              class="flex-1 rounded-md border border-slate-300 bg-slate-50 px-3 py-2 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-300"
+            />
+            <button
+              type="button"
+              class="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition-all hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-700"
+              @click="copyShareLink"
+            >
+              Copy
+            </button>
+          </div>
+        </div>
+
+        <div class="mb-4">
+          <h4 class="mb-2 text-xs font-semibold text-slate-700 dark:text-slate-300">
+            Collaborators
+          </h4>
+          <ul class="max-h-40 overflow-y-auto rounded-md border border-slate-200 dark:border-slate-700">
+            <li
+              v-for="c in collaborators"
+              :key="c.userId"
+              class="border-b border-slate-100 px-3 py-2 last:border-b-0 dark:border-slate-700"
+            >
+              <div class="text-sm font-medium text-slate-800 dark:text-slate-200">
+                {{ c.name }}
+              </div>
+              <div class="text-xs text-slate-500 dark:text-slate-400">
+                {{ c.email }}
+              </div>
+            </li>
+          </ul>
+        </div>
+
+        <div class="mb-2">
+          <label class="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">
+            Add collaborator by email
+          </label>
+          <div class="flex gap-2">
+            <input
+              v-model="newCollaboratorEmail"
+              type="email"
+              placeholder="colleague@example.com"
+              class="flex-1 rounded-md border border-slate-300 px-3 py-2 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-300"
+              @keydown.enter="addCollaborator"
+            />
+            <button
+              type="button"
+              class="rounded-md bg-cyan-600 px-3 py-2 text-xs font-semibold text-white transition-all hover:bg-cyan-700 disabled:opacity-50"
+              :disabled="shareLoading"
+              @click="addCollaborator"
+            >
+              Add
+            </button>
+          </div>
+        </div>
+
+        <p v-if="shareError" class="text-xs text-red-600 dark:text-red-400">
+          {{ shareError }}
+        </p>
+      </div>
+    </div>
 
     <!-- Share toast -->
     <Transition name="fade">
