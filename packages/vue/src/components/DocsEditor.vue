@@ -51,6 +51,7 @@ const emit = defineEmits<{
   back: []
   share: []
   'menu-click': [menu: string]
+  export: [format: 'markdown' | 'html' | 'txt']
   ready: [docsEditor: DocsEditor]
 }>()
 
@@ -658,7 +659,7 @@ watch(isReady, (ready) => {
     <HeaderBar
 :title="title" :editable="editable" :collaborators="collaborators" :starred="starred" :user-name="userName" :user-avatar="userAvatar"
       @menu-click="menuClick" @back="$emit('back')" @update:title="$emit('update:title', $event)" @toggle-star="$emit('toggle-star')"
-      @export="() => {}" @share="$emit('share')"><template #actions><slot name="header-actions" /></template></HeaderBar>
+      @export="$emit('export', $event)" @share="$emit('share')"><template #actions><slot name="header-actions" /></template></HeaderBar>
     <EditorToolbar
 :actions="pluginActions" :plugins="plugins" :editor="editor" :active-sidebar="activeSidebar"
       @toggle-sidebar="toggleSidebar"       @print="handlePrint" @toggle-left-sidebar="leftSidebarOpen = !leftSidebarOpen" />
