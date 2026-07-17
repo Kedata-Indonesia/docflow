@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import type { Editor } from '@tiptap/core'
 import {
   List,
@@ -51,8 +51,22 @@ function refreshHeadings() {
   headings.value = items
 }
 
-onMounted(refreshHeadings)
-watch(() => props.editor, refreshHeadings)
+// Keep the outline live while it's open.
+onMounted(() => {
+  refreshHeadings()
+  props.editor?.on('update', refreshHeadings)
+})
+onUnmounted(() => {
+  props.editor?.off('update', refreshHeadings)
+})
+watch(
+  () => props.editor,
+  (ed, old) => {
+    old?.off('update', refreshHeadings)
+    refreshHeadings()
+    ed?.on('update', refreshHeadings)
+  },
+)
 
 const filteredHeadings = computed(() =>
   headings.value.filter((h) =>
@@ -102,7 +116,7 @@ function dotColor(level: number) {
 </script>
 
 <template>
-  <div class="toc-sidebar flex h-full w-80 flex-shrink-0 flex-col border-l border-slate-200 bg-white/80 text-slate-800 backdrop-blur-xl transition-all animate-fadeIn dark:border-white/5 dark:bg-[#0a0f1e]/85 dark:text-slate-100">
+  <div class="toc-sidebar flex h-full w-80 flex-shrink-0 flex-col border-r border-slate-200 bg-white/80 text-slate-800 backdrop-blur-xl transition-all animate-fadeIn dark:border-white/5 dark:bg-[#0a0f1e]/85 dark:text-slate-100">
     <div class="flex items-center justify-between border-b border-slate-200 p-4 dark:border-white/5">
       <div>
         <h3 class="flex items-center gap-1.5 font-mono text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
