@@ -12,11 +12,10 @@ export default defineConfig({
     proxy: apiBaseUrl
       ? undefined
       : {
+          // Better Auth + all API routes live under /api/*. Do NOT proxy bare
+          // /auth/* — those are frontend SPA routes (e.g. the OAuth
+          // newUser/error callback targets); proxying them to the backend 404s.
           '/api': {
-            target: 'http://localhost:3001',
-            changeOrigin: true,
-          },
-          '/auth': {
             target: 'http://localhost:3001',
             changeOrigin: true,
           },
