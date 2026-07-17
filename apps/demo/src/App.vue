@@ -641,7 +641,7 @@ const userAvatar = computed(() => {
 
     <!-- Authenticated -->
     <template v-else>
-      <div class="relative z-10 flex flex-1 overflow-hidden">
+      <div class="relative z-10 flex flex-1 flex-col overflow-hidden">
         <!-- Data loading indicator -->
         <div
           v-if="dataLoading"
@@ -653,7 +653,7 @@ const userAvatar = computed(() => {
         <template v-else>
           <div
             v-if="!currentDocId"
-            class="flex h-full w-full flex-col overflow-auto"
+            class="flex flex-1 flex-col overflow-hidden"
           >
             <header
               class="sticky top-0 z-20 flex flex-shrink-0 items-center justify-between border-b border-slate-200 bg-white/80 px-6 py-4 backdrop-blur-xl transition-colors dark:border-white/5 dark:bg-[#0a0f1e]/80"
@@ -743,6 +743,7 @@ const userAvatar = computed(() => {
             </header>
 
             <Dashboard
+              class="flex-1 overflow-hidden"
               :documents="documents"
               :folders="folders"
               @select-document="selectDocument"
