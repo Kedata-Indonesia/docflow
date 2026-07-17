@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { Printer } from 'lucide-vue-next'
+import { Printer, LogOut } from 'lucide-vue-next'
 import { DocsEditor } from '@kedata-indonesia/docflow-vue'
 import { defaultPlugins } from '@kedata-indonesia/docflow-plugins'
 import type { DocsEditor as DocsEditorInstance } from '@kedata-indonesia/docflow-core'
@@ -36,12 +36,13 @@ const COLLAB_WS_URL = envWsUrl && String(envWsUrl).trim()
 const props = defineProps<{
   doc: DocumentItem
   room: string
-  collabUser?: { name: string; color: string }
+  collabUser?: { name: string; color: string; avatar?: string }
 }>()
 
 const emit = defineEmits<{
   back: []
   'update:doc': [doc: DocumentItem]
+  logout: []
 }>()
 
 const pageSize = ref('a4')
@@ -326,6 +327,8 @@ function handleEditorReady(docsEditor: DocsEditorInstance) {
       :title="doc.title"
       :starred="doc.starred"
       :page-size="pageSize"
+      :user-name="collabUser?.name ?? 'Account'"
+      :user-avatar="collabUser?.avatar ?? ''"
       connection-state="connected"
       @back="emit('back')"
       @update:title="handleUpdateTitle"
@@ -354,14 +357,40 @@ function handleEditorReady(docsEditor: DocsEditorInstance) {
             +{{ onlineUsers.length - 5 }}
           </div>
         </div>
+        <!-- Print: inline on large screens; in the ⋮ menu on small (see #overflow-actions).
+             Logout now lives in the account menu (#user-menu). -->
         <button
           type="button"
-          class="flex h-8 items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition-all hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-700"
+          class="hidden h-8 w-8 shrink-0 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 xl:flex"
           title="Print document"
           @click="handlePrint"
         >
-          <Printer class="h-3.5 w-3.5 text-slate-500 dark:text-slate-400" />
-          <span class="hidden sm:inline">Print</span>
+          <Printer class="h-[18px] w-[18px]" />
+        </button>
+      </template>
+
+      <!-- Small-screen overflow menu rows (rendered inside the header's ⋮ menu) -->
+      <template #overflow-actions="{ close }">
+        <button
+          type="button"
+          class="flex w-full items-center gap-2.5 px-4 py-2 text-left hover:bg-slate-50 dark:hover:bg-white/5"
+          @click="handlePrint(); close()"
+        >
+          <Printer class="h-4 w-4 text-slate-400" />
+          <span>Print</span>
+        </button>
+        <div class="my-1 border-t border-slate-100 dark:border-slate-700/80" />
+      </template>
+
+      <!-- Account menu (avatar + username dropdown) -->
+      <template #user-menu="{ close }">
+        <button
+          type="button"
+          class="flex w-full items-center gap-2.5 px-4 py-2 text-left text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40"
+          @click="emit('logout'); close()"
+        >
+          <LogOut class="h-4 w-4" />
+          <span>Log out</span>
         </button>
       </template>
     </DocsEditor>

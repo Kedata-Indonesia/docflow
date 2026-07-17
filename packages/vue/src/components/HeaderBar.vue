@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, watch, computed, onMounted, onUnmounted } from 'vue'
-import { Star, Share2, Download, Users, MessageSquare, Video, ChevronDown } from 'lucide-vue-next'
+import { Star, Share2, Users, ChevronDown, MoreVertical } from 'lucide-vue-next'
 import type { Collaborator } from '../types.js'
 import ThemeToggle from './ThemeToggle.vue'
 
@@ -67,10 +67,9 @@ const handleExport = (format: 'markdown' | 'html' | 'txt') => {
   activeMenu.value = null
 }
 
-const currentUserInitials = computed(() => {
-  if (props.userAvatar) return props.userAvatar
-  return getInitials(props.userName)
-})
+// `userAvatar` is treated as an image URL; initials are the fallback.
+const currentUserInitials = computed(() => getInitials(props.userName) || '?')
+const avatarError = ref(false)
 
 // Menu structure
 interface MenuItem {
@@ -177,6 +176,19 @@ const toggleMenu = (key: string) => {
   hoveredSub.value = null
 }
 
+// Overflow ("More") menu for secondary actions on small screens.
+const moreOpen = ref(false)
+const toggleMore = () => {
+  moreOpen.value = !moreOpen.value
+}
+
+// User/account menu (avatar + name → dropdown). Contents come from the host app
+// via the #user-menu slot so the library stays auth-agnostic.
+const userMenuOpen = ref(false)
+const toggleUserMenu = () => {
+  userMenuOpen.value = !userMenuOpen.value
+}
+
 const handleMenuAction = (action: string) => {
   if (action.startsWith('export:')) {
     const format = action.replace('export:', '') as 'markdown' | 'html' | 'txt'
@@ -193,6 +205,12 @@ const closeMenus = (e: MouseEvent) => {
   if (!target.closest('.header-menu-container')) {
     activeMenu.value = null
     hoveredSub.value = null
+  }
+  if (!target.closest('.header-more-container')) {
+    moreOpen.value = false
+  }
+  if (!target.closest('.header-user-container')) {
+    userMenuOpen.value = false
   }
 }
 
@@ -211,7 +229,7 @@ onUnmounted(() => document.removeEventListener('click', closeMenus, true))
           title="Back to Documents"
           @click="emit('back')"
         >
-          dE
+          DF
         </button>
 
         <div class="flex min-w-0 flex-col gap-0.5">
@@ -344,7 +362,9 @@ onUnmounted(() => document.removeEventListener('click', closeMenus, true))
         </div>
       </div>
 
-      <!-- Right: actions -->
+      <!-- Right: actions. Primary (Comments, Share, avatar) always visible;
+           secondary actions are inline on large screens and collapse into the
+           "More" (⋮) menu on small screens. -->
       <div class="flex flex-shrink-0 items-center gap-1.5">
         <div v-if="collaborators.length > 0" class="hidden items-center gap-2 lg:flex">
           <div class="flex -space-x-1.5 overflow-hidden">
@@ -362,40 +382,23 @@ onUnmounted(() => document.removeEventListener('click', closeMenus, true))
 
         <slot name="actions" />
 
+        <!-- Secondary actions — inline on large screens only -->
         <button
           v-if="editable"
           type="button"
-          class="hidden items-center gap-1 rounded-md px-2 py-1 text-[11px] font-semibold transition-all sm:flex"
+          class="hidden h-8 w-8 items-center justify-center rounded-md transition-all xl:flex"
           :class="simulatorsActive
             ? 'animate-pulse bg-emerald-600 text-white hover:bg-emerald-700'
-            : 'border border-indigo-100 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 dark:border-indigo-900/60 dark:bg-indigo-950/40 dark:text-indigo-300'"
-          title="Toggle simulated collaborators"
+            : 'text-indigo-600 hover:bg-slate-100 dark:text-indigo-300 dark:hover:bg-slate-800'"
+          title="Sandbox (toggle simulated collaborators)"
           @click="emit('toggle-simulators')"
         >
-          <Users class="h-3 w-3" />
-          <span>{{ simulatorsActive ? 'Sandbox' : 'Sandbox' }}</span>
+          <Users class="h-[18px] w-[18px]" />
         </button>
-
-        <button
-          type="button"
-          class="flex h-8 w-8 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
-          title="Comments"
-          @click="emit('menu-click', 'Comments')"
-        >
-          <MessageSquare class="h-[18px] w-[18px]" />
-        </button>
-
-        <button
-          type="button"
-          class="hidden h-8 w-8 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 sm:flex"
-          title="Video call"
-          @click="emit('menu-click', 'Video')"
-        >
-          <Video class="h-[18px] w-[18px]" />
-        </button>
-
-        <ThemeToggle />
-
+        <div class="hidden xl:block">
+          <ThemeToggle />
+        </div>
+        <!-- Share — always visible (primary) -->
         <button
           type="button"
           class="flex h-8 items-center gap-1.5 rounded-md bg-blue-600 px-3 text-[13px] font-semibold text-white shadow transition-colors hover:bg-blue-700"
@@ -405,22 +408,97 @@ onUnmounted(() => document.removeEventListener('click', closeMenus, true))
           <span class="hidden sm:inline">Share</span>
         </button>
 
-        <div
-          class="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 text-xs font-bold text-white"
-          :title="userName"
-        >
-          {{ currentUserInitials }}
+        <!-- User / account menu — avatar + name, dropdown for account actions -->
+        <div class="header-user-container relative flex-shrink-0">
+          <button
+            type="button"
+            class="flex h-8 items-center gap-1.5 rounded-full py-0.5 pl-0.5 pr-1.5 transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
+            :title="userName"
+            @click.stop="toggleUserMenu"
+          >
+            <img
+              v-if="userAvatar && !avatarError"
+              :src="userAvatar"
+              :alt="userName"
+              referrerpolicy="no-referrer"
+              class="h-7 w-7 flex-shrink-0 rounded-full object-cover"
+              @error="avatarError = true"
+            >
+            <span
+              v-else
+              class="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 text-xs font-bold text-white"
+            >
+              {{ currentUserInitials }}
+            </span>
+            <span class="hidden max-w-[140px] truncate text-sm font-medium text-slate-700 dark:text-slate-200 sm:inline">{{ userName || 'Account' }}</span>
+            <ChevronDown class="h-3.5 w-3.5 flex-shrink-0 text-slate-400" />
+          </button>
+
+          <Transition
+            enter-active-class="transition-all duration-150 ease-out"
+            enter-from-class="opacity-0 scale-95 translate-y-[-4px]"
+            enter-to-class="opacity-100 scale-100 translate-y-0"
+            leave-active-class="transition-all duration-100 ease-in"
+            leave-from-class="opacity-100 scale-100 translate-y-0"
+            leave-to-class="opacity-0 scale-95 translate-y-[-4px]"
+          >
+            <div
+              v-if="userMenuOpen"
+              class="absolute right-0 top-full z-50 mt-1 min-w-[200px] rounded-lg border border-slate-200 bg-white py-1 text-sm text-slate-700 shadow-xl dark:border-slate-700 dark:bg-[#0e1525] dark:text-slate-200"
+              style="transform-origin: top right;"
+            >
+              <div class="border-b border-slate-100 px-4 py-2 dark:border-slate-700/80">
+                <p class="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{{ userName || 'Account' }}</p>
+              </div>
+              <slot name="user-menu" :close="() => (userMenuOpen = false)" />
+            </div>
+          </Transition>
         </div>
 
-        <!-- Download icon kept as quick access -->
-        <button
-          type="button"
-          class="hidden h-8 w-8 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 sm:flex"
-          title="Unduh / Export"
-          @click="emit('menu-click', 'File'); toggleMenu('File')"
-        >
-          <Download class="h-4 w-4" />
-        </button>
+        <!-- Overflow "More" menu — shown until there's room for all actions inline -->
+        <div class="header-more-container relative xl:hidden">
+          <button
+            type="button"
+            class="flex h-8 w-8 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+            title="More"
+            @click.stop="toggleMore"
+          >
+            <MoreVertical class="h-[18px] w-[18px]" />
+          </button>
+
+          <Transition
+            enter-active-class="transition-all duration-150 ease-out"
+            enter-from-class="opacity-0 scale-95 translate-y-[-4px]"
+            enter-to-class="opacity-100 scale-100 translate-y-0"
+            leave-active-class="transition-all duration-100 ease-in"
+            leave-from-class="opacity-100 scale-100 translate-y-0"
+            leave-to-class="opacity-0 scale-95 translate-y-[-4px]"
+          >
+            <div
+              v-if="moreOpen"
+              class="absolute right-0 top-full z-50 mt-1 min-w-[210px] rounded-lg border border-slate-200 bg-white py-1 text-sm text-slate-700 shadow-xl dark:border-slate-700 dark:bg-[#0e1525] dark:text-slate-200"
+              style="transform-origin: top right;"
+            >
+              <!-- Host-app extras (e.g. Print, Logout) -->
+              <slot name="overflow-actions" :close="() => (moreOpen = false)" />
+
+              <button
+                v-if="editable"
+                type="button"
+                class="flex w-full items-center gap-2.5 px-4 py-2 text-left hover:bg-slate-50 dark:hover:bg-white/5"
+                @click="emit('toggle-simulators'); moreOpen = false"
+              >
+                <Users class="h-4 w-4 text-slate-400" />
+                <span>Sandbox</span>
+              </button>
+              <div class="my-1 border-t border-slate-100 dark:border-slate-700/80" />
+              <div class="flex items-center justify-between px-4 py-2">
+                <span>Theme</span>
+                <ThemeToggle />
+              </div>
+            </div>
+          </Transition>
+        </div>
       </div>
     </div>
   </header>

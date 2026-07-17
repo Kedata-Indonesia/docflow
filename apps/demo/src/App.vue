@@ -126,7 +126,7 @@ const collabUser = computed(() => {
   const name = user.value.displayName
   for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash)
   const hue = Math.abs(hash) % 360
-  return { name, color: `hsl(${hue}, 60%, 50%)` }
+  return { name, color: `hsl(${hue}, 60%, 50%)`, avatar: user.value.avatar }
 })
 
 const currentDoc = computed(() => documents.value.find((d) => d.id === currentDocId.value) ?? null)
@@ -477,7 +477,7 @@ const userAvatar = computed(() => {
 
 <template>
   <div
-    class="relative flex min-h-screen flex-col overflow-hidden bg-slate-50 text-slate-800 transition-colors duration-200 dark:bg-[#02040a] dark:text-[#e2e8f0] font-sans"
+    class="relative flex h-screen flex-col overflow-hidden bg-slate-50 text-slate-800 transition-colors duration-200 dark:bg-[#02040a] dark:text-[#e2e8f0] font-sans"
   >
     <div
       class="pointer-events-none absolute left-[-100px] top-[-100px] z-0 h-[500px] w-[500px] rounded-full bg-blue-900/10 blur-[120px] dark:bg-blue-950/20"
@@ -502,10 +502,10 @@ const userAvatar = computed(() => {
       <div
         class="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-400 to-blue-600 text-2xl font-bold text-white shadow-[0_0_25px_rgba(34,211,238,0.35)]"
       >
-        dE
+        DF
       </div>
       <h1 class="text-2xl font-extrabold text-slate-900 dark:text-white">
-        DocsEditor
+        Docflow
       </h1>
       <p class="text-sm text-slate-500 dark:text-slate-400">
         Sign in to create and edit documents
@@ -641,94 +641,6 @@ const userAvatar = computed(() => {
 
     <!-- Authenticated -->
     <template v-else>
-      <header
-        v-if="!currentDocId"
-        class="relative z-10 flex items-center justify-between border-b border-slate-200 bg-white/80 px-6 py-4 backdrop-blur-xl transition-colors dark:border-white/5 dark:bg-[#0a0f1e]/80"
-      >
-        <div class="flex items-center gap-3">
-          <div
-            class="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-400 to-blue-600 text-base font-bold text-white shadow-[0_0_15px_rgba(34,211,238,0.3)]"
-          >
-            dE
-          </div>
-          <div class="flex items-center">
-            <span
-              class="bg-clip-text text-xl font-extrabold tracking-tight text-transparent bg-gradient-to-r from-slate-900 to-slate-700 dark:from-white dark:to-slate-400"
-            >
-              DocsEditor
-            </span>
-            <span
-              class="ml-2 rounded-full border border-transparent bg-cyan-500/10 px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wide text-cyan-600 dark:border-cyan-500/20 dark:text-cyan-400"
-            >
-              Beta
-            </span>
-          </div>
-        </div>
-
-        <div class="flex items-center gap-4">
-          <button
-            type="button"
-            class="rounded-lg border border-slate-200 bg-slate-50 p-2 text-slate-500 transition-all hover:border-slate-300 dark:border-white/10 dark:bg-white/5 dark:text-slate-400 dark:hover:border-white/20"
-            :title="isDark ? 'Light Mode' : 'Dark Mode'"
-            @click="toggleTheme"
-          >
-            <svg
-              v-if="isDark"
-              class="h-4 w-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m2.828 9.9a5 5 0 117.07 0l-.707-.707"
-              />
-            </svg>
-            <svg
-              v-else
-              class="h-4 w-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"
-              />
-            </svg>
-          </button>
-
-          <div class="flex items-center gap-2">
-            <img
-              v-if="user.avatar"
-              :src="user.avatar"
-              :alt="userName"
-              class="h-8 w-8 rounded-full border border-blue-200 object-cover dark:border-white/10"
-            />
-            <div
-              v-else
-              class="flex h-8 w-8 items-center justify-center rounded-full border border-blue-200 bg-blue-100 text-xs font-bold text-blue-600 dark:border-white/10 dark:bg-slate-800 dark:text-cyan-400"
-            >
-              {{ userAvatar }}
-            </div>
-            <div class="hidden text-left md:block">
-              <p class="text-xs font-semibold text-slate-800 dark:text-slate-200">{{ userName }}</p>
-              <button
-                type="button"
-                class="font-mono text-[10px] text-slate-400 hover:text-red-500 transition-colors"
-                @click="handleLogout"
-              >
-                Sign out
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
-
       <div class="relative z-10 flex flex-1 overflow-hidden">
         <!-- Data loading indicator -->
         <div
@@ -739,27 +651,120 @@ const userAvatar = computed(() => {
         </div>
 
         <template v-else>
-          <Dashboard
+          <div
             v-if="!currentDocId"
-            :documents="documents"
-            :folders="folders"
-            @select-document="selectDocument"
-            @create-document="createDocument"
-            @toggle-star="toggleStar"
-            @rename="renameDocument"
-            @duplicate="duplicateDocument"
-            @delete="deleteDocument"
-            @move="moveDocument"
-            @create-folder="createFolder"
-          />
+            class="flex h-full w-full flex-col overflow-auto"
+          >
+            <header
+              class="sticky top-0 z-20 flex flex-shrink-0 items-center justify-between border-b border-slate-200 bg-white/80 px-6 py-4 backdrop-blur-xl transition-colors dark:border-white/5 dark:bg-[#0a0f1e]/80"
+            >
+              <div class="flex items-center gap-3">
+                <div
+                  class="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-400 to-blue-600 text-base font-bold text-white shadow-[0_0_15px_rgba(34,211,238,0.3)]"
+                >
+                  DF
+                </div>
+                <div class="flex items-center">
+                  <span
+                    class="bg-clip-text text-xl font-extrabold tracking-tight text-transparent bg-gradient-to-r from-slate-900 to-slate-700 dark:from-white dark:to-slate-400"
+                  >
+                    Docflow
+                  </span>
+                  <span
+                    class="ml-2 rounded-full border border-transparent bg-cyan-500/10 px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wide text-cyan-600 dark:border-cyan-500/20 dark:text-cyan-400"
+                  >
+                    Beta
+                  </span>
+                </div>
+              </div>
+
+              <div class="flex items-center gap-4">
+                <button
+                  type="button"
+                  class="rounded-lg border border-slate-200 bg-slate-50 p-2 text-slate-500 transition-all hover:border-slate-300 dark:border-white/10 dark:bg-white/5 dark:text-slate-400 dark:hover:border-white/20"
+                  :title="isDark ? 'Light Mode' : 'Dark Mode'"
+                  @click="toggleTheme"
+                >
+                  <svg
+                    v-if="isDark"
+                    class="h-4 w-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m2.828 9.9a5 5 0 117.07 0l-.707-.707"
+                    />
+                  </svg>
+                  <svg
+                    v-else
+                    class="h-4 w-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"
+                    />
+                  </svg>
+                </button>
+
+                <div class="flex items-center gap-2">
+                  <img
+                    v-if="user.avatar"
+                    :src="user.avatar"
+                    :alt="userName"
+                    class="h-8 w-8 rounded-full border border-blue-200 object-cover dark:border-white/10"
+                  />
+                  <div
+                    v-else
+                    class="flex h-8 w-8 items-center justify-center rounded-full border border-blue-200 bg-blue-100 text-xs font-bold text-blue-600 dark:border-white/10 dark:bg-slate-800 dark:text-cyan-400"
+                  >
+                    {{ userAvatar }}
+                  </div>
+                  <div class="hidden text-left md:block">
+                    <p class="text-xs font-semibold text-slate-800 dark:text-slate-200">{{ userName }}</p>
+                    <button
+                      type="button"
+                      class="font-mono text-[10px] text-slate-400 hover:text-red-500 transition-colors"
+                      @click="handleLogout"
+                    >
+                      Sign out
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </header>
+
+            <Dashboard
+              :documents="documents"
+              :folders="folders"
+              @select-document="selectDocument"
+              @create-document="createDocument"
+              @toggle-star="toggleStar"
+              @rename="renameDocument"
+              @duplicate="duplicateDocument"
+              @delete="deleteDocument"
+              @move="moveDocument"
+              @create-folder="createFolder"
+            />
+          </div>
 
           <EditorView
             v-else-if="currentDoc"
+            class="flex-1"
             :doc="currentDoc"
             :room="room"
             :collab-user="collabUser"
             @back="goBack"
             @update:doc="updateDocument"
+            @logout="handleLogout"
           />
         </template>
       </div>
