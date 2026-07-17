@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { computed, ref, watch, onUnmounted } from 'vue'
+import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
 import type { Editor } from '@tiptap/core'
 import type { DocsEditorPlugin, ToolbarItem } from '@kedata-indonesia/docflow-core'
 import {
@@ -30,7 +30,6 @@ import {
   History,
   Sparkles,
   FileText,
-  Menu,
   Undo2,
   Redo2,
   Printer,
@@ -230,6 +229,56 @@ function runPluginItem(item: ToolbarItem) {
   }
 }
 
+// ── Grouped toolbar items ────────────────────────────────────────────────
+// Plugin toolbar items are categorized so common groups collapse into compact
+// dropdowns (Google-Docs style). Headings are dropped here — they're covered by
+// the paragraph-style <select>. Anything uncategorized renders as a flat button.
+const HEADING_ACTIONS = ['toggleHeading1', 'toggleHeading2', 'toggleHeading3', 'toggleHeading4', 'toggleHeading5', 'toggleHeading6']
+const ALIGN_ACTIONS = ['alignLeft', 'alignCenter', 'alignRight', 'alignJustify']
+const LIST_ACTIONS = ['toggleBulletList', 'toggleOrderedList', 'toggleTaskList']
+const INSERT_ACTIONS = ['setLink', 'insertImage', 'insertTable', 'toggleBlockquote', 'toggleCodeBlock', 'insertFootnote', 'insertPageBreak', 'setPageBreak', 'togglePageBreak', 'addPageBreak']
+
+const allPluginItems = computed(() => toolbarGroups.value.flatMap((g) => g.items))
+const alignItems = computed(() => allPluginItems.value.filter((i) => ALIGN_ACTIONS.includes(i.action)))
+const listItems = computed(() => allPluginItems.value.filter((i) => LIST_ACTIONS.includes(i.action)))
+const insertItems = computed(() => allPluginItems.value.filter((i) => INSERT_ACTIONS.includes(i.action)))
+const flatItems = computed(() =>
+  allPluginItems.value.filter(
+    (i) =>
+      !HEADING_ACTIONS.includes(i.action) &&
+      !ALIGN_ACTIONS.includes(i.action) &&
+      !LIST_ACTIONS.includes(i.action) &&
+      !INSERT_ACTIONS.includes(i.action),
+  ),
+)
+
+const currentAlignIcon = computed(() => {
+  void selectionTick.value
+  const editor = props.editor
+  if (editor) {
+    if (editor.isActive({ textAlign: 'center' })) return AlignCenter
+    if (editor.isActive({ textAlign: 'right' })) return AlignRight
+    if (editor.isActive({ textAlign: 'justify' })) return AlignJustify
+  }
+  return AlignLeft
+})
+
+type DropdownKey = 'heading' | 'font' | 'align' | 'lists' | 'insert'
+const activeDropdown = ref<DropdownKey | null>(null)
+function toggleDropdown(key: DropdownKey) {
+  activeDropdown.value = activeDropdown.value === key ? null : key
+}
+function runFromDropdown(item: ToolbarItem) {
+  runPluginItem(item)
+  activeDropdown.value = null
+}
+function closeDropdowns(e: MouseEvent) {
+  const target = e.target as HTMLElement
+  if (!target.closest('.toolbar-dropdown')) activeDropdown.value = null
+}
+onMounted(() => document.addEventListener('click', closeDropdowns, true))
+onUnmounted(() => document.removeEventListener('click', closeDropdowns, true))
+
 function sidebarClass(key: SidebarKey) {
   return props.activeSidebar === key ? sidebarActiveClass : sidebarInactiveClass
 }
@@ -254,22 +303,33 @@ function handlePrint() {
   emit('print')
 }
 
-function handleParagraphStyle(event: Event) {
-  const value = (event.target as HTMLSelectElement).value
-  if (!props.editor) return
-  if (value === 'paragraph') {
-    (props.editor.commands as any).setParagraph()
-  } else {
-    const level = parseInt(value.replace('heading-', ''), 10)
-    const action = `toggleHeading${level}` as string
-    const fn = props.actions[action]
-    if (typeof fn === 'function') {
-      fn()
+const PARAGRAPH_OPTIONS = [
+  { value: 'paragraph', label: 'Normal text' },
+  { value: 'heading-1', label: 'Heading 1' },
+  { value: 'heading-2', label: 'Heading 2' },
+  { value: 'heading-3', label: 'Heading 3' },
+  { value: 'heading-4', label: 'Heading 4' },
+  { value: 'heading-5', label: 'Heading 5' },
+  { value: 'heading-6', label: 'Heading 6' },
+]
+
+function applyParagraphStyle(value: string) {
+  const editor = props.editor
+  if (editor) {
+    if (value === 'paragraph') {
+      (editor.commands as any).setParagraph()
     } else {
-      (props.editor.commands as any).toggleHeading({ level: level as 1 | 2 | 3 | 4 | 5 | 6 })
+      const level = parseInt(value.replace('heading-', ''), 10)
+      const fn = props.actions[`toggleHeading${level}`]
+      if (typeof fn === 'function') {
+        fn()
+      } else {
+        (editor.commands as any).toggleHeading({ level: level as 1 | 2 | 3 | 4 | 5 | 6 })
+      }
     }
+    editor.commands.focus()
   }
-  props.editor.commands.focus()
+  activeDropdown.value = null
 }
 
 const currentParagraphStyle = computed(() => {
@@ -282,6 +342,28 @@ const currentParagraphStyle = computed(() => {
   }
   return 'paragraph'
 })
+
+const currentParagraphLabel = computed(
+  () => PARAGRAPH_OPTIONS.find((o) => o.value === currentParagraphStyle.value)?.label ?? 'Normal text',
+)
+
+// Font family — display-only for now (no font-family command wired to the editor),
+// matching the previous <select> behaviour but with a consistent dropdown UI.
+const FONT_OPTIONS = [
+  { value: 'arial', label: 'Arial' },
+  { value: 'inter', label: 'Inter' },
+  { value: 'serif', label: 'Serif' },
+  { value: 'mono', label: 'Monospace' },
+]
+const currentFont = ref('arial')
+const currentFontLabel = computed(
+  () => FONT_OPTIONS.find((o) => o.value === currentFont.value)?.label ?? 'Arial',
+)
+function applyFont(value: string) {
+  currentFont.value = value
+  activeDropdown.value = null
+  props.editor?.commands.focus()
+}
 
 const FONT_SIZES = [8, 9, 10, 11, 12, 14, 16, 18, 20, 22, 24, 26, 28, 36, 48, 72]
 const DEFAULT_FONT_SIZE = 11
@@ -348,18 +430,9 @@ function handleFontSize(delta: number) {
 
 <template>
   <div id="editor-toolbar-row" class="docs-editor-toolbar w-full border-b border-slate-200 bg-white py-1.5 text-slate-600 shadow-sm dark:border-slate-800 dark:bg-[#0b1120] dark:text-slate-300">
-    <div class="flex min-h-9 w-full items-center gap-1 px-3 flex-nowrap overflow-hidden">
-      <!-- Left: menu, undo/redo, print, zoom -->
-      <button
-        type="button"
-        :class="[controlBaseClass, 'w-8']"
-        title="Menu"
-        aria-label="Menu"
-        @click="emit('toggle-left-sidebar')"
-      >
-        <Menu class="h-[18px] w-[18px]" />
-      </button>
-
+    <div class="flex min-h-9 w-full items-center gap-1 px-3 flex-nowrap">
+      <!-- Left: undo/redo, print, zoom. (Document-outline toggle is a floating
+           button next to the page — see DocsEditor.) -->
       <button
         type="button"
         :class="[controlBaseClass, 'w-8']"
@@ -421,35 +494,66 @@ function handleFontSize(delta: number) {
       <span class="mx-1 h-5 w-px flex-shrink-0 bg-slate-200 dark:bg-white/10" />
 
       <!-- Paragraph style -->
-      <div class="relative flex-shrink-0">
-        <select
-          :value="currentParagraphStyle"
-          :disabled="!editor"
-          class="h-8 cursor-pointer appearance-none rounded-md border-0 bg-transparent pl-2 pr-7 text-xs font-medium text-slate-700 hover:bg-slate-100 focus:outline-none disabled:opacity-40 dark:text-slate-200 dark:hover:bg-white/5"
+      <div class="toolbar-dropdown relative flex-shrink-0">
+        <button
+          type="button"
+          :class="[controlBaseClass, 'w-[116px] justify-between gap-1 px-2 text-xs font-medium']"
+          title="Paragraph style"
           aria-label="Paragraph style"
-          @change="handleParagraphStyle"
+          :disabled="!editor"
+          @mousedown.prevent
+          @click.stop="toggleDropdown('heading')"
         >
-          <option value="paragraph">Normal text</option>
-          <option value="heading-1">Heading 1</option>
-          <option value="heading-2">Heading 2</option>
-          <option value="heading-3">Heading 3</option>
-        </select>
-        <ChevronDown class="pointer-events-none absolute right-1 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+          <span class="truncate">{{ currentParagraphLabel }}</span>
+          <ChevronDown class="h-3.5 w-3.5 flex-shrink-0 text-slate-400" />
+        </button>
+        <div
+          v-if="activeDropdown === 'heading'"
+          class="absolute left-0 top-full z-50 mt-1 min-w-[180px] rounded-lg border border-slate-200 bg-white py-1 text-sm shadow-xl dark:border-slate-700 dark:bg-[#0e1525]"
+        >
+          <button
+            v-for="opt in PARAGRAPH_OPTIONS"
+            :key="opt.value"
+            type="button"
+            :class="['flex w-full items-center px-3 py-1.5 text-left hover:bg-slate-50 dark:hover:bg-white/5', currentParagraphStyle === opt.value ? 'text-blue-600 dark:text-blue-300' : 'text-slate-700 dark:text-slate-200']"
+            :disabled="!editor"
+            @mousedown.prevent
+            @click="applyParagraphStyle(opt.value)"
+          >
+            {{ opt.label }}
+          </button>
+        </div>
       </div>
 
       <!-- Font family -->
-      <div class="relative flex-shrink-0">
-        <select
-          :disabled="!editor"
-          class="h-8 cursor-pointer appearance-none rounded-md border-0 bg-transparent pl-2 pr-7 text-xs font-medium text-slate-700 hover:bg-slate-100 focus:outline-none disabled:opacity-40 dark:text-slate-200 dark:hover:bg-white/5"
+      <div class="toolbar-dropdown relative flex-shrink-0">
+        <button
+          type="button"
+          :class="[controlBaseClass, 'w-[100px] justify-between gap-1 px-2 text-xs font-medium']"
+          title="Font family"
           aria-label="Font family"
+          :disabled="!editor"
+          @mousedown.prevent
+          @click.stop="toggleDropdown('font')"
         >
-          <option value="arial">Arial</option>
-          <option value="inter">Inter</option>
-          <option value="serif">Serif</option>
-          <option value="mono">Monospace</option>
-        </select>
-        <ChevronDown class="pointer-events-none absolute right-1 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+          <span class="truncate">{{ currentFontLabel }}</span>
+          <ChevronDown class="h-3.5 w-3.5 flex-shrink-0 text-slate-400" />
+        </button>
+        <div
+          v-if="activeDropdown === 'font'"
+          class="absolute left-0 top-full z-50 mt-1 min-w-[160px] rounded-lg border border-slate-200 bg-white py-1 text-sm shadow-xl dark:border-slate-700 dark:bg-[#0e1525]"
+        >
+          <button
+            v-for="opt in FONT_OPTIONS"
+            :key="opt.value"
+            type="button"
+            :class="['flex w-full items-center px-3 py-1.5 text-left hover:bg-slate-50 dark:hover:bg-white/5', currentFont === opt.value ? 'text-blue-600 dark:text-blue-300' : 'text-slate-700 dark:text-slate-200']"
+            @mousedown.prevent
+            @click="applyFont(opt.value)"
+          >
+            {{ opt.label }}
+          </button>
+        </div>
       </div>
 
       <!-- Font size -->
@@ -477,32 +581,133 @@ function handleFontSize(delta: number) {
 
       <span class="mx-1 h-5 w-px flex-shrink-0 bg-slate-200 dark:bg-white/10" />
 
-      <!-- Dynamic plugin formatting items -->
-      <template v-for="(group, groupIndex) in toolbarGroups" :key="group.pluginId">
-        <span v-if="groupIndex > 0" class="mx-1 h-5 w-px flex-shrink-0 bg-slate-200 dark:bg-white/10" />
+      <!-- Primary formatting (bold / italic / underline / strike, etc.) -->
+      <button
+        v-for="item in flatItems"
+        :key="item.id"
+        type="button"
+        :title="item.label ?? item.id"
+        :aria-label="item.label ?? item.id"
+        :class="[
+          'docs-editor-toolbar__button inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md p-1 transition-all disabled:opacity-40',
+          isItemActive(item) ? activeClass : inactiveClass,
+        ]"
+        :disabled="!editor"
+        @mousedown.prevent
+        @click="runPluginItem(item)"
+      >
+        <component
+          :is="resolveIcon(item.iconComponent)"
+          v-if="resolveIcon(item.iconComponent)"
+          class="h-[18px] w-[18px]"
+        />
+        <span v-else-if="item.label" class="text-xs font-medium leading-none">{{ item.label.charAt(0) }}</span>
+      </button>
 
+      <span
+        v-if="listItems.length || alignItems.length || insertItems.length"
+        class="mx-1 h-5 w-px flex-shrink-0 bg-slate-200 dark:bg-white/10"
+      />
+
+      <!-- Lists dropdown -->
+      <div v-if="listItems.length" class="toolbar-dropdown relative flex-shrink-0">
         <button
-          v-for="item in group.items"
-          :key="item.id"
           type="button"
-          :title="item.label ?? item.id"
-          :aria-label="item.label ?? item.id"
-          :class="[
-            'docs-editor-toolbar__button inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md p-1 transition-all disabled:opacity-40',
-            isItemActive(item) ? activeClass : inactiveClass,
-          ]"
+          :class="[controlBaseClass, 'gap-0.5 px-1.5']"
+          title="Lists"
+          aria-label="Lists"
           :disabled="!editor"
           @mousedown.prevent
-          @click="runPluginItem(item)"
+          @click.stop="toggleDropdown('lists')"
         >
-          <component
-            :is="resolveIcon(item.iconComponent)"
-            v-if="resolveIcon(item.iconComponent)"
-            class="h-[18px] w-[18px]"
-          />
-          <span v-else-if="item.label" class="text-xs font-medium leading-none">{{ item.label.charAt(0) }}</span>
+          <List class="h-[18px] w-[18px]" />
+          <ChevronDown class="h-3 w-3 text-slate-400" />
         </button>
-      </template>
+        <div
+          v-if="activeDropdown === 'lists'"
+          class="absolute left-0 top-full z-50 mt-1 min-w-[180px] rounded-lg border border-slate-200 bg-white py-1 text-sm shadow-xl dark:border-slate-700 dark:bg-[#0e1525]"
+        >
+          <button
+            v-for="item in listItems"
+            :key="item.id"
+            type="button"
+            :class="['flex w-full items-center gap-2.5 px-3 py-1.5 text-left hover:bg-slate-50 dark:hover:bg-white/5', isItemActive(item) ? 'text-blue-600 dark:text-blue-300' : 'text-slate-700 dark:text-slate-200']"
+            :disabled="!editor"
+            @mousedown.prevent
+            @click="runFromDropdown(item)"
+          >
+            <component :is="resolveIcon(item.iconComponent)" v-if="resolveIcon(item.iconComponent)" class="h-4 w-4" />
+            <span>{{ item.label ?? item.id }}</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Alignment dropdown -->
+      <div v-if="alignItems.length" class="toolbar-dropdown relative flex-shrink-0">
+        <button
+          type="button"
+          :class="[controlBaseClass, 'gap-0.5 px-1.5']"
+          title="Alignment"
+          aria-label="Alignment"
+          :disabled="!editor"
+          @mousedown.prevent
+          @click.stop="toggleDropdown('align')"
+        >
+          <component :is="currentAlignIcon" class="h-[18px] w-[18px]" />
+          <ChevronDown class="h-3 w-3 text-slate-400" />
+        </button>
+        <div
+          v-if="activeDropdown === 'align'"
+          class="absolute left-0 top-full z-50 mt-1 min-w-[160px] rounded-lg border border-slate-200 bg-white py-1 text-sm shadow-xl dark:border-slate-700 dark:bg-[#0e1525]"
+        >
+          <button
+            v-for="item in alignItems"
+            :key="item.id"
+            type="button"
+            :class="['flex w-full items-center gap-2.5 px-3 py-1.5 text-left hover:bg-slate-50 dark:hover:bg-white/5', isItemActive(item) ? 'text-blue-600 dark:text-blue-300' : 'text-slate-700 dark:text-slate-200']"
+            :disabled="!editor"
+            @mousedown.prevent
+            @click="runFromDropdown(item)"
+          >
+            <component :is="resolveIcon(item.iconComponent)" v-if="resolveIcon(item.iconComponent)" class="h-4 w-4" />
+            <span>{{ item.label ?? item.id }}</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Insert dropdown -->
+      <div v-if="insertItems.length" class="toolbar-dropdown relative flex-shrink-0">
+        <button
+          type="button"
+          :class="[controlBaseClass, 'gap-1 px-2 text-xs font-medium']"
+          title="Insert"
+          aria-label="Insert"
+          :disabled="!editor"
+          @mousedown.prevent
+          @click.stop="toggleDropdown('insert')"
+        >
+          <Plus class="h-4 w-4" />
+          <span class="hidden md:inline">Insert</span>
+          <ChevronDown class="h-3 w-3 text-slate-400" />
+        </button>
+        <div
+          v-if="activeDropdown === 'insert'"
+          class="absolute left-0 top-full z-50 mt-1 min-w-[190px] rounded-lg border border-slate-200 bg-white py-1 text-sm shadow-xl dark:border-slate-700 dark:bg-[#0e1525]"
+        >
+          <button
+            v-for="item in insertItems"
+            :key="item.id"
+            type="button"
+            :class="['flex w-full items-center gap-2.5 px-3 py-1.5 text-left hover:bg-slate-50 dark:hover:bg-white/5', isItemActive(item) ? 'text-blue-600 dark:text-blue-300' : 'text-slate-700 dark:text-slate-200']"
+            :disabled="!editor"
+            @mousedown.prevent
+            @click="runFromDropdown(item)"
+          >
+            <component :is="resolveIcon(item.iconComponent)" v-if="resolveIcon(item.iconComponent)" class="h-4 w-4" />
+            <span>{{ item.label ?? item.id }}</span>
+          </button>
+        </div>
+      </div>
 
       <span class="mx-1 h-5 w-px flex-shrink-0 bg-slate-200 dark:bg-white/10" />
 

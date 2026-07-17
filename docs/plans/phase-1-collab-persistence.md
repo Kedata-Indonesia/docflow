@@ -1,10 +1,35 @@
 # Phase 1 — Collaboration Persistence · Task-Level Implementation Plan
 
-**Roadmap ref:** [ENHANCEMENT_ROADMAP.md](../ENHANCEMENT_ROADMAP.md) Phase 1 · **Priority:** P0 · **Last updated:** 2026-07-17
+**Roadmap ref:** [ENHANCEMENT_ROADMAP.md](../ENHANCEMENT_ROADMAP.md) Phase 1 · **Priority:** P0 · **Status:** 🟡 In progress (core landed) · **Last updated:** 2026-07-17
 
 > **Goal:** make the **Yjs document the single durable source of truth**, persisted
 > **server-side** and independent of any connected client, so on-prem installs never lose
 > or diverge edits. TipTap JSON becomes a **derived read-model**.
+
+---
+
+## 0. Status
+
+Core server-side persistence (**Groups A + B**) is implemented and locally boot-verified;
+the client-side cleanup and migration (**C/D/E**), config/docs (**F**), and tests (**G**)
+remain.
+
+| Group | Status | Notes |
+|-------|--------|-------|
+| A — Mongo persistence adapter | ✅ Done | `CollabState` model, schema-free `deriveContent`, `mongoPersistence` adapter |
+| B — Wire into server | ✅ Done | `setPersistence(...)`; Mongo connects before `listen` |
+| C — Server-derived read-model | ⬜ Not started | Adapter already derives `content`/`plainText`; still need to deprecate client JSON writes |
+| D — Legacy migration (guarded seed) | ⬜ Not started | Adapter has legacy `CollabSnapshot` fallback; guarded client seed endpoint pending |
+| E — Retire client-driven persistence | ⬜ Not started | Client snapshot/auto-save loop still runs (harmless, coexists) |
+| F — Config & docs | ⬜ Not started | — |
+| G — Tests & verification | 🟡 Partial | `tsc` passes; clean boot verified; unit + 2-client/restart e2e pending |
+
+**Verified so far:** `tsc --noEmit` passes; server boots with `Collab persistence: MongoDB
+enabled`; fixed a yjs ESM/CJS dual-instance bug by loading `yjs`/`y-prosemirror` via
+`createRequire` (shares the vendored `utils.cjs` instance).
+
+**Delivered (not in the original plan) — pnpm 11 build approval:** added `allowBuilds` to
+`pnpm-workspace.yaml` (esbuild only) so `pnpm` scripts run under pnpm 11 / Node 24.
 
 ---
 
@@ -83,7 +108,7 @@ interface ICollabState {
 
 Tasks are grouped; each lists files, work, and acceptance. Dependencies noted as `⇐`.
 
-### Group A — Mongo persistence adapter (library of the fix)
+### Group A — Mongo persistence adapter (library of the fix) · ✅ Done
 
 **A1. Add `y-prosemirror` to the server.** ⇐ none
 - File: [apps/server/package.json](../../apps/server/package.json)
@@ -114,7 +139,7 @@ Tasks are grouped; each lists files, work, and acceptance. Dependencies noted as
     - Wrap in try/catch + structured log; never throw into the WS server loop.
 - Accept: unit test — apply updates, run `persist`, assert `CollabState` + `Document.content` updated.
 
-### Group B — Wire persistence into the server
+### Group B — Wire persistence into the server · ✅ Done
 
 **B1. Register the adapter.** ⇐ A4
 - File: [apps/server/src/index.ts](../../apps/server/src/index.ts)

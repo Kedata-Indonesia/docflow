@@ -12,6 +12,8 @@ import StatusBar from './StatusBar.vue'
 import RulerBar from './RulerBar.vue'
 import VerticalRuler from './VerticalRuler.vue'
 import QuickActionChips from './QuickActionChips.vue'
+import TOCSidebar from './sidebars/TOCSidebar.vue'
+import { Menu } from 'lucide-vue-next'
 import { useTheme } from '../composables/useTheme.js'
 
 const props = withDefaults(
@@ -129,7 +131,7 @@ const activeTabContent = computed(() => tabContents.value[activeTabId.value])
 const showBubbleMenu = ref(false)
 const bubblePosition = ref<{ top: number; left: number } | null>(null)
 const activeSidebar = ref<SidebarKey | null>(null)
-const leftSidebarOpen = ref(true)
+const leftSidebarOpen = ref(false)
 const wordCount = ref(0)
 const charCount = ref(0)
 const savingStatus = ref<SavingStatus>('saved')
@@ -659,14 +661,28 @@ watch(isReady, (ready) => {
     <HeaderBar
 :title="title" :editable="editable" :collaborators="collaborators" :starred="starred" :user-name="userName" :user-avatar="userAvatar"
       @menu-click="menuClick" @back="$emit('back')" @update:title="$emit('update:title', $event)" @toggle-star="$emit('toggle-star')"
-      @export="$emit('export', $event)" @share="$emit('share')"><template #actions><slot name="header-actions" /></template></HeaderBar>
+      @export="$emit('export', $event)" @share="$emit('share')"><template #actions><slot name="header-actions" /></template><template #overflow-actions="slotProps"><slot name="overflow-actions" v-bind="slotProps" /></template><template #user-menu="slotProps"><slot name="user-menu" v-bind="slotProps" /></template></HeaderBar>
     <EditorToolbar
 :actions="pluginActions" :plugins="plugins" :editor="editor" :active-sidebar="activeSidebar"
       @toggle-sidebar="toggleSidebar"       @print="handlePrint" @toggle-left-sidebar="leftSidebarOpen = !leftSidebarOpen" />
     <RulerBar :layout-options="resolvedLayoutOptions" />
     <BubbleMenu :visible="showBubbleMenu" :actions="pluginActions" :position="bubblePosition" :editor="editor" />
     <SlashMenuVue :editor="editor" :commands="slashCommands" />
-    <div class="docs-editor__body flex flex-1 overflow-hidden">
+    <div class="docs-editor__body relative flex flex-1 overflow-hidden">
+      <!-- Document outline (heading map) — toggled by the floating button -->
+      <TOCSidebar v-if="leftSidebarOpen" :editor="editor" @close="leftSidebarOpen = false" />
+
+      <!-- Floating toggle shown when the outline is collapsed -->
+      <button
+        v-else
+        type="button"
+        class="absolute left-4 top-4 z-20 flex h-11 w-11 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-md transition-colors hover:bg-slate-100 dark:border-white/10 dark:bg-[#0e1525] dark:text-slate-300 dark:hover:bg-white/5"
+        title="Show document outline"
+        @click="leftSidebarOpen = true"
+      >
+        <Menu class="h-5 w-5" />
+      </button>
+
       <div ref="scrollContainerRef" class="docs-editor-scroll relative flex flex-1 overflow-auto px-4 py-6 bg-slate-100 dark:bg-[#02040a]" @scroll="handleScroll">
         <VerticalRuler :layout-options="resolvedLayoutOptions" />
         <div class="flex flex-1 flex-col items-center gap-4 w-full relative">
