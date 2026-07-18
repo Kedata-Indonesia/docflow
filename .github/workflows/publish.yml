@@ -1,4 +1,4 @@
-name: Publish to GitHub Packages
+name: Publish to GitHub Packages & npm
 
 on:
   push:
@@ -88,3 +88,49 @@ jobs:
           fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ─── Public npm (@kedataindo/*) ───────────────────────────
+      - name: Publish @kedataindo/* to public npm
+        run: |
+          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" >> .npmrc
+
+          # Dependency order: core → layout-engine → plugins → vue → element
+          for pkg in core layout-engine plugins vue element; do
+            VERSION=$(node -e "console.log(require('./packages/$pkg/package.json').version)")
+
+            # Rewrite package.json: rename + update internal deps
+            node -e "
+              const fs = require('fs');
+              const fp = './packages/$pkg/package.json';
+              const p = JSON.parse(fs.readFileSync(fp, 'utf8'));
+              p.name = '@kedataindo/docflow-$pkg';
+              // Rewrite internal dep names
+              ['dependencies', 'devDependencies', 'peerDependencies'].forEach(section => {
+                if (!p[section]) return;
+                Object.keys(p[section]).forEach(k => {
+                  if (k.startsWith('@kedata-indonesia/docflow-')) {
+                    const sub = k.replace('@kedata-indonesia/docflow-', '');
+                    const v = p[section][k];
+                    delete p[section][k];
+                    p[section]['@kedataindo/docflow-' + sub] = v;
+                  }
+                });
+              });
+              p.publishConfig = { registry: 'https://registry.npmjs.org' };
+              fs.writeFileSync(fp, JSON.stringify(p, null, 2) + '\n');
+            "
+
+            # Check if already published
+            if npm view @kedataindo/docflow-$pkg@\$VERSION version &>/dev/null 2>&1; then
+              echo "@kedataindo/docflow-$pkg@\$VERSION already published, skipping"
+            else
+              echo "Publishing @kedataindo/docflow-$pkg@\$VERSION..."
+              pnpm publish --filter @kedataindo/docflow-$pkg --no-git-checks
+            fi
+
+            # Restore original package.json
+            git checkout HEAD -- packages/$pkg/package.json
+          done
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
