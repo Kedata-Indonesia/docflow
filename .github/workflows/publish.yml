@@ -116,7 +116,7 @@ jobs:
                   }
                 });
               });
-              p.publishConfig = { registry: 'https://registry.npmjs.org' };
+              p.publishConfig = { registry: 'https://registry.npmjs.org', access: 'public' };
               fs.writeFileSync(fp, JSON.stringify(p, null, 2) + '\n');
             "
 
@@ -125,7 +125,7 @@ jobs:
               echo "@kedataindo/docflow-$pkg@\$VERSION already published, skipping"
             else
               echo "Publishing @kedataindo/docflow-$pkg@\$VERSION..."
-              pnpm publish --filter @kedataindo/docflow-$pkg --no-git-checks
+              pnpm publish --filter @kedataindo/docflow-$pkg --no-git-checks --access public
             fi
 
             # Restore original package.json
