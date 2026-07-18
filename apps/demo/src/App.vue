@@ -388,13 +388,14 @@ async function duplicateDocument(id: string) {
       updatedAt: now,
       createdAt: now,
     })
+    selectDocument(copy._id)
   } catch (err) {
     console.error('Failed to duplicate document:', err)
   }
 }
 
 async function deleteDocument(id: string) {
-  if (!confirm('Are you sure you want to delete this document?')) return
+  if (!confirm(t('common.confirmDelete') ?? 'Are you sure you want to delete this document?')) return
   try {
     await api.deleteDocument(id)
   } catch (err) {
@@ -405,6 +406,25 @@ async function deleteDocument(id: string) {
     currentDocId.value = null
     history.pushState({ docId: null }, '', '/')
   }
+}
+
+const moveDialogOpen = ref(false)
+const moveDocId = ref<string | null>(null)
+const moveTargetFolderId = ref<string | null>(null)
+
+function promptMoveDocument(id: string) {
+  const doc = documents.value.find((d) => d.id === id)
+  if (!doc) return
+  moveDocId.value = id
+  moveTargetFolderId.value = doc.folderId
+  moveDialogOpen.value = true
+}
+
+async function confirmMoveDocument() {
+  if (!moveDocId.value) return
+  await moveDocument(moveDocId.value, moveTargetFolderId.value)
+  moveDialogOpen.value = false
+  moveDocId.value = null
 }
 
 async function moveDocument(id: string, folderId: string | null) {
@@ -779,8 +799,54 @@ const userAvatar = computed(() => {
             @back="goBack"
             @update:doc="updateDocument"
             @logout="handleLogout"
+            @new-doc="createDocument('blank')"
+            @open-doc="goBack"
+            @duplicate="duplicateDocument(currentDoc.id)"
+            @move="promptMoveDocument(currentDoc.id)"
+            @trash="deleteDocument(currentDoc.id)"
           />
         </template>
+      </div>
+
+      <!-- Move document modal -->
+      <div
+        v-if="moveDialogOpen"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+        @click.self="moveDialogOpen = false"
+      >
+        <div class="w-full max-w-sm rounded-lg border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-700 dark:bg-slate-800">
+          <h3 class="mb-4 text-base font-semibold text-slate-900 dark:text-slate-100">
+            {{ t('common.moveDocument') }}
+          </h3>
+          <div class="mb-4">
+            <label class="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">
+              {{ t('common.moveToFolder') }}
+            </label>
+            <select
+              v-model="moveTargetFolderId"
+              class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-xs text-slate-700 outline-none dark:border-slate-600 dark:bg-slate-900 dark:text-slate-300"
+            >
+              <option :value="null">{{ t('common.noFolder') }}</option>
+              <option v-for="folder in folders" :key="folder.id" :value="folder.id">{{ folder.name }}</option>
+            </select>
+          </div>
+          <div class="flex justify-end gap-2">
+            <button
+              type="button"
+              class="rounded-md px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 dark:text-slate-300"
+              @click="moveDialogOpen = false"
+            >
+              {{ t('common.cancel') }}
+            </button>
+            <button
+              type="button"
+              class="rounded-md bg-cyan-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-cyan-700"
+              @click="confirmMoveDocument"
+            >
+              {{ t('common.move') }}
+            </button>
+          </div>
+        </div>
       </div>
 
       <!-- Error banner -->

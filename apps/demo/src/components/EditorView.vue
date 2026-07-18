@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { Printer, LogOut } from 'lucide-vue-next'
 import { DocsEditor } from '@kedata-indonesia/docflow-vue'
 import { useLocale } from '@kedata-indonesia/docflow-vue'
@@ -7,6 +7,8 @@ import { defaultPlugins } from '@kedata-indonesia/docflow-plugins'
 import type { DocsEditor as DocsEditorInstance } from '@kedata-indonesia/docflow-core'
 import type { DocumentItem } from '../types.js'
 import { encodeStateAsUpdate } from 'yjs'
+
+import { exportDocument, type ExportFormat } from '../utils/export.js'
 
 const { t } = useLocale()
 
@@ -46,6 +48,11 @@ const emit = defineEmits<{
   back: []
   'update:doc': [doc: DocumentItem]
   logout: []
+  'new-doc': []
+  'open-doc': []
+  duplicate: []
+  move: []
+  trash: []
 }>()
 
 const pageSize = ref('a4')
@@ -136,9 +143,11 @@ function stopAutoSave() {
   }
 }
 
-onMounted(async () => {
+async function loadSnapshot(room: string) {
+  isSnapshotLoading.value = true
+  initialSnapshot.value = undefined
   try {
-    const res = await fetch(`${API_BASE}/api/collab/snapshot/${encodeURIComponent(props.room)}`, {
+    const res = await fetch(`${API_BASE}/api/collab/snapshot/${encodeURIComponent(room)}`, {
       credentials: 'include',
     })
     if (res.ok) {
@@ -151,8 +160,16 @@ onMounted(async () => {
     console.error('Failed to load initial snapshot:', err)
   } finally {
     isSnapshotLoading.value = false
-    startHeartbeat()
   }
+}
+
+onMounted(async () => {
+  await loadSnapshot(props.room)
+  startHeartbeat()
+})
+
+watch(() => props.room, async (newRoom) => {
+  await loadSnapshot(newRoom)
 })
 
 onUnmounted(async () => {
@@ -225,6 +242,43 @@ function handleUpdateContent(content: object) {
 
 function handlePrint() {
   window.print()
+}
+
+function handleMenuClick(action: string) {
+  switch (action) {
+    case 'new-doc':
+      emit('new-doc')
+      break
+    case 'open-doc':
+      emit('open-doc')
+      break
+    case 'duplicate':
+      emit('duplicate')
+      break
+    case 'move':
+      emit('move')
+      break
+    case 'trash':
+      emit('trash')
+      break
+    case 'email':
+      // Insert email draft placeholder via editor command if available
+      break
+    default:
+      // page-setup and print are handled internally by DocsEditor
+      break
+  }
+}
+
+async function handleExport(format: ExportFormat) {
+  if (!editorInstance.value) return
+  try {
+    await exportDocument(format, editorInstance.value.editor as unknown as Parameters<typeof exportDocument>[1], props.doc.title)
+  } catch (err) {
+    console.error('Export failed:', err)
+    shareToast.value = 'Export failed'
+    setTimeout(() => { shareToast.value = '' }, 3000)
+  }
 }
 
 async function handleShare() {
@@ -323,6 +377,7 @@ function handleEditorReady(docsEditor: DocsEditorInstance) {
 
     <DocsEditor
       v-if="!isSnapshotLoading"
+      :key="doc.id"
       :model-value="doc.content"
       :plugins="defaultPlugins"
       :editable="true"
@@ -340,6 +395,8 @@ function handleEditorReady(docsEditor: DocsEditorInstance) {
       @update:page-size="handleUpdatePageSize"
       @ready="handleEditorReady"
       @share="handleShare"
+      @export="handleExport"
+      @menu-click="handleMenuClick"
     >
       <template #header-actions>
         <!-- Online user avatars -->

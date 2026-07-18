@@ -5,7 +5,7 @@ import type { Collaborator } from '../types.js'
 import ThemeToggle from './ThemeToggle.vue'
 import { useLocale, getSupportedLocales, getLocaleName } from '../composables/useLocale.js'
 
-const { locale, setLocale, t } = useLocale()
+const { setLocale, t } = useLocale()
 
 const supportedLocales = getSupportedLocales()
 
@@ -37,7 +37,7 @@ const emit = defineEmits<{
   'update:title': [title: string]
   'toggle-star': []
   'toggle-simulators': []
-  export: [format: 'markdown' | 'html' | 'txt']
+  export: [format: 'markdown' | 'html' | 'html-zip' | 'txt' | 'docx' | 'pdf' | 'odt' | 'rtf']
   share: []
   'menu-click': [menu: string]
 }>()
@@ -67,7 +67,7 @@ const getInitials = (name: string) =>
     .slice(0, 2)
     .toUpperCase()
 
-const handleExport = (format: 'markdown' | 'html' | 'txt') => {
+const handleExport = (format: 'markdown' | 'html' | 'html-zip' | 'txt' | 'docx' | 'pdf' | 'odt' | 'rtf') => {
   emit('export', format)
   activeMenu.value = null
 }
@@ -88,15 +88,38 @@ const menus = computed<Record<string, { label: string; items: MenuItem[] }>>(() 
   File: {
     label: t('header.file'),
     items: [
-      { label: t('header.pageSetup'), action: 'page-setup' },
+      { label: t('header.new'), action: 'new-doc' },
+      { label: t('header.open'), action: 'open-doc' },
+      { label: t('header.makeACopy'), action: 'duplicate' },
       { label: 'divider', divider: true },
+      { label: t('header.share'), action: 'share' },
+      { label: t('header.email'), action: 'email' },
       {
         label: t('header.download'), sub: [
-          { label: t('header.markdown'), action: 'export:markdown', badge: 'MD' },
+          { label: t('header.docx'), action: 'export:docx', badge: 'DOCX' },
+          { label: t('header.pdf'), action: 'export:pdf', badge: 'PDF' },
+          { label: t('header.odt'), action: 'export:odt', badge: 'ODT' },
+          { label: t('header.txt'), action: 'export:txt', badge: 'TXT' },
+          { label: t('header.rtf'), action: 'export:rtf', badge: 'RTF' },
+          { label: t('header.htmlZip'), action: 'export:html-zip', badge: 'ZIP' },
           { label: t('header.html'), action: 'export:html', badge: 'HTML' },
-          { label: t('header.text'), action: 'export:txt', badge: 'TXT' },
+          { label: t('header.markdown'), action: 'export:markdown', badge: 'MD' },
         ]
       },
+      { label: 'divider', divider: true },
+      { label: t('header.rename'), action: 'rename' },
+      { label: t('header.move'), action: 'move' },
+      { label: t('header.moveToTrash'), action: 'trash' },
+      { label: 'divider', divider: true },
+      { label: t('header.versionHistory'), action: 'version-history' },
+      { label: 'divider', divider: true },
+      {
+        label: t('header.language'), sub: supportedLocales.map((loc) => ({
+          label: getLocaleName(loc),
+          action: `set-locale:${loc}`,
+        }))
+      },
+      { label: t('header.pageSetup'), action: 'page-setup' },
       { label: t('header.print'), action: 'print' },
     ],
   },
@@ -205,10 +228,18 @@ const handleMenuAction = (action: string) => {
   if (action.startsWith('export:')) {
     const format = action.replace('export:', '') as 'markdown' | 'html' | 'txt'
     handleExport(format)
+  } else if (action === 'share') {
+    emit('share')
+    activeMenu.value = null
+  } else if (action === 'rename') {
+    isRenaming.value = true
+    activeMenu.value = null
+  } else if (action.startsWith('set-locale:')) {
+    const loc = action.replace('set-locale:', '') as 'en' | 'id'
+    handleSetLocale(loc)
   } else {
     emit('menu-click', action)
   }
-  activeMenu.value = null
   hoveredSub.value = null
 }
 
@@ -507,22 +538,6 @@ onUnmounted(() => document.removeEventListener('click', closeMenus, true))
               <div class="flex items-center justify-between px-4 py-2">
                 <span>{{ t('header.theme') }}</span>
                 <ThemeToggle />
-              </div>
-              <div class="my-1 border-t border-slate-100 dark:border-slate-700/80" />
-              <div class="px-4 py-2">
-                <span class="block text-xs font-medium text-slate-500 dark:text-slate-400">{{ t('header.language') }}</span>
-                <div class="mt-1 flex gap-2">
-                  <button
-                    v-for="loc in supportedLocales"
-                    :key="loc"
-                    type="button"
-                    class="rounded px-2 py-1 text-xs font-medium transition-colors"
-                    :class="locale === loc ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/5'"
-                    @click="handleSetLocale(loc)"
-                  >
-                    {{ getLocaleName(loc) }}
-                  </button>
-                </div>
               </div>
             </div>
           </Transition>
