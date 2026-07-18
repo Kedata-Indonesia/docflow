@@ -141,6 +141,18 @@ describe('createEditor with defaultPlugins', () => {
     expect(editor.getHTML()).toContain('placeholder.com')
   })
 
+  it('inserts a table and renders a visible table element', () => {
+    const { editor, pluginActions } = editorInstance
+    editor.commands.focus()
+    editor.commands.insertContent('<p>Before</p>')
+    editor.commands.focus('end')
+
+    const result = pluginActions.insertTable({ rows: 3, cols: 3, withHeaderRow: true })
+    expect(result).toBe(true)
+    expect(editor.getHTML()).toContain('<table')
+    expect(document.querySelector('table')).not.toBeNull()
+  })
+
   it('inserts a page break and renders a visible indicator', () => {
     const { editor, pluginActions } = editorInstance
     editor.commands.focus()
