@@ -336,16 +336,24 @@ function htmlToDocxDocument(title: string, html: string): Document {
 
 export async function exportDocument(format: ExportFormat, editor: EditorLike, title: string) {
   const html = editor.getHTML()
-  const markdown = jsonToMarkdown(editor.schema, editor.getJSON())
 
   switch (format) {
     case 'markdown': {
+      // Compute lazily + guard: the default Markdown serializer throws on
+      // nodes/marks it doesn't support (underline, strike, font-size, tables,
+      // task lists, pagination). Fall back to plain text so it still downloads.
+      let markdown: string
+      try {
+        markdown = jsonToMarkdown(editor.schema, editor.getJSON())
+      } catch {
+        markdown = plainTextFromHtml(html)
+      }
       const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' })
       triggerDownload(blob, filenameFromTitle(title, 'md'))
       break
     }
     case 'txt': {
-      const text = plainTextFromHtml(html) || markdown
+      const text = plainTextFromHtml(html)
       const blob = new Blob([text], { type: 'text/plain;charset=utf-8' })
       triggerDownload(blob, filenameFromTitle(title, 'txt'))
       break
