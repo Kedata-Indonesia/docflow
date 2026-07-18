@@ -123,7 +123,15 @@ jobs:
             "
           done
 
-          # Step 2: Publish in dependency order
+          # Step 2: Rewrite dist files (built JS still has @kedata-indonesia/* hardcoded)
+          for pkg in core layout-engine plugins vue element; do
+            if [ -d "./packages/$pkg/dist" ]; then
+              find "./packages/$pkg/dist" -type f \( -name '*.js' -o -name '*.cjs' -o -name '*.mjs' -o -name '*.d.ts' -o -name '*.d.cts' -o -name '*.mts' \) -exec sed -i 's|@kedata-indonesia/docflow-|@kedataindo/docflow-|g' {} +
+              echo "Rewrote dist imports for $pkg"
+            fi
+          done
+
+          # Step 3: Publish in dependency order
           for pkg in core layout-engine plugins vue element; do
             VERSION=$(node -e "console.log(require('./packages/$pkg/package.json').version)")
 
@@ -135,7 +143,7 @@ jobs:
             fi
           done
 
-          # Step 3: Restore all original package.json
+          # Step 4: Restore all original package.json (both source and dist)
           for pkg in core layout-engine plugins vue element; do
             git checkout HEAD -- packages/$pkg/package.json
           done
