@@ -2,6 +2,8 @@ import './styles/index.css'
 
 export { useEditor, type UseEditorOptions, type UseEditorReturn } from './composables/useEditor.js'
 export { useTheme } from './composables/useTheme.js'
+export { useLocale, provideLocale, getLocaleName, getSupportedLocales, type Locale } from './composables/useLocale.js'
+export { messages, defaultLocale, getLocaleMessages, isLocale, type Messages, type TranslationKey } from './locales/index.js'
 export { default as DocsEditor } from './components/DocsEditor.vue'
 export { default as EditorToolbar } from './components/EditorToolbar.vue'
 export { default as PageView } from './components/PageView.vue'

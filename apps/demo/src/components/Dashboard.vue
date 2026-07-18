@@ -15,6 +15,9 @@ import {
 import type { DocumentItem, FolderItem } from '../types.js'
 import DocumentCard from './DocumentCard.vue'
 import DocumentListRow from './DocumentListRow.vue'
+import { useLocale } from '@kedata-indonesia/docflow-vue'
+
+const { t } = useLocale()
 
 const props = defineProps<{
   documents: DocumentItem[]
@@ -40,12 +43,12 @@ const viewMode = ref<'grid' | 'list'>('grid')
 const isCreatingFolder = ref(false)
 const newFolderName = ref('')
 
-const templates = [
-  { id: 'blank', title: 'Blank Document', description: 'Fresh slate', icon: Plus, color: 'cyan' },
-  { id: 'meeting-notes', title: 'Meeting Notes', description: 'Attendees & Action Items', icon: FileText, color: 'amber' },
-  { id: 'project-proposal', title: 'Project Proposal', description: 'Objectives & Deliverables', icon: FileIcon, color: 'emerald' },
-  { id: 'letter', title: 'Official Letter', description: 'Pre-formatted header', icon: FileText, color: 'purple' },
-]
+const templates = computed(() => [
+  { id: 'blank', title: t('dashboard.blankDocument'), description: t('dashboard.blankDescription'), icon: Plus, color: 'cyan' },
+  { id: 'meeting-notes', title: t('dashboard.meetingNotes'), description: t('dashboard.meetingNotesDescription'), icon: FileText, color: 'amber' },
+  { id: 'project-proposal', title: t('dashboard.projectProposal'), description: t('dashboard.projectProposalDescription'), icon: FileIcon, color: 'emerald' },
+  { id: 'letter', title: t('dashboard.officialLetter'), description: t('dashboard.officialLetterDescription'), icon: FileText, color: 'purple' },
+])
 
 const filteredDocuments = computed(() => {
   return props.documents.filter((doc) => {
@@ -74,21 +77,21 @@ const activeFilters = computed(() => {
   if (selectedFolderId.value) {
     const folder = props.folders.find((f) => f.id === selectedFolderId.value)
     filters.push({
-      label: `Folder: ${folder?.name ?? ''}`,
+      label: `${t('dashboard.folder')}: ${folder?.name ?? ''}`,
       key: 'folder',
       onRemove: () => (selectedFolderId.value = null),
     })
   }
   if (filterStarredOnly.value) {
     filters.push({
-      label: 'Starred Only',
+      label: t('dashboard.starredOnly'),
       key: 'starred',
       onRemove: () => (filterStarredOnly.value = false),
     })
   }
   if (searchQuery.value) {
     filters.push({
-      label: `Search: "${searchQuery.value}"`,
+      label: `${t('dashboard.search')}: "${searchQuery.value}"`,
       key: 'search',
       onRemove: () => (searchQuery.value = ''),
     })
@@ -177,7 +180,7 @@ function getColorClasses(color: string) {
               class="h-1.5 w-1.5 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,1)]"
             />
             <FileIcon class="h-4 w-4" />
-            <span>All Documents</span>
+            <span>{{ t('dashboard.allDocuments') }}</span>
           </div>
           <span
             class="rounded-full bg-slate-200/60 px-2.5 py-0.5 font-mono text-xs text-slate-500 dark:bg-white/5 dark:text-slate-400"
@@ -202,7 +205,7 @@ function getColorClasses(color: string) {
               class="h-1.5 w-1.5 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,1)]"
             />
             <Star class="h-4 w-4 fill-amber-400 text-amber-500" />
-            <span>Starred</span>
+            <span>{{ t('dashboard.starred') }}</span>
           </div>
           <span
             class="rounded-full bg-slate-200/60 px-2.5 py-0.5 font-mono text-xs text-slate-500 dark:bg-white/5 dark:text-slate-400"
@@ -214,12 +217,12 @@ function getColorClasses(color: string) {
 
       <div class="mb-2 flex items-center justify-between px-3">
         <span class="font-mono text-xs font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500"
-          >Folders</span
+          >{{ t('dashboard.folders') }}</span
         >
         <button
           type="button"
           class="rounded p-0.5 text-slate-500 transition-colors hover:text-blue-600 dark:text-slate-400 dark:hover:text-cyan-400"
-          title="Create New Folder"
+          :title="t('dashboard.createFolder')"
           @click="isCreatingFolder = !isCreatingFolder"
         >
           <FolderPlus class="h-4 w-4" />
@@ -234,7 +237,7 @@ function getColorClasses(color: string) {
         <input
           v-model="newFolderName"
           type="text"
-          placeholder="Folder name..."
+          :placeholder="t('dashboard.folderNamePlaceholder')"
           class="flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-800 focus:border-cyan-500 focus:outline-none dark:border-white/10 dark:bg-[#02040a] dark:text-slate-100"
           autofocus
         >
@@ -242,7 +245,7 @@ function getColorClasses(color: string) {
           type="submit"
           class="rounded-lg bg-cyan-500 px-2.5 py-1 text-xs font-bold text-black hover:bg-cyan-400"
         >
-          Create
+          {{ t('common.create') }}
         </button>
       </form>
 
@@ -278,7 +281,7 @@ function getColorClasses(color: string) {
           v-if="folders.length === 0"
           class="py-4 text-center text-xs text-slate-400 dark:text-slate-500"
         >
-          No folders created yet.
+          {{ t('dashboard.noFolders') }}
         </p>
       </div>
     </aside>
@@ -286,7 +289,7 @@ function getColorClasses(color: string) {
     <main class="flex-1 overflow-y-auto p-4 md:p-8">
       <section class="mb-10">
         <h2 class="mb-4 font-mono text-xs font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">
-          Start a New Document
+          {{ t('dashboard.startNewDocument') }}
         </h2>
         <div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
           <button
@@ -315,7 +318,7 @@ function getColorClasses(color: string) {
           <input
             v-model="searchQuery"
             type="text"
-            placeholder="Search titles or full-text contents..."
+            :placeholder="t('dashboard.searchPlaceholder')"
             class="w-full rounded-full border border-slate-200/60 bg-white/85 pl-11 pr-4 py-2.5 text-sm text-slate-800 transition-all placeholder:text-slate-400 focus:border-cyan-500/50 focus:bg-white focus:shadow-cyan focus:outline-none dark:border-white/10 dark:bg-white/[0.02] dark:text-slate-100 dark:focus:border-cyan-500/30 dark:focus:bg-white/[0.05]"
           >
         </div>
@@ -329,9 +332,9 @@ function getColorClasses(color: string) {
               v-model="sortBy"
               class="bg-transparent pr-2 font-semibold text-slate-700 focus:outline-none dark:text-slate-300"
             >
-              <option value="updated" class="dark:bg-[#0a0f1e]">Modified</option>
-              <option value="title" class="dark:bg-[#0a0f1e]">Alphabetical</option>
-              <option value="created" class="dark:bg-[#0a0f1e]">Created</option>
+              <option value="updated" class="dark:bg-[#0a0f1e]">{{ t('dashboard.modified') }}</option>
+              <option value="title" class="dark:bg-[#0a0f1e]">{{ t('dashboard.alphabetical') }}</option>
+              <option value="created" class="dark:bg-[#0a0f1e]">{{ t('dashboard.created') }}</option>
             </select>
           </div>
 
@@ -346,7 +349,7 @@ function getColorClasses(color: string) {
                   ? 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-400'
                   : 'text-slate-400 hover:text-slate-600'
               "
-              title="Grid View"
+              :title="t('dashboard.gridView')"
               @click="viewMode = 'grid'"
             >
               <Grid class="h-4 w-4" />
@@ -359,7 +362,7 @@ function getColorClasses(color: string) {
                   ? 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-400'
                   : 'text-slate-400 hover:text-slate-600'
               "
-              title="List View"
+              :title="t('dashboard.listView')"
               @click="viewMode = 'list'"
             >
               <List class="h-4 w-4" />
@@ -370,7 +373,7 @@ function getColorClasses(color: string) {
 
       <div v-if="activeFilters.length > 0" class="mb-4 flex flex-wrap items-center gap-2">
         <span class="font-mono text-xs font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500"
-          >Active Filters:</span
+          >{{ t('dashboard.activeFilters') }}</span
         >
         <span
           v-for="filter in activeFilters"
@@ -423,10 +426,10 @@ function getColorClasses(color: string) {
             <tr
               class="border-b border-slate-100 bg-slate-50 text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:border-white/5 dark:bg-[#0a0f1e]/80 font-mono"
             >
-              <th class="px-5 py-4">Document Title</th>
-              <th class="hidden px-5 py-4 sm:table-cell">Folder</th>
-              <th class="hidden px-5 py-4 md:table-cell">Last Modified</th>
-              <th class="px-5 py-4 text-right">Actions</th>
+              <th class="px-5 py-4">{{ t('dashboard.documentTitle') }}</th>
+              <th class="hidden px-5 py-4 sm:table-cell">{{ t('dashboard.folder') }}</th>
+              <th class="hidden px-5 py-4 md:table-cell">{{ t('dashboard.lastModified') }}</th>
+              <th class="px-5 py-4 text-right">{{ t('dashboard.actions') }}</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100 dark:divide-white/5">
@@ -453,16 +456,16 @@ function getColorClasses(color: string) {
         >
           <FileIcon class="h-6 w-6" />
         </div>
-        <h4 class="mb-1 font-bold text-slate-800 dark:text-slate-100">No documents found</h4>
+        <h4 class="mb-1 font-bold text-slate-800 dark:text-slate-100">{{ t('dashboard.noDocuments') }}</h4>
         <p class="mx-auto mb-6 max-w-sm text-xs text-slate-400 dark:text-slate-500">
-          No files match your current filters. Select a template or create a blank file to start drafting!
+          {{ t('dashboard.noDocumentsDescription') }}
         </p>
         <button
           type="button"
           class="rounded-lg bg-cyan-500 px-5 py-2.5 text-xs font-bold text-black shadow-cyan transition-all hover:bg-cyan-400"
           @click="handleCreateFromTemplate('blank')"
         >
-          Create Blank Document
+          {{ t('dashboard.createBlankDocument') }}
         </button>
       </div>
     </main>

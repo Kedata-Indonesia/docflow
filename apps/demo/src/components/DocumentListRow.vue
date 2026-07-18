@@ -9,6 +9,9 @@ import {
   Check,
 } from 'lucide-vue-next'
 import type { DocumentItem, FolderItem } from '../types.js'
+import { useLocale } from '@kedata-indonesia/docflow-vue'
+
+const { t } = useLocale()
 
 const props = defineProps<{
   doc: DocumentItem
@@ -108,7 +111,7 @@ function formatDate(timestamp: number) {
         <button
           type="button"
           class="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-white/5 hover:text-slate-600 dark:hover:text-slate-200"
-          title="Rename"
+          :title="t('common.rename')"
           @click.stop="isRenaming = true"
         >
           <Edit2 class="h-3.5 w-3.5" />
@@ -116,7 +119,7 @@ function formatDate(timestamp: number) {
         <button
           type="button"
           class="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-white/5 hover:text-slate-600 dark:hover:text-slate-200"
-          title="Duplicate"
+          :title="t('common.duplicate')"
           @click.stop="emit('duplicate', doc.id)"
         >
           <Copy class="h-3.5 w-3.5" />
@@ -124,7 +127,7 @@ function formatDate(timestamp: number) {
         <button
           type="button"
           class="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-white/5 hover:text-red-600"
-          title="Delete"
+          :title="t('common.delete')"
           @click.stop="emit('delete', doc.id)"
         >
           <Trash2 class="h-3.5 w-3.5" />

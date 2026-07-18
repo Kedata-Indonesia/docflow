@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted } from 'vue'
 import type { Editor } from '@tiptap/core'
+import { useLocale } from '../composables/useLocale.js'
+
+const { t } = useLocale()
 
 const props = defineProps<{
   editor: Editor | null
@@ -134,7 +137,7 @@ onUnmounted(() => {
       class="docs-slash-menu fixed z-[999] w-56 max-h-64 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 shadow-xl dark:border-slate-700 dark:bg-slate-800"
       :style="{ top: position.top + 'px', left: position.left + 'px' }"
     >
-      <div class="px-2 py-1.5 text-[10px] font-semibold uppercase text-slate-400">Basic Blocks</div>
+      <div class="px-2 py-1.5 text-[10px] font-semibold uppercase text-slate-400">{{ t('slashMenu.basicBlocks') }}</div>
       <button
         v-for="(cmd, i) in filteredCommands"
         :key="cmd.command"

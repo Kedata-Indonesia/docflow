@@ -15,6 +15,7 @@ import QuickActionChips from './QuickActionChips.vue'
 import TOCSidebar from './sidebars/TOCSidebar.vue'
 import { Menu } from 'lucide-vue-next'
 import { useTheme } from '../composables/useTheme.js'
+import { provideLocale, type Locale } from '../composables/useLocale.js'
 
 const props = withDefaults(
   defineProps<{
@@ -29,6 +30,7 @@ const props = withDefaults(
     connectionState?: ConnectionState
     userName?: string
     userAvatar?: string
+    locale?: Locale
   }>(),
   {
     editable: true,
@@ -42,6 +44,7 @@ const props = withDefaults(
     connectionState: 'connected',
     userName: '',
     userAvatar: '',
+    locale: undefined,
   },
 )
 
@@ -49,6 +52,7 @@ const emit = defineEmits<{
   'update:modelValue': [value: object]
   'update:title': [title: string]
   'update:pageSize': [pageSize: string]
+  'update:locale': [locale: Locale]
   'toggle-star': []
   back: []
   share: []
@@ -56,6 +60,22 @@ const emit = defineEmits<{
   export: [format: 'markdown' | 'html' | 'txt']
   ready: [docsEditor: DocsEditor]
 }>()
+
+// Provide locale context for all editor chrome components.
+const { locale: currentLocale, setLocale, t } = provideLocale(props.locale)
+
+watch(
+  () => props.locale,
+  (next) => {
+    if (next && next !== currentLocale.value) {
+      setLocale(next)
+    }
+  },
+)
+
+watch(currentLocale, (next) => {
+  emit('update:locale', next)
+})
 
 // ─── Page Size ────────────────────────────────────────────────────────────────
 
@@ -677,7 +697,7 @@ watch(isReady, (ready) => {
         v-else
         type="button"
         class="absolute left-4 top-4 z-20 flex h-11 w-11 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-md transition-colors hover:bg-slate-100 dark:border-white/10 dark:bg-[#0e1525] dark:text-slate-300 dark:hover:bg-white/5"
-        title="Show document outline"
+        :title="t('editor.showOutline')"
         @click="leftSidebarOpen = true"
       >
         <Menu class="h-5 w-5" />
@@ -690,7 +710,7 @@ watch(isReady, (ready) => {
           
           <div class="relative w-full max-w-[794px]">
             <!-- Loading Indicator Overlay -->
-            <div v-if="!isReady" class="absolute inset-0 z-10 flex flex-col items-center justify-center bg-white dark:bg-[#0e1525]/60 backdrop-blur-[2px] gap-3 rounded-lg" aria-label="Loading document">
+            <div v-if="!isReady" class="absolute inset-0 z-10 flex flex-col items-center justify-center bg-white dark:bg-[#0e1525]/60 backdrop-blur-[2px] gap-3 rounded-lg" :aria-label="t('editor.loadingDocument')">
             </div>
 
             <!-- Editor -->
@@ -708,22 +728,22 @@ watch(isReady, (ready) => {
     <!-- Dialog Header & Footer Customization -->
     <div v-if="showHeaderFooterModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm px-4">
       <div class="w-full max-w-lg rounded-xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-800 dark:bg-[#0e1525] text-slate-800 dark:text-slate-200">
-        <h2 class="text-lg font-bold mb-4">Penyesuaian Header & Footer</h2>
+        <h2 class="text-lg font-bold mb-4">{{ t('editor.headerFooter.title') }}</h2>
         
         <!-- Header Section -->
         <div class="mb-4">
           <div class="flex justify-between items-center mb-2">
-            <h3 class="text-sm font-semibold text-slate-500 dark:text-slate-400">Header</h3>
-            <button type="button" class="text-[11px] text-red-500 hover:text-red-600 font-medium transition-colors" @click="headerLeftInput = ''; headerRightInput = ''">Kosongkan</button>
+            <h3 class="text-sm font-semibold text-slate-500 dark:text-slate-400">{{ t('editor.headerFooter.header') }}</h3>
+            <button type="button" class="text-[11px] text-red-500 hover:text-red-600 font-medium transition-colors" @click="headerLeftInput = ''; headerRightInput = ''">{{ t('editor.headerFooter.clear') }}</button>
           </div>
           <div class="grid grid-cols-2 gap-3">
             <div>
-              <label class="text-[11px] font-medium block mb-1">Header Kiri</label>
-              <input v-model="headerLeftInput" type="text" class="w-full rounded-md border border-slate-200 bg-transparent px-3 py-1.5 text-xs focus:outline-none dark:border-slate-700" placeholder="Contoh: Judul Dokumen">
+              <label class="text-[11px] font-medium block mb-1">{{ t('editor.headerFooter.left') }}</label>
+              <input v-model="headerLeftInput" type="text" class="w-full rounded-md border border-slate-200 bg-transparent px-3 py-1.5 text-xs focus:outline-none dark:border-slate-700" :placeholder="t('editor.headerFooter.headerLeftPlaceholder')">
             </div>
             <div>
-              <label class="text-[11px] font-medium block mb-1">Header Kanan</label>
-              <input v-model="headerRightInput" type="text" class="w-full rounded-md border border-slate-200 bg-transparent px-3 py-1.5 text-xs focus:outline-none dark:border-slate-700" placeholder="Contoh: Page {page}">
+              <label class="text-[11px] font-medium block mb-1">{{ t('editor.headerFooter.right') }}</label>
+              <input v-model="headerRightInput" type="text" class="w-full rounded-md border border-slate-200 bg-transparent px-3 py-1.5 text-xs focus:outline-none dark:border-slate-700" :placeholder="t('editor.headerFooter.headerRightPlaceholder')">
             </div>
           </div>
         </div>
@@ -731,33 +751,33 @@ watch(isReady, (ready) => {
         <!-- Footer Section -->
         <div class="mb-6">
           <div class="flex justify-between items-center mb-2">
-            <h3 class="text-sm font-semibold text-slate-500 dark:text-slate-400">Footer</h3>
-            <button type="button" class="text-[11px] text-red-500 hover:text-red-600 font-medium transition-colors" @click="footerLeftInput = ''; footerRightInput = ''">Kosongkan</button>
+            <h3 class="text-sm font-semibold text-slate-500 dark:text-slate-400">{{ t('editor.headerFooter.footer') }}</h3>
+            <button type="button" class="text-[11px] text-red-500 hover:text-red-600 font-medium transition-colors" @click="footerLeftInput = ''; footerRightInput = ''">{{ t('editor.headerFooter.clear') }}</button>
           </div>
           <div class="grid grid-cols-2 gap-3">
             <div>
-              <label class="text-[11px] font-medium block mb-1">Footer Kiri</label>
-              <input v-model="footerLeftInput" type="text" class="w-full rounded-md border border-slate-200 bg-transparent px-3 py-1.5 text-xs focus:outline-none dark:border-slate-700" placeholder="Contoh: Rahasia">
+              <label class="text-[11px] font-medium block mb-1">{{ t('editor.headerFooter.left') }}</label>
+              <input v-model="footerLeftInput" type="text" class="w-full rounded-md border border-slate-200 bg-transparent px-3 py-1.5 text-xs focus:outline-none dark:border-slate-700" :placeholder="t('editor.headerFooter.footerLeftPlaceholder')">
             </div>
             <div>
-              <label class="text-[11px] font-medium block mb-1">Footer Kanan</label>
-              <input v-model="footerRightInput" type="text" class="w-full rounded-md border border-slate-200 bg-transparent px-3 py-1.5 text-xs focus:outline-none dark:border-slate-700" placeholder="Contoh: Page {page} of {total}">
+              <label class="text-[11px] font-medium block mb-1">{{ t('editor.headerFooter.right') }}</label>
+              <input v-model="footerRightInput" type="text" class="w-full rounded-md border border-slate-200 bg-transparent px-3 py-1.5 text-xs focus:outline-none dark:border-slate-700" :placeholder="t('editor.headerFooter.footerRightPlaceholder')">
             </div>
           </div>
         </div>
 
         <!-- Variables Info -->
         <div class="rounded-lg bg-slate-50 p-3 text-[11px] text-slate-500 dark:bg-white/5 dark:text-slate-400 mb-6">
-          <span class="font-bold">Info Variabel:</span> Anda dapat menggunakan <code>{page}</code> untuk nomor halaman aktif, dan <code>{total}</code> untuk jumlah halaman.
+          {{ t('editor.headerFooter.variableInfo') }}
         </div>
 
         <!-- Actions -->
         <div class="flex justify-end gap-2">
           <button type="button" class="rounded-md px-3 py-1.5 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-white/5" @click="showHeaderFooterModal = false">
-            Batal
+            {{ t('editor.headerFooter.cancel') }}
           </button>
           <button type="button" class="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700" @click="saveHeaderFooter">
-            Simpan
+            {{ t('editor.headerFooter.save') }}
           </button>
         </div>
       </div>

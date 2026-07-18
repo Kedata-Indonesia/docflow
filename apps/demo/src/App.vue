@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { useTheme } from '@kedata-indonesia/docflow-vue'
+import { useTheme, provideLocale, getSupportedLocales, getLocaleName } from '@kedata-indonesia/docflow-vue'
 import type { DocumentItem, FolderItem, UserInfo } from './types.js'
 import * as api from './api.js'
 import { RateLimitError } from './api.js'
@@ -8,6 +8,8 @@ import Dashboard from './components/Dashboard.vue'
 import EditorView from './components/EditorView.vue'
 
 const { isDark, toggle: toggleTheme } = useTheme()
+const { locale, setLocale, t } = provideLocale()
+const supportedLocales = getSupportedLocales()
 
 // ─── Auth State ──────────────────────────────────────────────────────────────
 
@@ -491,7 +493,7 @@ const userAvatar = computed(() => {
       v-if="authLoading"
       class="relative z-10 flex flex-1 items-center justify-center"
     >
-      <p class="text-sm text-slate-500 animate-pulse">Loading...</p>
+      <p class="text-sm text-slate-500 animate-pulse">{{ t('common.loading') }}</p>
     </div>
 
     <!-- Not Authenticated -->
@@ -508,7 +510,7 @@ const userAvatar = computed(() => {
         Docflow
       </h1>
       <p class="text-sm text-slate-500 dark:text-slate-400">
-        Sign in to create and edit documents
+        {{ t('auth.signInTitle') }}
       </p>
       <div class="flex w-full max-w-sm flex-col gap-4 px-4">
         <!-- Social provider buttons -->
@@ -526,7 +528,7 @@ const userAvatar = computed(() => {
               <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
               <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
             </svg>
-            Sign in with Google
+            {{ t('auth.signInWithGoogle') }}
           </button>
           <!-- GitHub -->
           <button
@@ -538,7 +540,7 @@ const userAvatar = computed(() => {
             <svg class="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/>
             </svg>
-            Sign in with GitHub
+            {{ t('auth.signInWithGitHub') }}
           </button>
           <!-- Microsoft -->
           <button
@@ -553,7 +555,7 @@ const userAvatar = computed(() => {
               <rect x="1" y="13" width="10" height="10" fill="#00A4EF"/>
               <rect x="13" y="13" width="10" height="10" fill="#FFB900"/>
             </svg>
-            Sign in with Microsoft
+            {{ t('auth.signInWith') }} Microsoft
           </button>
           <!-- Generic social fallback -->
           <button
@@ -562,7 +564,7 @@ const userAvatar = computed(() => {
             class="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-6 py-3 text-sm font-semibold text-slate-700 shadow-sm transition-all hover:border-slate-300 hover:shadow-md dark:border-white/10 dark:bg-slate-800 dark:text-slate-200 dark:hover:border-white/20"
             @click="handleLogin(p.id)"
           >
-            Sign in with {{ p.name }}
+            {{ t('auth.signInWith').replace('{provider}', p.name) }}
           </button>
         </template>
 
@@ -570,7 +572,7 @@ const userAvatar = computed(() => {
         <template v-if="providers.some(p => p.type === 'credentials')">
           <div class="flex items-center gap-3">
             <div class="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
-            <span class="text-xs text-slate-400">or</span>
+            <span class="text-xs text-slate-400">{{ t('auth.or') }}</span>
             <div class="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
           </div>
 
@@ -581,14 +583,14 @@ const userAvatar = computed(() => {
               v-model="emailInput"
               type="email"
               required
-              placeholder="Email"
+              :placeholder="t('auth.email')"
               class="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 outline-none transition focus:border-cyan-400 dark:border-white/10 dark:bg-slate-800 dark:text-slate-200"
             />
             <input
               v-if="emailFormMode === 'signup'"
               v-model="nameInput"
               type="text"
-              placeholder="Name"
+              :placeholder="t('auth.name')"
               class="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 outline-none transition focus:border-cyan-400 dark:border-white/10 dark:bg-slate-800 dark:text-slate-200"
             />
             <input
@@ -596,7 +598,7 @@ const userAvatar = computed(() => {
               type="password"
               required
               minlength="8"
-              placeholder="Password"
+              :placeholder="t('auth.password')"
               class="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 outline-none transition focus:border-cyan-400 dark:border-white/10 dark:bg-slate-800 dark:text-slate-200"
             />
             <button
@@ -604,14 +606,14 @@ const userAvatar = computed(() => {
               :disabled="emailLoading"
               class="rounded-lg bg-cyan-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-cyan-600 disabled:opacity-50"
             >
-              {{ emailLoading ? 'Loading...' : emailFormMode === 'signup' ? 'Create Account' : 'Sign In' }}
+              {{ emailLoading ? t('common.loading') : emailFormMode === 'signup' ? t('auth.signUp') : t('auth.signIn') }}
             </button>
             <button
               type="button"
               class="text-xs text-cyan-500 hover:underline"
               @click="emailFormMode = emailFormMode === 'signin' ? 'signup' : 'signin'"
             >
-              {{ emailFormMode === 'signin' ? "Don't have an account? Sign up" : 'Already have an account? Sign in' }}
+              {{ emailFormMode === 'signin' ? t('auth.noAccount') : t('auth.hasAccount') }}
             </button>
           </form>
           <button
@@ -620,21 +622,21 @@ const userAvatar = computed(() => {
             class="rounded-lg border border-slate-200 bg-white px-6 py-3 text-sm font-semibold text-slate-700 shadow-sm transition-all hover:border-slate-300 hover:shadow-md dark:border-white/10 dark:bg-slate-800 dark:text-slate-200 dark:hover:border-white/20"
             @click="showEmailForm = true"
           >
-            Sign in with Email
+            {{ t('auth.signInWithEmail') }}
           </button>
         </template>
 
         <p v-if="providersError === 'rate-limited'" class="text-center text-xs text-amber-500">
-          Server sedang membatasi permintaan (rate limit).<br />
-          <span v-if="rateLimitRetryIn > 0">Mencoba ulang dalam {{ rateLimitRetryIn }} detik…</span>
-          <button v-else type="button" class="underline" @click="loadProviders">Coba lagi</button>
+          {{ t('auth.rateLimited') }}<br />
+          <span v-if="rateLimitRetryIn > 0">{{ t('auth.retryIn').replace('{seconds}', String(rateLimitRetryIn)) }}</span>
+          <button v-else type="button" class="underline" @click="loadProviders">{{ t('auth.retry') }}</button>
         </p>
         <p v-else-if="providersError === 'network'" class="text-center text-xs text-red-400">
-          Tidak bisa menghubungi server. Periksa koneksi Anda.
-          <button type="button" class="ml-1 underline" @click="loadProviders">Coba lagi</button>
+          {{ t('auth.networkError') }}
+          <button type="button" class="ml-1 underline" @click="loadProviders">{{ t('auth.retry') }}</button>
         </p>
         <p v-else-if="providers.length === 0" class="text-center text-xs text-slate-400">
-          No authentication providers configured.<br />Check your server environment variables.
+          {{ t('auth.noProviders') }}
         </p>
       </div>
     </div>
@@ -647,7 +649,7 @@ const userAvatar = computed(() => {
           v-if="dataLoading"
           class="flex w-full items-center justify-center"
         >
-          <p class="text-sm text-slate-500 animate-pulse">Loading documents...</p>
+          <p class="text-sm text-slate-500 animate-pulse">{{ t('dashboard.loadingDocuments') }}</p>
         </div>
 
         <template v-else>
@@ -679,6 +681,17 @@ const userAvatar = computed(() => {
               </div>
 
               <div class="flex items-center gap-4">
+                <div class="hidden items-center gap-1 sm:flex">
+                  <span class="text-xs text-slate-400 dark:text-slate-500">{{ t('language.label') }}</span>
+                  <select
+                    :value="locale"
+                    class="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 outline-none dark:border-white/10 dark:bg-slate-800 dark:text-slate-200"
+                    @change="setLocale(($event.target as HTMLSelectElement).value as 'en' | 'id')"
+                  >
+                    <option v-for="loc in supportedLocales" :key="loc" :value="loc">{{ getLocaleName(loc) }}</option>
+                  </select>
+                </div>
+
                 <button
                   type="button"
                   class="rounded-lg border border-slate-200 bg-slate-50 p-2 text-slate-500 transition-all hover:border-slate-300 dark:border-white/10 dark:bg-white/5 dark:text-slate-400 dark:hover:border-white/20"
@@ -735,7 +748,7 @@ const userAvatar = computed(() => {
                       class="font-mono text-[10px] text-slate-400 hover:text-red-500 transition-colors"
                       @click="handleLogout"
                     >
-                      Sign out
+                      {{ t('auth.signOut') }}
                     </button>
                   </div>
                 </div>
@@ -781,7 +794,7 @@ const userAvatar = computed(() => {
           class="ml-3 font-semibold underline"
           @click="saveError = null"
         >
-          Dismiss
+          {{ t('common.dismiss') }}
         </button>
       </div>
     </template>

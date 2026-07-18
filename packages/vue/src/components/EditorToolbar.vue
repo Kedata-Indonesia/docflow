@@ -39,6 +39,9 @@ import {
   ChevronDown,
 } from 'lucide-vue-next'
 import type { SidebarKey } from '../types.js'
+import { useLocale } from '../composables/useLocale.js'
+
+const { t } = useLocale()
 
 const props = defineProps<{
   actions: Record<string, (...args: unknown[]) => boolean>
@@ -303,15 +306,15 @@ function handlePrint() {
   emit('print')
 }
 
-const PARAGRAPH_OPTIONS = [
-  { value: 'paragraph', label: 'Normal text' },
-  { value: 'heading-1', label: 'Heading 1' },
-  { value: 'heading-2', label: 'Heading 2' },
-  { value: 'heading-3', label: 'Heading 3' },
-  { value: 'heading-4', label: 'Heading 4' },
-  { value: 'heading-5', label: 'Heading 5' },
-  { value: 'heading-6', label: 'Heading 6' },
-]
+const PARAGRAPH_OPTIONS = computed(() => [
+  { value: 'paragraph', label: t('toolbar.normalText') },
+  { value: 'heading-1', label: t('header.heading1') },
+  { value: 'heading-2', label: t('header.heading2') },
+  { value: 'heading-3', label: t('header.heading3') },
+  { value: 'heading-4', label: t('header.heading4') },
+  { value: 'heading-5', label: t('header.heading5') },
+  { value: 'heading-6', label: t('header.heading6') },
+])
 
 function applyParagraphStyle(value: string) {
   const editor = props.editor
@@ -344,7 +347,7 @@ const currentParagraphStyle = computed(() => {
 })
 
 const currentParagraphLabel = computed(
-  () => PARAGRAPH_OPTIONS.find((o) => o.value === currentParagraphStyle.value)?.label ?? 'Normal text',
+  () => PARAGRAPH_OPTIONS.value.find((o) => o.value === currentParagraphStyle.value)?.label ?? t('toolbar.normalText'),
 )
 
 // Font family — display-only for now (no font-family command wired to the editor),
@@ -436,8 +439,8 @@ function handleFontSize(delta: number) {
       <button
         type="button"
         :class="[controlBaseClass, 'w-8']"
-        title="Undo"
-        aria-label="Undo"
+        :title="t('toolbar.undo')"
+        :aria-label="t('toolbar.undo')"
         :disabled="!editor"
         @mousedown.prevent
         @click="handleUndo"
@@ -448,8 +451,8 @@ function handleFontSize(delta: number) {
       <button
         type="button"
         :class="[controlBaseClass, 'w-8']"
-        title="Redo"
-        aria-label="Redo"
+        :title="t('toolbar.redo')"
+        :aria-label="t('toolbar.redo')"
         :disabled="!editor"
         @mousedown.prevent
         @click="handleRedo"
@@ -462,8 +465,8 @@ function handleFontSize(delta: number) {
       <button
         type="button"
         :class="[controlBaseClass, 'w-8']"
-        title="Print"
-        aria-label="Print"
+        :title="t('toolbar.print')"
+        :aria-label="t('toolbar.print')"
         @mousedown.prevent
         @click="handlePrint"
       >
@@ -473,8 +476,8 @@ function handleFontSize(delta: number) {
       <button
         type="button"
         :class="[controlBaseClass, 'w-8']"
-        title="Spelling"
-        aria-label="Spelling"
+        :title="t('toolbar.spelling')"
+        :aria-label="t('toolbar.spelling')"
         :disabled="!editor"
         @mousedown.prevent
       >
@@ -484,11 +487,11 @@ function handleFontSize(delta: number) {
       <button
         type="button"
         :class="[controlBaseClass, 'px-2 text-xs']"
-        title="Zoom"
-        aria-label="Zoom"
+        :title="t('toolbar.zoom')"
+        :aria-label="t('toolbar.zoom')"
         @mousedown.prevent
       >
-        100%
+        {{ t('toolbar.zoom') }}
       </button>
 
       <span class="mx-1 h-5 w-px flex-shrink-0 bg-slate-200 dark:bg-white/10" />
@@ -498,8 +501,8 @@ function handleFontSize(delta: number) {
         <button
           type="button"
           :class="[controlBaseClass, 'w-[116px] justify-between gap-1 px-2 text-xs font-medium']"
-          title="Paragraph style"
-          aria-label="Paragraph style"
+          :title="t('toolbar.paragraphStyle')"
+          :aria-label="t('toolbar.paragraphStyle')"
           :disabled="!editor"
           @mousedown.prevent
           @click.stop="toggleDropdown('heading')"
@@ -530,8 +533,8 @@ function handleFontSize(delta: number) {
         <button
           type="button"
           :class="[controlBaseClass, 'w-[100px] justify-between gap-1 px-2 text-xs font-medium']"
-          title="Font family"
-          aria-label="Font family"
+          :title="t('toolbar.fontFamily')"
+          :aria-label="t('toolbar.fontFamily')"
           :disabled="!editor"
           @mousedown.prevent
           @click.stop="toggleDropdown('font')"
@@ -560,8 +563,8 @@ function handleFontSize(delta: number) {
       <button
         type="button"
         :class="[controlBaseClass, 'w-7 text-sm']"
-        title="Decrease font size"
-        aria-label="Decrease font size"
+        :title="t('toolbar.decreaseFontSize')"
+        :aria-label="t('toolbar.decreaseFontSize')"
         :disabled="!editor"
         @mousedown.prevent="handleFontSize(-1)"
       >
@@ -571,8 +574,8 @@ function handleFontSize(delta: number) {
       <button
         type="button"
         :class="[controlBaseClass, 'w-7 text-sm']"
-        title="Increase font size"
-        aria-label="Increase font size"
+        :title="t('toolbar.increaseFontSize')"
+        :aria-label="t('toolbar.increaseFontSize')"
         :disabled="!editor"
         @mousedown.prevent="handleFontSize(1)"
       >
@@ -614,8 +617,8 @@ function handleFontSize(delta: number) {
         <button
           type="button"
           :class="[controlBaseClass, 'gap-0.5 px-1.5']"
-          title="Lists"
-          aria-label="Lists"
+          :title="t('toolbar.lists')"
+          :aria-label="t('toolbar.lists')"
           :disabled="!editor"
           @mousedown.prevent
           @click.stop="toggleDropdown('lists')"
@@ -647,8 +650,8 @@ function handleFontSize(delta: number) {
         <button
           type="button"
           :class="[controlBaseClass, 'gap-0.5 px-1.5']"
-          title="Alignment"
-          aria-label="Alignment"
+          :title="t('toolbar.alignment')"
+          :aria-label="t('toolbar.alignment')"
           :disabled="!editor"
           @mousedown.prevent
           @click.stop="toggleDropdown('align')"
@@ -680,14 +683,14 @@ function handleFontSize(delta: number) {
         <button
           type="button"
           :class="[controlBaseClass, 'gap-1 px-2 text-xs font-medium']"
-          title="Insert"
-          aria-label="Insert"
+          :title="t('toolbar.insert')"
+          :aria-label="t('toolbar.insert')"
           :disabled="!editor"
           @mousedown.prevent
           @click.stop="toggleDropdown('insert')"
         >
           <Plus class="h-4 w-4" />
-          <span class="hidden md:inline">Insert</span>
+          <span class="hidden md:inline">{{ t('toolbar.insert') }}</span>
           <ChevronDown class="h-3 w-3 text-slate-400" />
         </button>
         <div
@@ -715,8 +718,8 @@ function handleFontSize(delta: number) {
       <button
         type="button"
         :class="['docs-editor-toolbar__control flex h-8 w-8 items-center justify-center rounded-md transition-all relative', sidebarClass('comments')]"
-        title="Comments"
-        aria-label="Comments"
+        :title="t('toolbar.comments')"
+        :aria-label="t('toolbar.comments')"
         @click="emit('toggle-sidebar', 'comments')"
       >
         <MessageSquare class="h-[18px] w-[18px]" />
@@ -724,8 +727,8 @@ function handleFontSize(delta: number) {
       <button
         type="button"
         :class="['docs-editor-toolbar__control flex h-8 w-8 items-center justify-center rounded-md transition-all', sidebarClass('history')]"
-        title="History"
-        aria-label="History"
+        :title="t('toolbar.history')"
+        :aria-label="t('toolbar.history')"
         @click="emit('toggle-sidebar', 'history')"
       >
         <History class="h-[18px] w-[18px]" />
@@ -733,8 +736,8 @@ function handleFontSize(delta: number) {
       <button
         type="button"
         :class="['docs-editor-toolbar__control flex h-8 w-8 items-center justify-center rounded-md transition-all', sidebarClass('ai')]"
-        title="AI"
-        aria-label="AI"
+        :title="t('toolbar.ai')"
+        :aria-label="t('toolbar.ai')"
         @click="emit('toggle-sidebar', 'ai')"
       >
         <Sparkles class="h-[18px] w-[18px]" />
@@ -742,8 +745,8 @@ function handleFontSize(delta: number) {
       <button
         type="button"
         :class="['docs-editor-toolbar__control flex h-8 w-8 items-center justify-center rounded-md transition-all', sidebarClass('toc')]"
-        title="Table of contents"
-        aria-label="Table of contents"
+        :title="t('toolbar.tableOfContents')"
+        :aria-label="t('toolbar.tableOfContents')"
         @click="emit('toggle-sidebar', 'toc')"
       >
         <FileText class="h-[18px] w-[18px]" />

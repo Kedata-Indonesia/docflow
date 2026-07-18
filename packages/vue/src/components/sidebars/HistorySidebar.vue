@@ -10,6 +10,7 @@ import {
   ShieldAlert,
 } from 'lucide-vue-next'
 import type { DocumentSnapshot } from '../../types.js'
+import { useLocale } from '../../composables/useLocale.js'
 
 const props = defineProps<{
   snapshots?: DocumentSnapshot[]
@@ -21,6 +22,8 @@ const emit = defineEmits<{
   'restore-snapshot': [versionIndex: number]
   'preview-snapshot': [snapshot: DocumentSnapshot | null]
 }>()
+
+const { t } = useLocale()
 
 const newSnapshotName = ref('')
 const isSaving = ref(false)
@@ -39,10 +42,10 @@ const snapshots = computed(() => props.snapshots ?? [])
   <div class="history-sidebar flex h-full w-80 flex-shrink-0 flex-col border-l border-slate-200 bg-white/80 text-slate-800 backdrop-blur-xl transition-all dark:border-white/5 dark:bg-[#0a0f1e]/85 dark:text-slate-100">
     <div class="border-b border-slate-200 p-4 dark:border-white/5">
       <h3 class="flex items-center gap-1.5 font-mono text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
-        <History class="h-4 w-4 text-cyan-400" /> Revision History
+        <History class="h-4 w-4 text-cyan-400" /> {{ t('sidebars.history.title') }}
       </h3>
       <p class="mt-1.5 text-[10px] leading-relaxed text-slate-400 dark:text-slate-500">
-        Inspect, preview, and restore any previous snapshot saved in the workspace.
+        {{ t('sidebars.history.empty') }}
       </p>
     </div>
 
@@ -54,9 +57,9 @@ const snapshots = computed(() => props.snapshots ?? [])
         <div class="flex items-start gap-1.5 text-amber-700 dark:text-amber-400">
           <ShieldAlert class="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-500" />
           <div>
-            <p class="font-bold">Viewing Revision Preview</p>
+            <p class="font-bold">{{ t('sidebars.history.viewingPreview') }}</p>
             <p class="mt-0.5 text-[10px] leading-relaxed text-amber-600 dark:text-amber-500">
-              You are previewing version #{{ activePreviewIndex }}. Your editor is temporarily read-only.
+              {{ t('sidebars.history.readOnlyPreview').replace('{index}', String(activePreviewIndex)) }}
             </p>
           </div>
         </div>
@@ -67,14 +70,14 @@ const snapshots = computed(() => props.snapshots ?? [])
             class="rounded-lg px-2.5 py-1 text-[10px] font-semibold text-slate-500 hover:bg-white/5 hover:text-slate-700 dark:text-slate-400"
             @click="emit('preview-snapshot', null)"
           >
-            Close Preview
+            {{ t('sidebars.history.closePreview') }}
           </button>
           <button
             type="button"
             class="flex items-center gap-1 rounded-lg bg-cyan-500 px-3 py-1 text-[10px] font-bold text-black shadow-cyan transition-all hover:bg-cyan-400"
             @click="() => { emit('restore-snapshot', activePreviewIndex!); emit('preview-snapshot', null) }"
           >
-            <RotateCcw class="h-3 w-3" /> Restore This
+            <RotateCcw class="h-3 w-3" /> {{ t('sidebars.history.restoreThis') }}
           </button>
         </div>
       </div>
@@ -91,7 +94,7 @@ const snapshots = computed(() => props.snapshots ?? [])
           <div>
             <div class="mb-1 flex items-center justify-between">
               <span class="rounded-md bg-slate-200 px-1.5 py-0.5 font-mono text-[9px] font-bold text-slate-500 dark:bg-cyan-500/10 dark:text-cyan-400">
-                REV #{{ snapshot.versionIndex }}
+                {{ t('sidebars.history.version') }} #{{ snapshot.versionIndex }}
               </span>
               <span class="flex items-center gap-0.5 font-mono text-[9px] text-slate-400 dark:text-slate-500">
                 <Calendar class="h-2.5 w-2.5" />
@@ -105,7 +108,7 @@ const snapshots = computed(() => props.snapshots ?? [])
           <div class="flex items-center gap-1.5 text-[10px] text-slate-500">
             <User class="h-3.5 w-3.5" />
             <span>
-              Modified by:
+              {{ t('sidebars.history.modifiedBy') }}
               <strong class="font-semibold text-slate-600 dark:text-slate-300">{{ snapshot.modifiedBy }}</strong>
             </span>
           </div>
@@ -117,19 +120,19 @@ const snapshots = computed(() => props.snapshots ?? [])
               class="flex items-center gap-1 text-[10px] font-bold text-slate-500 transition-colors hover:text-cyan-600 dark:text-slate-400 dark:hover:text-cyan-400"
               @click="emit('preview-snapshot', snapshot)"
             >
-              <Eye class="h-3 w-3" /> Preview
+              <Eye class="h-3 w-3" /> {{ t('sidebars.history.preview') }}
             </button>
             <button
               type="button"
               class="flex items-center gap-1 text-[10px] font-bold text-cyan-600 transition-colors hover:text-cyan-500 dark:text-cyan-400 dark:hover:text-cyan-300"
               @click="emit('restore-snapshot', snapshot.versionIndex)"
             >
-              <RotateCcw class="h-3 w-3" /> Restore
+              <RotateCcw class="h-3 w-3" /> {{ t('sidebars.history.restore') }}
             </button>
           </div>
         </div>
 
-        <p v-if="snapshots.length === 0" class="py-6 text-center text-xs text-slate-400 dark:text-slate-500">No snapshots saved yet.</p>
+        <p v-if="snapshots.length === 0" class="py-6 text-center text-xs text-slate-400 dark:text-slate-500">{{ t('sidebars.history.noSnapshots') }}</p>
       </div>
     </div>
 
@@ -139,7 +142,7 @@ const snapshots = computed(() => props.snapshots ?? [])
           v-model="newSnapshotName"
           type="text"
           required
-          placeholder="e.g. Approved Final Draft..."
+          :placeholder="t('sidebars.history.snapshotPlaceholder')"
           class="w-full rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-800 transition-all focus:border-cyan-500/50 focus:shadow-cyan focus:outline-none dark:border-white/10 dark:bg-white/[0.02] dark:text-slate-100 dark:focus:border-cyan-500/30"
         >
         <div class="flex justify-end gap-2">
@@ -148,13 +151,13 @@ const snapshots = computed(() => props.snapshots ?? [])
             class="rounded-lg px-2.5 py-1 text-[10px] text-slate-500 hover:bg-white/5 dark:text-slate-400"
             @click="isSaving = false"
           >
-            Cancel
+            {{ t('sidebars.history.cancel') }}
           </button>
           <button
             type="submit"
             class="rounded-lg bg-cyan-500 px-3.5 py-1.5 text-xs font-bold text-black shadow-cyan hover:bg-cyan-400"
           >
-            Save
+            {{ t('sidebars.history.save') }}
           </button>
         </div>
       </form>
@@ -165,7 +168,7 @@ const snapshots = computed(() => props.snapshots ?? [])
         class="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-slate-300 py-2.5 text-xs font-bold text-slate-500 transition-all hover:border-cyan-500 hover:bg-cyan-500/5 hover:text-cyan-500 dark:border-white/10 dark:text-slate-400 dark:hover:border-cyan-400/50 dark:hover:text-cyan-400"
         @click="isSaving = true"
       >
-        <Save class="h-3.5 w-3.5 animate-pulse" /> Save Named Snapshot
+        <Save class="h-3.5 w-3.5 animate-pulse" /> {{ t('sidebars.history.saveNamedSnapshot') }}
       </button>
     </div>
   </div>
