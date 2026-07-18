@@ -1,7 +1,10 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { ArrowLeft, Plus, MoreVertical, FileText } from 'lucide-vue-next'
 import type { Editor } from '@tiptap/core'
+import { useLocale } from '../composables/useLocale.js'
+
+const { t } = useLocale()
 
 interface DocumentTab {
   id: string
@@ -18,9 +21,11 @@ const props = withDefaults(
   {
     tabs: () => [{ id: 'tab-1', label: 'Tab 1', active: true }],
     editor: null,
-    backTitle: 'Collapse sidebar',
+    backTitle: '',
   },
 )
+
+const effectiveBackTitle = computed(() => props.backTitle || t('common.cancel'))
 
 const emit = defineEmits<{
   collapse: []
@@ -72,7 +77,7 @@ const updateOutline = () => {
       if (level === 1 || level === 2 || level === 3) {
         list.push({
           id: `heading-${pos}`,
-          text: node.textContent.trim() || `Untitled Heading ${level}`,
+          text: node.textContent.trim() || t('documentTabs.untitledHeading').replace('{level}', String(level)),
           level,
           pos,
         })
@@ -135,7 +140,7 @@ const scrollToHeading = (heading: { text: string; pos: number }) => {
       <button
         type="button"
         class="flex h-8 w-8 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-slate-200/80 dark:text-slate-400 dark:hover:bg-slate-800/80"
-        :title="backTitle"
+        :title="effectiveBackTitle"
         @click="emit('collapse')"
       >
         <ArrowLeft class="h-[18px] w-[18px]" />
@@ -146,11 +151,11 @@ const scrollToHeading = (heading: { text: string; pos: number }) => {
     <div class="hidden flex-col gap-4 md:flex">
       <!-- Sidebar Section Header: Tab Dokumen -->
       <div class="flex items-center justify-between px-2">
-        <span class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Tab dokumen</span>
+        <span class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">{{ t('documentTabs.documentTabs') }}</span>
         <button
           type="button"
           class="flex h-6 w-6 items-center justify-center rounded-full text-slate-600 hover:bg-slate-200 dark:text-slate-400 dark:hover:bg-slate-800 transition-colors"
-          title="Add tab"
+          :title="t('documentTabs.addTab')"
           @click="emit('add-tab')"
         >
           <Plus class="h-4 w-4" />
@@ -216,7 +221,7 @@ const scrollToHeading = (heading: { text: string; pos: number }) => {
                 class="flex w-full items-center px-3 py-1.5 text-xs hover:bg-slate-50 dark:hover:bg-slate-700/50"
                 @click.stop="startRename(tab)"
               >
-                Ubah nama
+                {{ t('documentTabs.rename') }}
               </button>
               <button
                 type="button"
@@ -224,7 +229,7 @@ const scrollToHeading = (heading: { text: string; pos: number }) => {
                 :disabled="tabs.length <= 1"
                 @click.stop="handleDelete(tab.id)"
               >
-                Hapus
+                {{ t('documentTabs.delete') }}
               </button>
             </div>
           </div>
@@ -236,7 +241,7 @@ const scrollToHeading = (heading: { text: string; pos: number }) => {
 
       <!-- Outline / Heading list -->
       <div class="flex flex-col gap-1.5 px-2">
-        <span class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Ringkasan</span>
+        <span class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">{{ t('documentTabs.outline') }}</span>
         
         <!-- outline headings list -->
         <div v-if="outlineHeadings.length > 0" class="flex flex-col gap-1 mt-1">
@@ -257,7 +262,7 @@ const scrollToHeading = (heading: { text: string; pos: number }) => {
 
         <!-- outline placeholder -->
         <p v-else class="text-xs leading-relaxed text-slate-400 dark:text-slate-500 italic mt-1 font-sans">
-          Tajuk yang Anda tambahkan ke dokumen akan muncul di sini.
+          {{ t('documentTabs.placeholder') }}
         </p>
       </div>
     </div>

@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import { FileText, Mail, MoreHorizontal } from 'lucide-vue-next'
+import { useLocale } from '../composables/useLocale.js'
+
+const { t } = useLocale()
 
 defineProps<{
   visible?: boolean
@@ -12,9 +15,9 @@ const emit = defineEmits<{
 }>()
 
 const chips = [
-  { key: 'meeting-notes', label: 'Meeting notes', icon: FileText },
-  { key: 'email-draft', label: 'Email draft', icon: Mail },
-  { key: 'more', label: 'More', icon: MoreHorizontal },
+  { key: 'meeting-notes', label: t('quickActions.meetingNotes'), icon: FileText },
+  { key: 'email-draft', label: t('quickActions.emailDraft'), icon: Mail },
+  { key: 'more', label: t('quickActions.more'), icon: MoreHorizontal },
 ] as const
 </script>
 

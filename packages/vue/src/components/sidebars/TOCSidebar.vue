@@ -10,6 +10,7 @@ import {
   Plus,
   Navigation2,
 } from 'lucide-vue-next'
+import { useLocale } from '../../composables/useLocale.js'
 
 interface HeadingItem {
   id: string
@@ -26,6 +27,8 @@ const emit = defineEmits<{
   close: []
 }>()
 
+const { t } = useLocale()
+
 const headings = ref<HeadingItem[]>([])
 const searchQuery = ref('')
 const activeHeadingId = ref<string | null>(null)
@@ -40,7 +43,7 @@ function refreshHeadings() {
         const text = node.textContent.trim()
         items.push({
           id: `heading-${pos}`,
-          text: text || `Untitled Heading ${level}`,
+          text: text || t('sidebars.toc.untitledHeading').replace('{level}', String(level)),
           level,
           pos,
         })
@@ -95,8 +98,10 @@ function handleJumpToHeading(heading: HeadingItem) {
 
 function handleInsertHeading(level: 1 | 2 | 3) {
   if (!props.editor) return
-  const tag = level === 1 ? 'Heading 1' : level === 2 ? 'Heading 2' : 'Heading 3'
-  props.editor.chain().focus().insertContent(`<h${level}>New ${tag} Section</h${level}><p>Start writing here...</p>`).run()
+  const tag = level === 1 ? t('header.heading1') : level === 2 ? t('header.heading2') : t('header.heading3')
+  const sectionLabel = t('sidebars.toc.newSection')
+  const startLabel = t('sidebars.toc.startWriting')
+  props.editor.chain().focus().insertContent(`<h${level}>${sectionLabel.replace('{tag}', tag)}</h${level}><p>${startLabel}</p>`).run()
 }
 
 function headingClasses(level: number, isActive: boolean) {
@@ -120,14 +125,14 @@ function dotColor(level: number) {
     <div class="flex items-center justify-between border-b border-slate-200 p-4 dark:border-white/5">
       <div>
         <h3 class="flex items-center gap-1.5 font-mono text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
-          <List class="h-4 w-4 text-cyan-500" /> Table of Contents
+          <List class="h-4 w-4 text-cyan-500" /> {{ t('sidebars.toc.title') }}
         </h3>
-        <p class="mt-1 text-[10px] leading-relaxed text-slate-400 dark:text-slate-500">Outline of headers in this document.</p>
+        <p class="mt-1 text-[10px] leading-relaxed text-slate-400 dark:text-slate-500">{{ t('sidebars.toc.empty') }}</p>
       </div>
       <button
         type="button"
         class="rounded-lg p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-white/5 dark:hover:text-white"
-        title="Close outline"
+        :title="t('sidebars.toc.closeOutline')"
         @click="emit('close')"
       >
         <X class="h-4 w-4" />
@@ -140,7 +145,7 @@ function dotColor(level: number) {
         <input
           v-model="searchQuery"
           type="text"
-          placeholder="Search headings..."
+          :placeholder="t('sidebars.toc.searchHeadings')"
           class="w-full rounded-xl border border-slate-200/80 bg-slate-50 py-2 pl-9 pr-8 text-xs text-slate-700 transition-all focus:outline-none focus:ring-1 focus:ring-cyan-500/50 dark:border-white/10 dark:bg-slate-900/40 dark:text-slate-200 dark:focus:ring-cyan-400/30"
         >
         <button
@@ -159,11 +164,11 @@ function dotColor(level: number) {
         <div class="mb-3 rounded-full bg-cyan-500/10 p-3 text-cyan-500 dark:bg-cyan-400/5">
           <List class="h-6 w-6" />
         </div>
-        <h4 class="text-xs font-bold text-slate-700 dark:text-slate-300">No Headings Yet</h4>
-        <p class="mt-1.5 max-w-[200px] text-[10px] leading-relaxed text-slate-400 dark:text-slate-500">Use headers (H1, H2, or H3) to structure your document. An interactive outline will generate here automatically.</p>
+        <h4 class="text-xs font-bold text-slate-700 dark:text-slate-300">{{ t('sidebars.toc.noHeadings') }}</h4>
+        <p class="mt-1.5 max-w-[200px] text-[10px] leading-relaxed text-slate-400 dark:text-slate-500">{{ t('sidebars.toc.noHeadingsDescription') }}</p>
 
         <div class="mt-5 w-full space-y-2 px-4 font-sans">
-          <span class="mb-1.5 block text-left text-[9px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Quick Insert:</span>
+          <span class="mb-1.5 block text-left text-[9px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">{{ t('sidebars.toc.quickInsert') }}</span>
           <button
             v-for="level in ([1, 2, 3] as const)"
             :key="level"
@@ -173,7 +178,7 @@ function dotColor(level: number) {
           >
             <span class="flex items-center gap-1.5">
               <Hash class="h-3 w-3" :class="level === 1 ? 'text-cyan-500' : level === 2 ? 'text-emerald-500' : 'text-amber-500'" />
-              Heading {{ level }}
+              {{ t('sidebars.toc.headingLevel').replace('{level}', String(level)) }}
             </span>
             <Plus class="h-3.5 w-3.5 text-slate-400" />
           </button>
@@ -182,12 +187,12 @@ function dotColor(level: number) {
 
       <div v-else-if="filteredHeadings.length === 0" class="flex flex-col items-center justify-center py-12 text-center text-slate-400">
         <Search class="mb-2 h-5 w-5 text-slate-300" />
-        <p class="text-xs font-semibold">No matching headers found</p>
-        <p class="mt-1 text-[10px] text-slate-400">Try searching with a different term.</p>
+        <p class="text-xs font-semibold">{{ t('sidebars.toc.noMatchingHeaders') }}</p>
+        <p class="mt-1 text-[10px] text-slate-400">{{ t('sidebars.toc.tryDifferentTerm') }}</p>
       </div>
 
       <div v-else class="space-y-1 font-sans">
-        <span class="mb-2.5 block text-[9px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">Outline Layout</span>
+        <span class="mb-2.5 block text-[9px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">{{ t('sidebars.toc.outlineLayout') }}</span>
         <div class="relative ml-1.5 space-y-1.5 border-l border-slate-100 pl-1.5 dark:border-white/5">
           <button
             v-for="heading in filteredHeadings"
@@ -217,7 +222,7 @@ function dotColor(level: number) {
     <div class="border-t border-slate-200 bg-slate-50/50 p-3.5 text-[10px] leading-relaxed text-slate-400 dark:border-white/5 dark:bg-slate-900/30 dark:text-slate-500">
       <div class="flex items-start gap-1.5">
         <Navigation2 class="mt-0.5 h-3.5 w-3.5 shrink-0 text-cyan-500" />
-        <p>Outline syncs automatically. Click any header to instantly jump, focus, and scroll the editor to that section.</p>
+        <p>{{ t('sidebars.toc.outlineSync') }}</p>
       </div>
     </div>
   </div>

@@ -2,10 +2,13 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { Printer, LogOut } from 'lucide-vue-next'
 import { DocsEditor } from '@kedata-indonesia/docflow-vue'
+import { useLocale } from '@kedata-indonesia/docflow-vue'
 import { defaultPlugins } from '@kedata-indonesia/docflow-plugins'
 import type { DocsEditor as DocsEditorInstance } from '@kedata-indonesia/docflow-core'
 import type { DocumentItem } from '../types.js'
 import { encodeStateAsUpdate } from 'yjs'
+
+const { t } = useLocale()
 
 // Base URL for backend API — matches api.ts (VITE_API_BASE_URL or same-origin)
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? ''
@@ -229,7 +232,7 @@ async function handleShare() {
   shareDialogOpen.value = true
   try {
     await navigator.clipboard.writeText(shareUrl.value)
-    shareToast.value = 'Link copied! Share this URL with collaborators.'
+    shareToast.value = t('editor.share.copied')
   } catch {
     shareToast.value = shareUrl.value
   }
@@ -267,7 +270,7 @@ async function addCollaborator() {
     })
     if (!lookupRes.ok) {
       const data = await lookupRes.json().catch(() => ({}))
-      shareError.value = data.error || 'User not found'
+      shareError.value = data.error || t('editor.share.userNotFound')
       return
     }
     const user = (await lookupRes.json()) as { userId: string; name: string; email: string }
@@ -279,14 +282,14 @@ async function addCollaborator() {
     })
     if (!addRes.ok) {
       const data = await addRes.json().catch(() => ({}))
-      shareError.value = data.error || 'Failed to add collaborator'
+      shareError.value = data.error || t('editor.share.failedToAdd')
       return
     }
     newCollaboratorEmail.value = ''
     await fetchCollaborators()
   } catch (err) {
     console.error('Failed to add collaborator:', err)
-    shareError.value = 'Failed to add collaborator'
+    shareError.value = t('editor.share.failedToAdd')
   } finally {
     shareLoading.value = false
   }
@@ -295,9 +298,9 @@ async function addCollaborator() {
 async function copyShareLink() {
   try {
     await navigator.clipboard.writeText(shareUrl.value)
-    shareToast.value = 'Link copied to clipboard'
+    shareToast.value = t('editor.share.copied')
   } catch {
-    shareToast.value = 'Could not copy link'
+    shareToast.value = t('editor.share.couldNotCopy')
   }
   setTimeout(() => { shareToast.value = '' }, 3000)
 }
@@ -362,7 +365,7 @@ function handleEditorReady(docsEditor: DocsEditorInstance) {
         <button
           type="button"
           class="hidden h-8 w-8 shrink-0 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 xl:flex"
-          title="Print document"
+          :title="t('editor.print')"
           @click="handlePrint"
         >
           <Printer class="h-[18px] w-[18px]" />
@@ -377,7 +380,7 @@ function handleEditorReady(docsEditor: DocsEditorInstance) {
           @click="handlePrint(); close()"
         >
           <Printer class="h-4 w-4 text-slate-400" />
-          <span>Print</span>
+          <span>{{ t('editor.print') }}</span>
         </button>
         <div class="my-1 border-t border-slate-100 dark:border-slate-700/80" />
       </template>
@@ -390,7 +393,7 @@ function handleEditorReady(docsEditor: DocsEditorInstance) {
           @click="emit('logout'); close()"
         >
           <LogOut class="h-4 w-4" />
-          <span>Log out</span>
+          <span>{{ t('editor.logOut') }}</span>
         </button>
       </template>
     </DocsEditor>
@@ -404,20 +407,20 @@ function handleEditorReady(docsEditor: DocsEditorInstance) {
       <div class="w-full max-w-md rounded-lg border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-700 dark:bg-slate-800">
         <div class="mb-4 flex items-center justify-between">
           <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100">
-            Share document
+            {{ t('editor.share.title') }}
           </h3>
           <button
             type="button"
             class="rounded-md p-1 text-sm text-slate-400 transition-all hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-700 dark:hover:text-slate-300"
             @click="shareDialogOpen = false"
           >
-            Close
+            {{ t('editor.share.close') }}
           </button>
         </div>
 
         <div class="mb-4">
           <label class="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">
-            Shareable link
+            {{ t('editor.share.shareableLink') }}
           </label>
           <div class="flex gap-2">
             <input
@@ -431,14 +434,14 @@ function handleEditorReady(docsEditor: DocsEditorInstance) {
               class="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition-all hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-700"
               @click="copyShareLink"
             >
-              Copy
+              {{ t('editor.share.copy') }}
             </button>
           </div>
         </div>
 
         <div class="mb-4">
           <h4 class="mb-2 text-xs font-semibold text-slate-700 dark:text-slate-300">
-            Collaborators
+            {{ t('editor.share.collaborators') }}
           </h4>
           <ul class="max-h-40 overflow-y-auto rounded-md border border-slate-200 dark:border-slate-700">
             <li
@@ -458,13 +461,13 @@ function handleEditorReady(docsEditor: DocsEditorInstance) {
 
         <div class="mb-2">
           <label class="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">
-            Add collaborator by email
+            {{ t('editor.share.addCollaborator') }}
           </label>
           <div class="flex gap-2">
             <input
               v-model="newCollaboratorEmail"
               type="email"
-              placeholder="colleague@example.com"
+              :placeholder="t('editor.share.placeholder')"
               class="flex-1 rounded-md border border-slate-300 px-3 py-2 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-300"
               @keydown.enter="addCollaborator"
             />
@@ -474,7 +477,7 @@ function handleEditorReady(docsEditor: DocsEditorInstance) {
               :disabled="shareLoading"
               @click="addCollaborator"
             >
-              Add
+              {{ t('editor.share.add') }}
             </button>
           </div>
         </div>
