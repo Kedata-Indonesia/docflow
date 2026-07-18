@@ -1,6 +1,6 @@
 {
   "name": "@kedata-indonesia/docflow-element",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -15,7 +15,9 @@
   "publishConfig": {
     "registry": "https://npm.pkg.github.com"
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "vite build && tsup src/index.ts --format cjs && vue-tsc --project tsconfig.build.json --emitDeclarationOnly",
     "typecheck": "vue-tsc --noEmit",
