@@ -94,41 +94,49 @@ jobs:
         run: |
           echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" >> .npmrc
 
+          # Step 1: Rewrite ALL package.json files (name + deps + workspace:* → actual version)
           # Dependency order: core → layout-engine → plugins → vue → element
           for pkg in core layout-engine plugins vue element; do
-            VERSION=$(node -e "console.log(require('./packages/$pkg/package.json').version)")
-
-            # Rewrite package.json: rename + update internal deps
             node -e "
               const fs = require('fs');
               const fp = './packages/$pkg/package.json';
               const p = JSON.parse(fs.readFileSync(fp, 'utf8'));
               p.name = '@kedataindo/docflow-$pkg';
-              // Rewrite internal dep names
+
+              // Rewrite internal dep names AND resolve workspace:* to actual version
               ['dependencies', 'devDependencies', 'peerDependencies'].forEach(section => {
                 if (!p[section]) return;
                 Object.keys(p[section]).forEach(k => {
                   if (k.startsWith('@kedata-indonesia/docflow-')) {
                     const sub = k.replace('@kedata-indonesia/docflow-', '');
                     const v = p[section][k];
+                    // Resolve workspace:* to the local package's actual version
+                    const depPkg = JSON.parse(fs.readFileSync('./packages/' + sub + '/package.json', 'utf8'));
+                    const actualVersion = v === 'workspace:*' ? depPkg.version : v;
                     delete p[section][k];
-                    p[section]['@kedataindo/docflow-' + sub] = v;
+                    p[section]['@kedataindo/docflow-' + sub] = actualVersion;
                   }
                 });
               });
               p.publishConfig = { registry: 'https://registry.npmjs.org', access: 'public' };
               fs.writeFileSync(fp, JSON.stringify(p, null, 2) + '\n');
             "
+          done
 
-            # Check if already published
+          # Step 2: Publish in dependency order
+          for pkg in core layout-engine plugins vue element; do
+            VERSION=$(node -e "console.log(require('./packages/$pkg/package.json').version)")
+
             if npm view @kedataindo/docflow-$pkg@\$VERSION version &>/dev/null 2>&1; then
               echo "@kedataindo/docflow-$pkg@\$VERSION already published, skipping"
             else
               echo "Publishing @kedataindo/docflow-$pkg@\$VERSION..."
               pnpm publish --filter @kedataindo/docflow-$pkg --no-git-checks --access public
             fi
+          done
 
-            # Restore original package.json
+          # Step 3: Restore all original package.json
+          for pkg in core layout-engine plugins vue element; do
             git checkout HEAD -- packages/$pkg/package.json
           done
         env:
