@@ -2,7 +2,6 @@ name: Publish to GitHub Packages
 
 on:
   push:
-    branches: [main]
     tags:
       - 'v*'
 
@@ -30,27 +29,62 @@ jobs:
 
       - run: pnpm build
 
-      - name: Publish core
-        run: pnpm publish --filter @kedata-indonesia/docflow-core --no-git-checks
+      - name: Publish core (idempotent)
+        run: |
+          VERSION=$(node -e "console.log(require('./packages/core/package.json').version)")
+          if npm view @kedata-indonesia/docflow-core@$VERSION version &>/dev/null 2>&1; then
+            echo "@kedata-indonesia/docflow-core@$VERSION already published, skipping"
+          else
+            echo "Publishing @kedata-indonesia/docflow-core@$VERSION..."
+            pnpm publish --filter @kedata-indonesia/docflow-core --no-git-checks
+          fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Publish layout-engine
-        run: pnpm publish --filter @kedata-indonesia/docflow-layout-engine --no-git-checks
+      - name: Publish layout-engine (idempotent)
+        run: |
+          VERSION=$(node -e "console.log(require('./packages/layout-engine/package.json').version)")
+          if npm view @kedata-indonesia/docflow-layout-engine@$VERSION version &>/dev/null 2>&1; then
+            echo "@kedata-indonesia/docflow-layout-engine@$VERSION already published, skipping"
+          else
+            echo "Publishing @kedata-indonesia/docflow-layout-engine@$VERSION..."
+            pnpm publish --filter @kedata-indonesia/docflow-layout-engine --no-git-checks
+          fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Publish plugins
-        run: pnpm publish --filter @kedata-indonesia/docflow-plugins --no-git-checks
+      - name: Publish plugins (idempotent)
+        run: |
+          VERSION=$(node -e "console.log(require('./packages/plugins/package.json').version)")
+          if npm view @kedata-indonesia/docflow-plugins@$VERSION version &>/dev/null 2>&1; then
+            echo "@kedata-indonesia/docflow-plugins@$VERSION already published, skipping"
+          else
+            echo "Publishing @kedata-indonesia/docflow-plugins@$VERSION..."
+            pnpm publish --filter @kedata-indonesia/docflow-plugins --no-git-checks
+          fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Publish vue
-        run: pnpm publish --filter @kedata-indonesia/docflow-vue --no-git-checks
+      - name: Publish vue (idempotent)
+        run: |
+          VERSION=$(node -e "console.log(require('./packages/vue/package.json').version)")
+          if npm view @kedata-indonesia/docflow-vue@$VERSION version &>/dev/null 2>&1; then
+            echo "@kedata-indonesia/docflow-vue@$VERSION already published, skipping"
+          else
+            echo "Publishing @kedata-indonesia/docflow-vue@$VERSION..."
+            pnpm publish --filter @kedata-indonesia/docflow-vue --no-git-checks
+          fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Publish element
-        run: pnpm publish --filter @kedata-indonesia/docflow-element --no-git-checks
+      - name: Publish element (idempotent)
+        run: |
+          VERSION=$(node -e "console.log(require('./packages/element/package.json').version)")
+          if npm view @kedata-indonesia/docflow-element@$VERSION version &>/dev/null 2>&1; then
+            echo "@kedata-indonesia/docflow-element@$VERSION already published, skipping"
+          else
+            echo "Publishing @kedata-indonesia/docflow-element@$VERSION..."
+            pnpm publish --filter @kedata-indonesia/docflow-element --no-git-checks
+          fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
