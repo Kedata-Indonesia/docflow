@@ -1,6 +1,6 @@
 {
   "name": "@kedata-indonesia/docflow-plugins",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -15,7 +15,9 @@
   "publishConfig": {
     "registry": "https://npm.pkg.github.com"
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsup src/index.ts --format esm,cjs --dts",
     "typecheck": "tsc --noEmit",
@@ -40,18 +42,42 @@
     "@tiptap/extension-underline": "^2.11.0"
   },
   "peerDependenciesMeta": {
-    "@tiptap/extension-image": { "optional": true },
-    "@tiptap/extension-link": { "optional": true },
-    "@tiptap/extension-placeholder": { "optional": true },
-    "@tiptap/extension-strike": { "optional": true },
-    "@tiptap/extension-table": { "optional": true },
-    "@tiptap/extension-table-cell": { "optional": true },
-    "@tiptap/extension-table-header": { "optional": true },
-    "@tiptap/extension-table-row": { "optional": true },
-    "@tiptap/extension-task-item": { "optional": true },
-    "@tiptap/extension-task-list": { "optional": true },
-    "@tiptap/extension-text-align": { "optional": true },
-    "@tiptap/extension-underline": { "optional": true }
+    "@tiptap/extension-image": {
+      "optional": true
+    },
+    "@tiptap/extension-link": {
+      "optional": true
+    },
+    "@tiptap/extension-placeholder": {
+      "optional": true
+    },
+    "@tiptap/extension-strike": {
+      "optional": true
+    },
+    "@tiptap/extension-table": {
+      "optional": true
+    },
+    "@tiptap/extension-table-cell": {
+      "optional": true
+    },
+    "@tiptap/extension-table-header": {
+      "optional": true
+    },
+    "@tiptap/extension-table-row": {
+      "optional": true
+    },
+    "@tiptap/extension-task-item": {
+      "optional": true
+    },
+    "@tiptap/extension-task-list": {
+      "optional": true
+    },
+    "@tiptap/extension-text-align": {
+      "optional": true
+    },
+    "@tiptap/extension-underline": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@tiptap/pm": "^2.11.0",
