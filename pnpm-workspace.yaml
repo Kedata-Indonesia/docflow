@@ -3,6 +3,10 @@ packages:
   - 'apps/*'
 allowBuilds:
   '@percy/core': false
+  core-js: true
   esbuild: true
   leveldown: false
   protobufjs: false
+
+overrides:
+  prosemirror-model: 1.25.11

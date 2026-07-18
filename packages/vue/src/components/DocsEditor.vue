@@ -57,7 +57,7 @@ const emit = defineEmits<{
   back: []
   share: []
   'menu-click': [menu: string]
-  export: [format: 'markdown' | 'html' | 'txt']
+  export: [format: 'markdown' | 'html' | 'html-zip' | 'txt' | 'docx' | 'pdf' | 'odt' | 'rtf']
   ready: [docsEditor: DocsEditor]
 }>()
 
@@ -79,16 +79,21 @@ watch(currentLocale, (next) => {
 
 // ─── Page Size ────────────────────────────────────────────────────────────────
 
-const defaultMargins = { top: 72, bottom: 72, left: 90, right: 90 }
+const margins = ref({ top: 72, bottom: 72, left: 90, right: 90 })
+const orientation = ref<'portrait' | 'landscape'>('portrait')
 
 const pageSizeId = ref(props.pageSize ?? 'a4')
 const isPageless = ref(false)
 
 const resolvedLayoutOptions = computed(() => {
   const size = getPageSize(pageSizeId.value) ?? PAGE_SIZES[0]
-  let w = size.pageWidth; let h = size.pageHeight
+  let w = size.pageWidth
+  let h = size.pageHeight
+  if (orientation.value === 'landscape') {
+    ;[w, h] = [h, w]
+  }
   if (isPageless.value) h = 9_999_999
-  return { pageHeight: h, pageWidth: w, margins: { ...defaultMargins } }
+  return { pageHeight: h, pageWidth: w, margins: { ...margins.value } }
 })
 
 const { isDark } = useTheme()
@@ -379,6 +384,26 @@ const headerRightInput = ref('')
 const footerLeftInput = ref('')
 const footerRightInput = ref('')
 
+const showPageSetupModal = ref(false)
+const pageSetupSize = ref(pageSizeId.value)
+const pageSetupOrientation = ref(orientation.value)
+const pageSetupMargins = ref({ ...margins.value })
+
+const openPageSetupModal = () => {
+  pageSetupSize.value = pageSizeId.value
+  pageSetupOrientation.value = orientation.value
+  pageSetupMargins.value = { ...margins.value }
+  showPageSetupModal.value = true
+}
+
+const applyPageSetup = () => {
+  pageSizeId.value = pageSetupSize.value
+  orientation.value = pageSetupOrientation.value
+  margins.value = { ...pageSetupMargins.value }
+  emit('update:pageSize', pageSizeId.value)
+  showPageSetupModal.value = false
+}
+
 const openHeaderFooterModal = () => {
   if (!editor.value) return
   // Use either local raw inputs if customized in this session, or storage fallback
@@ -417,7 +442,13 @@ const saveHeaderFooter = () => {
 }
 
 let menuClick = (action: string) => {
-  if (action === 'insert-header' || action === 'insert-footer') {
+  if (action === 'page-setup') {
+    openPageSetupModal()
+  } else if (action === 'print') {
+    handlePrint()
+  } else if (action === 'version-history') {
+    toggleSidebar('history')
+  } else if (action === 'insert-header' || action === 'insert-footer') {
     openHeaderFooterModal()
   } else if (action === 'insert-footnote') {
     // Use ProseMirror's transaction API directly — more reliable than chain()
@@ -778,6 +809,77 @@ watch(isReady, (ready) => {
           </button>
           <button type="button" class="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700" @click="saveHeaderFooter">
             {{ t('editor.headerFooter.save') }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dialog Page Setup -->
+    <div v-if="showPageSetupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm px-4">
+      <div class="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-800 dark:bg-[#0e1525] text-slate-800 dark:text-slate-200">
+        <h2 class="text-lg font-bold mb-4">{{ t('editor.pageSetup.title') }}</h2>
+
+        <!-- Paper size -->
+        <div class="mb-4">
+          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{{ t('editor.pageSetup.paperSize') }}</label>
+          <select v-model="pageSetupSize" class="w-full rounded-md border border-slate-200 bg-transparent px-3 py-2 text-xs focus:outline-none dark:border-slate-700">
+            <option v-for="size in PAGE_SIZES" :key="size.id" :value="size.id">{{ size.name }}</option>
+          </select>
+        </div>
+
+        <!-- Orientation -->
+        <div class="mb-4">
+          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{{ t('editor.pageSetup.orientation') }}</label>
+          <div class="flex gap-2">
+            <button
+              type="button"
+              class="flex-1 rounded-md border px-3 py-2 text-xs font-medium transition-colors"
+              :class="pageSetupOrientation === 'portrait' ? 'border-cyan-500 bg-cyan-50 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300' : 'border-slate-200 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-white/5'"
+              @click="pageSetupOrientation = 'portrait'"
+            >
+              {{ t('editor.pageSetup.portrait') }}
+            </button>
+            <button
+              type="button"
+              class="flex-1 rounded-md border px-3 py-2 text-xs font-medium transition-colors"
+              :class="pageSetupOrientation === 'landscape' ? 'border-cyan-500 bg-cyan-50 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300' : 'border-slate-200 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-white/5'"
+              @click="pageSetupOrientation = 'landscape'"
+            >
+              {{ t('editor.pageSetup.landscape') }}
+            </button>
+          </div>
+        </div>
+
+        <!-- Margins -->
+        <div class="mb-6">
+          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{{ t('editor.pageSetup.margins') }}</label>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="text-[11px] text-slate-500 dark:text-slate-400 block mb-1">{{ t('editor.pageSetup.top') }}</label>
+              <input v-model.number="pageSetupMargins.top" type="number" min="0" class="w-full rounded-md border border-slate-200 bg-transparent px-3 py-1.5 text-xs focus:outline-none dark:border-slate-700">
+            </div>
+            <div>
+              <label class="text-[11px] text-slate-500 dark:text-slate-400 block mb-1">{{ t('editor.pageSetup.bottom') }}</label>
+              <input v-model.number="pageSetupMargins.bottom" type="number" min="0" class="w-full rounded-md border border-slate-200 bg-transparent px-3 py-1.5 text-xs focus:outline-none dark:border-slate-700">
+            </div>
+            <div>
+              <label class="text-[11px] text-slate-500 dark:text-slate-400 block mb-1">{{ t('editor.pageSetup.left') }}</label>
+              <input v-model.number="pageSetupMargins.left" type="number" min="0" class="w-full rounded-md border border-slate-200 bg-transparent px-3 py-1.5 text-xs focus:outline-none dark:border-slate-700">
+            </div>
+            <div>
+              <label class="text-[11px] text-slate-500 dark:text-slate-400 block mb-1">{{ t('editor.pageSetup.right') }}</label>
+              <input v-model.number="pageSetupMargins.right" type="number" min="0" class="w-full rounded-md border border-slate-200 bg-transparent px-3 py-1.5 text-xs focus:outline-none dark:border-slate-700">
+            </div>
+          </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex justify-end gap-2">
+          <button type="button" class="rounded-md px-3 py-1.5 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-white/5" @click="showPageSetupModal = false">
+            {{ t('editor.pageSetup.cancel') }}
+          </button>
+          <button type="button" class="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700" @click="applyPageSetup">
+            {{ t('editor.pageSetup.apply') }}
           </button>
         </div>
       </div>
