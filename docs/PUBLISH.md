@@ -12,7 +12,7 @@
 
 ## Prerequisites
 
-- Node.js >= 20, pnpm >= 9
+- Node.js >= 20, pnpm >= 10
 - GitHub account with access to `@kedata-indonesia` org
 - GitHub Personal Access Token with `write:packages` scope
 
@@ -83,41 +83,60 @@ echo "@kedata-indonesia:registry=https://npm.pkg.github.com" >> .npmrc
 npm install @kedata-indonesia/docflow-vue
 ```
 
-## 6. GitHub Actions (CI/CD)
+## 6. CI/CD — Automated Publish
 
-`.github/workflows/publish.yml`:
+Publish berjalan otomatis via GitHub Actions (`.github/workflows/publish.yml`) **hanya saat tag rilis dipush** — bukan setiap push ke main. Ini keputusan disengaja:
+
+- Setiap publish harus sadar: bump versi → tag → push → publish
+- Mencegah "cannot publish over existing version" yang terjadi kalau publish setiap merge tanpa bump
+- Versi terikat ke keputusan rilis, bukan ritme merge
+
+### Trigger
 
 ```yaml
-name: Publish Packages
-
 on:
   push:
-    tags:
-      - 'v*'
-
-jobs:
-  publish:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 9
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          registry-url: https://npm.pkg.github.com
-          cache: pnpm
-
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm build
-      - run: pnpm -r publish --no-git-checks
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    tags: ['v*']   # hanya tag v0.1.0, v1.2.3, dst.
 ```
+
+### Publish idempotent
+
+Setiap step publish mengecek registry dulu — kalau versi sudah ada, skip. Ini memungkinkan kamu hanya menaikkan versi sebagian paket, dan workflow tidak hard-fail:
+
+```yaml
+- name: Publish core (idempotent)
+  run: |
+    VERSION=$(node -e "console.log(require('./packages/core/package.json').version)")
+    if npm view @kedata-indonesia/docflow-core@$VERSION version &>/dev/null 2>&1; then
+      echo "@kedata-indonesia/docflow-core@$VERSION already published, skipping"
+    else
+      echo "Publishing @kedata-indonesia/docflow-core@$VERSION..."
+      pnpm publish --filter @kedata-indonesia/docflow-core --no-git-checks
+    fi
+  env:
+    NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
+### Cara rilis
+
+```bash
+# 1. Bump versi paket yang berubah (edit packages/*/package.json)
+#    Cek versi saat ini:
+grep '"version"' packages/*/package.json
+
+# 2. Commit + push
+git add packages/*/package.json
+git commit -m "chore: bump versions for release"
+git push
+
+# 3. Tag + push tag → trigger publish
+git tag v0.0.5
+git push --tags
+```
+
+### Kenapa tidak Changesets dulu?
+
+Untuk jangka panjang, [Changesets](https://github.com/changesets/changesets) adalah standar industri untuk monorepo multi-paket. Kontributor menambah changeset per PR, lalu workflow otomatis bump + publish hanya paket yang berubah. Belum diperlukan sekarang—tag-gated + idempotent sudah cukup untuk skala saat ini.
 
 ## Pre-publish Checklist
 
@@ -126,6 +145,6 @@ jobs:
 - [ ] `pnpm build` produces dist/ in all packages
 - [ ] `peerDependencies` are correct (no version conflicts)
 - [ ] `exports` field includes CSS path (vue package)
-- [ ] Version bumped in all package.json
+- [ ] Version bumped di `package.json` paket yang berubah
 - [ ] CHANGELOG updated (if exists)
-- [ ] Git tag created (`git tag v0.1.0 && git push --tags`)
+- [ ] Git tag dibuat: `git tag v0.1.0 && git push --tags`

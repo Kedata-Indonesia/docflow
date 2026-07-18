@@ -337,6 +337,19 @@ docs-editor/
 
 ---
 
+## Releasing
+
+Publish paket ke GitHub Packages di-trigger oleh git tag (`v*`), bukan setiap push ke main. Lihat [docs/PUBLISH.md](./docs/PUBLISH.md) untuk panduan lengkap.
+
+```bash
+# Setelah bump versi di packages/*/package.json:
+git tag v0.0.5
+git push --tags
+# → GitHub Actions publish automatis ke GitHub Packages
+```
+
+---
+
 ## License
 
 MIT
