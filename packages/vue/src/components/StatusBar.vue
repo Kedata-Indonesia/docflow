@@ -3,6 +3,9 @@ import { computed } from 'vue'
 import { RefreshCw } from 'lucide-vue-next'
 import type { PageSize } from '@kedata-indonesia/docflow-layout-engine'
 import type { ConnectionState, SavingStatus } from '../types.js'
+import { useLocale } from '../composables/useLocale.js'
+
+const { t } = useLocale()
 
 const props = withDefaults(
   defineProps<{
@@ -34,7 +37,7 @@ const emit = defineEmits<{
 }>()
 
 const formattedLastSaved = computed(() => {
-  if (!props.lastSaved) return 'Never'
+  if (!props.lastSaved) return t('statusBar.never')
   return new Date(props.lastSaved).toLocaleTimeString([], {
     hour: '2-digit',
     minute: '2-digit',
@@ -63,10 +66,10 @@ const currentSizeName = computed(() => {
           v-if="connectionState === 'connected'"
           class="font-mono text-[10px] uppercase tracking-wide text-emerald-600 dark:text-cyan-400"
         >
-          Live Sync Active
+          {{ t('statusBar.liveSyncActive') }}
         </span>
         <span v-else class="font-mono text-[10px] uppercase tracking-wide text-amber-600 dark:text-amber-500">
-          Connecting...
+          {{ t('statusBar.connecting') }}
         </span>
       </span>
 
@@ -75,13 +78,13 @@ const currentSizeName = computed(() => {
       <span class="flex items-center gap-1.5 font-sans text-[11px] font-medium text-slate-500 dark:text-slate-400">
         <RefreshCw class="h-3 w-3" :class="savingStatus === 'saving' ? 'animate-spin text-cyan-500' : 'text-emerald-500'" />
         <span v-if="savingStatus === 'saving'" class="animate-pulse font-semibold text-cyan-600 dark:text-cyan-400">
-          Saving changes...
+          {{ t('statusBar.saving') }}
         </span>
         <span v-else-if="savingStatus === 'offline'" class="font-semibold text-amber-600 dark:text-amber-500">
-          Offline
+          {{ t('statusBar.offline') }}
         </span>
         <span v-else class="flex items-center gap-1">
-          <span>Last saved at</span>
+          <span>{{ t('statusBar.lastSavedAt') }}</span>
           <strong class="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] text-slate-700 dark:bg-white/5 dark:text-slate-300">
             {{ formattedLastSaved }}
           </strong>
@@ -94,7 +97,7 @@ const currentSizeName = computed(() => {
         :value="pageSize"
         :title="currentSizeName"
         class="h-6 cursor-pointer rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[11px] font-medium text-slate-600 outline-none hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
-        aria-label="Page size"
+        :aria-label="t('statusBar.pageSize')"
         @change="emit('update:pageSize', ($event.target as HTMLSelectElement).value)"
       >
         <option v-for="size in pageSizes" :key="size.id" :value="size.id">{{ size.name }}</option>
@@ -103,18 +106,18 @@ const currentSizeName = computed(() => {
       <span class="text-slate-200 dark:text-white/10">•</span>
 
       <span>
-        Page
+        {{ t('statusBar.page') }}
         <strong class="font-mono text-slate-600 dark:text-slate-300">{{ currentPage }}</strong>
-        of
+        {{ t('statusBar.of') }}
         <strong class="font-mono text-slate-600 dark:text-slate-300">{{ pageCount }}</strong>
       </span>
       <span class="text-slate-200 dark:text-white/10">•</span>
       <span>
-        <strong class="font-mono text-slate-600 dark:text-slate-300">{{ wordCount }}</strong> words
+        <strong class="font-mono text-slate-600 dark:text-slate-300">{{ wordCount }}</strong> {{ t('statusBar.words') }}
       </span>
       <span class="text-slate-200 dark:text-white/10">•</span>
       <span>
-        <strong class="font-mono text-slate-600 dark:text-slate-300">{{ charCount }}</strong> characters
+        <strong class="font-mono text-slate-600 dark:text-slate-300">{{ charCount }}</strong> {{ t('statusBar.characters') }}
       </span>
     </div>
   </footer>

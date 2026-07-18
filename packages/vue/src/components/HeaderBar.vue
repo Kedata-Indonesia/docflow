@@ -3,6 +3,11 @@ import { ref, watch, computed, onMounted, onUnmounted } from 'vue'
 import { Star, Share2, Users, ChevronDown, MoreVertical } from 'lucide-vue-next'
 import type { Collaborator } from '../types.js'
 import ThemeToggle from './ThemeToggle.vue'
+import { useLocale, getSupportedLocales, getLocaleName } from '../composables/useLocale.js'
+
+const { locale, setLocale, t } = useLocale()
+
+const supportedLocales = getSupportedLocales()
 
 const props = withDefaults(
   defineProps<{
@@ -79,94 +84,94 @@ interface MenuItem {
   sub?: { label: string; action: string; badge?: string }[]
 }
 
-const menus: Record<string, { label: string; items: MenuItem[] }> = {
+const menus = computed<Record<string, { label: string; items: MenuItem[] }>>(() => ({
   File: {
-    label: 'File',
+    label: t('header.file'),
     items: [
-      { label: 'Penataan halaman...', action: 'page-setup' },
+      { label: t('header.pageSetup'), action: 'page-setup' },
       { label: 'divider', divider: true },
       {
-        label: 'Unduh', sub: [
-          { label: 'Markdown (.md)', action: 'export:markdown', badge: 'MD' },
-          { label: 'Halaman web (.html)', action: 'export:html', badge: 'HTML' },
-          { label: 'Teks biasa (.txt)', action: 'export:txt', badge: 'TXT' },
+        label: t('header.download'), sub: [
+          { label: t('header.markdown'), action: 'export:markdown', badge: 'MD' },
+          { label: t('header.html'), action: 'export:html', badge: 'HTML' },
+          { label: t('header.text'), action: 'export:txt', badge: 'TXT' },
         ]
       },
-      { label: 'Cetak...', action: 'print' },
+      { label: t('header.print'), action: 'print' },
     ],
   },
   Edit: {
-    label: 'Edit',
+    label: t('header.edit'),
     items: [
-      { label: 'Urungkan', action: 'undo' },
-      { label: 'Ulangi', action: 'redo' },
+      { label: t('header.undo'), action: 'undo' },
+      { label: t('header.redo'), action: 'redo' },
       { label: 'divider', divider: true },
-      { label: 'Pilih semua', action: 'select-all' },
+      { label: t('header.selectAll'), action: 'select-all' },
     ],
   },
   View: {
-    label: 'Tampilan',
+    label: t('header.view'),
     items: [
-      { label: 'Tampilkan sidebar', action: 'toggle-left-sidebar' },
+      { label: t('header.showSidebar'), action: 'toggle-left-sidebar' },
       { label: 'divider', divider: true },
-      { label: 'Mode Penuh (Fokus)', action: 'toggle-focus-mode' },
-      { label: 'Tampilkan penggaris', action: 'toggle-ruler' },
+      { label: t('header.focusMode'), action: 'toggle-focus-mode' },
+      { label: t('header.showRuler'), action: 'toggle-ruler' },
     ],
   },
   Insert: {
-    label: 'Sisipkan',
+    label: t('header.insert'),
     items: [
-      { label: 'Catatan Rapat', action: 'meeting-notes' },
-      { label: 'Draf Email', action: 'email-draft' },
+      { label: t('header.meetingNotes'), action: 'meeting-notes' },
+      { label: t('header.emailDraft'), action: 'email-draft' },
       { label: 'divider', divider: true },
-      { label: 'Gambar', action: 'insert-image' },
-      { label: 'Tabel', action: 'insert-table' },
-      { label: 'Kode Blok', action: 'insert-code' },
+      { label: t('header.image'), action: 'insert-image' },
+      { label: t('header.table'), action: 'insert-table' },
+      { label: t('header.codeBlock'), action: 'insert-code' },
       { label: 'divider', divider: true },
-      { label: 'Header', action: 'insert-header' },
-      { label: 'Footer', action: 'insert-footer' },
-      { label: 'Catatan Kaki', action: 'insert-footnote' },
+      { label: t('header.header'), action: 'insert-header' },
+      { label: t('header.footer'), action: 'insert-footer' },
+      { label: t('header.footnote'), action: 'insert-footnote' },
     ],
   },
   Format: {
-    label: 'Format',
+    label: t('header.format'),
     items: [
-      { label: 'Teks Tebal', action: 'bold' },
-      { label: 'Teks Miring', action: 'italic' },
-      { label: 'Garis Bawah', action: 'underline' },
+      { label: t('header.bold'), action: 'bold' },
+      { label: t('header.italic'), action: 'italic' },
+      { label: t('header.underline'), action: 'underline' },
       { label: 'divider', divider: true },
-      { label: 'Judul 1', action: 'heading1' },
-      { label: 'Judul 2', action: 'heading2' },
-      { label: 'Judul 3', action: 'heading3' },
+      { label: t('header.heading1'), action: 'heading1' },
+      { label: t('header.heading2'), action: 'heading2' },
+      { label: t('header.heading3'), action: 'heading3' },
     ],
   },
   Tools: {
-    label: 'Alat',
+    label: t('header.tools'),
     items: [
-      { label: 'Periksa ejaan', action: 'spellcheck' },
-      { label: 'Hitungan kata', action: 'word-count' },
+      { label: t('header.spellCheck'), action: 'spellcheck' },
+      { label: t('header.wordCount'), action: 'word-count' },
       { label: 'divider', divider: true },
-      { label: 'Preferensi', action: 'preferences' },
+      { label: t('header.preferences'), action: 'preferences' },
     ],
   },
   Extensions: {
-    label: 'Ekstensi',
+    label: t('header.extensions'),
     items: [
-      { label: 'Kelola ekstensi...', action: 'manage-extensions' },
+      { label: t('header.manageExtensions'), action: 'manage-extensions' },
     ],
   },
   Help: {
-    label: 'Bantuan',
+    label: t('header.help'),
     items: [
-      { label: 'Pintasan keyboard', action: 'keyboard-shortcuts' },
+      { label: t('header.keyboardShortcuts'), action: 'keyboard-shortcuts' },
       { label: 'divider', divider: true },
-      { label: 'Laporkan masalah', action: 'report-issue' },
-      { label: 'Tentang DocsEditor', action: 'about' },
+      { label: t('header.reportIssue'), action: 'report-issue' },
+      { label: t('header.about'), action: 'about' },
     ],
   },
-}
+}))
 
-const menuKeys = Object.keys(menus)
+const menuKeys = computed(() => Object.keys(menus.value))
 
 // Sub-menu hover state
 const hoveredSub = ref<string | null>(null)
@@ -176,10 +181,17 @@ const toggleMenu = (key: string) => {
   hoveredSub.value = null
 }
 
-// Overflow ("More") menu for secondary actions on small screens.
+// Overflow ('More') menu for secondary actions on small screens.
 const moreOpen = ref(false)
 const toggleMore = () => {
   moreOpen.value = !moreOpen.value
+}
+
+// Language menu
+const languageOpen = ref(false)
+const handleSetLocale = (next: 'en' | 'id') => {
+  setLocale(next)
+  languageOpen.value = false
 }
 
 // User/account menu (avatar + name → dropdown). Contents come from the host app
@@ -226,7 +238,7 @@ onUnmounted(() => document.removeEventListener('click', closeMenus, true))
         <button
           type="button"
           class="flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl bg-gradient-to-br from-cyan-400 to-blue-600 text-base font-bold text-white shadow-[0_0_15px_rgba(34,211,238,0.3)] hover:opacity-90 transition-opacity"
-          title="Back to Documents"
+          :title="t('header.backToDocuments')"
           @click="emit('back')"
         >
           DF
@@ -246,7 +258,7 @@ onUnmounted(() => document.removeEventListener('click', closeMenus, true))
             <h1
               v-else
               class="max-w-[180px] cursor-text truncate rounded px-1 py-0 text-sm font-semibold text-slate-800 hover:bg-slate-50 dark:text-slate-100 dark:hover:bg-slate-800/60 md:max-w-[280px]"
-              title="Click to rename"
+              :title="t('header.clickToRename')"
               @click="isRenaming = true"
             >
               {{ props.title }}
@@ -255,7 +267,7 @@ onUnmounted(() => document.removeEventListener('click', closeMenus, true))
             <button
               type="button"
               class="flex h-6 w-6 items-center justify-center rounded-full text-slate-400 transition-colors hover:text-amber-500"
-              :title="starred ? 'Unstar document' : 'Star document'"
+              :title="starred ? t('header.unstarDocument') : t('header.starDocument')"
               @click="emit('toggle-star')"
             >
               <Star class="h-4 w-4" :class="starred ? 'fill-amber-400 text-amber-500' : ''" />
@@ -390,7 +402,7 @@ onUnmounted(() => document.removeEventListener('click', closeMenus, true))
           :class="simulatorsActive
             ? 'animate-pulse bg-emerald-600 text-white hover:bg-emerald-700'
             : 'text-indigo-600 hover:bg-slate-100 dark:text-indigo-300 dark:hover:bg-slate-800'"
-          title="Sandbox (toggle simulated collaborators)"
+          :title="t('header.sandbox')"
           @click="emit('toggle-simulators')"
         >
           <Users class="h-[18px] w-[18px]" />
@@ -405,7 +417,7 @@ onUnmounted(() => document.removeEventListener('click', closeMenus, true))
           @click="emit('share')"
         >
           <Share2 class="h-3.5 w-3.5" />
-          <span class="hidden sm:inline">Share</span>
+          <span class="hidden sm:inline">{{ t('header.share') }}</span>
         </button>
 
         <!-- User / account menu — avatar + name, dropdown for account actions -->
@@ -430,7 +442,7 @@ onUnmounted(() => document.removeEventListener('click', closeMenus, true))
             >
               {{ currentUserInitials }}
             </span>
-            <span class="hidden max-w-[140px] truncate text-sm font-medium text-slate-700 dark:text-slate-200 sm:inline">{{ userName || 'Account' }}</span>
+            <span class="hidden max-w-[140px] truncate text-sm font-medium text-slate-700 dark:text-slate-200 sm:inline">{{ userName || t('header.account') }}</span>
             <ChevronDown class="h-3.5 w-3.5 flex-shrink-0 text-slate-400" />
           </button>
 
@@ -448,7 +460,7 @@ onUnmounted(() => document.removeEventListener('click', closeMenus, true))
               style="transform-origin: top right;"
             >
               <div class="border-b border-slate-100 px-4 py-2 dark:border-slate-700/80">
-                <p class="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{{ userName || 'Account' }}</p>
+                <p class="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{{ userName || t('header.account') }}</p>
               </div>
               <slot name="user-menu" :close="() => (userMenuOpen = false)" />
             </div>
@@ -489,12 +501,28 @@ onUnmounted(() => document.removeEventListener('click', closeMenus, true))
                 @click="emit('toggle-simulators'); moreOpen = false"
               >
                 <Users class="h-4 w-4 text-slate-400" />
-                <span>Sandbox</span>
+                <span>{{ t('header.sandbox') }}</span>
               </button>
               <div class="my-1 border-t border-slate-100 dark:border-slate-700/80" />
               <div class="flex items-center justify-between px-4 py-2">
-                <span>Theme</span>
+                <span>{{ t('header.theme') }}</span>
                 <ThemeToggle />
+              </div>
+              <div class="my-1 border-t border-slate-100 dark:border-slate-700/80" />
+              <div class="px-4 py-2">
+                <span class="block text-xs font-medium text-slate-500 dark:text-slate-400">{{ t('header.language') }}</span>
+                <div class="mt-1 flex gap-2">
+                  <button
+                    v-for="loc in supportedLocales"
+                    :key="loc"
+                    type="button"
+                    class="rounded px-2 py-1 text-xs font-medium transition-colors"
+                    :class="locale === loc ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/5'"
+                    @click="handleSetLocale(loc)"
+                  >
+                    {{ getLocaleName(loc) }}
+                  </button>
+                </div>
               </div>
             </div>
           </Transition>
