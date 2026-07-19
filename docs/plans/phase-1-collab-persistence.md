@@ -1,6 +1,6 @@
 # Phase 1 — Collaboration Persistence · Task-Level Implementation Plan
 
-**Roadmap ref:** [ENHANCEMENT_ROADMAP.md](../ENHANCEMENT_ROADMAP.md) Phase 1 · **Priority:** P0 · **Status:** 🟡 In progress (core landed) · **Last updated:** 2026-07-17
+**Roadmap ref:** [ENHANCEMENT_ROADMAP.md](../ENHANCEMENT_ROADMAP.md) Phase 1 · **Priority:** P0 · **Status:** ✅ Implemented (pending maintainer acceptance) · **Last updated:** 2026-07-19
 
 > **Goal:** make the **Yjs document the single durable source of truth**, persisted
 > **server-side** and independent of any connected client, so on-prem installs never lose
@@ -10,26 +10,44 @@
 
 ## 0. Status
 
-Core server-side persistence (**Groups A + B**) is implemented and locally boot-verified;
-the client-side cleanup and migration (**C/D/E**), config/docs (**F**), and tests (**G**)
-remain.
+All groups implemented. Unit tests pass (6/6 in `apps/server`); manual end-to-end
+acceptance (two-client convergence, restart durability, legacy seed) is with the maintainer.
 
 | Group | Status | Notes |
 |-------|--------|-------|
 | A — Mongo persistence adapter | ✅ Done | `CollabState` model, schema-free `deriveContent`, `mongoPersistence` adapter |
 | B — Wire into server | ✅ Done | `setPersistence(...)`; Mongo connects before `listen` |
-| C — Server-derived read-model | ⬜ Not started | Adapter already derives `content`/`plainText`; still need to deprecate client JSON writes |
-| D — Legacy migration (guarded seed) | ⬜ Not started | Adapter has legacy `CollabSnapshot` fallback; guarded client seed endpoint pending |
-| E — Retire client-driven persistence | ⬜ Not started | Client snapshot/auto-save loop still runs (harmless, coexists) |
-| F — Config & docs | ⬜ Not started | — |
-| G — Tests & verification | 🟡 Partial | `tsc` passes; clean boot verified; unit + 2-client/restart e2e pending |
+| C — Server-derived read-model | ✅ Done | Client content PUT skipped when websocket collab active (`CLIENT_PERSISTS_CONTENT` flag in demo `App.vue`); solo/webrtc editing still saves via PUT. Split documented in CLAUDE.md. |
+| D — Legacy migration (guarded seed) | ✅ Done | `POST /api/collab/seed` (atomic guard, live-apply + flush); client `maybeSeedLegacyDocument` in `EditorView.vue` (websocket → endpoint; webrtc → local seed) |
+| E — Retire client-driven persistence | ✅ Done | Client snapshot/auto-save loop removed; legacy `/api/collab/snapshot` + `/auto-save` routes + `CollabSnapshot` model removed. `bindState` legacy fallback **kept** (raw collection read) for one deprecation window so unopened legacy docs lose nothing. |
+| F — Config & docs | ✅ Done | `docker/server.env.example` (`COLLAB_WRITE_DEBOUNCE_MS`), CLAUDE.md, LIBRARY_CONTRACT seeding rule, INTEGRATION.md API list. `.env.docker.example` untouched (secret-file guard). |
+| G — Tests & verification | ✅ Done (unit) | `deriveContent` + `mongoPersistence` (persist, reload-after-restart, tabbed-doc preservation, seed-guard race) via `mongodb-memory-server`. E2E: manual checklist below. |
 
-**Verified so far:** `tsc --noEmit` passes; server boots with `Collab persistence: MongoDB
-enabled`; fixed a yjs ESM/CJS dual-instance bug by loading `yjs`/`y-prosemirror` via
-`createRequire` (shares the vendored `utils.cjs` instance).
+**Verified so far:** `tsc --noEmit` passes (all packages); 79/79 unit tests pass workspace-wide;
+lint clean; server boots with `Collab persistence: MongoDB enabled`; `POST /api/collab/seed`
+returns 401 unauthenticated; fixed a yjs ESM/CJS dual-instance bug by loading `yjs`/`y-prosemirror`
+via `createRequire` (shares the vendored `utils.cjs` instance).
 
-**Delivered (not in the original plan) — pnpm 11 build approval:** added `allowBuilds` to
-`pnpm-workspace.yaml` (esbuild only) so `pnpm` scripts run under pnpm 11 / Node 24.
+**Additional fixes landed during C/D/E implementation (2026-07-19):**
+
+- **`persist()` preserves the `tabbed-doc` wrapper** — the demo stores tabs + header/footer in
+  `Document.content`; the derived write now replaces only the active tab instead of destroying
+  the wrapper (would have been data loss). Search text is extracted from the merged document so
+  untouched tabs stay searchable.
+- **`extractPlainText` is tab-aware** — previously returned `''` for tabbed docs (pre-existing
+  gap, also affected the old auto-save route).
+- **Library collab auto-seed removed** (`Editor.ts`) — an unguarded local seed from `content`
+  raced with other clients and duplicated documents; hosts seed via `initialStorageState` or the
+  guarded endpoint. `y-prosemirror` dropped from `packages/core` deps; added to `apps/demo`.
+
+**Manual E2E checklist (maintainer):**
+
+1. Two clients edit the same room → edits converge both ways.
+2. Edit → disconnect all clients → restart server → reconnect → last state present (no loss).
+3. After ~3s of editing, dashboard list/search reflects the new text (derived write).
+4. Open a legacy JSON-only doc (pre-Phase-1) → content appears (seed); reopen → no duplication.
+5. Open the same legacy doc in two browsers simultaneously → content appears exactly once
+   (one request returns `seeded: false`).
 
 ---
 
