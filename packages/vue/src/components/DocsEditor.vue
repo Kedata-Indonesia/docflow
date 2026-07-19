@@ -4,7 +4,7 @@ import { PAGE_SIZES, getPageSize } from '@kedata-indonesia/docflow-layout-engine
 import { computed, onUnmounted, ref, watch } from 'vue'
 import { useEditor } from '../composables/useEditor.js'
 import SlashMenuVue from './SlashMenu.vue'
-import type { Collaborator, ConnectionState, SavingStatus, SidebarKey } from '../types.js'
+import type { Collaborator, ConnectionState, DocumentMeta, SavingStatus, SidebarKey } from '../types.js'
 import HeaderBar from './HeaderBar.vue'
 import EditorToolbar from './EditorToolbar.vue'
 import BubbleMenu from './BubbleMenu.vue'
@@ -13,6 +13,8 @@ import RulerBar from './RulerBar.vue'
 import VerticalRuler from './VerticalRuler.vue'
 import QuickActionChips from './QuickActionChips.vue'
 import TOCSidebar from './sidebars/TOCSidebar.vue'
+import DetailsDialog from './DetailsDialog.vue'
+import EmailDialog from './EmailDialog.vue'
 import { Menu } from 'lucide-vue-next'
 import { useTheme } from '../composables/useTheme.js'
 import { provideLocale, type Locale } from '../composables/useLocale.js'
@@ -31,6 +33,8 @@ const props = withDefaults(
     userName?: string
     userAvatar?: string
     locale?: Locale
+    documentMeta?: DocumentMeta
+    shareUrl?: string
   }>(),
   {
     editable: true,
@@ -45,6 +49,8 @@ const props = withDefaults(
     userName: '',
     userAvatar: '',
     locale: undefined,
+    documentMeta: undefined,
+    shareUrl: '',
   },
 )
 
@@ -52,6 +58,7 @@ const emit = defineEmits<{
   'update:modelValue': [value: object]
   'update:title': [title: string]
   'update:pageSize': [pageSize: string]
+  'update:pageCount': [pageCount: number]
   'update:locale': [locale: Locale]
   'toggle-star': []
   back: []
@@ -319,8 +326,9 @@ const applyHeaderFooter = () => {
   editor.value.commands.updateFooterContent(resolvedFooterLeft, resolvedFooterRight)
 }
 
-watch(pageCount, () => {
+watch(pageCount, (next) => {
   applyHeaderFooter()
+  emit('update:pageCount', next)
 })
 
 watch(isDark, (darkVal) => {
@@ -385,6 +393,8 @@ const footerLeftInput = ref('')
 const footerRightInput = ref('')
 
 const showPageSetupModal = ref(false)
+const showDetailsModal = ref(false)
+const showEmailModal = ref(false)
 const pageSetupSize = ref(pageSizeId.value)
 const pageSetupOrientation = ref(orientation.value)
 const pageSetupMargins = ref({ ...margins.value })
@@ -448,6 +458,12 @@ let menuClick = (action: string) => {
     handlePrint()
   } else if (action === 'version-history') {
     toggleSidebar('history')
+  } else if (action === 'details') {
+    showDetailsModal.value = true
+  } else if (action === 'email') {
+    showEmailModal.value = true
+  } else if (action === 'security') {
+    emit('share')
   } else if (action === 'insert-header' || action === 'insert-footer') {
     openHeaderFooterModal()
   } else if (action === 'insert-footnote') {
@@ -813,6 +829,18 @@ watch(isReady, (ready) => {
         </div>
       </div>
     </div>
+
+    <!-- Dialog Email -->
+    <EmailDialog
+      :is-open="showEmailModal"
+      :document-title="props.title"
+      :share-url="props.shareUrl"
+      @close="showEmailModal = false"
+      @copy-link="emit('share')"
+    />
+
+    <!-- Dialog Details -->
+    <DetailsDialog :is-open="showDetailsModal" :meta="props.documentMeta" @close="showDetailsModal = false" />
 
     <!-- Dialog Page Setup -->
     <div v-if="showPageSetupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm px-4">
