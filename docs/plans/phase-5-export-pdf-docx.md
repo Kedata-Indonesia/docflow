@@ -1,6 +1,6 @@
 # Phase 5 — Export (PDF / DOCX) · Task-Level Implementation Plan
 
-**Roadmap ref:** [ENHANCEMENT_ROADMAP.md](../ENHANCEMENT_ROADMAP.md) Phase 5 · **Priority:** P1 · **Depends on:** Phase 2 · **Last updated:** 2026-07-17
+**Roadmap ref:** [ENHANCEMENT_ROADMAP.md](../ENHANCEMENT_ROADMAP.md) Phase 5 · **Priority:** P1 · **Depends on:** Phase 2 · **Last updated:** 2026-07-19
 
 > **Goal:** Google-Docs-grade export. **PDF** reuses the existing pagination model
 > (`layout-engine`) so page breaks in the file match what the user sees on screen.
@@ -13,34 +13,87 @@
 
 ## 1. Current State (what exists today)
 
-Export is a **UI stub with no implementation**: a menu emits an event that no one handles.
+Export is **substantially implemented** — all 8 formats produce output. PDF is no longer stubbed to bare `window.print()`; the print stylesheet has been enhanced to preserve pagination and force light mode. The implementation lives in the demo app, not as a reusable library package.
 
-| Where | What it does | File |
-|-------|--------------|------|
-| File → Unduh menu | Menu items `export:markdown` / `export:html` / `export:txt`; "Cetak…" → `print` | [HeaderBar.vue:90-96](../../packages/vue/src/components/HeaderBar.vue) |
-| HeaderBar action dispatch | `action.startsWith('export:')` → `handleExport(format)` → `emit('export', format)` | [HeaderBar.vue:65-66,181-183](../../packages/vue/src/components/HeaderBar.vue) |
-| HeaderBar emit type | `export: [format: 'markdown' \| 'html' \| 'txt']` — no PDF/DOCX in the type | [HeaderBar.vue:35](../../packages/vue/src/components/HeaderBar.vue) |
-| DocsEditor forward | Re-declares the emit ([DocsEditor.vue:54](../../packages/vue/src/components/DocsEditor.vue)) and forwards `@export="$emit('export', $event)"` up to the host | [DocsEditor.vue:662](../../packages/vue/src/components/DocsEditor.vue) |
-| Host consumer | **None.** No `apps/demo` or `apps/web` component listens for `@export` — the event dies at the top | (grep: only the forward at DocsEditor.vue:662) |
-| Print | `handlePrint = () => window.print()` (raw, no print CSS geometry) | [DocsEditor.vue:432](../../packages/vue/src/components/DocsEditor.vue), [EditorView.vue:222-223](../../apps/demo/src/components/EditorView.vue) |
+### Where the code lives
 
-**Net state:** there is **no PDF, no DOCX, and not even a working markdown/html/txt exporter** — only an event bus stub and a bare `window.print()`. Phase 5 builds the real thing.
+| Layer | File | What |
+|-------|------|------|
+| **Export engine** | [`apps/demo/src/utils/export.ts`](../../apps/demo/src/utils/export.ts) (406 lines) | All 8 format handlers: `exportDocument(format, editor, title)` |
+| **Demo wiring** | [`apps/demo/src/components/EditorView.vue:273-282`](../../apps/demo/src/components/EditorView.vue) | `@export="handleExport"` → calls `exportDocument()` |
+| **HeaderBar menu** | [`packages/vue/src/components/HeaderBar.vue:40,98-123`](../../packages/vue/src/components/HeaderBar.vue) | 8 "Download" menu items (DOCX/PDF/ODT/TXT/RTF/HTML-ZIP/HTML/Markdown) + Print |
+| **DocsEditor forward** | [`packages/vue/src/components/DocsEditor.vue:60,715`](../../packages/vue/src/components/DocsEditor.vue) | Emit widened to all 8 formats; `@export="$emit('export', $event)"` |
+| **Print CSS** | [`packages/vue/src/styles/index.css:666-850`](../../packages/vue/src/styles/index.css), [`apps/demo/src/styles/index.css:254-437`](../../apps/demo/src/styles/index.css) | Comprehensive `@media print` rules (hide chrome, reset layout, preserve breaks) |
 
-**Key existing assets we build on:**
+### By format: what's implemented
 
-- **Pagination model (the crown jewel for PDF).** `PageLayout` measures rendered block DOM (`getBoundingClientRect`, `getComputedStyle`, shadow-DOM measuring pass, `ResizeObserver`) and `PageBreaker.computePages()` returns `Page[]` where each `Page = { from, to, blocks: BlockInfo[] }` ([PageBreaker.ts:13-159](../../packages/layout-engine/src/PageBreaker.ts), [types.ts:1-46](../../packages/layout-engine/src/types.ts)). Breaks account for CSS margins, force-breaks (`pageBreak` node / `data-page-break`), oversized-block isolation, and mid-paragraph splitting via binary search ([PageLayout.ts:80-105](../../packages/layout-engine/src/PageLayout.ts), [PageBreaker.ts:161-207](../../packages/layout-engine/src/PageBreaker.ts)). **This is DOM-measurement based — it only runs in a browser.**
-- **Page geometry.** `PAGE_SIZES` (A4/F4/Letter/Legal/A5, in px @96dpi) live in [layout-engine/types.ts:55-61](../../packages/layout-engine/src/types.ts) and are also re-exported from core via `tiptap-pagination-plus` ([core/index.ts:4](../../packages/core/src/index.ts)); the Vue layer resolves the active size in [DocsEditor.vue:66](../../packages/vue/src/components/DocsEditor.vue).
-- **Serialization entry points.** `DocsEditor.getJSON()` / `getHTML()` ([Editor.ts:134-135](../../packages/core/src/Editor.ts)) expose the PM doc — the input to the DOCX mapper.
-- **The node/mark set to map** (`defaultPlugins`, [plugins/index.ts:29-43](../../packages/plugins/src/index.ts)): StarterKit marks (bold/italic/strike/code) + `formatting`, `headings`, `lists`, `alignment` (`TextAlign` on heading+paragraph, [alignment.ts:11-12](../../packages/plugins/src/alignment.ts)), `link`, `image` (`@tiptap/extension-image`, `src` attr, [image.ts:1-25](../../packages/plugins/src/image.ts)), `table` (Table/Row/Cell/Header, resizable, [table.ts:7-20](../../packages/plugins/src/table.ts)), `blockquote`, `codeBlock`, `pageBreak` (node name `pageBreak`, [pageBreak.ts:6](../../packages/plugins/src/pageBreak.ts)), and `footnote` (inline atom, `attrs.content` is a **plain string**, renders `data-node-type="footnote"` + `'1'` on HTML export, [footnote.ts:5-64](../../packages/plugins/src/footnote.ts)).
-- **PageView** already renders per-page DOM from `Page[]` ([PageView.vue](../../packages/vue/src/components/PageView.vue)) — the surface a print-CSS PDF path targets.
+| Format | Status | Method | Quality |
+|--------|--------|--------|---------|
+| **Markdown** | Implemented | `prosemirror-markdown` serializer with plain-text fallback | Full (unsupported nodes/marks degrade gracefully) |
+| **HTML** | Implemented | Wrapped in full HTML document template → blob download | Full |
+| **HTML-ZIP** | Implemented | JSZip with HTML inside | Full |
+| **TXT** | Implemented | HTML → `innerText` extraction | Full |
+| **DOCX** | Implemented | HTML → OOXML via `docx` library (paragraphs, headings, lists, tables, text formatting) | Good — HTML-based (not PM JSON-based). No footnotes, page breaks, or images yet. |
+| **PDF** | Implemented | `window.print()` + enhanced print CSS | Good — preserves editor pagination and forces light mode; browser header/footer still visible |
+| **ODT** | Implemented | In-memory ODF ZIP generation (plain-text) | Basic — flat text, no rich formatting |
+| **RTF** | Implemented | Plain-text RTF generation | Basic — flat text, no rich formatting |
 
-**Boundary note (Phase 2 dependency):** DOCX must embed images and PDF must render them. After Phase 2/4 image srcs are self-hosted URLs supplied via `onImageUpload`; the export code must **fetch bytes by URL**, not assume any storage backend.
+### Print CSS enhancements (2026-07-19)
+
+The `@media print` rules in both stylesheet copies were updated to:
+
+- **Preserve editor pagination:** `[data-rm-pagination]` and `.rm-page-break > .page` are kept visible so the browser prints the same page breaks the user sees on screen.
+- **Hide spacers and breakers:** `.rm-page-break > .page` (empty spacers) and `.rm-page-break > .breaker` (visual separators) are hidden to avoid blank pages.
+- **Force light mode:** `.docs-editor__paper`, `.ProseMirror`, and all descendants are forced to `background: #ffffff; color: #000000` regardless of the app's dark-mode state.
+- **Responsive overrides scoped to screen:** The responsive pagination rules (`max-width: 100vw`, `width: 100%`, `padding: 16px`) are now wrapped in `@media screen` so they do not interfere with print output.
+- **`@page` binding:** `@page { size: A4; margin: 20mm; }` sets the physical page geometry.
+
+**Note on html2pdf.js:** An initial implementation attempted to use `html2pdf.js` to generate a downloadable `.pdf` directly. It was abandoned because the rendered `.page` elements produced by `tiptap-pagination-plus` are **empty spacers** (their only job is `marginTop` to create page height), not content containers. The library was removed from `apps/demo/package.json` and the plan now follows the intended `window.print()` + print-CSS path.
+
+### Implementation approach: HTML-based, not PM JSON-based
+
+The current DOCX mapper (`htmlToDocxDocument`, [`export.ts:274-335`](../../apps/demo/src/utils/export.ts)) **parses HTML** from `editor.getHTML()`, not ProseMirror JSON. It traverses DOM nodes to build `docx` library objects:
+
+- `elementToDocxParagraph()` — maps `<p>`, `<h1>`–`<h6>`, `<blockquote>`, `<pre>/<code>` → `docx.Paragraph`
+- `childrenToTextRuns()` — maps inline HTML (`<strong>`, `<em>`, `<u>`, `<s>`, `<code>`) → `docx.TextRun`
+- `tableToDocxTable()` — maps HTML `<table>` → `docx.Table`
+- `listToDocxParagraphs()` — maps `<ul>/<ol>` → flat `docx.Paragraph` list (not native OOXML numbering)
+
+**Limitations of the HTML-based approach:**
+- **No `pageBreak` mapping.** Page break nodes are not mapped to OOXML page breaks.
+- **No `footnote` mapping.** Footnotes render as plain `'1'` text in HTML, not as OOXML footnotes.
+- **No image embedding.** Images are not embedded as OOXML `ImageRun` — they appear as broken references.
+- **No rich ODF/RTF.** ODT and RTF export only plain text, not styled content.
+- **Tied to the demo app.** The export logic lives in `apps/demo/`, not in a reusable `packages/export/`.
+
+### Key existing assets we build on
+
+- **Pagination model (for PDF).** `PageLayout` measures rendered block DOM and `PageBreaker.computePages()` returns `Page[]` [PageBreaker.ts:13-159](../../packages/layout-engine/src/PageBreaker.ts). Breaks account for margins, force-breaks (`pageBreak` node), oversized-block isolation, and mid-paragraph splitting [PageLayout.ts:80-105](../../packages/layout-engine/src/PageLayout.ts). **DOM-measurement based — browser only.**
+- **Page geometry.** `PAGE_SIZES` (A4/F4/Letter/Legal/A5 in px @96dpi) in [layout-engine/types.ts:55-61](../../packages/layout-engine/src/types.ts).
+- **Serialization entry points.** `DocsEditor.getJSON()` / `getHTML()` / `getText()` ([Editor.ts:134-135](../../packages/core/src/Editor.ts)).
+- **Node/mark set.** `defaultPlugins` ([plugins/index.ts:29-43](../../packages/plugins/src/index.ts)): StarterKit marks, headings, lists, alignment, link, image, table, blockquote, codeBlock, `pageBreak`, `footnote`, fontSize.
+- **Print CSS** ([packages/vue/src/styles/index.css:666-850](../../packages/vue/src/styles/index.css)): hides chrome, resets layout, preserves page breaks — ready for a real PDF pass.
+- **PageView** renders per-page DOM from `Page[]` ([PageView.vue](../../packages/vue/src/components/PageView.vue)).
+
+### What does NOT exist yet
+
+| Gap | Detail |
+|-----|--------|
+| `packages/export/` | The headless export library proposed in §3 does not exist. |
+| `packages/vue/src/export/` | No `pdf.ts` orchestration helper. |
+| `onExport` prop | `DocsEditor` has no `onExport` prop — only the `@export` emit. |
+| PM JSON → DOCX | Current DOCX is HTML-based; a PM JSON-based serializer is the target. |
+| `pageBreak` → OOXML | Not mapped in DOCX export. |
+| `footnote` → OOXML | Not mapped; renders as plain `'1'`. |
+| Image embedding | Not implemented in any export format. |
+| Server-side PDF | No Puppeteer endpoint in `apps/server`. |
+| `apps/web` | Does not exist (no project for it yet). |
 
 ---
 
 ## 2. Target Architecture
 
-Two independent pipelines from one source of truth. **PDF follows the on-screen page model; DOCX is a schema map that lets Word repaginate.**
+Two independent pipelines from one source of truth. **PDF follows the on-screen page model; DOCX is a schema map that lets Word repaginate.** The current implementation is a working prototype in the demo app — the target is to **extract it into a reusable library package** and fill the remaining gaps.
 
 ```
                     ProseMirror doc (single source of truth)
@@ -70,32 +123,32 @@ Two independent pipelines from one source of truth. **PDF follows the on-screen 
    (apps/web HeaderBar @export consumer; library exposes the hooks)
 ```
 
-**Design decisions:**
+### Current → Target Gap
 
-1. **PDF = browser rendering, not hand-drawn.** The pagination fidelity we need already lives
-   in `layout-engine` + the DOM. Re-implementing it in a PDF drawing lib (pdf-lib/pdfmake)
-   would fork the break logic and lose it. So PDF is produced by **rendering the paginated DOM
-   and letting a browser paginate to paper** via print CSS.
-   - **Client default:** a dedicated print stylesheet keyed to the active `PAGE_SIZES` entry +
-     `window.print()` → user picks "Save as PDF". Zero dependencies, zero backend, respects the
-     library boundary. This replaces the bare `window.print()` at [DocsEditor.vue:432](../../packages/vue/src/components/DocsEditor.vue).
-   - **Server optional (apps/web only):** Puppeteer drives headless Chromium over a hidden
-     `/print/:docId` route to emit **deterministic** PDF bytes (fixed fonts, no user "Save as"
-     dialog, batch/automation, correct output on locked-down browsers). Server-only, so it lives
-     in `apps/server` and **never** in `packages/*`.
-2. **DOCX = schema map, headless, client-first.** DOCX has no fixed pages (Word repaginates), so
-   it needs **no** `layout-engine`. It is a pure `PM JSON → OOXML` transform built with the
-   [`docx`](https://www.npmjs.com/package/docx) library — runs identically in browser or Node.
-   Default to **client-side** (no server round-trip, no backend dep); the same mapper can run in
-   `apps/server` if a customer wants server-side generation.
-3. **The library owns the hooks; the app owns the wiring.** A new headless package
-   `packages/export` exports the DOCX serializer + shared types + the PDF *orchestration* helper.
-   The browser-only print-CSS PDF path lives in the Vue layer (it needs the rendered DOM). The
-   app supplies the "Download as…" UI, filenames, and the optional Puppeteer endpoint.
+| Aspect | Current (prototype) | Target |
+|--------|---------------------|--------|
+| **Where** | `apps/demo/src/utils/export.ts` | `packages/export/` (headless) + `packages/vue/src/export/pdf.ts` (browser PDF) |
+| **DOCX mapper** | HTML-parsing (`htmlToDocxDocument`) | PM JSON schema walk (`PMDocxSerializer`) |
+| **pageBreak** | Not mapped | OOXML `PageBreak()` |
+| **footnote** | Not mapped | OOXML `FootnoteReferenceRun` |
+| **Image** | Not mapped | OOXML `ImageRun` via `resolveImage()` |
+| **ODT/RTF** | Plain-text only | Rich format (styled text, tables, images) |
+| **PDF** | `window.print()` | Print-CSS orchestrated (`exportPdf()`) + optional Puppeteer server |
+| **Hook** | `@export` emit only | `@export` emit + `onExport` prop for host override |
+
+### Design decisions
+
+1. **PDF = browser rendering, not hand-drawn.** Same as original plan — reuse `layout-engine` data and print CSS.
+2. **DOCX = evolved from HTML-based to PM JSON-based.** The current HTML parser works but loses PM semantics (pageBreak, footnote nodes are invisible in HTML). The target `PMDocxSerializer` walks PM JSON directly for full fidelity.
+3. **The library owns the hooks; the app owns the wiring.** Move export logic from `apps/demo` → `packages/export` + `packages/vue`. App provides "Download as…" UI, filenames, optional Puppeteer endpoint.
 4. **`pageBreak` and `footnote` are first-class in both formats.** PDF honors force-breaks
    (already in `PageBreaker`); DOCX maps `pageBreak` → an OOXML page break and `footnote` →
    a real Word footnote (its `attrs.content` string becomes the note body). Phase 6 later
    upgrades footnote content from string to `sourceId`; the mapper is written to tolerate both.
+
+5. **ODT and RTF remain in the demo app.** These formats are working in the demo but are not the
+   priority for library extraction. They stay as-is in `apps/demo/`; future work may upgrade them
+   to rich format and move them to `packages/export/`.
 
 ---
 
@@ -103,9 +156,11 @@ Two independent pipelines from one source of truth. **PDF follows the on-screen 
 
 New headless package **`packages/export`** (`@kedata-indonesia/docflow-export`), built with `tsup` like other leaf packages, depending only on `docx` + the schema types — **no** Vue, **no** backend.
 
+> **Current state:** This package does not exist yet. The `ExportFormat` type below matches what's already defined in [`apps/demo/src/utils/export.ts:22`](../../apps/demo/src/utils/export.ts). The types in this section are the **target** interface after extraction.
+
 ```ts
 // packages/export/src/types.ts
-export type ExportFormat = 'pdf' | 'docx'
+export type ExportFormat = 'markdown' | 'html' | 'html-zip' | 'txt' | 'docx' | 'pdf' | 'odt' | 'rtf'
 
 export interface PageGeometry {
   sizeId: string            // 'a4' | 'letter' | 'legal' | …  (from PAGE_SIZES)
@@ -130,16 +185,6 @@ export interface ExportResult {
   filename: string
   mime: string
 }
-
-/** DOCX: pure JSON → OOXML. Runs in browser or Node. */
-export function exportDocx(ctx: ExportContext): Promise<ExportResult>
-
-/** DOCX node/mark mapper, exported for testing + reuse. */
-export interface PMDocxSerializer {
-  serialize(doc: object, ctx: ExportContext): Promise<import('docx').Document>
-}
-export function createDocxSerializer(): PMDocxSerializer
-```
 
 ```ts
 // packages/vue/src/export/pdf.ts  (browser-only PDF orchestration — needs the DOM)
@@ -169,127 +214,156 @@ The existing `@export` emit ([DocsEditor.vue:54,662](../../packages/vue/src/comp
 
 ## 4. Task Breakdown
 
-Grouped **A (PDF)** / **B (DOCX)** / **C (UI + wiring)**. Each task lists files, work, acceptance. Dependencies noted as `⇐`.
+Tasks updated to reflect current code. **✅ = done**, **⬜ = not started**, **🔄 = partially done (in demo, needs extraction to library)**.
 
 ### Group A — PDF (page-accurate, browser-rendered)
 
-**A1. Scaffold `packages/export` + shared types.** ⇐ none
-- Files: `packages/export/{package.json,tsup.config.ts,tsconfig.json}` (new), `packages/export/src/types.ts` (new, §3 types), `packages/export/src/index.ts` (new). Add to `pnpm-workspace.yaml` if globs don't already cover it.
+**A1. Scaffold `packages/export` + shared types.** ⇐ none · ⬜
+- Files: `packages/export/{package.json,tsup.config.ts,tsconfig.json}` (new), `packages/export/src/types.ts` (new, §3 types), `packages/export/src/index.ts` (new).
 - `dependencies`: `docx`; devDeps mirror other leaf packages. **No** Vue/server deps.
-- Accept: `pnpm --filter @kedata-indonesia/docflow-export build` + `typecheck` pass; importing `PageGeometry`/`ExportContext` resolves.
+- Accept: `pnpm --filter @kedata-indonesia/docflow-export build` + `typecheck` pass.
 
-**A2. Print stylesheet keyed to page geometry.** ⇐ none
-- Files: `packages/vue/src/export/print.css` (new); import path from `packages/vue/src/styles/`.
-- Implement `@page { size: <w> <h>; margin: <t> <r> <b> <l>; }` generated from the active `PAGE_SIZES` entry (px→mm/pt conversion, @96dpi); `@media print` rules that (a) hide chrome (toolbar, rulers, sidebars, page gaps/shadows), (b) show only the page content, (c) force `break-before: page` on the `pageBreak` node and page boundaries, (d) `break-inside: avoid` for tables/images. Convert px `PAGE_SIZES` values to physical units so Chrome's paper size matches (A4 = 210×297mm).
+**A2. Extract & enhance print stylesheet.** ✅ Done (partially)
+- **Done:** Comprehensive `@media print` rules in [`packages/vue/src/styles/index.css:666-850`](../../packages/vue/src/styles/index.css) and [`apps/demo/src/styles/index.css:254-437`](../../apps/demo/src/styles/index.css). Updated 2026-07-19 to preserve pagination, hide spacers, and force light mode.
+- **Remaining:** Extract into `packages/vue/src/export/print.css`. Add dynamic `@page { size: <w> <h>; margin: ... }` generated from the active `PAGE_SIZES` entry (px→mm conversion @96dpi). De-duplicate the demo copy.
 - Accept: printing a 3-page doc to "Save as PDF" produces exactly 3 pages with margins matching the editor; a `pageBreak` node lands on a fresh page.
 
-**A3. `exportPdf()` client orchestration (replace bare `window.print`).** ⇐ A2
-- Files: `packages/vue/src/export/pdf.ts` (new); wire into [DocsEditor.vue:432](../../packages/vue/src/components/DocsEditor.vue).
-- Client path: ensure the layout is settled (await `PageLayout.layout(immediate)` so `Page[]` is current), toggle a `printing` body class that activates `print.css`, call `window.print()`, restore on `afterprint`. Use the already-rendered `PageView` DOM ([PageView.vue](../../packages/vue/src/components/PageView.vue)) as the print surface — do **not** re-measure into a new lib.
+**A3. `exportPdf()` client orchestration (replace bare `window.print`).** ⇐ A2 · ⬜
+- Files: `packages/vue/src/export/pdf.ts` (new); wire into [`DocsEditor.vue:485`](../../packages/vue/src/components/DocsEditor.vue).
+- Client path: ensure layout is settled (await `PageLayout.layout(immediate)`), toggle `printing` body class that activates `print.css`, call `window.print()`, restore on `afterprint`. Use the already-rendered `PageView` DOM — do **not** re-measure.
 - Accept: "Cetak…"/PDF export renders page-accurate output; force-breaks and mid-paragraph splits match on-screen pagination; no editor chrome in the PDF.
 
-**A4. Server-side deterministic PDF via Puppeteer (apps/web / apps/server).** ⇐ A2, A3, C1
-- Files: `apps/server/src/routes/export.ts` (new), hidden print route `apps/web/.../print/[docId]` (new); `apps/server/package.json` add `puppeteer` (or `puppeteer-core` + system Chromium for on-prem image size).
-- `POST /api/export/pdf { docId }` (auth + doc-access checked, mirroring collab room access, [CLAUDE.md](../../CLAUDE.md) room-id note): server launches headless Chromium, navigates to a print-only render of the doc that reuses `print.css` + `PageView`, calls `page.pdf({ printBackground, preferCSSPageSize: true })`, streams bytes back. Bundle a fixed font set for reproducibility (see Risks).
-- Boundary: this is server-only; the library exposes `onExport` so `apps/web` routes PDF here instead of `window.print()`. **Nothing in `packages/*` imports Puppeteer.**
-- Accept: `POST /api/export/pdf` returns a byte-identical PDF across machines given the same doc; page breaks match the client print output.
+**A4. Server-side deterministic PDF via Puppeteer.** ⇐ A2, A3, C1 · ⬜
+- Files: `apps/server/src/routes/export.ts` (new), hidden print route (new); `apps/server/package.json` add `puppeteer` (or `puppeteer-core`).
+- `POST /api/export/pdf { docId }`: server launches headless Chromium, navigates to print-only render reusing `print.css` + `PageView`, calls `page.pdf({ printBackground, preferCSSPageSize: true })`. Bundle fixed font set.
+- Boundary: server-only; **nothing in `packages/*` imports Puppeteer.**
+- Accept: byte-identical PDF across machines given the same doc; page breaks match client print output.
 
-**A5. PDF fidelity tests.** ⇐ A3 (, A4)
+**A5. PDF fidelity tests.** ⇐ A3 or A4 · ⬜
 - Files: `e2e/export-pdf.spec.ts` (new).
-- Playwright: build a multi-page doc exercising each node (heading, list, table, image, blockquote, codeBlock, footnote, explicit `pageBreak`), trigger export, assert page count and that a forced break starts a new page (use Playwright `page.pdf()` in headless as the deterministic oracle; count pages via a PDF parse helper).
-- Accept: page count and break positions match the layout-engine `Page[]` for the same doc.
+- Playwright: build a multi-page doc with all node types, trigger export, assert page count and break positions match `layout-engine` `Page[]`.
 
 ### Group B — DOCX (schema map)
 
-**B1. Node/block mapper (PM JSON → docx blocks).** ⇐ A1
+**B1. PM JSON node/block mapper.** ⇐ A1 · ⬜
 - Files: `packages/export/src/docx/nodes.ts` (new).
-- Map block nodes: `paragraph` (+ `textAlign` → `AlignmentType`, from [alignment.ts](../../packages/plugins/src/alignment.ts)), `heading` (level → `HeadingLevel`), `bulletList`/`orderedList`/`listItem` → docx numbering/bullets (define a numbering config with nesting levels), `blockquote` → indented/styled paragraph, `codeBlock` → monospace shaded paragraph (preserve newlines), `horizontalRule`, and `pageBreak` → `new Paragraph({ children:[new PageBreak()] })`.
-- Accept: unit test converts a fixture doc → a `docx.Document` whose paragraph/heading/list structure matches expected (Group parse-assert in B5).
+- **Current HTML-based equivalent:** [`apps/demo/src/utils/export.ts:215-234,274-335`](../../apps/demo/src/utils/export.ts) — `elementToDocxParagraph()`, `htmlToDocxDocument()`.
+- **Target:** Walk PM JSON directly. Map block nodes: `paragraph` (+ `textAlign` → `AlignmentType`), `heading` (level → `HeadingLevel`), `bulletList`/`orderedList`/`listItem` → docx numbering (native OOXML, not flat text), `blockquote` → indented paragraph, `codeBlock` → monospace shaded paragraph, `horizontalRule`, `pageBreak` → `PageBreak()`.
+- Accept: unit test converts a fixture doc → a `docx.Document` whose paragraph/heading/list structure matches expected.
 
-**B2. Mark/inline mapper (PM marks → docx runs).** ⇐ B1
+**B2. PM JSON mark/inline mapper.** ⇐ B1 · ⬜
 - Files: `packages/export/src/docx/marks.ts` (new).
-- Map marks to `TextRun` props: bold/italic/underline/strike/code, `textStyle` fontSize (from [fontSize.ts](../../packages/plugins/src/fontSize.ts)) → half-points, `link` → `ExternalHyperlink`. Split a text node's marks into styled runs.
-- Accept: unit test — a paragraph with bold+italic+link produces the right run sequence with styles.
+- **Current HTML-based equivalent:** [`apps/demo/src/utils/export.ts:182-213`](../../apps/demo/src/utils/export.ts) — `childrenToTextRuns()`.
+- **Target:** Walk PM marks directly. Map: bold/italic/underline/strike/code, `textStyle` fontSize → half-points, `link` → `ExternalHyperlink`. Split text node marks into styled runs.
+- Accept: unit test — paragraph with bold+italic+link produces correct run sequence.
 
-**B3. Table + image mappers.** ⇐ B1, and ⇐ Phase 2 (`resolveImage`)
+**B3. Table + image mappers.** ⇐ B1, and ⇐ Phase 2 (`resolveImage`) · ⬜
 - Files: `packages/export/src/docx/table.ts`, `packages/export/src/docx/image.ts` (new).
-- Table: `table`/`tableRow`/`tableCell`/`tableHeader` ([table.ts](../../packages/plugins/src/table.ts)) → docx `Table`/`TableRow`/`TableCell`; map header row shading, cell borders, and column widths (from `colwidth` attrs when present, else even split).
-- Image: `image` node `src` → `resolveImage(src)` → `ImageRun`. Compute EMU dimensions from intrinsic size or node attrs; fall back to a placeholder + warning if `resolveImage` is absent or fetch fails (never throw the whole export).
-- Accept: a doc with a 3×3 table (header row) + one image round-trips to a `.docx` that opens in Word/LibreOffice with the table and embedded image intact.
+- **Current HTML-based table:** [`apps/demo/src/utils/export.ts:236-259`](../../apps/demo/src/utils/export.ts) — `tableToDocxTable()`.
+- **Target:** PM JSON table nodes → docx `Table` with header shading, cell borders, column widths. Image: `resolveImage(src)` → `ImageRun` with EMU dimensions; fall back to placeholder on failure.
+- Accept: a doc with a 3×3 table + embedded image opens correctly in Word/LibreOffice.
 
-**B4. Footnote mapper + `exportDocx()` assembly.** ⇐ B1, B2, B3
-- Files: `packages/export/src/docx/footnote.ts`, `packages/export/src/docx/index.ts` (new); export `exportDocx`/`createDocxSerializer` from `packages/export/src/index.ts`.
-- Footnote ([footnote.ts](../../packages/plugins/src/footnote.ts)): inline atom → docx `FootnoteReferenceRun`; register the note body from `attrs.content` (plain string today). Write the mapper to accept a future `sourceId` (Phase 6) without breaking. Assemble `Document` with `sections` sized from `ctx.geometry` (page size + margins), `title` as metadata, then `Packer.toBlob()` (browser) / `Packer.toBuffer()` (Node).
-- Accept: `exportDocx(ctx)` returns a valid `.docx`; footnote markers and note text appear correctly in Word.
+**B4. Footnote mapper + `exportDocx()` assembly.** ⇐ B1, B2, B3 · ⬜
+- Files: `packages/export/src/docx/footnote.ts`, `packages/export/src/docx/index.ts` (new).
+- Footnote: inline atom → docx `FootnoteReferenceRun` with note body from `attrs.content`. Forward-compatible with future `sourceId`.
+- Assembly: `Document` with sections sized from `ctx.geometry`, `Packer.toBlob()` (browser) / `Packer.toBuffer()` (Node).
+- Accept: `exportDocx(ctx)` returns valid `.docx`; footnote markers visible in Word.
 
-**B5. DOCX fidelity tests.** ⇐ B4
+**B5. DOCX fidelity tests.** ⇐ B4 · ⬜
 - Files: `packages/export/src/__tests__/docx.test.ts` (new).
-- Unit: serialize fixtures for each node/mark; unzip the OOXML (docx is a zip) and assert key XML (`w:p`, `w:tbl`, `w:drawing`, `w:footnoteReference`, numbering, alignment). Use a headless `resolveImage` stub returning fixed bytes.
+- Unit: serialize fixtures, unzip OOXML, assert key XML structures. Use headless `resolveImage` stub.
 - Accept: all node/mark types covered; tests green in CI.
 
 ### Group C — UI + wiring
 
-**C1. Widen the export event + built-in default handler.** ⇐ A3, B4
-- Files: [HeaderBar.vue:35,90-96](../../packages/vue/src/components/HeaderBar.vue), [DocsEditor.vue:54,662](../../packages/vue/src/components/DocsEditor.vue).
-- Add `PDF (.pdf)` and `Word (.docx)` to the "Unduh" submenu; widen the emit type to `'markdown' | 'html' | 'txt' | 'pdf' | 'docx'`. In `DocsEditor`, add a built-in handler: for `docx` build `ExportContext` from `getJSON()` + active geometry ([DocsEditor.vue:66](../../packages/vue/src/components/DocsEditor.vue)) and call `exportDocx()` then trigger a download; for `pdf` call `exportPdf()` (client print). If the host passed `onExport`, delegate to it instead.
-- Accept: File → Unduh → Word downloads a `.docx`; → PDF prints/saves; existing md/html/txt still emit for host handling.
+**C1. Export menu + emit types.** ✅ Done
+- **Done:** [`HeaderBar.vue:40,98-108`](../../packages/vue/src/components/HeaderBar.vue) — emit type widened to all 8 formats. Menu items for all 8 formats. `DocsEditor.vue:60,715` forwards the event.
+- **Remaining:** Replace bare `window.print()` at [`DocsEditor.vue:485`](../../packages/vue/src/components/DocsEditor.vue) with `exportPdf()` orchestration (A3). Add built-in default handler inside `DocsEditor` so it works without the host wiring `@export`.
 
-**C2. Thread `onExport` + `resolveImage` props through the library.** ⇐ A1, C1
-- Files: `packages/vue/src/components/DocsEditor.vue` props, `packages/vue/src/composables/useEditor.ts`, `packages/vue/src/index.ts` (export `ExportFormat`/`ExportContext` types), `packages/element/*` if the Web Component surfaces it.
-- Add `onExport?` and `resolveImage?` to props/contract (extends the Phase 0 `LIBRARY_CONTRACT.md` injection points). Default `resolveImage` = `fetch(src) → arrayBuffer` (works for self-hosted URLs from Phase 2/4).
-- Accept: a host can override PDF to go server-side purely via `onExport`; with no override the client defaults work.
+**C2. Thread `onExport` + `resolveImage` props.** ⇐ A1, C1 · ⬜
+- Files: [`DocsEditor.vue`](../../packages/vue/src/components/DocsEditor.vue) props, `packages/vue/src/composables/useEditor.ts`, `packages/vue/src/index.ts`.
+- Add `onExport?` and `resolveImage?` to props. Default `resolveImage` = `fetch(src) → arrayBuffer`. When host provides `onExport`, delegate to it (e.g. route PDF to server); otherwise use client defaults.
+- Accept: host can override PDF to go server-side via `onExport`; no override = client defaults work.
 
-**C3. `apps/web` "Download as…" wiring (incl. server PDF).** ⇐ C2, A4
-- Files: `apps/web` editor view (Phase 3 product) — listen to `@export`; pass `onExport` that routes `pdf` → `POST /api/export/pdf` (A4) and `docx` → client `exportDocx` (or server if configured); trigger file download from the returned blob/stream. Also update `apps/demo` to keep client-only defaults (backend-free showcase).
-- Accept: in `apps/web`, "Download as PDF" yields a server-rendered deterministic PDF and "Download as Word" yields a `.docx`; in `apps/demo`, both work client-side with no backend.
+**C3. Extract `export.ts` from demo to library.** ⇐ A1, C1 · 🔄
+- **Current:** [`apps/demo/src/utils/export.ts`](../../apps/demo/src/utils/export.ts) (406 lines) contains the full working export engine.
+- **Target:** Move reusable core (types, `exportDocx`, `exportDocument` dispatcher, format utilities) to `packages/export/`. Keep demo-specific wiring (`EditorLike`, `filenameFromTitle`) in the demo. The demo app imports from `@kedata-indonesia/docflow-export`.
 
-**C4. Docs + contract update.** ⇐ C1, C2
-- Files: [docs/LIBRARY_CONTRACT.md](../LIBRARY_CONTRACT.md) (Phase 0), [CLAUDE.md](../../CLAUDE.md).
-- Document the export hooks (`onExport`, `resolveImage`), the client-vs-server split per format, and that `packages/*` contains no backend/Puppeteer code.
-- Accept: contract lists the export injection points with types; matches the shipped API.
+**C4. Apps/web wiring (server PDF).** ⇐ C2, A4 · ⬜
+- Files: `apps/web` (does not exist yet). Listen to `@export`; pass `onExport` that routes `pdf` → `POST /api/export/pdf` (A4) and `docx` → client `exportDocx`.
+- `apps/demo` stays client-only (backend-free showcase).
+
+**C5. Docs + contract update.** ⇐ C1, C2 · ⬜
+- Files: Library contract, this document.
+- Document `onExport`, `resolveImage`, client-vs-server split per format, and that `packages/*` contains no backend/Puppeteer code.
+
+### Group D — ODT & RTF enhancement (low priority)
+
+**D1. Upgrade ODT to rich format.** ⬜
+- Current: [`apps/demo/src/utils/export.ts:98-150`](../../apps/demo/src/utils/export.ts) — plain-text only.
+- Target: Style text, table, and image mapping to ODF XML. Keep in `apps/demo/` for now.
+
+**D2. Upgrade RTF to rich format.** ⬜
+- Current: [`apps/demo/src/utils/export.ts:82-96`](../../apps/demo/src/utils/export.ts) — plain-text only.
+- Target: Style text bold/italic/underline in RTF syntax. Keep in `apps/demo/` for now.
 
 ---
 
 ## 5. Sequencing
 
 ```
-A1 ─┬─► A2 ─► A3 ─► A5
-    │              └───────────► A4 ─┐   (A4 also ⇐ C1)
-    │                                │
-    └─► B1 ─┬─► B2 ─┐               │
-            ├─► B3 ─┤               │
-            └───────┴─► B4 ─► B5    │
-                         │          │
-A3, B4 ─────────────────┴─► C1 ─► C2 ─► C3
-                                    └─► C4
-Phase 2 (resolveImage / self-hosted image URLs) ─► B3, C2
+ ✅ C1 (menu + emit) — already done
+        │
+        ├──► A1 (scaffold packages/export) ──► C3 (extract export.ts from demo → library)
+        │         │
+        │         ├──► B1 (PM JSON blocks) ─► B2 (marks) ─┬─► B4 (footnote + assembly) ─► B5 (tests)
+        │         │                                        │
+        │         └──► B3 (table + image) ─────────────────┘   (B3 ⇐ Phase 2 resolveImage)
+        │
+        ├──► A2 (extract print.css + @page binding) ✅ Done (partially)
+        │         │
+        │         └──► A3 (exportPdf orchestration)
+        │                   │
+        │                   └──► A5 (PDF tests)
+        │
+        └──► A3 + B4 completed ──► C2 (onExport/resolveImage props)
+                                            │
+                                            └──► C4 (apps/web wiring + A4 Puppeteer)
+                                                  └──► C5 (docs update)
 ```
 
-Land **A1→A2→A3 (client print-CSS PDF)** and **B1→B4 (client DOCX)** first — those two prove
-page-accurate PDF and structural DOCX with zero backend, satisfying the phase acceptance. Then
-**C1/C2** wire the UI, **A4/C3** add the optional server-side deterministic PDF for `apps/web`,
-and **C4** updates the contract. Do not start B3 image embedding until Phase 2's `resolveImage`
-injection exists.
+**Priority order:**
+1. **A1 + C3** — Extract working export engine into `packages/export/`. This unblocks everything.
+2. **B1→B4** — PM JSON-based DOCX mapper with full node/mark/pageBreak/footnote support.
+3. **A2→A3** — Proper PDF orchestration with geometry-aware print CSS. ✅ A2 partially done.
+4. **C2** — `onExport`/`resolveImage` props for host customization.
+5. **A4→C4** — Optional: server-side PDF, if needed for production.
+6. **D1, D2** — ODT/RTF enhancements (lowest priority).
+
+---
 
 ## 6. Risks & Mitigations
 
 | Risk | Mitigation |
 |------|-----------|
-| **Page-break fidelity: print output differs from on-screen pagination.** Browser print pagination is not the same engine as `layout-engine`. | Drive print with `@page`/`preferCSSPageSize` sized from the same `PAGE_SIZES` geometry (A2), force breaks on the `pageBreak` node and `break-inside: avoid` for atomic blocks, and settle `PageLayout.layout(immediate)` before printing (A3). A5 asserts page count/break positions vs the layout-engine `Page[]`. Prefer the **server Puppeteer path (A4)** when byte-exact reproducibility matters. |
-| **Fonts: substitution changes wrapping → wrong breaks; client machine lacks a font.** | Client path inherits the user's rendered fonts (WYSIWYG). Server path **bundles a fixed font set** in the Chromium image and disables remote fonts, so output is deterministic and self-hostable (no external CDN, per on-prem rules). |
-| **Tables: complex layouts (merged cells, column widths, resizable) map imperfectly to OOXML.** | Read `colwidth` attrs from the resizable table ([table.ts](../../packages/plugins/src/table.ts)) into docx column widths; map header shading + borders explicitly (B3). Document merged-cell edge cases as best-effort; parse-assert core structure in B5. |
-| **Images from Phase 4 storage: bytes unreachable / CORS / auth on fetch.** | `resolveImage` is host-injected (C2) so the app fetches with its own auth/session; DOCX embeds returned bytes, PDF renders from URL. On fetch failure, insert a placeholder + log — **never throw the whole export** (B3). Requires Phase 2. |
-| **Footnote is a plain string today; Phase 6 changes it to `sourceId`.** | Mapper reads `attrs.content` now but is written to also accept `sourceId` (B4), so Phase 6D cited export slots in without a rewrite. |
-| **Puppeteer bloats the on-prem image / needs Chromium.** | Server PDF is **optional** — client print-CSS PDF is the zero-dependency default. Use `puppeteer-core` + a system Chromium in the Docker image (Phase 8) to control size; document as an opt-in deployment feature. |
-| **Boundary erosion.** A PR that adds Puppeteer or fetch-auth into `packages/*`. | Keep server rendering in `apps/server`; library exposes only `onExport`/`resolveImage` hooks (C2, C4). Enforce with the Phase 0 lint guard. |
+| **Page-break fidelity: print output differs from on-screen pagination.** | Drive print with `@page`/`preferCSSPageSize` from `PAGE_SIZES` geometry (A2), force breaks on `pageBreak` node, settle `PageLayout.layout(immediate)` before printing (A3). A5 asserts page count vs `layout-engine` `Page[]`. Prefer the server Puppeteer path (A4) for reproducibility. |
+| **HTML-based DOCX mapper loses PM semantics.** Current implementation can't map `pageBreak` or `footnote` because those nodes render as opaque divs/spans in HTML. | The PM JSON-based mapper (B1–B4) is the correct path. Keep the HTML mapper working in the demo until B4 lands, then swap. |
+| **Footnotes don't print / export correctly.** Current footnote renders as a plain `'1'` atom with `data-footnote-content` attribute. | HTML export preserves the attribute (could be processed downstream). PM JSON-based DOCX mapper (B4) maps footnotes to OOXML natively. Print CSS can show footnote content via `::after` pseudo-element reading the attribute. |
+| **Tables: complex layouts map imperfectly to OOXML.** | Read `colwidth` attrs from resizable table; map header shading + borders (B3). Parsed-assert core structure in B5. |
+| **Images from Phase 4 storage: bytes unreachable / CORS / auth.** | `resolveImage` is host-injected (C2) so app fetches with own auth. On failure, insert placeholder — never throw the whole export (B3). |
+| **Puppeteer bloats the on-prem image.** | Server PDF is **optional** — client print-CSS PDF is zero-dependency default. Use `puppeteer-core` + system Chromium (Phase 8). |
+| **Boundary erosion.** PR adds Puppeteer or fetch-auth into `packages/*`. | Keep server rendering in `apps/server`; library exposes only hooks (C2). |
+| **Unused `html2pdf.js` dependency.** | Removed 2026-07-19 after the `.page` spacer issue was identified. Do not reintroduce unless the pagination DOM changes. |
+
+---
 
 ## 7. Out of Scope (this phase)
 
-- **Cited export** (citations + bibliography rendering correctly in PDF/DOCX) — Phase 6D; footnote mapper is only made forward-compatible here.
-- **Markdown/HTML/TXT exporters** — the existing `export:*` events remain host-handled; not implemented in Phase 5.
+- **Cited export** (citations + bibliography in PDF/DOCX) — Phase 6D; footnote mapper is forward-compatible.
 - **Import** (DOCX/PDF → editor) — export only.
 - **PDF/A, digital signatures, password protection, accessibility tagging.**
-- **Headers/footers/page numbers in exports** beyond what the current schema and geometry provide (revisit with Phase 9 headers/footers).
-- **Batch/scheduled export and export-to-storage** — the app may add this atop the hooks later.
+- **Headers/footers/page numbers in exports** beyond what the current schema and geometry provide (Phase 9).
+- **Batch/scheduled export and export-to-storage** — app may add this atop the hooks later.
+- **Changesets workflow** for package publishing — see `docs/PUBLISH.md`.
 </content>
 </invoke>

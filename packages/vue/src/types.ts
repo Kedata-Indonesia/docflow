@@ -41,3 +41,15 @@ export interface DocumentSnapshot {
 export type SidebarKey = 'comments' | 'history' | 'ai' | 'toc'
 export type ConnectionState = 'connected' | 'connecting' | 'disconnected'
 export type SavingStatus = 'saved' | 'saving' | 'offline'
+
+export interface DocumentMeta {
+  id: string
+  title: string
+  owner: { userId: string; name: string; email: string }
+  createdAt: number
+  updatedAt: number
+  wordCount: number
+  charCount: number
+  pageCount: number
+  folderName?: string
+}

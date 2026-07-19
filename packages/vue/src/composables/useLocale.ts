@@ -6,7 +6,7 @@ export type { Locale }
 export interface LocaleContext {
   locale: Ref<Locale>
   setLocale: (locale: Locale) => void
-  t: (key: string) => string
+  t: (key: string, params?: Record<string, string | number>) => string
 }
 
 const localeKey: InjectionKey<LocaleContext> = Symbol('docflow-locale')
@@ -49,11 +49,17 @@ export function createLocaleContext(preferred?: Locale): LocaleContext {
     }
   }
 
-  const t = (key: string): string => {
+  const t = (key: string, params?: Record<string, string | number>): string => {
     const messages = getLocaleMessages(locale.value)
-    const value = getValueByPath(messages as Record<string, unknown>, key)
-    if (typeof value === 'string') return value
-    return key
+    const raw = getValueByPath(messages as Record<string, unknown>, key)
+    if (typeof raw !== 'string') return key
+    let value: string = raw
+    if (params) {
+      for (const [paramKey, paramValue] of Object.entries(params)) {
+        value = value.replace(new RegExp(`\\{${paramKey}\\}`, 'g'), String(paramValue))
+      }
+    }
+    return value
   }
 
   return { locale, setLocale, t }
