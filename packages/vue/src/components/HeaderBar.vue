@@ -170,6 +170,32 @@ const menus = computed<Record<string, { label: string; items: MenuItem[] }>>(() 
       { label: t('header.heading1'), action: 'heading1' },
       { label: t('header.heading2'), action: 'heading2' },
       { label: t('header.heading3'), action: 'heading3' },
+      { label: 'divider', divider: true },
+      {
+        label: t('header.alignIndent'), sub: [
+          { label: t('header.alignLeft'), action: 'align-left' },
+          { label: t('header.alignCenter'), action: 'align-center' },
+          { label: t('header.alignRight'), action: 'align-right' },
+          { label: t('header.alignJustify'), action: 'align-justify' },
+        ]
+      },
+      {
+        label: t('header.bulletsNumbering'), sub: [
+          { label: t('header.bulletList'), action: 'bullet-list' },
+          { label: t('header.numberedList'), action: 'numbered-list' },
+          { label: t('header.taskList'), action: 'task-list' },
+        ]
+      },
+      { label: 'divider', divider: true },
+      { label: t('header.horizontalLine'), action: 'horizontal-line' },
+      {
+        label: t('header.pageNumbers'), sub: [
+          { label: t('header.pageNumberInHeader'), action: 'page-numbers-header' },
+          { label: t('header.pageNumberInFooter'), action: 'page-numbers-footer' },
+        ]
+      },
+      { label: 'divider', divider: true },
+      { label: t('header.clearFormatting'), action: 'clear-formatting' },
     ],
   },
   Tools: {
