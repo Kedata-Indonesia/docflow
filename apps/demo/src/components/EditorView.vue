@@ -7,7 +7,8 @@ import type { DocumentMeta } from '@kedata-indonesia/docflow-vue'
 import { defaultPlugins } from '@kedata-indonesia/docflow-plugins'
 import type { DocsEditor as DocsEditorInstance } from '@kedata-indonesia/docflow-core'
 import type { DocumentItem } from '../types.js'
-import { encodeStateAsUpdate } from 'yjs'
+import * as Y from 'yjs'
+import { prosemirrorJSONToYXmlFragment } from 'y-prosemirror'
 
 import { exportDocument, type ExportFormat } from '../utils/export.js'
 import { fetchDocumentMeta } from '../api.js'
@@ -83,7 +84,6 @@ const emit = defineEmits<{
 
 const pageSize = ref('a4')
 const editorInstance = ref<DocsEditorInstance | null>(null)
-const saveTimer = ref<ReturnType<typeof setInterval> | null>(null)
 const shareToast = ref('')
 const shareDialogOpen = ref(false)
 const shareUrl = ref('')
@@ -93,8 +93,6 @@ const shareLoading = ref(false)
 const shareError = ref('')
 const onlineUsers = ref<Array<{ userId: string; userName: string }>>([])
 const heartbeatTimer = ref<ReturnType<typeof setInterval> | null>(null)
-const isSnapshotLoading = ref(true)
-const initialSnapshot = ref<Uint8Array | undefined>(undefined)
 const documentMeta = ref<DocumentMeta | undefined>(undefined)
 
 async function loadDocumentMeta() {
@@ -143,102 +141,137 @@ function nameToColor(name: string): string {
 
 const collaborationOptions = computed(() => {
   if (!props.room.trim()) return undefined
+  const user = {
+    name: props.collabUser?.name || 'Anonymous',
+    color: props.collabUser?.color || nameToColor(props.collabUser?.name || 'anon'),
+  }
+  // The server owns the initial state (Phase 1) — no client-side snapshot.
   if (COLLAB_WS_URL) {
     return {
       room: props.room.trim(),
       provider: 'websocket' as const,
       websocketUrl: COLLAB_WS_URL,
-      initialStorageState: initialSnapshot.value,
-      user: {
-        name: props.collabUser?.name || 'Anonymous',
-        color: props.collabUser?.color || nameToColor(props.collabUser?.name || 'anon'),
-      },
+      user,
     }
   }
   return {
     room: props.room.trim(),
     provider: 'webrtc' as const,
-    initialStorageState: initialSnapshot.value,
-    user: {
-      name: props.collabUser?.name || 'Anonymous',
-      color: props.collabUser?.color || nameToColor(props.collabUser?.name || 'anon'),
-    },
+    user,
   }
 })
 
-// ── Yjs Snapshot Persistence ────────────────────────────────────────────────
+// ── Legacy JSON → Yjs seed (Phase 1) ────────────────────────────────────────
+// The server owns collaborative state. A document that only has Document.content
+// (JSON) is seeded exactly once: websocket mode posts to the guarded endpoint
+// (atomic — no double-seed); webrtc mode has no server authority, so it seeds
+// locally and lets peers converge. Never seed over a non-empty synced fragment.
+let seedChecked = false
 
-/**
- * Save current Y.Doc state to server as a collaboration snapshot.
- * Called periodically to persist collaboration state.
- */
-async function saveCollabSnapshot() {
+function seedSourceContent(): object | null {
+  const content = props.doc.content as Record<string, unknown> | null
+  if (!content || typeof content !== 'object') return null
+  // Docs are stored as a tabbed-doc wrapper; the collab room carries the active tab.
+  if (content.type === 'tabbed-doc' && Array.isArray(content.tabs)) {
+    const tabs = content.tabs as Array<Record<string, unknown>>
+    const active = tabs.find((t) => t.id === content.activeTabId) ?? tabs[0]
+    return (active?.content as object) ?? null
+  }
+  return content
+}
+
+function isEmptyPmDoc(doc: object): boolean {
+  const nodes = (doc as Record<string, unknown>).content
+  if (!Array.isArray(nodes) || nodes.length === 0) return true
+  return nodes.every((n) => {
+    const node = n as Record<string, unknown>
+    return node.type === 'paragraph' && (!Array.isArray(node.content) || node.content.length === 0)
+  })
+}
+
+function buildSeedUpdate(source: object): Uint8Array | null {
+  const schema = editorInstance.value?.editor.schema
+  if (!schema) return null
   try {
-    const ydoc = editorInstance.value?.collab?.ydoc
-    if (!ydoc) return
+    const tempDoc = new Y.Doc()
+    prosemirrorJSONToYXmlFragment(schema, source, tempDoc.getXmlFragment('default'))
+    const update = Y.encodeStateAsUpdate(tempDoc)
+    tempDoc.destroy()
+    return update
+  } catch (err) {
+    console.error('[collab] Failed to build seed update:', err)
+    return null
+  }
+}
 
-    const update = encodeStateAsUpdate(ydoc)
-    await fetch(`${API_BASE}/api/collab/snapshot`, {
+async function postSeed(update: Uint8Array) {
+  try {
+    await fetch(`${API_BASE}/api/collab/seed`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({
-        roomId: props.room,
-        yDocState: Array.from(update),
-      }),
+      body: JSON.stringify({ roomId: props.room, state: Array.from(update) }),
     })
-  } catch {
-    // Silently ignore save failures
-  }
-}
-
-// Removed unused loadCollabSnapshot to fix TS6133 warning
-
-function startAutoSave() {
-  stopAutoSave()
-  saveTimer.value = setInterval(saveCollabSnapshot, 30_000) // every 30 seconds
-}
-
-function stopAutoSave() {
-  if (saveTimer.value) {
-    clearInterval(saveTimer.value)
-    saveTimer.value = null
-  }
-}
-
-async function loadSnapshot(room: string) {
-  isSnapshotLoading.value = true
-  initialSnapshot.value = undefined
-  try {
-    const res = await fetch(`${API_BASE}/api/collab/snapshot/${encodeURIComponent(room)}`, {
-      credentials: 'include',
-    })
-    if (res.ok) {
-      const data = await res.json()
-      if (data.yDocState) {
-        initialSnapshot.value = new Uint8Array(data.yDocState)
-      }
-    }
+    // The server applies the winning seed to the live doc; it syncs back to us.
   } catch (err) {
-    console.error('Failed to load initial snapshot:', err)
-  } finally {
-    isSnapshotLoading.value = false
+    console.error('[collab] Seed request failed:', err)
   }
 }
 
-onMounted(async () => {
-  await loadSnapshot(props.room)
+function maybeSeedLegacyDocument() {
+  if (seedChecked) return
+  seedChecked = true
+
+  const collab = editorInstance.value?.collab
+  const ydoc = collab?.ydoc
+  if (!ydoc) return
+
+  const run = () => {
+    if (ydoc.getXmlFragment('default').length > 0) return // room already has state
+    const source = seedSourceContent()
+    if (!source || isEmptyPmDoc(source)) return
+    const update = buildSeedUpdate(source)
+    if (!update) return
+    if (collaborationOptions.value?.provider === 'websocket') {
+      void postSeed(update)
+    } else {
+      Y.applyUpdate(ydoc, update)
+    }
+  }
+
+  const provider = collab?.provider as unknown as {
+    synced?: boolean
+    on: (event: string, fn: (arg?: unknown) => void) => void
+    off: (event: string, fn: (arg?: unknown) => void) => void
+  } | null | undefined
+
+  if (collaborationOptions.value?.provider === 'websocket' && provider) {
+    // Wait for the first sync so we never seed over authoritative server state.
+    if (provider.synced) {
+      run()
+      return
+    }
+    const onSync = (synced?: unknown) => {
+      if (synced === false) return
+      provider.off('sync', onSync)
+      run()
+    }
+    provider.on('sync', onSync)
+  } else {
+    run()
+  }
+}
+
+watch(() => props.doc.id, () => {
+  seedChecked = false
+})
+
+onMounted(() => {
   startHeartbeat()
 })
 
-watch(() => props.room, async (newRoom) => {
-  await loadSnapshot(newRoom)
-})
-
-onUnmounted(async () => {
-  stopAutoSave()
+onUnmounted(() => {
   stopHeartbeat()
-  await saveCollabSnapshot()
   if (editorInstance.value) {
     delete (window as unknown as { __docsEditor?: DocsEditorInstance['editor'] }).__docsEditor
   }
@@ -431,7 +464,7 @@ function handleEditorReady(docsEditor: DocsEditorInstance) {
   if (typeof window !== 'undefined') {
     ;(window as unknown as { __docsEditor?: DocsEditorInstance['editor'] }).__docsEditor = docsEditor.editor
   }
-  startAutoSave()
+  maybeSeedLegacyDocument()
 }
 </script>
 
@@ -439,7 +472,6 @@ function handleEditorReady(docsEditor: DocsEditorInstance) {
   <div ref="editorWrapper" class="relative flex-1">
 
     <DocsEditor
-      v-if="!isSnapshotLoading"
       :key="doc.id"
       :model-value="doc.content"
       :plugins="defaultPlugins"
