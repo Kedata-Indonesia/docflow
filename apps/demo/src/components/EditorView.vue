@@ -3,12 +3,38 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { Printer, LogOut } from 'lucide-vue-next'
 import { DocsEditor } from '@kedata-indonesia/docflow-vue'
 import { useLocale } from '@kedata-indonesia/docflow-vue'
+import type { DocumentMeta } from '@kedata-indonesia/docflow-vue'
 import { defaultPlugins } from '@kedata-indonesia/docflow-plugins'
 import type { DocsEditor as DocsEditorInstance } from '@kedata-indonesia/docflow-core'
 import type { DocumentItem } from '../types.js'
 import { encodeStateAsUpdate } from 'yjs'
 
 import { exportDocument, type ExportFormat } from '../utils/export.js'
+import { fetchDocumentMeta } from '../api.js'
+
+function extractPlainText(content: unknown): string {
+  const parts: string[] = []
+  function collect(node: Record<string, unknown>): void {
+    if (node.type === 'text' && typeof node.text === 'string') {
+      parts.push(node.text)
+    }
+    if (Array.isArray(node.content)) {
+      for (const child of node.content as Array<Record<string, unknown>>) {
+        collect(child)
+      }
+    }
+    if (Array.isArray(node.marks) && typeof node.text === 'string') {
+      parts.push(node.text)
+    }
+  }
+  const record = content as Record<string, unknown> | null
+  if (record && typeof record === 'object' && Array.isArray(record.content)) {
+    for (const node of record.content as Array<Record<string, unknown>>) {
+      collect(node)
+    }
+  }
+  return parts.join(' ').replace(/\s+/g, ' ').trim()
+}
 
 const { t } = useLocale()
 
@@ -69,6 +95,43 @@ const onlineUsers = ref<Array<{ userId: string; userName: string }>>([])
 const heartbeatTimer = ref<ReturnType<typeof setInterval> | null>(null)
 const isSnapshotLoading = ref(true)
 const initialSnapshot = ref<Uint8Array | undefined>(undefined)
+const documentMeta = ref<DocumentMeta | undefined>(undefined)
+
+async function loadDocumentMeta() {
+  try {
+    const meta = await fetchDocumentMeta(props.doc.id)
+    documentMeta.value = {
+      id: meta.id,
+      title: meta.title,
+      owner: meta.owner,
+      createdAt: new Date(meta.createdAt).getTime(),
+      updatedAt: new Date(meta.updatedAt).getTime(),
+      wordCount: 0,
+      charCount: 0,
+      pageCount: 1,
+    }
+  } catch (err) {
+    console.error('Failed to load document metadata:', err)
+    documentMeta.value = undefined
+  }
+}
+
+watch(() => props.doc.content, (content) => {
+  if (!documentMeta.value) return
+  try {
+    const text = extractPlainText(content)
+    documentMeta.value.wordCount = text.trim() ? text.trim().split(/\s+/).length : 0
+    documentMeta.value.charCount = text.length
+  } catch {
+    documentMeta.value.wordCount = 0
+    documentMeta.value.charCount = 0
+  }
+}, { deep: true, immediate: true })
+
+watch(() => props.doc.id, async () => {
+  documentMeta.value = undefined
+  await loadDocumentMeta()
+}, { immediate: true })
 
 // Generate consistent color from username
 function nameToColor(name: string): string {
@@ -387,12 +450,15 @@ function handleEditorReady(docsEditor: DocsEditorInstance) {
       :page-size="pageSize"
       :user-name="collabUser?.name ?? 'Account'"
       :user-avatar="collabUser?.avatar ?? ''"
+      :document-meta="documentMeta"
+      :share-url="shareUrl"
       connection-state="connected"
       @back="emit('back')"
       @update:title="handleUpdateTitle"
       @toggle-star="handleToggleStar"
       @update:model-value="handleUpdateContent"
       @update:page-size="handleUpdatePageSize"
+      @update:page-count="(count) => { if (documentMeta) documentMeta.pageCount = count }"
       @ready="handleEditorReady"
       @share="handleShare"
       @export="handleExport"
@@ -494,6 +560,18 @@ function handleEditorReady(docsEditor: DocsEditorInstance) {
               {{ t('editor.share.copy') }}
             </button>
           </div>
+        </div>
+
+        <div class="mb-4 rounded-md border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-white/5">
+          <div class="mb-1 flex items-center gap-2 text-xs font-semibold text-slate-700 dark:text-slate-300">
+            <span class="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-600 dark:bg-slate-700 dark:text-slate-300">
+              {{ props.doc.visibility === 'restricted' ? t('editor.share.restricted') : t('editor.share.private') }}
+            </span>
+            {{ t('editor.share.visibility') }}
+          </div>
+          <p class="text-[11px] text-slate-500 dark:text-slate-400">
+            {{ props.doc.visibility === 'restricted' ? t('editor.share.restrictedDescription') : t('editor.share.privateDescription') }}
+          </p>
         </div>
 
         <div class="mb-4">

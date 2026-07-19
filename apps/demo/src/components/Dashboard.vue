@@ -11,6 +11,7 @@ import {
   Grid,
   List,
   FileIcon,
+  Trash2,
 } from 'lucide-vue-next'
 import type { DocumentItem, FolderItem } from '../types.js'
 import DocumentCard from './DocumentCard.vue'
@@ -22,6 +23,7 @@ const { t } = useLocale()
 const props = defineProps<{
   documents: DocumentItem[]
   folders: FolderItem[]
+  trashCount?: number
 }>()
 
 const emit = defineEmits<{
@@ -33,6 +35,7 @@ const emit = defineEmits<{
   delete: [id: string]
   move: [id: string, folderId: string | null]
   createFolder: [name: string]
+  openTrash: []
 }>()
 
 const searchQuery = ref('')
@@ -283,6 +286,27 @@ function getColorClasses(color: string) {
         >
           {{ t('dashboard.noFolders') }}
         </p>
+      </div>
+
+      <div class="mt-6 space-y-1">
+        <button
+          type="button"
+          class="flex w-full items-center justify-between rounded-xl px-3.5 py-2.5 text-sm font-semibold transition-all"
+          :class="
+            false
+              ? 'border border-cyan-500/25 bg-cyan-500/10 text-cyan-700 dark:text-cyan-400'
+              : 'border border-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-white'
+          "
+          @click="emit('openTrash')"
+        >
+          <div class="flex items-center gap-2.5">
+            <Trash2 class="h-4 w-4 text-slate-400" />
+            <span>{{ t('dashboard.trash') }}</span>
+          </div>
+          <span class="font-mono text-xs text-slate-400">
+            {{ props.trashCount ?? 0 }}
+          </span>
+        </button>
       </div>
     </aside>
 

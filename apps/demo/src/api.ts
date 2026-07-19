@@ -28,6 +28,8 @@ export interface ApiDoc {
   owner: string
   starred: boolean
   folderId: string | null
+  visibility: 'private' | 'restricted'
+  deletedAt: string | null
   createdAt: string
   updatedAt: string
 }
@@ -37,8 +39,23 @@ export interface ApiDocListItem {
   title: string
   starred: boolean
   folderId: string | null
+  visibility: 'private' | 'restricted'
+  deletedAt: string | null
   createdAt: string
   updatedAt: string
+}
+
+export interface ApiDocumentMeta {
+  id: string
+  title: string
+  owner: { userId: string; name: string; email: string }
+  collaborators: string[]
+  visibility: 'private' | 'restricted'
+  starred: boolean
+  folderId: string | null
+  createdAt: string
+  updatedAt: string
+  plainText: string
 }
 
 // ─── Auth (Better Auth) ─────────────────────────────────────────────────────
@@ -178,7 +195,7 @@ export async function createDocument(data: {
 
 export async function updateDocument(
   id: string,
-  updates: Partial<Pick<ApiDoc, 'title' | 'content' | 'starred' | 'folderId'>>,
+  updates: Partial<Pick<ApiDoc, 'title' | 'content' | 'starred' | 'folderId' | 'visibility'>>,
 ): Promise<ApiDocListItem> {
   const res = await fetch(`${BASE}/api/documents/${id}`, {
     method: 'PUT',
@@ -196,4 +213,32 @@ export async function deleteDocument(id: string): Promise<void> {
     credentials: 'include',
   })
   if (!res.ok) throw new Error(`Failed to delete document: ${res.status}`)
+}
+
+export async function fetchTrashedDocuments(): Promise<ApiDocListItem[]> {
+  const res = await fetch(`${BASE}/api/documents?trash=true`, { credentials: 'include' })
+  if (!res.ok) throw new Error(`Failed to fetch trashed documents: ${res.status}`)
+  return res.json()
+}
+
+export async function restoreDocument(id: string): Promise<void> {
+  const res = await fetch(`${BASE}/api/documents/${id}/restore`, {
+    method: 'POST',
+    credentials: 'include',
+  })
+  if (!res.ok) throw new Error(`Failed to restore document: ${res.status}`)
+}
+
+export async function permanentlyDeleteDocument(id: string): Promise<void> {
+  const res = await fetch(`${BASE}/api/documents/${id}/permanent`, {
+    method: 'DELETE',
+    credentials: 'include',
+  })
+  if (!res.ok) throw new Error(`Failed to permanently delete document: ${res.status}`)
+}
+
+export async function fetchDocumentMeta(id: string): Promise<ApiDocumentMeta> {
+  const res = await fetch(`${BASE}/api/documents/${id}/meta`, { credentials: 'include' })
+  if (!res.ok) throw new Error(`Failed to fetch document metadata: ${res.status}`)
+  return res.json()
 }

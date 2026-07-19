@@ -109,9 +109,13 @@ const menus = computed<Record<string, { label: string; items: MenuItem[] }>>(() 
       { label: 'divider', divider: true },
       { label: t('header.rename'), action: 'rename' },
       { label: t('header.move'), action: 'move' },
+      { label: t('header.addToStarred'), action: 'add-to-starred' },
       { label: t('header.moveToTrash'), action: 'trash' },
       { label: 'divider', divider: true },
       { label: t('header.versionHistory'), action: 'version-history' },
+      { label: 'divider', divider: true },
+      { label: t('header.details'), action: 'details' },
+      { label: t('header.security'), action: 'security' },
       { label: 'divider', divider: true },
       {
         label: t('header.language'), sub: supportedLocales.map((loc) => ({
@@ -230,6 +234,9 @@ const handleMenuAction = (action: string) => {
     handleExport(format)
   } else if (action === 'share') {
     emit('share')
+    activeMenu.value = null
+  } else if (action === 'add-to-starred') {
+    emit('toggle-star')
     activeMenu.value = null
   } else if (action === 'rename') {
     isRenaming.value = true

@@ -6,6 +6,7 @@ import * as api from './api.js'
 import { RateLimitError } from './api.js'
 import Dashboard from './components/Dashboard.vue'
 import EditorView from './components/EditorView.vue'
+import TrashView from './components/TrashView.vue'
 
 const { isDark, toggle: toggleTheme } = useTheme()
 const { locale, setLocale, t } = provideLocale()
@@ -113,11 +114,15 @@ async function handleLogout() {
 
 const currentDocId = ref<string | null>(null)
 const documents = ref<DocumentItem[]>([])
+const trashedDocuments = ref<DocumentItem[]>([])
 const folders = ref<FolderItem[]>([
   { id: 'folder-work', name: 'Work' },
   { id: 'folder-personal', name: 'Personal' },
 ])
 const saveError = ref<string | null>(null)
+const trashViewOpen = ref(false)
+const trashedToastDoc = ref<DocumentItem | null>(null)
+const trashedToastTimer = ref<ReturnType<typeof setTimeout> | null>(null)
 
 // Room per document (each doc has its own collaboration room)
 const room = computed(() => currentDocId.value ? `doc-${currentDocId.value}` : '')
@@ -139,13 +144,29 @@ async function loadDocuments() {
   if (!user.value) return
   dataLoading.value = true
   try {
-    const docs = await api.fetchDocuments()
+    const [docs, trashed] = await Promise.all([
+      api.fetchDocuments(),
+      api.fetchTrashedDocuments(),
+    ])
     documents.value = docs.map((d) => ({
       id: d._id,
       title: d.title,
       content: { type: 'doc', content: [{ type: 'paragraph' }] } as object, // placeholder, loaded on open
       folderId: d.folderId,
       starred: d.starred,
+      visibility: d.visibility || 'private',
+      deletedAt: d.deletedAt ? new Date(d.deletedAt) : null,
+      updatedAt: new Date(d.updatedAt).getTime(),
+      createdAt: new Date(d.createdAt).getTime(),
+    }))
+    trashedDocuments.value = trashed.map((d) => ({
+      id: d._id,
+      title: d.title,
+      content: { type: 'doc', content: [{ type: 'paragraph' }] } as object,
+      folderId: d.folderId,
+      starred: d.starred,
+      visibility: d.visibility || 'private',
+      deletedAt: d.deletedAt ? new Date(d.deletedAt) : null,
       updatedAt: new Date(d.updatedAt).getTime(),
       createdAt: new Date(d.createdAt).getTime(),
     }))
@@ -267,6 +288,8 @@ async function createDocument(templateId: string) {
       content: doc.content,
       folderId: doc.folderId,
       starred: doc.starred,
+      visibility: doc.visibility || 'private',
+      deletedAt: null,
       updatedAt: now,
       createdAt: now,
     })
@@ -294,6 +317,8 @@ async function openDocumentById(id: string) {
         content: doc.content,
         folderId: doc.folderId,
         starred: doc.starred,
+        visibility: doc.visibility || 'private',
+        deletedAt: doc.deletedAt ? new Date(doc.deletedAt) : null,
         updatedAt: new Date(doc.updatedAt).getTime(),
         createdAt: new Date(doc.createdAt).getTime(),
       })
@@ -315,6 +340,8 @@ async function loadDocumentContent(id: string) {
       existing.title = doc.title
       existing.starred = doc.starred
       existing.folderId = doc.folderId
+      existing.visibility = doc.visibility || 'private'
+      existing.deletedAt = doc.deletedAt ? new Date(doc.deletedAt) : null
     }
   } catch (err) {
     console.error('Failed to load document content:', err)
@@ -385,6 +412,8 @@ async function duplicateDocument(id: string) {
       content: copy.content,
       folderId: copy.folderId,
       starred: false,
+      visibility: copy.visibility || 'private',
+      deletedAt: null,
       updatedAt: now,
       createdAt: now,
     })
@@ -395,17 +424,66 @@ async function duplicateDocument(id: string) {
 }
 
 async function deleteDocument(id: string) {
-  if (!confirm(t('common.confirmDelete') ?? 'Are you sure you want to delete this document?')) return
+  const doc = documents.value.find((d) => d.id === id)
+  if (!doc) return
   try {
     await api.deleteDocument(id)
   } catch (err) {
     console.error('Failed to delete document:', err)
+    return
   }
+
   documents.value = documents.value.filter((d) => d.id !== id)
+  doc.deletedAt = new Date()
+  trashedDocuments.value.unshift(doc)
+
   if (currentDocId.value === id) {
     currentDocId.value = null
     history.pushState({ docId: null }, '', '/')
   }
+
+  showTrashedToast(doc)
+}
+
+function showTrashedToast(doc: DocumentItem) {
+  if (trashedToastTimer.value) clearTimeout(trashedToastTimer.value)
+  trashedToastDoc.value = doc
+  trashedToastTimer.value = setTimeout(() => {
+    trashedToastDoc.value = null
+  }, 5000)
+}
+
+async function undoTrashDocument() {
+  const doc = trashedToastDoc.value
+  if (!doc) return
+  trashedToastDoc.value = null
+  if (trashedToastTimer.value) clearTimeout(trashedToastTimer.value)
+  await restoreDocument(doc.id)
+}
+
+async function restoreDocument(id: string) {
+  const doc = trashedDocuments.value.find((d) => d.id === id)
+  if (!doc) return
+  try {
+    await api.restoreDocument(id)
+  } catch (err) {
+    console.error('Failed to restore document:', err)
+    return
+  }
+  trashedDocuments.value = trashedDocuments.value.filter((d) => d.id !== id)
+  doc.deletedAt = null
+  documents.value.unshift(doc)
+}
+
+async function permanentlyDeleteDocument(id: string) {
+  if (!confirm(t('common.confirmPermanentDelete') ?? 'Permanently delete this document? This cannot be undone.')) return
+  try {
+    await api.permanentlyDeleteDocument(id)
+  } catch (err) {
+    console.error('Failed to permanently delete document:', err)
+    return
+  }
+  trashedDocuments.value = trashedDocuments.value.filter((d) => d.id !== id)
 }
 
 const moveDialogOpen = ref(false)
@@ -674,7 +752,19 @@ const userAvatar = computed(() => {
 
         <template v-else>
           <div
-            v-if="!currentDocId"
+            v-if="trashViewOpen"
+            class="flex flex-1 flex-col overflow-hidden"
+          >
+            <TrashView
+              :documents="trashedDocuments"
+              @restore="restoreDocument"
+              @delete-forever="permanentlyDeleteDocument"
+              @back="trashViewOpen = false"
+            />
+          </div>
+
+          <div
+            v-else-if="!currentDocId"
             class="flex flex-1 flex-col overflow-hidden"
           >
             <header
@@ -779,6 +869,7 @@ const userAvatar = computed(() => {
               class="flex-1 overflow-hidden"
               :documents="documents"
               :folders="folders"
+              :trash-count="trashedDocuments.length"
               @select-document="selectDocument"
               @create-document="createDocument"
               @toggle-star="toggleStar"
@@ -787,6 +878,7 @@ const userAvatar = computed(() => {
               @delete="deleteDocument"
               @move="moveDocument"
               @create-folder="createFolder"
+              @open-trash="trashViewOpen = true"
             />
           </div>
 
@@ -861,6 +953,20 @@ const userAvatar = computed(() => {
           @click="saveError = null"
         >
           {{ t('common.dismiss') }}
+        </button>
+      </div>
+      <!-- Trash toast -->
+      <div
+        v-if="trashedToastDoc"
+        class="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-lg dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+      >
+        {{ t('dashboard.movedToTrash') }} "{{ trashedToastDoc.title }}"
+        <button
+          type="button"
+          class="ml-3 font-semibold text-cyan-600 hover:underline dark:text-cyan-400"
+          @click="undoTrashDocument"
+        >
+          {{ t('common.undo') }}
         </button>
       </div>
     </template>

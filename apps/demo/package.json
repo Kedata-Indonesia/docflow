@@ -14,7 +14,6 @@
     "@kedata-indonesia/docflow-plugins": "workspace:*",
     "@kedata-indonesia/docflow-vue": "workspace:*",
     "docx": "^9.7.1",
-    "html2pdf.js": "^0.14.0",
     "jszip": "^3.10.1",
     "lucide-vue-next": "^1.0.0",
     "prosemirror-markdown": "^1.13.5",
