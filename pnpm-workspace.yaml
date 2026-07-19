@@ -6,6 +6,7 @@ allowBuilds:
   core-js: true
   esbuild: true
   leveldown: false
+  mongodb-memory-server: true
   protobufjs: false
 
 overrides:

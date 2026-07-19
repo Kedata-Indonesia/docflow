@@ -63,6 +63,11 @@ A change that respects this principle touches either the library *or* the app â€
 | `onAwarenessChange` | `(states: AwarenessState[]) => void` | Optional presence/cursor callback. |
 | `initialStorageState` | `Uint8Array` | Optional Yjs state to seed the room (e.g. from host persistence). |
 
+> **Seeding rule (Phase 1):** in collab mode the `content` option is **not**
+> auto-seeded into the room â€” an unguarded local seed races with other clients
+> and duplicates the document. Hosts seed via `initialStorageState` or a guarded
+> server flow (`POST /api/collab/seed` in `apps/server`).
+
 ### 2.2 Planned ports (catalogued, not yet implemented)
 
 | Port | Planned signature | Phase | Replaces |

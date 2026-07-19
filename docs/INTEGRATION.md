@@ -266,8 +266,12 @@ Documents:
 Collaboration:
   POST /api/collab/heartbeat        ← update presence
   GET  /api/collab/online/:roomId   ← online users
-  POST /api/collab/snapshot         ← save Y.Doc state
-  GET  /api/collab/snapshot/:roomId ← load Y.Doc state
+  POST /api/collab/seed             ← one-time guarded seed for legacy JSON-only
+                                      docs (room access checked; first caller wins)
+
+Yjs document state is authoritative and persisted server-side to MongoDB
+automatically (no client snapshot API — removed in Phase 1). Connect via the
+websocket provider and the server loads/persists state for you.
 ```
 
 All requests need: `credentials: 'include'` (cookie-based) or `Authorization: Bearer <token>` (JWT mode).

@@ -1,7 +1,6 @@
-import { AnyExtension, Editor as TiptapEditor, getSchema } from '@tiptap/core'
+import { AnyExtension, Editor as TiptapEditor } from '@tiptap/core'
 import StarterKit from '@tiptap/starter-kit'
 import TextStyle from '@tiptap/extension-text-style'
-import { prosemirrorJSONToYXmlFragment } from 'y-prosemirror'
 import {
   collectExtensions,
   createActionMap,
@@ -181,12 +180,10 @@ function createTiptapEditor(
   const content = options.collaboration ? undefined : options.content
 
   if (options.collaboration && collaborationSetup) {
-    const fragment = collaborationSetup.ydoc.getXmlFragment('default')
-    if (fragment.length === 0 && options.content && typeof options.content === 'object') {
-      const schema = getSchema([baseStarterKit, TextStyle, blockAttrs, paginationExt, ...pluginExtensions])
-      prosemirrorJSONToYXmlFragment(schema, options.content, fragment)
-    }
-
+    // Deliberately NO local seeding from `content` here: in collab mode the Yjs
+    // document is authoritative, and an unguarded local seed races with other
+    // clients and duplicates the document. Hosts seed via `initialStorageState`
+    // or the server's guarded seed endpoint (Phase 1).
     extensions = [...extensions, ...collaborationExtensions(collaborationSetup)]
   }
 
