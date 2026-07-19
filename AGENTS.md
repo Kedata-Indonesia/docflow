@@ -21,6 +21,7 @@ This project uses **vibe code** with an orchestrator + specialist agent pattern 
 5. **Bug-hunter gate.** Before completing a task, delegate `bug-hunter` to review the diff and tests.
 6. **Single source of truth.** ProseMirror state is the only editable model; layout and collaboration are derived views.
 7. **No silent regressions.** If a change touches core/editor/layout/collab, run all three package checks when possible.
+8. **Respect the library boundary.** No backend imports in `packages/*`; persistence/auth/storage/AI are the host app's job, reached only via the injection ports in `docs/LIBRARY_CONTRACT.md`.
 
 ## Specialist Prompts
 
@@ -33,3 +34,4 @@ See `.opencode/agents/*.md` for each specialist's detailed system prompt.
 - [ ] Unit tests pass (`pnpm test:unit` / `vitest`).
 - [ ] Relevant E2E tests pass (`pnpm test:e2e` / `playwright`) if UI changed.
 - [ ] Build passes (`pnpm build`) for affected packages.
+- [ ] No new backend imports in `packages/*` (library contract holds — see `docs/LIBRARY_CONTRACT.md`).

@@ -90,7 +90,7 @@ stage needs Phase 6.
 - Add a short "Do not import backend concerns into `packages/*`" note to `CLAUDE.md` and `AGENTS.md`.
 - (Optional) lint guard: forbid `packages/*` from importing `apps/*` or server-only deps.
 
-**Deliverables:** `docs/LIBRARY_CONTRACT.md`; updated `CLAUDE.md`.
+**Deliverables:** [docs/LIBRARY_CONTRACT.md](LIBRARY_CONTRACT.md); updated `CLAUDE.md`, `AGENTS.md`, `.eslintrc.cjs` (lint guardrail).
 **Acceptance:** the contract lists every injection point with types; no `packages/*` file imports from `apps/*`.
 
 ---

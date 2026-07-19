@@ -69,6 +69,7 @@ layout-engine (pagination measurement) ─────────────�
 - **`createEditor` rebuilds the whole TipTap editor** when `.use(plugin)` is called at runtime (`rebuildEditor` preserves JSON + selection). Adding a plugin is a full teardown/recreate, not a hot patch.
 - **Collaboration** ([Collaboration.ts](packages/core/src/Collaboration.ts)): when `collaboration` is set, StarterKit history is disabled and the TipTap `Collaboration`/`CollaborationCursor` extensions bind to a `Y.Doc`. Providers are `webrtc` (zero-config P2P) or `websocket` (requires `websocketUrl`, backed by the server). Yjs/webrtc/websocket are optional peer deps.
 - **Content migration:** `migrateContent` in `Editor.ts` flattens legacy `page`-wrapped and `tabbed-doc` documents on load. Preserve this when touching content ingestion.
+- **Library boundary:** never import backend concerns into `packages/*`. Persistence, auth, storage, and AI are the host app's job, reached only through the injection ports catalogued in [docs/LIBRARY_CONTRACT.md](docs/LIBRARY_CONTRACT.md) (`onUpdate`, `collaboration`; `onImageUpload` and export hooks planned). A PR that touches both `packages/*` and `apps/*` for a single concern is a smell.
 
 ### Apps
 
