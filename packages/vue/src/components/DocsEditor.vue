@@ -181,6 +181,25 @@ const slashCommands = computed(() => {
   return cmds
 })
 
+// Build the full tabbed document from current state, emit it to the host, and
+// schedule the draft autosave. Shared by the editor onUpdate, the header/footer
+// modal save, and page-number insertion.
+const persistCurrentDoc = () => {
+  const fullDoc: TabbedDoc = {
+    type: 'tabbed-doc',
+    activeTabId: activeTabId.value,
+    tabs: tabs.value.map(t => ({ id: t.id, label: t.label, content: tabContents.value[t.id] })),
+    headerLeft: userHeaderLeft.value,
+    headerRight: userHeaderRight.value,
+    footerLeft: userFooterLeft.value,
+    footerRight: userFooterRight.value,
+  }
+  emit('update:modelValue', fullDoc)
+  savingStatus.value = 'saving'
+  if (saveTimer.value) clearTimeout(saveTimer.value)
+  saveTimer.value = setTimeout(() => { try { localStorage.setItem('docs-editor-current-doc', JSON.stringify(fullDoc)) } catch { /* ignore */ }; savingStatus.value = 'saved'; lastSaved.value = Date.now() }, 800)
+}
+
 const { editorRef, editor, pluginActions, isReady, docsEditor: docEditor } = useEditor({
   content: activeTabContent,
   plugins: props.plugins,
@@ -190,19 +209,7 @@ const { editorRef, editor, pluginActions, isReady, docsEditor: docEditor } = use
   paginationOptions: paginationOptions.value,
   onUpdate: (json) => {
     tabContents.value[activeTabId.value] = json
-    const fullDoc: TabbedDoc = {
-      type: 'tabbed-doc',
-      activeTabId: activeTabId.value,
-      tabs: tabs.value.map(t => ({ id: t.id, label: t.label, content: tabContents.value[t.id] })),
-      headerLeft: userHeaderLeft.value,
-      headerRight: userHeaderRight.value,
-      footerLeft: userFooterLeft.value,
-      footerRight: userFooterRight.value,
-    }
-    emit('update:modelValue', fullDoc)
-    savingStatus.value = 'saving'
-    if (saveTimer.value) clearTimeout(saveTimer.value)
-    saveTimer.value = setTimeout(() => { try { localStorage.setItem('docs-editor-current-doc', JSON.stringify(fullDoc)) } catch { /* ignore */ }; savingStatus.value = 'saved'; lastSaved.value = Date.now() }, 800)
+    persistCurrentDoc()
   },
 })
 
@@ -430,25 +437,85 @@ const saveHeaderFooter = () => {
   userHeaderRight.value = headerRightInput.value
   userFooterLeft.value = footerLeftInput.value
   userFooterRight.value = footerRightInput.value
-  
-  applyHeaderFooter()
 
-  // Manually update the persisted modelValue!
-  const fullDoc: TabbedDoc = {
-    type: 'tabbed-doc',
-    activeTabId: activeTabId.value,
-    tabs: tabs.value.map(t => ({ id: t.id, label: t.label, content: tabContents.value[t.id] })),
-    headerLeft: userHeaderLeft.value,
-    headerRight: userHeaderRight.value,
-    footerLeft: userFooterLeft.value,
-    footerRight: userFooterRight.value,
-  }
-  emit('update:modelValue', fullDoc)
-  savingStatus.value = 'saving'
-  if (saveTimer.value) clearTimeout(saveTimer.value)
-  saveTimer.value = setTimeout(() => { try { localStorage.setItem('docs-editor-current-doc', JSON.stringify(fullDoc)) } catch { /* ignore */ }; savingStatus.value = 'saved'; lastSaved.value = Date.now() }, 800)
+  applyHeaderFooter()
+  persistCurrentDoc()
 
   showHeaderFooterModal.value = false
+}
+
+// ─── Edit / Format menu commands ─────────────────────────────────────────────
+// Editor-scoped menu actions are executed in-library (the library owns command
+// execution); they are never emitted to the host app. All dispatch is defensive:
+// a missing command (e.g. undo in collab mode where StarterKit history is off,
+// or a plugin the host didn't load) is a no-op, never a crash.
+
+// Call a native TipTap command by name, then refocus the editor.
+const runMenuEditorCommand = (name: string, ...args: unknown[]) => {
+  if (!editor.value) return
+  const command = (editor.value.commands as Record<string, ((...a: unknown[]) => unknown) | undefined>)[name]
+  if (typeof command === 'function') command(...args)
+  editor.value.commands.focus()
+}
+
+// Plugin-backed actions (alignment, task list) go through pluginActions first so
+// custom plugin commands win; fall back to a native command of the same name.
+const runPluginMenuAction = (action: string, ...args: unknown[]) => {
+  if (!editor.value) return
+  const fn = pluginActions.value[action]
+  if (typeof fn === 'function') {
+    fn(...args)
+  } else {
+    runMenuEditorCommand(action, ...args)
+    return
+  }
+  editor.value.commands.focus()
+}
+
+// Insert the {page} placeholder into the header or footer (right slot, Google
+// Docs style). tiptap-pagination-plus renders {page} per page; {total} is
+// resolved by applyHeaderFooter. Persisted via the shared doc pipeline.
+const insertPageNumber = (slot: 'header' | 'footer') => {
+  const target = slot === 'header' ? userHeaderRight : userFooterRight
+  if (!target.value.includes('{page}')) {
+    target.value = target.value ? `${target.value} {page}` : '{page}'
+  }
+  applyHeaderFooter()
+  persistCurrentDoc()
+}
+
+const editFormatMenuCommands: Record<string, () => void> = {
+  // Edit menu
+  undo: () => runMenuEditorCommand('undo'),
+  redo: () => runMenuEditorCommand('redo'),
+  'select-all': () => runMenuEditorCommand('selectAll'),
+  // Format menu — text styles
+  bold: () => runMenuEditorCommand('toggleBold'),
+  italic: () => runMenuEditorCommand('toggleItalic'),
+  underline: () => runMenuEditorCommand('toggleUnderline'),
+  heading1: () => runMenuEditorCommand('toggleHeading', { level: 1 }),
+  heading2: () => runMenuEditorCommand('toggleHeading', { level: 2 }),
+  heading3: () => runMenuEditorCommand('toggleHeading', { level: 3 }),
+  // Format menu — align & indent (alignment plugin)
+  'align-left': () => runPluginMenuAction('alignLeft'),
+  'align-center': () => runPluginMenuAction('alignCenter'),
+  'align-right': () => runPluginMenuAction('alignRight'),
+  'align-justify': () => runPluginMenuAction('alignJustify'),
+  // Format menu — bullets & numbering (StarterKit lists + lists plugin)
+  'bullet-list': () => runMenuEditorCommand('toggleBulletList'),
+  'numbered-list': () => runMenuEditorCommand('toggleOrderedList'),
+  'task-list': () => runPluginMenuAction('toggleTaskList'),
+  // Format menu — extras
+  'horizontal-line': () => runMenuEditorCommand('setHorizontalRule'),
+  'page-numbers-header': () => insertPageNumber('header'),
+  'page-numbers-footer': () => insertPageNumber('footer'),
+  'clear-formatting': () => {
+    if (!editor.value) return
+    editor.value.chain().unsetAllMarks().clearNodes().run()
+    // clearNodes keeps node attributes — also reset text alignment when the
+    // alignment plugin's command is available.
+    runMenuEditorCommand('setTextAlign', 'left')
+  },
 }
 
 let menuClick = (action: string) => {
@@ -493,6 +560,8 @@ let menuClick = (action: string) => {
         last.focus()
       }
     }, 160)
+  } else if (editFormatMenuCommands[action]) {
+    editFormatMenuCommands[action]()
   } else {
     emit('menu-click', action)
   }
