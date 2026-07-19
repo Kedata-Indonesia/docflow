@@ -19,6 +19,7 @@
     "prosemirror-markdown": "^1.13.5",
     "prosemirror-model": "^1.25.11",
     "vue": "^3.5.0",
+    "y-prosemirror": "^1.2.12",
     "yjs": "^13.6.20"
   },
   "devDependencies": {

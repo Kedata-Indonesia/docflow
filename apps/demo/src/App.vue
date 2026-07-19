@@ -12,6 +12,13 @@ const { isDark, toggle: toggleTheme } = useTheme()
 const { locale, setLocale, t } = provideLocale()
 const supportedLocales = getSupportedLocales()
 
+// Phase 1: with a collab websocket server, the server owns `Document.content`
+// (derived from the authoritative Yjs doc) and the client stops writing it.
+// Without one (dev falling back to webrtc), the client stays responsible.
+const CLIENT_PERSISTS_CONTENT = !(
+  Boolean(import.meta.env.VITE_COLLAB_WEBSOCKET_URL?.trim()) || import.meta.env.PROD
+)
+
 // ─── Auth State ──────────────────────────────────────────────────────────────
 
 const user = ref<UserInfo | null>(null)
@@ -362,7 +369,9 @@ async function updateDocument(doc: DocumentItem) {
   try {
     await api.updateDocument(doc.id, {
       title: doc.title,
-      content: doc.content,
+      // Collab (websocket) docs: content is server-derived from the Yjs doc —
+      // the client must not write it. webrtc/solo docs still save via this PUT.
+      ...(CLIENT_PERSISTS_CONTENT ? { content: doc.content } : {}),
       starred: doc.starred,
       folderId: doc.folderId,
     })
