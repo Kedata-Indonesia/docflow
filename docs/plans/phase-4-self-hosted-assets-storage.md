@@ -1,12 +1,19 @@
 # Phase 4 — Self-hosted Assets & Storage · Task-Level Implementation Plan
 
-**Roadmap ref:** [ENHANCEMENT_ROADMAP.md](../ENHANCEMENT_ROADMAP.md) Phase 4 · **Priority:** P1 · **Depends on:** Phase 2 · **Last updated:** 2026-07-17
+**Roadmap ref:** [ENHANCEMENT_ROADMAP.md](../ENHANCEMENT_ROADMAP.md) Phase 4 · **Priority:** P1 · **Depends on:** Phase 2 · **Status:** 🟡 Core implemented (Groups A–C1 landed; endpoint test suite + E2E pending) · **Last updated:** 2026-07-19
 
 > **Goal:** uploaded images/files live in **infrastructure the customer controls**. Add a
 > storage service in `apps/server` with **S3-compatible (MinIO) as the primary target** and a
 > **Mongo/GridFS fallback** for single-container installs, selected by env. An authenticated
 > upload endpoint serves the `onImageUpload(file) => Promise<{ src }>` handler that Phase 2
 > injected into the library. **No external CDN.**
+
+**Status note (2026-07-19):** Groups A (config, `StorageAdapter`, S3 + GridFS adapters,
+factory), B (`Asset` model, `POST/GET /api/assets` with multer + magic-byte validation +
+per-user upload limiter), C1 (demo handler → `POST /api/assets`), C2/C3 (env examples,
+commented MinIO compose block), C4 (CLAUDE.md) are **implemented and live-verified against a
+local MinIO** (adapter round-trip put/get/delete; boot with `STORAGE_BACKEND=s3`; browser
+upload → reload → image renders). Remaining: automated endpoint tests (D1/D2), E2E spec (D3).
 
 ---
 
