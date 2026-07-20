@@ -1,6 +1,6 @@
 import { DocsEditor } from '@kedata-indonesia/docflow-vue'
 import { defineCustomElement } from 'vue'
-import type { DocsEditorPlugin } from '@kedata-indonesia/docflow-core'
+import type { DocsEditorPlugin, ImageUploadHandler } from '@kedata-indonesia/docflow-core'
 
 // At build time, Vite resolves this import and returns the processed CSS as a string.
 // This enables Tailwind + ProseMirror styles inside the Shadow DOM.
@@ -14,6 +14,7 @@ export class DocsEditorElement extends HTMLElement {
   private _vueElement?: HTMLElement
   private _shadowRoot?: ShadowRoot
   private _plugins: DocsEditorPlugin[] = []
+  private _onImageUpload?: ImageUploadHandler
 
   get plugins(): DocsEditorPlugin[] {
     return this._plugins
@@ -21,6 +22,21 @@ export class DocsEditorElement extends HTMLElement {
 
   set plugins(value: DocsEditorPlugin[]) {
     this._plugins = value
+    if (this._vueElement) {
+      Object.assign(this._vueElement, this._buildProps())
+    }
+  }
+
+  /**
+   * Host-injected image upload port. Functions can't be HTML attributes, so
+   * consumers set it as a JS property: `el.onImageUpload = async (file) => ({ src })`.
+   */
+  get onImageUpload(): ImageUploadHandler | undefined {
+    return this._onImageUpload
+  }
+
+  set onImageUpload(value: ImageUploadHandler | undefined) {
+    this._onImageUpload = value
     if (this._vueElement) {
       Object.assign(this._vueElement, this._buildProps())
     }
@@ -86,6 +102,7 @@ export class DocsEditorElement extends HTMLElement {
       editable,
       collaboration,
       plugins: this._plugins,
+      onImageUpload: this._onImageUpload,
     }
   }
 }

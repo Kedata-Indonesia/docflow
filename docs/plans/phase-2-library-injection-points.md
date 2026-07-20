@@ -1,6 +1,6 @@
 # Phase 2 — Library Boundary Completion (Injection Points) · Task-Level Implementation Plan
 
-**Roadmap ref:** [ENHANCEMENT_ROADMAP.md](../ENHANCEMENT_ROADMAP.md) Phase 2 · **Priority:** P0 · **Last updated:** 2026-07-17
+**Roadmap ref:** [ENHANCEMENT_ROADMAP.md](../ENHANCEMENT_ROADMAP.md) Phase 2 · **Priority:** P0 · **Status:** ✅ Implemented (pending maintainer acceptance) · **Last updated:** 2026-07-19
 
 > **Goal:** remove backend assumptions leaking into the library. The library (`packages/*`)
 > must reach persistence, storage, and infrastructure **only through narrow injectable ports**,
@@ -8,6 +8,13 @@
 > Two ports plus one audit: **(A)** an injectable `onImageUpload(file) => Promise<{ src }>`
 > threaded core → vue → element; **(B)** collaboration defaults that never phone home to public
 > signaling servers; **(C)** an audit of `packages/*` for remaining external URLs / backend assumptions.
+
+**Status note (2026-07-19):** all groups implemented — `onImageUpload` port (core
+`EditorContextExtension` → vue prop → element property), `insertImage` rewritten
+(placeholder.com deleted; prompt fallback kept), webrtc defaults localhost-only + one-time
+warning, library `localStorage` document persistence removed (dead write), contract refreshed
+(deviations #2–#4 resolved; #1 → Phase 7). Tests: 87/87 workspace. Demo wires a sample
+`URL.createObjectURL` handler in `EditorView.vue`.
 
 ---
 

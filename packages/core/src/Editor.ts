@@ -13,6 +13,8 @@ import {
   type CollaborationSetup,
 } from './Collaboration.js'
 import { BlockAttributesExtension } from './BlockAttributes.js'
+import { EditorContextExtension } from './EditorContext.js'
+import type { ImageUploadHandler } from './ports.js'
 import { PaginationPlus, type PaginationPlusOptions } from 'tiptap-pagination-plus'
 
 // FontSizeExtension is no longer hardcoded here — it is registered
@@ -28,6 +30,8 @@ export interface EditorOptions {
   collaboration?: CollaborationOptions
   getPageMap?: () => Map<number, { page: number; blockIndex: number }>
   paginationOptions?: PaginationPlusOptions
+  /** Host-injected image upload port (see docs/LIBRARY_CONTRACT.md). */
+  onImageUpload?: ImageUploadHandler
 }
 
 export interface DocsEditor {
@@ -175,6 +179,9 @@ function createTiptapEditor(
     TextStyle,
     blockAttrs,
     paginationExt,
+    // Always present — carries host-injected ports (onImageUpload, …) in storage
+    // so plugin commands can reach them through the editor instance.
+    EditorContextExtension.configure({ onImageUpload: options.onImageUpload }),
     ...pluginExtensions,
   ]
   const content = options.collaboration ? undefined : options.content
