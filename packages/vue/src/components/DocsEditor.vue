@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { type DocsEditor, type DocsEditorPlugin, type EditorOptions } from '@kedata-indonesia/docflow-core'
+import { type DocsEditor, type DocsEditorPlugin, type EditorOptions, type ImageUploadHandler } from '@kedata-indonesia/docflow-core'
 import { PAGE_SIZES, getPageSize } from '@kedata-indonesia/docflow-layout-engine'
 import { computed, onUnmounted, ref, watch } from 'vue'
 import { useEditor } from '../composables/useEditor.js'
@@ -35,6 +35,7 @@ const props = withDefaults(
     locale?: Locale
     documentMeta?: DocumentMeta
     shareUrl?: string
+    onImageUpload?: ImageUploadHandler
   }>(),
   {
     editable: true,
@@ -51,6 +52,7 @@ const props = withDefaults(
     locale: undefined,
     documentMeta: undefined,
     shareUrl: '',
+    onImageUpload: undefined,
   },
 )
 
@@ -181,9 +183,9 @@ const slashCommands = computed(() => {
   return cmds
 })
 
-// Build the full tabbed document from current state, emit it to the host, and
-// schedule the draft autosave. Shared by the editor onUpdate, the header/footer
-// modal save, and page-number insertion.
+// Build the full tabbed document from current state and emit it to the host.
+// Persistence is the host's job (via update:modelValue / onUpdate) — the
+// library deliberately performs no storage writes (LIBRARY_CONTRACT rule 5).
 const persistCurrentDoc = () => {
   const fullDoc: TabbedDoc = {
     type: 'tabbed-doc',
@@ -197,7 +199,7 @@ const persistCurrentDoc = () => {
   emit('update:modelValue', fullDoc)
   savingStatus.value = 'saving'
   if (saveTimer.value) clearTimeout(saveTimer.value)
-  saveTimer.value = setTimeout(() => { try { localStorage.setItem('docs-editor-current-doc', JSON.stringify(fullDoc)) } catch { /* ignore */ }; savingStatus.value = 'saved'; lastSaved.value = Date.now() }, 800)
+  saveTimer.value = setTimeout(() => { savingStatus.value = 'saved'; lastSaved.value = Date.now() }, 800)
 }
 
 const { editorRef, editor, pluginActions, isReady, docsEditor: docEditor } = useEditor({
@@ -205,6 +207,7 @@ const { editorRef, editor, pluginActions, isReady, docsEditor: docEditor } = use
   plugins: props.plugins,
   editable: props.editable,
   collaboration: props.collaboration,
+  onImageUpload: props.onImageUpload,
   getPageMap: () => new Map(),
   paginationOptions: paginationOptions.value,
   onUpdate: (json) => {
@@ -516,6 +519,11 @@ const editFormatMenuCommands: Record<string, () => void> = {
     // alignment plugin's command is available.
     runMenuEditorCommand('setTextAlign', 'left')
   },
+  // Insert menu — editor-scoped inserts (template actions like meeting-notes /
+  // email-draft stay host-level and are still emitted).
+  'insert-image': () => runPluginMenuAction('insertImage'),
+  'insert-table': () => runPluginMenuAction('insertTable', { rows: 3, cols: 3, withHeaderRow: true }),
+  'insert-code': () => runPluginMenuAction('toggleCodeBlock'),
 }
 
 let menuClick = (action: string) => {
