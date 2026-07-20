@@ -340,6 +340,27 @@ function handlePrint() {
   window.print()
 }
 
+// Image upload port (Phase 2 port → Phase 4 backend): POST the picked file to
+// the server's storage endpoint (MinIO/S3 or GridFS, env-selected) and insert
+// the returned self-hosted URL. The library only ever sees the { src } result.
+async function handleImageUpload(file: File): Promise<{ src: string; alt: string }> {
+  const form = new FormData()
+  form.append('file', file)
+  form.append('docId', props.doc.id)
+  const res = await fetch(`${API_BASE}/api/assets`, {
+    method: 'POST',
+    credentials: 'include',
+    body: form,
+  })
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}))
+    throw new Error(data.error || `Upload failed (${res.status})`)
+  }
+  const data = (await res.json()) as { src: string }
+  // The endpoint returns a same-origin path; make it absolute for cross-origin dev.
+  return { src: `${API_BASE}${data.src}`, alt: file.name }
+}
+
 function handleMenuClick(action: string) {
   switch (action) {
     case 'new-doc':
@@ -484,6 +505,7 @@ function handleEditorReady(docsEditor: DocsEditorInstance) {
       :user-avatar="collabUser?.avatar ?? ''"
       :document-meta="documentMeta"
       :share-url="shareUrl"
+      :on-image-upload="handleImageUpload"
       connection-state="connected"
       @back="emit('back')"
       @update:title="handleUpdateTitle"
