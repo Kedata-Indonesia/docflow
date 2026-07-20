@@ -49,7 +49,8 @@ A change that respects this principle touches either the library *or* the app �
 | Port | TypeScript signature | Declared at | Host-app responsibility |
 |------|----------------------|-------------|-------------------------|
 | `onUpdate` | `(json: object) => void` | `EditorOptions` — [packages/core/src/Editor.ts:28](../packages/core/src/Editor.ts) | Persist the document JSON for **single-user / non-collaborative** documents. In collaboration mode the Yjs document is authoritative and this hook must not be used as the edit source (see [phase-1-collab-persistence.md](plans/phase-1-collab-persistence.md)). |
-| `collaboration` | `CollaborationOptions` — see field table below | `EditorOptions` — [Editor.ts:29](../packages/core/src/Editor.ts); interface — [Collaboration.ts:15-23](../packages/core/src/Collaboration.ts) | Supply the full collaboration configuration: room id, transport provider, signaling/websocket endpoints, user identity, and awareness callback. The library never picks endpoints on its own (deviation #3 excepted, §5). |
+| `collaboration` | `CollaborationOptions` — see field table below | `EditorOptions` — [Editor.ts:29](../packages/core/src/Editor.ts); interface — [Collaboration.ts:15-23](../packages/core/src/Collaboration.ts) | Supply the full collaboration configuration: room id, transport provider, signaling/websocket endpoints, user identity, and awareness callback. The library never picks endpoints on its own; webrtc without explicit `signaling` is localhost-only with a one-time warning (Phase 2). |
+| `onImageUpload` | `(file: File) => Promise<ImageUploadResult>` (`{ src, alt?, title? }`) | `EditorOptions` — [Editor.ts:33](../packages/core/src/Editor.ts); type — [ports.ts](../packages/core/src/ports.ts); carried in `editor.storage.editorContext` ([EditorContext.ts](../packages/core/src/EditorContext.ts)) | Store the user's picked file (object storage — Phase 4) and resolve its URL. With no handler, `insertImage` falls back to a URL prompt; the library never names a storage host. |
 
 **`CollaborationOptions` fields** ([Collaboration.ts:15-23](../packages/core/src/Collaboration.ts)):
 
@@ -58,7 +59,7 @@ A change that respects this principle touches either the library *or* the app �
 | `room` | `string` | Required. Room/document identifier. |
 | `provider` | `'webrtc' \| 'websocket'` | Optional. `webrtc` = zero-config P2P; `websocket` = production path via own server. |
 | `websocketUrl` | `string` | Required when `provider === 'websocket'` (throws otherwise). |
-| `signaling` | `string[]` | Optional webrtc signaling servers. **Known deviation #3:** currently defaults to public servers. |
+| `signaling` | `string[]` | Optional webrtc signaling servers. Without it webrtc is **localhost-only** (+ same-browser BroadcastChannel) and logs a one-time warning — public-server defaults were removed in Phase 2. |
 | `user` | `{ name: string; color: string }` | Required. Identity shown to collaborators. |
 | `onAwarenessChange` | `(states: AwarenessState[]) => void` | Optional presence/cursor callback. |
 | `initialStorageState` | `Uint8Array` | Optional Yjs state to seed the room (e.g. from host persistence). |
@@ -72,7 +73,6 @@ A change that respects this principle touches either the library *or* the app �
 
 | Port | Planned signature | Phase | Replaces |
 |------|-------------------|-------|----------|
-| `onImageUpload` | `(file: File) => Promise<{ src: string }>` | [Phase 2](plans/phase-2-library-injection-points.md) | The `via.placeholder.com` hardcode + `window.prompt` fallback in [image.ts:5,15-20](../packages/plugins/src/image.ts) (deviation #2). |
 | Export hooks | TBD in Phase 5 design | [Phase 5](plans/phase-5-export-pdf-docx.md) | Host-side export wiring; today only the `export` emit exists (§2.3). |
 
 ### 2.3 Related host-interaction surface (not backend ports)
@@ -112,6 +112,16 @@ How each existing port flows through the layers (verified 2026-07-19):
 | vue (component) | `collaboration` prop typed `NonNullable<EditorOptions['collaboration']>` — [DocsEditor.vue:27](../packages/vue/src/components/DocsEditor.vue) |
 | element | `room` + `websocket-url` attributes mapped to a collaboration config (websocket provider when `websocket-url` is set, webrtc otherwise) — [DocsEditorElement.ts:70-82](../packages/element/src/DocsEditorElement.ts) |
 
+### `onImageUpload`
+
+| Layer | Wiring |
+|-------|--------|
+| core | Declared on `EditorOptions` — [Editor.ts:33](../packages/core/src/Editor.ts); carried by the always-registered `EditorContextExtension` into `editor.storage.editorContext` — [EditorContext.ts](../packages/core/src/EditorContext.ts), wired in [Editor.ts](../packages/core/src/Editor.ts) |
+| plugins | `imagePlugin.insertImage` reads the port from storage — with a handler: file picker → `await onImageUpload(file)` → `setImage(result)`; without: URL prompt fallback (no default host) — [image.ts](../packages/plugins/src/image.ts) |
+| vue (composable) | Forwarded via `UseEditorOptions` into `createEditor` — [useEditor.ts](../packages/vue/src/composables/useEditor.ts) |
+| vue (component) | `onImageUpload` prop, forwarded to `useEditor` — [DocsEditor.vue](../packages/vue/src/components/DocsEditor.vue) |
+| element | JS property `el.onImageUpload` with a setter that re-applies props (functions can't be HTML attributes) — [DocsEditorElement.ts](../packages/element/src/DocsEditorElement.ts) |
+
 ---
 
 ## 4. Rules for Library Authors
@@ -147,19 +157,18 @@ reviewers to ask which side of the boundary it really belongs on.
 
 ## 5. Known Deviations
 
-Current violations of this contract, each with an owning phase that will remove it.
-Phase 0 **documents and traps** these; it deliberately does not fix them.
+Violations of this contract and their status. One remains open (`#1`, Phase 7);
+the rest were resolved in Phase 2.
 
-| # | Deviation | Location | Class | Owning phase | Remediation |
-|---|-----------|----------|-------|--------------|-------------|
-| 1 | `AISidebar.vue` fetches the AI backend directly | [AISidebar.vue:7,30](../packages/vue/src/components/sidebars/AISidebar.vue) — `fetch(\`${API_BASE}/api/ai/copilot\`)` | Direct backend call (rule 3) | [Phase 7](plans/phase-7-ai-assistance.md) | Move AI behind a host-injected provider/port; delete the in-library `fetch`. |
-| 2 | Image plugin hardcodes a placeholder URL and falls back to `window.prompt` | [image.ts:5,15-20](../packages/plugins/src/image.ts) | Hardcoded external URL / storage assumption (rule 4) | [Phase 2](plans/phase-2-library-injection-points.md) | Replace with the `onImageUpload` port (§2.2); URL prompt becomes an explicit fallback only. |
-| 3 | webrtc signaling defaults to public servers (`wss://signaling.yjs.dev`, `wss://y-webrtc-eu.fly.dev`) | [Collaboration.ts:57-64](../packages/core/src/Collaboration.ts) | External-network assumption (rule 4) | [Phase 2](plans/phase-2-library-injection-points.md) | Require explicit signaling config; document websocket + own server as the production path. |
-| 4 | Document draft autosave to `localStorage` (`docs-editor-current-doc`) | [DocsEditor.vue:205](../packages/vue/src/components/DocsEditor.vue), [:449](../packages/vue/src/components/DocsEditor.vue) | Document persistence in the library (rule 5) | [Phase 3](plans/phase-3-apps-web-split.md) | Move draft persistence to the host app (`apps/web`); library keeps emitting `update:modelValue` only. |
+| # | Deviation | Location | Class | Status | Remediation |
+|---|-----------|----------|-------|--------|-------------|
+| 1 | `AISidebar.vue` fetches the AI backend directly | [AISidebar.vue:7,30](../packages/vue/src/components/sidebars/AISidebar.vue) — `fetch(\`${API_BASE}/api/ai/copilot\`)` | Direct backend call (rule 3) | ⏳ **Open → [Phase 7](plans/phase-7-ai-assistance.md)** | Move AI behind a host-injected provider/port; delete the in-library `fetch`. |
+| 2 | Image plugin hardcoded `via.placeholder.com` + `window.prompt` fallback | `packages/plugins/src/image.ts` (pre-Phase-2) | Hardcoded external URL / storage assumption (rule 4) | ✅ **Resolved in Phase 2** | Replaced by the `onImageUpload` port (§2.1); URL prompt kept as an explicit no-host fallback. |
+| 3 | webrtc signaling defaulted to public servers (`wss://signaling.yjs.dev`, `wss://y-webrtc-eu.fly.dev`) | `packages/core/src/Collaboration.ts` (pre-Phase-2) | External-network assumption (rule 4) | ✅ **Resolved in Phase 2** | Defaults to localhost-only + one-time `console.warn`; cross-network webrtc requires explicit `signaling`; websocket + own server is the documented production path. |
+| 4 | Document draft autosave to `localStorage` (`docs-editor-current-doc`) | `packages/vue/src/components/DocsEditor.vue` (pre-Phase-2) | Document persistence in the library (rule 5) | ✅ **Resolved in Phase 2** | Write removed (it was never read anywhere); hosts persist via `update:modelValue` / `onUpdate`. |
 
-> Deviation #4 was found during Phase 0 verification (2026-07-19). The theme/locale
-> `localStorage` uses in `useTheme.ts` / `useLocale.ts` are **not** deviations — they are
-> presentation preferences, allowed by the rule-5 exception in §4.
+> The theme/locale `localStorage` uses in `useTheme.ts` / `useLocale.ts` are **not**
+> deviations — they are presentation preferences, allowed by the rule-5 exception in §4.
 
 ### 5.1 Guardrail & escalation path
 
@@ -173,5 +182,6 @@ The ESLint guardrail in [.eslintrc.cjs](../.eslintrc.cjs) (override scoped to
 - **Escalation trigger:** once Phase 7 lands and deviation #1 is removed, flip the rule from
   `'warn'` to `'error'` — the only edit needed is the severity string in `.eslintrc.cjs`.
 - **Baseline:** as of 2026-07-19 the boundary holds structurally —
-  `grep -rn "apps/" packages --include=*.ts --include=*.vue` returns no imports, and
-  `pnpm lint` emits no `no-restricted-imports` warnings.
+  `grep -rn "apps/" packages --include=*.ts --include=*.vue` returns no imports,
+  `pnpm lint` emits no `no-restricted-imports` warnings, and the only remaining
+  deviation is #1 (fetch-based, review-gated → Phase 7).
