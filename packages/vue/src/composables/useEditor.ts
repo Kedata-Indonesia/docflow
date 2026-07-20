@@ -41,6 +41,7 @@ export function useEditor(options: UseEditorOptions): UseEditorReturn {
       onUpdate: options.onUpdate,
       getPageMap: options.getPageMap,
       paginationOptions: options.paginationOptions,
+      onImageUpload: options.onImageUpload,
     })
 
     docsEditor.value = nextEditor

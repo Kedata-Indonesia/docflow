@@ -29,6 +29,32 @@ export interface CollaborationSetup {
   destroy: () => void
 }
 
+/** Local-only signaling default. Public signaling servers were removed in
+ * Phase 2 — the library must never contact external infrastructure on its own. */
+const LOCAL_SIGNALING = ['ws://localhost:4444']
+
+let warnedLocalSignaling = false
+
+/**
+ * Resolve webrtc signaling servers. Without an explicit `signaling` config the
+ * provider is local-only (localhost + same-browser BroadcastChannel); warn once
+ * so production self-host installs know to run their own signaling server or
+ * use `provider: 'websocket'` instead.
+ */
+export function resolveSignalingUrls(signaling?: string[]): string[] {
+  if (signaling && signaling.length > 0) return signaling
+  if (!warnedLocalSignaling) {
+    warnedLocalSignaling = true
+    console.warn(
+      '[docflow] webrtc provider has no `signaling` configured — falling back to ' +
+        'localhost-only sync (ws://localhost:4444 + same-browser tabs). For production ' +
+        'self-host, run your own signaling server and pass `signaling`, or use ' +
+        '`provider: "websocket"` with your own websocketUrl.',
+    )
+  }
+  return LOCAL_SIGNALING
+}
+
 interface AwarenessRawState {
   user?: { name: string; color: string }
   cursor?: { from: number; to: number } | null
@@ -56,11 +82,7 @@ export function createCollaboration(options: CollaborationOptions): Collaboratio
 
   if (options.provider === 'webrtc') {
     provider = new WebrtcProvider(options.room, ydoc, {
-      signaling: options.signaling || [
-        'ws://localhost:4444',
-        'wss://signaling.yjs.dev',
-        'wss://y-webrtc-eu.fly.dev'
-      ]
+      signaling: resolveSignalingUrls(options.signaling),
     })
   } else if (options.provider === 'websocket') {
     if (!options.websocketUrl) {
