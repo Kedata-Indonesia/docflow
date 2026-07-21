@@ -37,6 +37,8 @@ import {
   Minus,
   Plus,
   ChevronDown,
+  Palette,
+  Highlighter,
 } from 'lucide-vue-next'
 import type { SidebarKey } from '../types.js'
 import { useLocale } from '../composables/useLocale.js'
@@ -82,6 +84,8 @@ type IconMapKey =
   | 'AlignRight'
   | 'AlignJustify'
   | 'FileText'
+  | 'Palette'
+  | 'Highlighter'
 
 const iconMap: Record<IconMapKey, unknown> = {
   Bold,
@@ -107,6 +111,8 @@ const iconMap: Record<IconMapKey, unknown> = {
   AlignRight,
   AlignJustify,
   FileText,
+  Palette,
+  Highlighter,
 }
 
 function resolveIcon(name?: string) {

@@ -18,6 +18,87 @@ import { SearchAndReplaceExtension } from './SearchAndReplace.js'
 import type { ImageUploadHandler } from './ports.js'
 import { PaginationPlus, type PaginationPlusOptions } from 'tiptap-pagination-plus'
 
+/**
+ * Sanitize pasted HTML content (e.g. from Google Docs) to prevent crashes
+ * during ProseMirror parsing. Strips non-content tags like <meta>, <style>,
+ * and HTML comments that are common in rich clipboard data but not valid
+ * in the ProseMirror schema.
+ *
+ * Also converts Google Docs-specific markup into standard TipTap-compatible
+ * HTML so that text color and background-color survive the paste.
+ */
+export function sanitizePastedHTML(html: string): string {
+  // Strip <meta> tags (common in Google Docs clipboard HTML)
+  let cleaned = html.replace(/<meta[^>]*>/gi, '')
+  // Strip <style> tags and their content
+  cleaned = cleaned.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+  // Strip HTML comments
+  cleaned = cleaned.replace(/<!--[\s\S]*?-->/g, '')
+  // Strip <link> tags (stylesheet links, etc.)
+  cleaned = cleaned.replace(/<link[^>]*>/gi, '')
+  // Strip <base> tags
+  cleaned = cleaned.replace(/<base[^>]*>/gi, '')
+  // Strip <title> tags and content
+  cleaned = cleaned.replace(/<title[^>]*>[\s\S]*?<\/title>/gi, '')
+
+  // ── Google Docs: wrap highlighted spans in <mark> while keeping color ────
+  // The @tiptap/extension-highlight natively parses <mark> tags but NOT
+  // <span> with inline background(-color). We wrap the content so highlight
+  // survives paste.
+  //   Case A (bg only):  <span style="background:#ff0;">hi</span>
+  //     → <mark style="background:#ff0;">hi</mark>
+  //   Case B (bg+color): <span style="background:#ff0;color:red;">hi</span>
+  //     → <mark style="background:#ff0;"><span style="color:red;">hi</span></mark>
+  //
+  // Strategy: replace full <span…>…</span> elements (not nested) that have a
+  // background style. This avoids the closing‑tag balancing nightmare.
+  // Uses a simple non‑recursive approach: match spans that do NOT contain
+  // another opening <span inside (i.e. leaf spans).
+  {
+    // Loop a few times to handle spans that are siblings (not nested)
+    for (let pass = 0; pass < 10; pass++) {
+      const before = cleaned
+      cleaned = cleaned.replace(
+        /<span\s([^>]*style\s*=\s*["'][^"']*(?:background-color|background)[^"']*["'][^>]*)>([^<]*(?:<(?!\/?span)[^>]*>[^<]*)*)<\/span>/gi,
+        (_full: string, attrs: string, content: string) => {
+          if (!/background(?:-color)?\s*:/.test(attrs)) return _full
+
+          // Extract text color (not background-color) from style if present
+          // Use negative lookbehind to avoid matching "background-color"
+          const colorMatch = attrs.match(/(?<!background-)color\s*:\s*([^;"]+)/i)
+          const colorVal = colorMatch ? colorMatch[1].trim() : null
+
+          // Remove the text-color property from mark attributes (keep bg only)
+          const markAttrs = colorVal
+            ? attrs.replace(/(?<!background-)color\s*:\s*[^;"]+;?\s*/gi, '').trim()
+            : attrs
+
+          if (colorVal) {
+            return `<mark ${markAttrs}><span style="color: ${colorVal};">${content}</span></mark>`
+          }
+          return `<mark ${markAttrs}>${content}</mark>`
+        },
+      )
+      if (cleaned === before) break
+    }
+  }
+
+  // ── Google Docs: <b style="font-weight:normal"> wrapper ──────────────────
+  // Google Docs uses <b> as a generic wrapper (not bold) with
+  // style="font-weight:normal". Strip the wrapping <b> so it doesn't
+  // get parsed as an unwanted Bold mark.
+  cleaned = cleaned.replace(
+    /<b\s[^>]*style\s*=\s*["'][^"']*font-weight:\s*normal[^"']*["'][^>]*>/gi,
+    '',
+  )
+  cleaned = cleaned.replace(/<\/b>/gi, '')
+
+  // ── Google Docs: remove docs-internal-* id attributes ────────────────────
+  cleaned = cleaned.replace(/\sid\s*=\s*["']docs-internal[^"']*["']/gi, '')
+
+  return cleaned
+}
+
 // FontSizeExtension is no longer hardcoded here — it is registered
 // by fontSizePlugin (packages/plugins/src/fontSize.ts) to avoid
 // duplicate extension name collisions caused by Vite modualiasi.
@@ -204,6 +285,12 @@ function createTiptapEditor(
     editable: options.editable ?? true,
     onUpdate: ({ editor }) => {
       options.onUpdate?.(editor.getJSON())
+    },
+    editorProps: {
+      // Sanitize pasted HTML (strips <meta>, <style>, comments, etc.)
+      // before ProseMirror parsing. Prevents crashes from non-content
+      // tags commonly produced by Google Docs clipboard data.
+      transformPastedHTML: sanitizePastedHTML,
     },
   })
 }

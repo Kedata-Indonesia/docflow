@@ -21,6 +21,7 @@ import { useTheme } from '../composables/useTheme.js'
 import { provideLocale, type Locale } from '../composables/useLocale.js'
 import { writeClipboard, readClipboardHtml, readClipboardText } from '../composables/useClipboard.js'
 import { DOMSerializer } from 'prosemirror-model'
+import { sanitizePastedHTML } from '@kedata-indonesia/docflow-core'
 
 const props = withDefaults(
   defineProps<{
@@ -525,13 +526,34 @@ const handleCopy = async () => {
 const handlePaste = async () => {
   if (!editor.value) return
   // Rich first (keeps formatting); falls back to plain text inside the helper.
+  // Sanitize pasted HTML (strip <meta>, <style>, etc.) to prevent crashes
+  // from non-content tags commonly produced by Google Docs.
   const html = await readClipboardHtml()
   if (html) {
-    editor.value.chain().focus().insertContent(html).run()
+    const sanitized = sanitizePastedHTML(html)
+    try {
+      editor.value.chain().focus().insertContent(sanitized).run()
+    } catch (err) {
+      console.error('[DocsEditor] paste HTML failed, falling back to plain text:', err)
+      const text = await readClipboardText()
+      if (text) {
+        try {
+          editor.value.chain().focus().insertContent(text).run()
+        } catch (fallbackErr) {
+          console.error('[DocsEditor] paste plain text also failed:', fallbackErr)
+        }
+      }
+    }
     return
   }
   const text = await readClipboardText()
-  if (text) editor.value.chain().focus().insertContent(text).run()
+  if (text) {
+    try {
+      editor.value.chain().focus().insertContent(text).run()
+    } catch (err) {
+      console.error('[DocsEditor] paste plain text failed:', err)
+    }
+  }
 }
 
 const handlePastePlain = async () => {

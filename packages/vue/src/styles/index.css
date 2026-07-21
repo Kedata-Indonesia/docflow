@@ -337,6 +337,16 @@
   cursor: col-resize;
 }
 
+.ProseMirror a {
+  color: #2563eb; /* blue-600 */
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.dark .ProseMirror a {
+  color: #60a5fa; /* blue-400 */
+}
+
 .ProseMirror .tableWrapper {
   overflow-x: auto;
 }
