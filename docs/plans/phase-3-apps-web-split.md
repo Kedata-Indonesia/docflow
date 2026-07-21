@@ -1,11 +1,19 @@
 # Phase 3 — `apps/web` Split (First-Party Product) · Task-Level Implementation Plan
 
-**Roadmap ref:** [ENHANCEMENT_ROADMAP.md](../ENHANCEMENT_ROADMAP.md) Phase 3 · **Priority:** P1 · **Depends on:** Phases 1 & 2 · **Last updated:** 2026-07-17
+**Roadmap ref:** [ENHANCEMENT_ROADMAP.md](../ENHANCEMENT_ROADMAP.md) Phase 3 · **Priority:** P1 · **Depends on:** Phases 1 & 2 · **Status:** ✅ Implemented (pending maintainer acceptance) · **Last updated:** 2026-07-20
 
 > **Goal:** extract the real, self-hostable product into **`apps/web`** (dashboard, editor,
 > sharing, folders, starred, search, auth) wired to `apps/server`, and slim **`apps/demo`**
 > back to a **backend-free** library showcase (webrtc/local, `defaultPlugins`, no auth/Mongo).
 > The library (`packages/*`) must keep knowing nothing about the backend.
+
+**Status note (2026-07-20):** all groups implemented — `apps/web` scaffolded and moved
+(product code identical to the pre-split demo; boots on 5174); demo trimmed to a backend-free
+showcase shell (template picker + theme toggle; greps for `/api/`/`fetch(` clean); email/password
+auth enabled by default (C3); Playwright split into `e2e/showcase` (demo) + `e2e/product` (web +
+server, self-seeding users); `Dockerfile.web` + compose `web` service is the default served
+frontend (demo behind the `showcase` profile); CLAUDE.md updated. Remaining: product e2e specs
+beyond the moved collaboration spec; folders stay client-ephemeral (documented limitation, §3).
 
 ---
 

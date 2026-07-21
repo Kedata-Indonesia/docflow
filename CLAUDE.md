@@ -11,7 +11,8 @@ Package manager is **pnpm** (>=9, Node >=20). Run from the repo root:
 ```bash
 pnpm install
 pnpm build            # build all packages (pnpm -r run build)
-pnpm dev              # run the demo app (apps/demo, Vite dev server)
+pnpm dev              # run the demo app (apps/demo, backend-free library showcase)
+pnpm dev:web          # run the product app (apps/web, needs dev:server)
 pnpm dev:server       # run the collaboration/API server (apps/server, tsx watch)
 pnpm typecheck        # tsc/vue-tsc --noEmit across all packages
 pnpm test:unit        # vitest run across all packages
@@ -44,7 +45,7 @@ After any non-trivial change, verify with the affected package's `typecheck` + `
 
 ## Architecture
 
-A pnpm workspace publishing a **framework-agnostic rich-text editor with page pagination and Yjs collaboration** as five layered npm packages (`@kedata-indonesia/docflow-*`), plus two apps (demo + server). Built on TipTap / ProseMirror.
+A pnpm workspace publishing a **framework-agnostic rich-text editor with page pagination and Yjs collaboration** as five layered npm packages (`@kedata-indonesia/docflow-*`), plus three apps (web product + demo showcase + server). Built on TipTap / ProseMirror.
 
 ### Layering (dependencies flow downward)
 
@@ -73,8 +74,9 @@ layout-engine (pagination measurement) ─────────────�
 
 ### Apps
 
-- **`apps/demo`** — Vite + Vue 3 reference app consuming the published packages via workspace links. Uses the Web Component and `defaultPlugins`.
-- **`apps/server`** — Express + MongoDB (Mongoose) + `better-auth` API and the Yjs **websocket collaboration** backend. [index.ts](apps/server/src/index.ts) mounts a `ws` `WebSocketServer` alongside HTTP; `setupWSConnection` comes from the vendored CommonJS `src/y-websocket/*.cjs` (copied into `dist/` by the build `postbuild` step). Routes: `documents`, `collab`, `users`, `assets`, auth. Auth supports Google/GitHub/Microsoft OAuth + optional email/password; session strategy is cookie or JWT. Config is env-driven ([config.ts](apps/server/src/config.ts)).
+- **`apps/web`** — the **self-hostable product** (Phase 3): auth (OAuth + email/password), dashboard (search/folders/starred), document CRUD, sharing/collaborators, presence, websocket collab, and the editor host wired to `apps/server` via `api.ts`. Consumes the published packages via workspace links. Runs on `WEB_PORT` (5174).
+- **`apps/demo`** — the **backend-free library showcase** (Phase 3): a thin `<DocsEditor>` host with `defaultPlugins`, in-memory documents, and webrtc (P2P/local) collab only. No auth, no `api.ts`, no `/api/*` calls — runs with `pnpm dev` and no server. This is the reference for library consumers.
+- **`apps/server`** — Express + MongoDB (Mongoose) + `better-auth` API and the Yjs **websocket collaboration** backend. [index.ts](apps/server/src/index.ts) mounts a `ws` `WebSocketServer` alongside HTTP; `setupWSConnection` comes from the vendored CommonJS `src/y-websocket/*.cjs` (copied into `dist/` by the build `postbuild` step). Routes: `documents`, `collab`, `users`, `assets`, auth. Auth supports Google/GitHub/Microsoft OAuth + email/password (enabled by default; `EMAIL_PASSWORD_ENABLED=false` disables); session strategy is cookie or JWT. Config is env-driven ([config.ts](apps/server/src/config.ts)).
   - **Collab persistence (Phase 1):** the Yjs doc is the single source of truth, persisted server-side to the `CollabState` collection ([mongoPersistence.ts](apps/server/src/y-websocket/mongoPersistence.ts), debounced + flush on last disconnect). `Document.content`/`plainText` are a **derived read-model** written only by the server for collab docs (dashboard list, search, export). Legacy JSON-only docs migrate via the guarded, one-time `POST /api/collab/seed`. Solo (non-collab) docs still persist client-side via `onUpdate` → `PUT /api/documents/:id`.
   - **Asset storage (Phase 4):** image uploads go through `POST /api/assets` (multer + magic-byte MIME validation) into an env-selected `StorageAdapter` ([storage/](apps/server/src/storage)) — `s3` (MinIO/S3-compatible, production target) or `gridfs` (Mongo, single-container default). Bytes are served back through `GET /api/assets/:id` with auth enforced server-side — no public bucket, no CDN. The library reaches this only via the Phase 2 `onImageUpload` port.
   - Note the room-id handling: websocket `roomId` has a `doc-` prefix stripped before document access checks — relevant when debugging collab access.
