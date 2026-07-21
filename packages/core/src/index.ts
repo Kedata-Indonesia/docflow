@@ -1,4 +1,4 @@
-export { createEditor, type EditorOptions, type DocsEditor } from './Editor.js'
+export { createEditor, sanitizePastedHTML, type EditorOptions, type DocsEditor } from './Editor.js'
 export { BlockAttributesExtension } from './BlockAttributes.js'
 export { FontSizeExtension } from './FontSize.js'
 export { EditorContextExtension, type EditorContextOptions } from './EditorContext.js'

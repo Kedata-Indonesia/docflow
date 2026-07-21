@@ -18,6 +18,7 @@ export default defineConfig({
       '@kedata-indonesia/docflow-core': path.resolve(__dirname, '../../packages/core/src/index.ts'),
       '@kedata-indonesia/docflow-layout-engine': path.resolve(__dirname, '../../packages/layout-engine/src/index.ts'),
       '@kedata-indonesia/docflow-plugins': path.resolve(__dirname, '../../packages/plugins/src/index.ts'),
+      '@kedata-indonesia/docflow-element': path.resolve(__dirname, '../../packages/element/src/index.ts'),
     },
   },
 });
