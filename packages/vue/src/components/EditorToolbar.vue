@@ -42,6 +42,7 @@ import {
 } from 'lucide-vue-next'
 import type { SidebarKey } from '../types.js'
 import { useLocale } from '../composables/useLocale.js'
+import ColorPickerDropdown from './ColorPickerDropdown.vue'
 
 const { t } = useLocale()
 
@@ -238,6 +239,46 @@ function runPluginItem(item: ToolbarItem) {
   }
 }
 
+const currentTextColor = computed(() => {
+  void selectionTick.value
+  return props.editor?.getAttributes('textStyle').color as string | undefined
+})
+
+const currentHighlightColor = computed(() => {
+  void selectionTick.value
+  const highlight = props.editor?.getAttributes('highlight')
+  if (highlight?.color) return highlight.color as string
+  if (props.editor?.isActive('highlight')) return '#ffff00' // default yellow
+  return undefined
+})
+
+function applyColor(action: string, color: string) {
+  const fn = props.actions[action]
+  if (typeof fn === 'function') {
+    fn(color)
+  } else {
+    const command = (props.editor?.commands as Record<string, (...args: unknown[]) => boolean> | undefined)?.[action]
+    if (typeof command === 'function') command(color)
+  }
+  props.editor?.commands.focus()
+  activeDropdown.value = null
+}
+
+function resetColor(action: string) {
+  const chain = props.editor?.chain().focus() as unknown as { unsetColor?: () => { run: () => boolean }; unsetHighlight?: () => { run: () => boolean } } | undefined
+  if (!chain) {
+    activeDropdown.value = null
+    return
+  }
+  if (action === 'setTextColor') {
+    chain.unsetColor?.().run()
+  } else if (action === 'setHighlight') {
+    chain.unsetHighlight?.().run()
+  }
+  props.editor?.commands.focus()
+  activeDropdown.value = null
+}
+
 // ── Grouped toolbar items ────────────────────────────────────────────────
 // Plugin toolbar items are categorized so common groups collapse into compact
 // dropdowns (Google-Docs style). Headings are dropped here — they're covered by
@@ -246,18 +287,23 @@ const HEADING_ACTIONS = ['toggleHeading1', 'toggleHeading2', 'toggleHeading3', '
 const ALIGN_ACTIONS = ['alignLeft', 'alignCenter', 'alignRight', 'alignJustify']
 const LIST_ACTIONS = ['toggleBulletList', 'toggleOrderedList', 'toggleTaskList']
 const INSERT_ACTIONS = ['setLink', 'insertImage', 'insertTable', 'toggleBlockquote', 'toggleCodeBlock', 'insertFootnote', 'insertPageBreak', 'setPageBreak', 'togglePageBreak', 'addPageBreak']
+const COLOR_ACTIONS = ['setTextColor', 'setHighlight']
 
 const allPluginItems = computed(() => toolbarGroups.value.flatMap((g) => g.items))
 const alignItems = computed(() => allPluginItems.value.filter((i) => ALIGN_ACTIONS.includes(i.action)))
 const listItems = computed(() => allPluginItems.value.filter((i) => LIST_ACTIONS.includes(i.action)))
 const insertItems = computed(() => allPluginItems.value.filter((i) => INSERT_ACTIONS.includes(i.action)))
+const colorItems = computed(() => allPluginItems.value.filter((i) => COLOR_ACTIONS.includes(i.action)))
+const textColorItem = computed(() => colorItems.value.find((i) => i.action === 'setTextColor'))
+const highlightItem = computed(() => colorItems.value.find((i) => i.action === 'setHighlight'))
 const flatItems = computed(() =>
   allPluginItems.value.filter(
     (i) =>
       !HEADING_ACTIONS.includes(i.action) &&
       !ALIGN_ACTIONS.includes(i.action) &&
       !LIST_ACTIONS.includes(i.action) &&
-      !INSERT_ACTIONS.includes(i.action),
+      !INSERT_ACTIONS.includes(i.action) &&
+      !COLOR_ACTIONS.includes(i.action),
   ),
 )
 
@@ -272,7 +318,7 @@ const currentAlignIcon = computed(() => {
   return AlignLeft
 })
 
-type DropdownKey = 'heading' | 'font' | 'align' | 'lists' | 'insert'
+type DropdownKey = 'heading' | 'font' | 'align' | 'lists' | 'insert' | 'textColor' | 'highlight'
 const activeDropdown = ref<DropdownKey | null>(null)
 function toggleDropdown(key: DropdownKey) {
   activeDropdown.value = activeDropdown.value === key ? null : key
@@ -612,6 +658,57 @@ function handleFontSize(delta: number) {
         />
         <span v-else-if="item.label" class="text-xs font-medium leading-none">{{ item.label.charAt(0) }}</span>
       </button>
+
+      <span
+        v-if="colorItems.length"
+        class="mx-1 h-5 w-px flex-shrink-0 bg-slate-200 dark:bg-white/10"
+      />
+
+      <!-- Text color dropdown -->
+      <div v-if="textColorItem" class="toolbar-dropdown relative flex-shrink-0">
+        <button
+          type="button"
+          :class="[controlBaseClass, 'w-8']"
+          :title="textColorItem.label ?? 'Text color'"
+          :aria-label="textColorItem.label ?? 'Text color'"
+          :disabled="!editor"
+          @mousedown.prevent
+          @click.stop="toggleDropdown('textColor')"
+        >
+          <Palette class="h-[18px] w-[18px]" />
+        </button>
+        <ColorPickerDropdown
+          :is-open="activeDropdown === 'textColor'"
+          :active-color="currentTextColor"
+          label="Custom"
+          @select="applyColor('setTextColor', $event)"
+          @reset="resetColor('setTextColor')"
+          @close="activeDropdown = null"
+        />
+      </div>
+
+      <!-- Highlight color dropdown -->
+      <div v-if="highlightItem" class="toolbar-dropdown relative flex-shrink-0">
+        <button
+          type="button"
+          :class="[controlBaseClass, 'w-8']"
+          :title="highlightItem.label ?? 'Highlight'"
+          :aria-label="highlightItem.label ?? 'Highlight'"
+          :disabled="!editor"
+          @mousedown.prevent
+          @click.stop="toggleDropdown('highlight')"
+        >
+          <Highlighter class="h-[18px] w-[18px]" />
+        </button>
+        <ColorPickerDropdown
+          :is-open="activeDropdown === 'highlight'"
+          :active-color="currentHighlightColor"
+          label="Custom"
+          @select="applyColor('setHighlight', $event)"
+          @reset="resetColor('setHighlight')"
+          @close="activeDropdown = null"
+        />
+      </div>
 
       <span
         v-if="listItems.length || alignItems.length || insertItems.length"
