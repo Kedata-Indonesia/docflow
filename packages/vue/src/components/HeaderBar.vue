@@ -81,6 +81,8 @@ interface MenuItem {
   label: string
   action?: string
   divider?: boolean
+  /** Keyboard shortcut hint displayed right-aligned (Google Docs style). */
+  shortcut?: string
   sub?: { label: string; action: string; badge?: string }[]
 }
 
@@ -130,10 +132,18 @@ const menus = computed<Record<string, { label: string; items: MenuItem[] }>>(() 
   Edit: {
     label: t('header.edit'),
     items: [
-      { label: t('header.undo'), action: 'undo' },
-      { label: t('header.redo'), action: 'redo' },
+      { label: t('header.undo'), action: 'undo', shortcut: '⌘Z' },
+      { label: t('header.redo'), action: 'redo', shortcut: '⌘Y' },
       { label: 'divider', divider: true },
-      { label: t('header.selectAll'), action: 'select-all' },
+      { label: t('header.cut'), action: 'cut', shortcut: '⌘X' },
+      { label: t('header.copy'), action: 'copy', shortcut: '⌘C' },
+      { label: t('header.paste'), action: 'paste', shortcut: '⌘V' },
+      { label: t('header.pasteWithoutFormatting'), action: 'paste-without-formatting', shortcut: '⌘⇧V' },
+      { label: 'divider', divider: true },
+      { label: t('header.selectAll'), action: 'select-all', shortcut: '⌘A' },
+      { label: t('header.delete'), action: 'delete' },
+      { label: 'divider', divider: true },
+      { label: t('header.findAndReplace'), action: 'find-replace', shortcut: '⌘⇧H' },
     ],
   },
   View: {
@@ -425,10 +435,16 @@ onUnmounted(() => document.removeEventListener('click', closeMenus, true))
                     <button
                       v-else
                       type="button"
-                      class="flex w-full items-center px-4 py-2 text-left hover:bg-slate-50 dark:hover:bg-white/5"
+                      class="flex w-full items-center justify-between gap-6 px-4 py-2 text-left hover:bg-slate-50 dark:hover:bg-white/5"
                       @click.stop="handleMenuAction(item.action!)"
                     >
-                      {{ item.label }}
+                      <span>{{ item.label }}</span>
+                      <span
+                        v-if="item.shortcut"
+                        class="text-[11px] text-slate-400 dark:text-slate-500"
+                      >
+                        {{ item.shortcut }}
+                      </span>
                     </button>
                   </template>
                 </div>
