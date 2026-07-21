@@ -77,6 +77,8 @@ GOOGLE_CLIENT_ID=xxx.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=GOCSPX-xxx
 
 # Auth
+# Email/password is first-class and ENABLED BY DEFAULT (self-hosted installs
+# get a working login with zero external config). Set to false to disable.
 EMAIL_PASSWORD_ENABLED=true
 SESSION_STRATEGY=jwt
 
