@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { type DocsEditor, type DocsEditorPlugin, type EditorOptions, type ImageUploadHandler } from '@kedata-indonesia/docflow-core'
 import { PAGE_SIZES, getPageSize } from '@kedata-indonesia/docflow-layout-engine'
-import { computed, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useEditor } from '../composables/useEditor.js'
 import SlashMenuVue from './SlashMenu.vue'
 import type { Collaborator, ConnectionState, DocumentMeta, SavingStatus, SidebarKey } from '../types.js'
@@ -15,9 +15,12 @@ import QuickActionChips from './QuickActionChips.vue'
 import TOCSidebar from './sidebars/TOCSidebar.vue'
 import DetailsDialog from './DetailsDialog.vue'
 import EmailDialog from './EmailDialog.vue'
+import FindReplaceDialog from './FindReplaceDialog.vue'
 import { Menu } from 'lucide-vue-next'
 import { useTheme } from '../composables/useTheme.js'
 import { provideLocale, type Locale } from '../composables/useLocale.js'
+import { writeClipboard, readClipboardHtml, readClipboardText } from '../composables/useClipboard.js'
+import { DOMSerializer } from 'prosemirror-model'
 
 const props = withDefaults(
   defineProps<{
@@ -405,6 +408,7 @@ const footerRightInput = ref('')
 const showPageSetupModal = ref(false)
 const showDetailsModal = ref(false)
 const showEmailModal = ref(false)
+const showFindReplace = ref(false)
 const pageSetupSize = ref(pageSizeId.value)
 const pageSetupOrientation = ref(orientation.value)
 const pageSetupMargins = ref({ ...margins.value })
@@ -487,11 +491,96 @@ const insertPageNumber = (slot: 'header' | 'footer') => {
   persistCurrentDoc()
 }
 
+// ─── Clipboard operations (Edit menu) ────────────────────────────────────────
+// Selection is serialized from ProseMirror state (not the DOM), so menu clicks
+// that blurred the editor still cut/copy the right content.
+
+const serializeSelection = (): { html: string; text: string } | null => {
+  if (!editor.value) return null
+  const { state } = editor.value
+  if (state.selection.empty) return null
+  const slice = state.selection.content()
+  const div = document.createElement('div')
+  div.appendChild(DOMSerializer.fromSchema(state.schema).serializeFragment(slice.content))
+  return {
+    html: div.innerHTML,
+    text: slice.content.textBetween(0, slice.content.size, '\n\n', ' '),
+  }
+}
+
+const handleCut = async () => {
+  const sel = serializeSelection()
+  if (!sel || !editor.value) return
+  const ok = await writeClipboard(sel.text, sel.html)
+  if (ok) editor.value.chain().focus().deleteSelection().run()
+}
+
+const handleCopy = async () => {
+  const sel = serializeSelection()
+  if (!sel) return
+  await writeClipboard(sel.text, sel.html)
+  editor.value?.commands.focus()
+}
+
+const handlePaste = async () => {
+  if (!editor.value) return
+  // Rich first (keeps formatting); falls back to plain text inside the helper.
+  const html = await readClipboardHtml()
+  if (html) {
+    editor.value.chain().focus().insertContent(html).run()
+    return
+  }
+  const text = await readClipboardText()
+  if (text) editor.value.chain().focus().insertContent(text).run()
+}
+
+const handlePastePlain = async () => {
+  if (!editor.value) return
+  const text = await readClipboardText()
+  if (text) editor.value.chain().focus().insertContent(text).run()
+}
+
+const handleDeleteSelection = () => {
+  if (!editor.value) return
+  const { state } = editor.value
+  if (state.selection.empty) {
+    // Google Docs behavior: with no selection, Delete removes the next character.
+    const { from, to } = state.selection
+    if (to < state.doc.content.size) {
+      editor.value.chain().focus().deleteRange({ from, to: to + 1 }).run()
+    }
+  } else {
+    editor.value.chain().focus().deleteSelection().run()
+  }
+}
+
+// ⌘⇧V pastes plain text (native in some browsers; registered here for parity);
+// ⌘⇧H opens find & replace (Google Docs parity).
+const handleEditKeydown = (e: KeyboardEvent) => {
+  if (!(e.metaKey || e.ctrlKey) || !e.shiftKey) return
+  if (!editor.value?.view.dom.contains(e.target as Node)) return
+  if (e.key.toLowerCase() === 'v') {
+    e.preventDefault()
+    void handlePastePlain()
+  } else if (e.key.toLowerCase() === 'h') {
+    e.preventDefault()
+    showFindReplace.value = true
+  }
+}
+
+onMounted(() => document.addEventListener('keydown', handleEditKeydown))
+onUnmounted(() => document.removeEventListener('keydown', handleEditKeydown))
+
 const editFormatMenuCommands: Record<string, () => void> = {
   // Edit menu
   undo: () => runMenuEditorCommand('undo'),
   redo: () => runMenuEditorCommand('redo'),
   'select-all': () => runMenuEditorCommand('selectAll'),
+  cut: () => { void handleCut() },
+  copy: () => { void handleCopy() },
+  paste: () => { void handlePaste() },
+  'paste-without-formatting': () => { void handlePastePlain() },
+  delete: () => handleDeleteSelection(),
   // Format menu — text styles
   bold: () => runMenuEditorCommand('toggleBold'),
   italic: () => runMenuEditorCommand('toggleItalic'),
@@ -537,6 +626,8 @@ let menuClick = (action: string) => {
     showDetailsModal.value = true
   } else if (action === 'email') {
     showEmailModal.value = true
+  } else if (action === 'find-replace') {
+    showFindReplace.value = true
   } else if (action === 'security') {
     emit('share')
   } else if (action === 'insert-header' || action === 'insert-footer') {
@@ -813,6 +904,9 @@ watch(isReady, (ready) => {
     <BubbleMenu :visible="showBubbleMenu" :actions="pluginActions" :position="bubblePosition" :editor="editor" />
     <SlashMenuVue :editor="editor" :commands="slashCommands" />
     <div class="docs-editor__body relative flex flex-1 overflow-hidden">
+      <!-- Find & replace floating panel (Edit menu / ⌘⇧H) -->
+      <FindReplaceDialog :is-open="showFindReplace" :editor="editor" @close="showFindReplace = false" />
+
       <!-- Document outline (heading map) — toggled by the floating button -->
       <TOCSidebar v-if="leftSidebarOpen" :editor="editor" @close="leftSidebarOpen = false" />
 

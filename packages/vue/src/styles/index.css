@@ -867,3 +867,23 @@
     text-decoration: underline;
   }
 }
+
+/* ─── Find & Replace highlights ─────────────────────────────────────────── */
+.ProseMirror .find-match {
+  background-color: rgba(250, 204, 21, 0.4);
+  border-radius: 2px;
+}
+
+.ProseMirror .find-match-active {
+  background-color: rgba(250, 204, 21, 0.75);
+  outline: 1px solid #eab308;
+}
+
+.dark .ProseMirror .find-match {
+  background-color: rgba(250, 204, 21, 0.3);
+}
+
+.dark .ProseMirror .find-match-active {
+  background-color: rgba(234, 179, 8, 0.55);
+  outline-color: #facc15;
+}

@@ -383,6 +383,9 @@ importers:
       lucide-vue-next:
         specifier: ^1.0.0
         version: 1.0.0(vue@3.5.39(typescript@5.9.3))
+      prosemirror-model:
+        specifier: 1.25.11
+        version: 1.25.11
       vue:
         specifier: ^3.5.0
         version: 3.5.39(typescript@5.9.3)
