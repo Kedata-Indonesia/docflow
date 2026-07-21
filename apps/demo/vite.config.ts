@@ -2,24 +2,13 @@ import { defineConfig } from 'vite';
 import vue from '@vitejs/plugin-vue';
 import path from 'path';
 
-const apiBaseUrl = process.env.VITE_API_BASE_URL;
 const port = Number(process.env.DEMO_PORT) || 5173;
 
+// Backend-free library showcase — no API proxy, no server needed.
 export default defineConfig({
   plugins: [vue()],
   server: {
     port,
-    proxy: apiBaseUrl
-      ? undefined
-      : {
-          // Better Auth + all API routes live under /api/*. Do NOT proxy bare
-          // /auth/* — those are frontend SPA routes (e.g. the OAuth
-          // newUser/error callback targets); proxying them to the backend 404s.
-          '/api': {
-            target: 'http://localhost:3001',
-            changeOrigin: true,
-          },
-        },
   },
   resolve: {
     dedupe: ['vue', 'yjs'],
