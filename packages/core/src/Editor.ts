@@ -14,6 +14,7 @@ import {
 } from './Collaboration.js'
 import { BlockAttributesExtension } from './BlockAttributes.js'
 import { EditorContextExtension } from './EditorContext.js'
+import { SearchAndReplaceExtension } from './SearchAndReplace.js'
 import type { ImageUploadHandler } from './ports.js'
 import { PaginationPlus, type PaginationPlusOptions } from 'tiptap-pagination-plus'
 
@@ -182,6 +183,8 @@ function createTiptapEditor(
     // Always present — carries host-injected ports (onImageUpload, …) in storage
     // so plugin commands can reach them through the editor instance.
     EditorContextExtension.configure({ onImageUpload: options.onImageUpload }),
+    // Always present — find & replace decorations + state (core editing infra).
+    SearchAndReplaceExtension,
     ...pluginExtensions,
   ]
   const content = options.collaboration ? undefined : options.content
