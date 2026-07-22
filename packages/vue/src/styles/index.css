@@ -774,19 +774,39 @@
     color: #334155 !important;
   }
 
-  /* ── PaginationPlus — hide empty spacers, keep actual content ─────── */
+  /* ── PaginationPlus — preserve on-screen page breaks in print ──────── */
   @page {
     size: A4;
     margin: 20mm;
   }
 
   [data-rm-pagination] {
-    display: none !important;
+    display: block !important;
+    width: 100% !important;
+  }
+
+  /* Each editor page becomes a printed page. The .page spacer is empty and
+     only exists to hold the on-screen page height; hide it for print so the
+     content flows naturally and page-break-after forces a new page. */
+  .rm-page-break {
+    display: block !important;
+    page-break-after: always !important;
+  }
+
+  .rm-page-break:last-child {
+    page-break-after: auto !important;
   }
 
   .rm-page-break > .page,
   .rm-page-break > .breaker,
+  .rm-pagination-gap,
   .rm-first-page-header {
+    display: none !important;
+  }
+
+  /* Page headers/footers are editor chrome; hide for print */
+  .rm-page-header,
+  .rm-page-footer {
     display: none !important;
   }
 
