@@ -165,6 +165,8 @@ const menus = computed<Record<string, { label: string; items: MenuItem[] }>>(() 
       { label: t('header.table'), action: 'insert-table' },
       { label: t('header.codeBlock'), action: 'insert-code' },
       { label: 'divider', divider: true },
+      { label: t('header.link'), action: 'insert-link', shortcut: '⌘K' },
+      { label: 'divider', divider: true },
       { label: t('header.header'), action: 'insert-header' },
       { label: t('header.footer'), action: 'insert-footer' },
       { label: t('header.footnote'), action: 'insert-footnote' },

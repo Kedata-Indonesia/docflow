@@ -16,6 +16,7 @@ import TOCSidebar from './sidebars/TOCSidebar.vue'
 import DetailsDialog from './DetailsDialog.vue'
 import EmailDialog from './EmailDialog.vue'
 import FindReplaceDialog from './FindReplaceDialog.vue'
+import LinkDialog from './LinkDialog.vue'
 import { Menu } from 'lucide-vue-next'
 import { useTheme } from '../composables/useTheme.js'
 import { provideLocale, type Locale } from '../composables/useLocale.js'
@@ -391,6 +392,14 @@ watch(isReady, (ready) => {
         }
       }, delay)
     })
+
+    // Register ⌘K to open the link dialog (Google Docs shortcut).
+    editor.value.view.dom.addEventListener('keydown', (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        openLinkDialog()
+      }
+    })
   }
 })
 
@@ -410,6 +419,81 @@ const showPageSetupModal = ref(false)
 const showDetailsModal = ref(false)
 const showEmailModal = ref(false)
 const showFindReplace = ref(false)
+const showLinkDialog = ref(false)
+const linkDialogInitialText = ref('')
+const linkDialogInitialUrl = ref('')
+const linkDialogIsEditing = ref(false)
+
+function openLinkDialog() {
+  if (!editor.value) return
+  const { state } = editor.value
+  const { from, to, empty } = state.selection
+  const attrs = editor.value.getAttributes('link')
+
+  if (attrs.href) {
+    linkDialogIsEditing.value = true
+    linkDialogInitialUrl.value = attrs.href
+    if (!empty) {
+      linkDialogInitialText.value = state.doc.textBetween(from, to, ' ')
+    } else {
+      linkDialogInitialText.value = ''
+    }
+  } else {
+    linkDialogIsEditing.value = false
+    linkDialogInitialUrl.value = 'https://'
+    linkDialogInitialText.value = empty ? '' : state.doc.textBetween(from, to, ' ')
+  }
+
+  showLinkDialog.value = true
+}
+
+function applyLinkDialog(payload: { text: string; url: string }) {
+  if (!editor.value) return
+  const { state } = editor.value
+  const { from, to, empty } = state.selection
+  const displayText = payload.text.trim()
+
+  const chain = editor.value.chain().focus() as unknown as {
+    setLink: (attrs: { href: string; target: string }) => { run: () => boolean }
+    unsetLink: () => { run: () => boolean }
+    insertContentAt: (range: { from: number; to: number }, content: unknown) => { run: () => boolean }
+    insertContent: (content: unknown) => { run: () => boolean }
+  }
+
+  if (linkDialogIsEditing.value || editor.value.isActive('link')) {
+    // Update existing link
+    chain.setLink({ href: payload.url, target: '_blank' }).run()
+    if (displayText && !empty) {
+      chain.insertContentAt({ from, to }, displayText).run()
+    }
+  } else if (displayText) {
+    // Replace selection with linked text
+    chain.insertContentAt({ from, to }, {
+      type: 'text',
+      text: displayText,
+      marks: [{ type: 'link', attrs: { href: payload.url, target: '_blank' } }],
+    }).run()
+  } else if (!empty) {
+    // Apply link to current selection
+    chain.setLink({ href: payload.url, target: '_blank' }).run()
+  } else {
+    // Insert link with URL as text
+    chain.insertContent({
+      type: 'text',
+      text: payload.url,
+      marks: [{ type: 'link', attrs: { href: payload.url, target: '_blank' } }],
+    }).run()
+  }
+
+  showLinkDialog.value = false
+}
+
+function removeLink() {
+  if (!editor.value) return
+  const chain = editor.value.chain().focus() as unknown as { unsetLink: () => { run: () => boolean } }
+  chain.unsetLink().run()
+  showLinkDialog.value = false
+}
 const pageSetupSize = ref(pageSizeId.value)
 const pageSetupOrientation = ref(orientation.value)
 const pageSetupMargins = ref({ ...margins.value })
@@ -650,6 +734,8 @@ let menuClick = (action: string) => {
     showEmailModal.value = true
   } else if (action === 'find-replace') {
     showFindReplace.value = true
+  } else if (action === 'insert-link') {
+    openLinkDialog()
   } else if (action === 'security') {
     emit('share')
   } else if (action === 'insert-header' || action === 'insert-footer') {
@@ -1034,6 +1120,17 @@ watch(isReady, (ready) => {
 
     <!-- Dialog Details -->
     <DetailsDialog :is-open="showDetailsModal" :meta="props.documentMeta" @close="showDetailsModal = false" />
+
+    <!-- Dialog Link -->
+    <LinkDialog
+      :is-open="showLinkDialog"
+      :initial-text="linkDialogInitialText"
+      :initial-url="linkDialogInitialUrl"
+      :is-editing="linkDialogIsEditing"
+      @apply="applyLinkDialog"
+      @remove="removeLink"
+      @close="showLinkDialog = false"
+    />
 
     <!-- Dialog Page Setup -->
     <div v-if="showPageSetupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm px-4">
