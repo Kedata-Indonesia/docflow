@@ -4,7 +4,7 @@ import type { Editor } from '@tiptap/core'
 
 export const linkPlugin = definePlugin({
   id: 'link',
-  tiptapExtensions: [Link.configure({ openOnClick: false })],
+  tiptapExtensions: [Link.configure({ openOnClick: true })],
   toolbar: [
     { id: 'set-link', label: 'Link', action: 'setLink', iconComponent: 'Link' },
   ],
