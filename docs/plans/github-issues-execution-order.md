@@ -1,9 +1,9 @@
 # Docflow GitHub Issues — Execution Order & Dependencies
-
+ 
 **Purpose:** This document provides the recommended execution order for all open GitHub issues, based on technical dependencies and product priorities. Use this as a reference for sprint planning and developer assignment.
 
 **Status:** draft for team review; not committed to code.  
-**Last updated:** 2026-07-19
+**Last updated:** 2026-07-21
 
 ---
 
@@ -121,14 +121,14 @@
 
 **Goal:** Establish architecture boundary and deliver quick wins to show progress.
 
-| Order | Issue | Rationale |
-|-------|-------|-----------|
-| 1 | #33 Phase 0: Boundary Contract | Foundational for all other phases. No runtime changes, just docs + tooling. |
-| 2 | #27 Quick Wins Bundle | Good first issue. Delivers visible value quickly. |
-| 3 | #34 Phase 1: Collab Persistence | Already in progress. Core landed, needs completion. |
-| 4 | #35 Phase 2: Library Injection Points | Depends on Phase 0. Needed for Phase 3, 4, 5, 6, 7. |
+| Order | Issue | Status | Rationale |
+|-------|-------|--------|-----------|
+| 1 | #33 Phase 0: Boundary Contract | ✅ **Done** | Foundational for all other phases. No runtime changes, just docs + tooling. |
+| 2 | #27 Quick Wins Bundle | ✅ **Done** | Good first issue. Delivers visible value quickly. |
+| 3 | #34 Phase 1: Collab Persistence | ✅ **Done** | Already in progress. Core landed, needs completion. |
+| 4 | #35 Phase 2: Library Injection Points | ✅ **Done** | Depends on Phase 0. Needed for Phase 3, 4, 5, 6, 7. |
 
-**Deliverable:** Architecture boundary documented, quick wins shipped, Phase 1 & 2 complete.
+**Deliverable:** Architecture boundary documented ✅, quick wins shipped ✅, Phase 1 & 2 complete ✅.
 
 ---
 
@@ -136,13 +136,13 @@
 
 **Goal:** Complete core editing features and split product from library showcase.
 
-| Order | Issue | Rationale |
-|-------|-------|-----------|
-| 5 | #25 EM-1 Basic Editing Operations | Core editing features. No dependencies. |
-| 6 | #26 EM-2 Find and Replace | Core editing feature. No dependencies. |
-| 7 | #36 Phase 3: apps/web Split | Depends on Phase 1 & 2. Critical for production. |
+| Order | Issue | Status | Rationale |
+|-------|-------|--------|-----------|
+| 5 | #25 EM-1 Basic Editing Operations | ✅ **Done** | Core editing features. No dependencies. |
+| 6 | #26 EM-2 Find and Replace | ✅ **Done** | Core editing feature. No dependencies. |
+| 7 | #36 Phase 3: apps/web Split | ✅ **Done** | Depends on Phase 1 & 2. Critical for production. |
 
-**Deliverable:** Full Edit menu, apps/web split complete.
+**Deliverable:** Full Edit menu ✅, apps/web split complete ✅.
 
 ---
 
@@ -150,14 +150,14 @@
 
 **Goal:** Add infrastructure and advanced features.
 
-| Order | Issue | Rationale |
-|-------|-------|-----------|
-| 8 | #28 Clipboard Operations | Core editing feature. No dependencies. |
-| 9 | #29 Link Insertion | Core editing feature. No dependencies. |
-| 10 | #37 Phase 4: Assets & Storage | Needs Phase 2, wiring needs Phase 3. |
-| 11 | #38 Phase 5: Export Library Extraction | Substantially implemented, needs Phase 2 for images. |
+| Order | Issue | Status | Rationale |
+|-------|-------|--------|-----------|
+| 8 | #28 Clipboard Operations | ✅ **Done** | Implemented in PR #49 (Edit menu full) and refined in PR #51 (Google Docs paste compatibility). |
+| 9 | #29 Link Insertion | ✅ **Done** | Next up in this sprint. Core editing feature. No dependencies. |
+| 10 | #37 Phase 4: Assets & Storage | ✅ **Done** | Merged in PR #48 (self-hosted S3/MinIO + GridFS). |
+| 11 | #38 Phase 5: Export Library Extraction | 🟡 **Partial** | Client-side export (DOCX, PDF, HTML, MD, TXT, ODT, RTF, ZIP) already works in `apps/web` via `export.ts`. Full "library extraction" to a reusable package (Phase 5 plan) still open. |
 
-**Deliverable:** Clipboard, Link, Assets & Storage, Export library.
+**Deliverable:** Clipboard ✅, Link 🔄, Assets & Storage ✅, Export library 🟡.
 
 ---
 
