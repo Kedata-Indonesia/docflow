@@ -282,12 +282,21 @@
 
 /* ── Tables ─────────────────────────────────────────────────────────── */
 
+.rm-with-pagination table,
 .ProseMirror table {
-  border-collapse: collapse;
+  border-collapse: collapse !important;
   margin: 0.5rem 0 !important;
-  overflow: hidden;
-  table-layout: fixed;
+  overflow: visible;
+  table-layout: fixed !important;
   width: 100%;
+  display: table !important;
+}
+
+.rm-with-pagination table tbody,
+.ProseMirror table tbody {
+  display: table-row-group !important;
+  max-height: none !important;
+  overflow: visible !important;
 }
 
 .ProseMirror td,
@@ -324,13 +333,23 @@
   z-index: 2;
 }
 
-.ProseMirror .column-resize-handle {
-  background-color: #22d3ee;
-  bottom: -2px;
-  position: absolute;
-  right: -2px;
-  top: 0;
-  width: 4px;
+.ProseMirror td.col-resize-active,
+.ProseMirror th.col-resize-active {
+  position: relative !important;
+}
+
+.ProseMirror td.col-resize-active::after,
+.ProseMirror th.col-resize-active::after {
+  content: '' !important;
+  position: absolute !important;
+  top: 0 !important;
+  right: -2px !important;
+  bottom: 0 !important;
+  width: 4px !important;
+  background-color: #06b6d4 !important;
+  box-shadow: 0 0 8px rgba(6, 182, 212, 0.9) !important;
+  z-index: 100 !important;
+  pointer-events: none !important;
 }
 
 .ProseMirror.resize-cursor {
@@ -349,6 +368,34 @@
 
 .ProseMirror .tableWrapper {
   overflow-x: auto;
+  width: 100%;
+}
+
+/* Invisible 8px zone at right edge of each cell — shows col-resize cursor */
+.ProseMirror td::after, .ProseMirror th::after {
+  content: '';
+  display: block;
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 8px;
+  cursor: col-resize;
+  pointer-events: auto;
+  z-index: 10;
+}
+/* Invisible 8px zone at left edge of each cell — shows col-resize cursor */
+.ProseMirror td:not(:first-child)::before, .ProseMirror th:not(:first-child)::before {
+  content: '';
+  display: block;
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 8px;
+  cursor: col-resize;
+  pointer-events: auto;
+  z-index: 10;
 }
 
 /* The colored caret line */
