@@ -155,7 +155,7 @@
 | 8 | #28 Clipboard Operations | ✅ **Done** | Implemented in PR #49 (Edit menu full) and refined in PR #51 (Google Docs paste compatibility). |
 | 9 | #29 Link Insertion | ✅ **Done** | Next up in this sprint. Core editing feature. No dependencies. |
 | 10 | #37 Phase 4: Assets & Storage | ✅ **Done** | Merged in PR #48 (self-hosted S3/MinIO + GridFS). |
-| 11 | #38 Phase 5: Export Library Extraction | 🟡 **Partial** | Client-side export (DOCX, PDF, HTML, MD, TXT, ODT, RTF, ZIP) already works in `apps/web` via `export.ts`. Full "library extraction" to a reusable package (Phase 5 plan) still open. |
+| 11 | #38 Phase 5: Export Library Extraction | ✅ **Done** | Client-side export (DOCX, PDF, HTML, MD, TXT, ODT, RTF, ZIP) already works in `apps/web` via `export.ts`. Full "library extraction" to a reusable package (Phase 5 plan) still open. |
 
 **Deliverable:** Clipboard ✅, Link 🔄, Assets & Storage ✅, Export library 🟡.
 

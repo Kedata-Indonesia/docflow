@@ -8,6 +8,7 @@ allowBuilds:
   leveldown: false
   mongodb-memory-server: true
   protobufjs: false
+  puppeteer: true
 
 overrides:
   prosemirror-model: 1.25.11
