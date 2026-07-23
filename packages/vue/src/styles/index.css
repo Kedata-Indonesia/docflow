@@ -582,6 +582,95 @@
   color: #64748b;
 }
 
+/* ── Citations & Bibliography (Phase 6) ───────────────────────────────── */
+
+/* Inline citation — derived text, subtle chip like Zotero/Google Docs fields */
+.docs-citation {
+  display: inline;
+  border-radius: 3px;
+  padding: 0 1px;
+  background: rgba(37, 99, 235, 0.08);
+  cursor: default;
+  transition: background 0.1s;
+}
+
+.ProseMirror-selectednode .docs-citation,
+.docs-citation:hover {
+  background: rgba(37, 99, 235, 0.18);
+}
+
+/* Citation whose source is missing from the injected sources */
+.docs-citation--missing {
+  color: #b45309;
+  background: rgba(217, 119, 6, 0.12);
+  font-weight: 600;
+}
+
+/* Citation-backed footnote body — derived, read-only */
+.docs-footnote-item-text--citation {
+  cursor: default;
+  color: #334155;
+}
+
+/* Bibliography block */
+.docs-bibliography {
+  margin: 1.5em 0;
+  padding-top: 0.5em;
+  border-top: 1px solid #e2e8f0;
+}
+
+.docs-bibliography__heading {
+  font-size: 1.1em;
+  font-weight: 700;
+  margin: 0 0 0.5em;
+  color: #0f172a;
+}
+
+.docs-bibliography__empty {
+  color: #94a3b8;
+  font-style: italic;
+  margin: 0;
+}
+
+/* Standard bibliography hanging indent */
+.docs-bibliography__entry {
+  margin: 0 0 0.4em;
+  padding-left: 2.5em;
+  text-indent: -2.5em;
+  line-height: 1.6;
+  overflow-wrap: break-word;
+}
+
+.dark .docs-citation {
+  background: rgba(96, 165, 250, 0.14);
+}
+
+.dark .ProseMirror-selectednode .docs-citation,
+.dark .docs-citation:hover {
+  background: rgba(96, 165, 250, 0.26);
+}
+
+.dark .docs-citation--missing {
+  color: #fbbf24;
+  background: rgba(217, 119, 6, 0.2);
+}
+
+.dark .docs-footnote-item-text--citation {
+  color: #cbd5e1;
+}
+
+.dark .docs-bibliography {
+  border-top-color: #334155;
+}
+
+.dark .docs-bibliography__heading {
+  color: #f1f5f9;
+}
+
+.dark .docs-bibliography__empty {
+  color: #64748b;
+}
+
 /* Print page setup — standard document margins */
 @page {
   margin: 20mm;
