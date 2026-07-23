@@ -158,5 +158,45 @@ describe('DocsEditor', () => {
 
     wrapper.unmount()
   })
+
+  it('toggles pageless mode without touching document content', async () => {
+    const wrapper = mount(DocsEditor, {
+      props: { plugins: defaultPlugins },
+    })
+    await new Promise((resolve) => setTimeout(resolve, 50))
+
+    const vm = wrapper.vm as unknown as {
+      editor?: {
+        commands: { focus: () => void; insertContent: (content: string) => void }
+        getJSON: () => object
+        storage: { PaginationPlus?: { enabled: boolean } }
+      }
+      menuClick: (id: string) => void
+    }
+    vm.editor?.commands.focus()
+    vm.editor?.commands.insertContent('<p>Pageless content</p>')
+    await new Promise((resolve) => setTimeout(resolve, 100))
+
+    const contentBefore = JSON.stringify(vm.editor?.getJSON() ?? {})
+    expect(vm.editor?.storage.PaginationPlus?.enabled).toBe(true)
+
+    // Switch to pageless — pagination extension disabled, content untouched.
+    vm.menuClick('toggle-pageless')
+    await new Promise((resolve) => setTimeout(resolve, 150))
+
+    expect(wrapper.emitted('update:pageless')?.[0]).toEqual([true])
+    expect(vm.editor?.storage.PaginationPlus?.enabled).toBe(false)
+    expect(JSON.stringify(vm.editor?.getJSON() ?? {})).toBe(contentBefore)
+
+    // Switch back to paginated — same guarantees in reverse.
+    vm.menuClick('toggle-pageless')
+    await new Promise((resolve) => setTimeout(resolve, 150))
+
+    expect(wrapper.emitted('update:pageless')?.[1]).toEqual([false])
+    expect(vm.editor?.storage.PaginationPlus?.enabled).toBe(true)
+    expect(JSON.stringify(vm.editor?.getJSON() ?? {})).toBe(contentBefore)
+
+    wrapper.unmount()
+  })
 })
 

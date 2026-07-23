@@ -18,6 +18,7 @@ const props = withDefaults(
     currentPage?: number
     pageSize?: string
     pageSizes?: PageSize[]
+    pageless?: boolean
   }>(),
   {
     connectionState: 'connected',
@@ -29,6 +30,7 @@ const props = withDefaults(
     currentPage: 1,
     pageSize: 'a4',
     pageSizes: () => [],
+    pageless: false,
   },
 )
 
@@ -105,7 +107,11 @@ const currentSizeName = computed(() => {
 
       <span class="text-slate-200 dark:text-white/10">•</span>
 
-      <span>
+      <!-- Pageless mode has no page concept — say so instead of "Page 1 of 1". -->
+      <span v-if="pageless" class="font-medium text-slate-500 dark:text-slate-400">
+        {{ t('statusBar.pageless') }}
+      </span>
+      <span v-else>
         {{ t('statusBar.page') }}
         <strong class="font-mono text-slate-600 dark:text-slate-300">{{ currentPage }}</strong>
         {{ t('statusBar.of') }}

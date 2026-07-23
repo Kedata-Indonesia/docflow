@@ -31,6 +31,7 @@ const props = withDefaults(
     editable?: boolean
     collaboration?: NonNullable<EditorOptions['collaboration']>
     pageSize?: string
+    pageless?: boolean
     title?: string
     collaborators?: Collaborator[]
     starred?: boolean
@@ -48,6 +49,7 @@ const props = withDefaults(
     plugins: () => [],
     collaboration: undefined,
     pageSize: 'a4',
+    pageless: false,
     title: 'Untitled Document',
     collaborators: () => [],
     starred: false,
@@ -65,6 +67,7 @@ const emit = defineEmits<{
   'update:modelValue': [value: object]
   'update:title': [title: string]
   'update:pageSize': [pageSize: string]
+  'update:pageless': [pageless: boolean]
   'update:pageCount': [pageCount: number]
   'update:locale': [locale: Locale]
   'toggle-star': []
@@ -97,7 +100,7 @@ const margins = ref({ top: 72, bottom: 72, left: 90, right: 90 })
 const orientation = ref<'portrait' | 'landscape'>('portrait')
 
 const pageSizeId = ref(props.pageSize ?? 'a4')
-const isPageless = ref(false)
+const isPageless = ref(props.pageless ?? false)
 
 const resolvedLayoutOptions = computed(() => {
   const size = getPageSize(pageSizeId.value) ?? PAGE_SIZES[0]
@@ -106,7 +109,6 @@ const resolvedLayoutOptions = computed(() => {
   if (orientation.value === 'landscape') {
     ;[w, h] = [h, w]
   }
-  if (isPageless.value) h = 9_999_999
   return { pageHeight: h, pageWidth: w, margins: { ...margins.value } }
 })
 
@@ -327,6 +329,37 @@ watch(resolvedLayoutOptions, (newOptions) => {
   
   updatePageStats()
 })
+
+/**
+ * Switch between paginated (paper) and pageless (continuous) layout.
+ * Pageless is view state, not document content: we only flip the pagination
+ * extension's runtime `enabled` flag — the ProseMirror document is never
+ * touched, so switching back and forth preserves content exactly and is
+ * safe in collaborative sessions (nothing flows into Yjs).
+ */
+const applyPageless = (next: boolean) => {
+  if (next === isPageless.value) return
+  isPageless.value = next
+  emit('update:pageless', next)
+  if (!editor.value) return
+  if (next) {
+    editor.value.commands.disablePagination()
+  } else {
+    editor.value.commands.enablePagination()
+  }
+  // Page-break decorations are rebuilt asynchronously by the pagination
+  // plugin's view hook — refresh derived stats and footnotes after the
+  // DOM settles.
+  setTimeout(() => {
+    updatePageStats()
+    updateFootnotes()
+  }, 60)
+}
+
+watch(
+  () => props.pageless,
+  (next) => applyPageless(next ?? false),
+)
 
 // Header & footer refs are defined above to support initialization from props
 
@@ -740,6 +773,8 @@ let menuClick = (action: string) => {
     emit('share')
   } else if (action === 'insert-header' || action === 'insert-footer') {
     openHeaderFooterModal()
+  } else if (action === 'toggle-pageless') {
+    applyPageless(!isPageless.value)
   } else if (action === 'insert-footnote') {
     // Use ProseMirror's transaction API directly — more reliable than chain()
     // because chain().focus() can fail when focus has left the editor via menu click.
@@ -1003,6 +1038,7 @@ watch(isReady, (ready) => {
   <div class="docs-editor flex h-screen w-full flex-col overflow-hidden bg-slate-50 transition-colors dark:bg-[#02040a]">
     <HeaderBar
 :title="title" :editable="editable" :collaborators="collaborators" :starred="starred" :user-name="userName" :user-avatar="userAvatar"
+      :pageless="isPageless"
       @menu-click="menuClick" @back="$emit('back')" @update:title="$emit('update:title', $event)" @toggle-star="$emit('toggle-star')"
       @export="$emit('export', $event)" @share="$emit('share')"><template #actions><slot name="header-actions" /></template><template #overflow-actions="slotProps"><slot name="overflow-actions" v-bind="slotProps" /></template><template #user-menu="slotProps"><slot name="user-menu" v-bind="slotProps" /></template></HeaderBar>
     <EditorToolbar
@@ -1048,7 +1084,7 @@ watch(isReady, (ready) => {
     <StatusBar
 :connection-state="connectionState" :saving-status="savingStatus" :last-saved="lastSaved"
       :word-count="wordCount" :char-count="charCount" :page-count="pageCount" :current-page="currentPage"
-      :page-size="pageSizeId" :page-sizes="PAGE_SIZES"
+      :page-size="pageSizeId" :page-sizes="PAGE_SIZES" :pageless="isPageless"
       @update:page-size="pageSizeId = $event; emit('update:pageSize', $event)" />
 
     <!-- Dialog Header & Footer Customization -->
