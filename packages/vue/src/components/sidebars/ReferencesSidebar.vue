@@ -9,6 +9,9 @@ import {
   Trash2,
   Quote,
   ChevronLeft,
+  ChevronDown,
+  Globe,
+  FileUp,
 } from 'lucide-vue-next'
 import type { CslItemData, CslName } from '@kedata-indonesia/docflow-core'
 import { useLocale } from '../../composables/useLocale.js'
@@ -32,6 +35,12 @@ const props = withDefaults(
     /** Highlight the "Cite" action — used while an insert-citation request is pending. */
     pickerMode?: boolean
     availableStyles?: ReferenceStyleOption[]
+    /** Show the import section (host implements the import ports, Phase 6C). */
+    canImport?: boolean
+    /** An import is in flight — disable the import actions. */
+    importing?: boolean
+    /** Host-provided import result message (success or error). */
+    importMessage?: string
   }>(),
   {
     pickerMode: false,
@@ -41,6 +50,9 @@ const props = withDefaults(
       { id: 'apa', name: 'APA' },
       { id: 'modern-language-association', name: 'MLA' },
     ],
+    canImport: false,
+    importing: false,
+    importMessage: '',
   },
 )
 
@@ -51,6 +63,8 @@ const emit = defineEmits<{
   update: [source: CslItemData]
   remove: [id: string]
   'update:style': [styleId: string]
+  'import-doi': [doi: string]
+  'import-bibliography': [payload: { format: 'bibtex' | 'ris'; text: string }]
 }>()
 
 const { t } = useLocale()
@@ -227,6 +241,34 @@ function handleRemove(source: CslItemData) {
     emit('remove', source.id)
   }
 }
+
+// ─── Import (Phase 6C) ──────────────────────────────────────────────────────
+
+const importOpen = ref(false)
+const doiInput = ref('')
+const bibFileInput = ref<HTMLInputElement | null>(null)
+
+function submitDoiImport() {
+  const doi = doiInput.value.trim()
+  if (!doi || props.importing) return
+  emit('import-doi', doi)
+  doiInput.value = ''
+}
+
+function pickBibFile() {
+  if (props.importing) return
+  bibFileInput.value?.click()
+}
+
+async function handleBibFileChange(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = '' // allow re-picking the same file
+  if (!file) return
+  const format = /\.ris$/i.test(file.name) ? 'ris' : 'bibtex'
+  const text = await file.text()
+  emit('import-bibliography', { format, text })
+}
 </script>
 
 <template>
@@ -364,6 +406,74 @@ function handleRemove(source: CslItemData) {
               </button>
             </div>
           </div>
+        </div>
+      </div>
+
+      <!-- Import (Phase 6C) — collapsible footer; only when the host
+           implements the import ports -->
+      <div v-if="canImport" class="border-t border-slate-200 dark:border-white/5">
+        <button
+          type="button"
+          class="flex w-full items-center justify-between px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest text-slate-400 transition-colors hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
+          @click="importOpen = !importOpen"
+        >
+          <span>{{ t('sidebars.references.import.title') }}</span>
+          <ChevronDown class="h-3.5 w-3.5 transition-transform" :class="importOpen ? 'rotate-180' : ''" />
+        </button>
+
+        <div v-if="importOpen" class="space-y-3 px-4 pb-4">
+          <!-- DOI -->
+          <div>
+            <label class="mb-1 block text-[10px] font-semibold text-slate-500 dark:text-slate-400">
+              {{ t('sidebars.references.import.fromDoi') }}
+            </label>
+            <div class="flex items-center gap-1.5">
+              <input
+                v-model="doiInput"
+                type="text"
+                :placeholder="t('sidebars.references.import.doiPlaceholder')"
+                class="min-w-0 flex-1 rounded-lg border border-slate-200/80 bg-slate-50 px-2.5 py-1.5 text-xs dark:border-white/10 dark:bg-slate-900/40 dark:text-slate-200"
+                @keydown.enter="submitDoiImport"
+              >
+              <button
+                type="button"
+                :disabled="importing || !doiInput.trim()"
+                class="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-blue-600 text-white transition-colors hover:bg-blue-700 disabled:opacity-40"
+                :title="t('sidebars.references.import.importDoi')"
+                @click="submitDoiImport"
+              >
+                <Globe class="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
+
+          <!-- BibTeX / RIS file -->
+          <div>
+            <label class="mb-1 block text-[10px] font-semibold text-slate-500 dark:text-slate-400">
+              {{ t('sidebars.references.import.fromFile') }}
+            </label>
+            <button
+              type="button"
+              :disabled="importing"
+              class="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-slate-300 px-3 py-2 text-[11px] font-semibold text-slate-500 transition-colors hover:border-blue-400 hover:text-blue-600 disabled:opacity-40 dark:border-white/15 dark:text-slate-400 dark:hover:border-blue-500 dark:hover:text-blue-400"
+              @click="pickBibFile"
+            >
+              <FileUp class="h-3.5 w-3.5" />
+              {{ importing ? t('sidebars.references.import.importing') : t('sidebars.references.import.pickFile') }}
+            </button>
+            <input
+              ref="bibFileInput"
+              type="file"
+              accept=".bib,.ris,application/x-bibtex,text/plain"
+              class="hidden"
+              @change="handleBibFileChange"
+            >
+          </div>
+
+          <!-- Result message -->
+          <p v-if="importMessage" class="text-[10px] leading-relaxed text-slate-500 dark:text-slate-400">
+            {{ importMessage }}
+          </p>
         </div>
       </div>
     </template>

@@ -338,6 +338,67 @@ watch(activeSidebar, (key, prev) => {
   if (prev === 'references' && key !== 'references') resolvePendingSource(null)
 })
 
+// ─── Importers (Phase 6C) ────────────────────────────────────────────────────
+// The library never calls CrossRef or parses files itself — the host's import
+// ports (CitationPort.onImportDoi / onImportBibliography) do that and return
+// persisted sources; we just merge them into the live list and re-render.
+
+const importBusy = ref(false)
+const importMessage = ref('')
+const canImportSources = computed(() =>
+  Boolean(props.citation?.onImportDoi || props.citation?.onImportBibliography),
+)
+
+const handleImportDoi = async (doi: string) => {
+  const port = props.citation
+  if (!port?.onImportDoi || importBusy.value) return
+  importBusy.value = true
+  importMessage.value = ''
+  try {
+    const source = await port.onImportDoi(doi)
+    if (!source) {
+      importMessage.value = t('sidebars.references.import.doiFailed')
+      return
+    }
+    const exists = citationSources.value.some((s) => s.id === source.id)
+    citationSources.value = exists
+      ? citationSources.value.map((s) => (s.id === source.id ? source : s))
+      : [...citationSources.value, source]
+    syncCitationEngine()
+    importMessage.value = t('sidebars.references.import.doiSuccess')
+  } catch {
+    importMessage.value = t('sidebars.references.import.doiFailed')
+  } finally {
+    importBusy.value = false
+  }
+}
+
+const handleImportBibliography = async (payload: { format: 'bibtex' | 'ris'; text: string }) => {
+  const port = props.citation
+  if (!port?.onImportBibliography || importBusy.value) return
+  importBusy.value = true
+  importMessage.value = ''
+  try {
+    const { imported, failed } = await port.onImportBibliography(payload)
+    if (imported.length > 0) {
+      const byId = new Map(citationSources.value.map((s) => [s.id, s]))
+      for (const s of imported) byId.set(s.id, s)
+      citationSources.value = [...byId.values()]
+      syncCitationEngine()
+    }
+    importMessage.value =
+      failed > 0
+        ? t('sidebars.references.import.partial')
+            .replace('{ok}', String(imported.length))
+            .replace('{failed}', String(failed))
+        : t('sidebars.references.import.batchSuccess').replace('{count}', String(imported.length))
+  } catch {
+    importMessage.value = t('sidebars.references.import.failed')
+  } finally {
+    importBusy.value = false
+  }
+}
+
 const updateCounts = () => {
   const text = editor.value?.getText() ?? ''
   charCount.value = text.length
@@ -1212,12 +1273,17 @@ watch(isReady, (ready) => {
         :sources="citationSources"
         :active-style="citationStyleId"
         :picker-mode="pendingSourceRequest"
+        :can-import="canImportSources"
+        :importing="importBusy"
+        :import-message="importMessage"
         @close="activeSidebar = null"
         @insert="handleReferenceInsert"
         @create="handleSourceCreate"
         @update="handleSourceUpdate"
         @remove="handleSourceRemove"
         @update:style="handleCitationStyleChange"
+        @import-doi="handleImportDoi"
+        @import-bibliography="handleImportBibliography"
       />
     </div>
     <StatusBar
