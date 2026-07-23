@@ -79,4 +79,19 @@ export interface CitationPort {
    * its embedded per-document source snapshot.
    */
   onSourcesChange?: (ids: string[]) => void
+  /**
+   * Optional importer (Phase 6C-2): resolve a DOI/URL into a new persisted
+   * source via the host's backend (CrossRef lookup). Returns the created
+   * (or deduplicated) source, null on failure.
+   */
+  onImportDoi?: (doi: string) => Promise<CslItemData | null>
+  /**
+   * Optional importer (Phase 6C-3): parse + persist a BibTeX/RIS document
+   * via the host's backend. Returns the imported sources and how many
+   * entries failed.
+   */
+  onImportBibliography?: (payload: {
+    format: 'bibtex' | 'ris'
+    text: string
+  }) => Promise<{ imported: CslItemData[]; failed: number }>
 }
