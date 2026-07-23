@@ -16,7 +16,7 @@ import {
 import { BlockAttributesExtension } from './BlockAttributes.js'
 import { EditorContextExtension } from './EditorContext.js'
 import { SearchAndReplaceExtension } from './SearchAndReplace.js'
-import type { ImageUploadHandler } from './ports.js'
+import type { ImageUploadHandler, CitationPort } from './ports.js'
 import { PaginationPlus, type PaginationPlusOptions } from 'tiptap-pagination-plus'
 
 /**
@@ -115,6 +115,8 @@ export interface EditorOptions {
   paginationOptions?: PaginationPlusOptions
   /** Host-injected image upload port (see docs/LIBRARY_CONTRACT.md). */
   onImageUpload?: ImageUploadHandler
+  /** Host-injected citation port (Phase 6 — reference library + CSL styles). */
+  citation?: CitationPort
 }
 
 export interface DocsEditor {
@@ -621,9 +623,12 @@ function createTiptapEditor(
     TextStyle,
     blockAttrs,
     paginationExt,
-    // Always present — carries host-injected ports (onImageUpload, …) in storage
-    // so plugin commands can reach them through the editor instance.
-    EditorContextExtension.configure({ onImageUpload: options.onImageUpload }),
+    // Always present — carries host-injected ports (onImageUpload, citation, …)
+    // in storage so plugin commands can reach them through the editor instance.
+    EditorContextExtension.configure({
+      onImageUpload: options.onImageUpload,
+      citation: options.citation,
+    }),
     // Always present — find & replace decorations + state (core editing infra).
     SearchAndReplaceExtension,
     ...pluginExtensions,
