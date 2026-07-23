@@ -16,7 +16,7 @@ export {
   type SearchMatch,
   type SearchState,
 } from './SearchAndReplace.js'
-export type { ImageUploadHandler, ImageUploadResult } from './ports.js'
+export type { ImageUploadHandler, ImageUploadResult, CitationPort, CslItemData, CslName, CslDate } from './ports.js'
 export { PaginationPlus, type PaginationPlusOptions, PAGE_SIZES, type PageSize } from 'tiptap-pagination-plus'
 export {
   definePlugin,

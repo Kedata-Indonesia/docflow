@@ -38,7 +38,7 @@ export interface DocumentSnapshot {
   timestamp: number
 }
 
-export type SidebarKey = 'comments' | 'history' | 'ai' | 'toc'
+export type SidebarKey = 'comments' | 'history' | 'ai' | 'toc' | 'references'
 export type ConnectionState = 'connected' | 'connecting' | 'disconnected'
 export type SavingStatus = 'saved' | 'saving' | 'offline'
 
