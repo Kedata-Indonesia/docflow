@@ -30,6 +30,7 @@ import {
   History,
   Sparkles,
   FileText,
+  BookOpen,
   Undo2,
   Redo2,
   Printer,
@@ -337,6 +338,9 @@ onUnmounted(() => document.removeEventListener('click', closeDropdowns, true))
 function sidebarClass(key: SidebarKey) {
   return props.activeSidebar === key ? sidebarActiveClass : sidebarInactiveClass
 }
+
+// The references sidebar is only meaningful when the citation plugin is loaded.
+const hasCitationPlugin = computed(() => props.plugins?.some((p) => p.id === 'citation') ?? false)
 
 function handleUndo() {
   if (props.editor) {
@@ -853,6 +857,16 @@ function handleFontSize(delta: number) {
         @click="emit('toggle-sidebar', 'toc')"
       >
         <FileText class="h-[18px] w-[18px]" />
+      </button>
+      <button
+        v-if="hasCitationPlugin"
+        type="button"
+        :class="['docs-editor-toolbar__control flex h-8 w-8 items-center justify-center rounded-md transition-all', sidebarClass('references')]"
+        :title="t('toolbar.references')"
+        :aria-label="t('toolbar.references')"
+        @click="emit('toggle-sidebar', 'references')"
+      >
+        <BookOpen class="h-[18px] w-[18px]" />
       </button>
     </div>
   </div>

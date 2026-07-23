@@ -2,7 +2,7 @@
 import { ref } from 'vue'
 import { DocsEditor } from '@kedata-indonesia/docflow-vue'
 import { defaultPlugins } from '@kedata-indonesia/docflow-plugins'
-import type { DocsEditor as DocsEditorInstance } from '@kedata-indonesia/docflow-core'
+import type { DocsEditor as DocsEditorInstance, CitationPort, CslItemData } from '@kedata-indonesia/docflow-core'
 import { exportDocument, type ExportFormat } from '../utils/export.js'
 
 /**
@@ -34,6 +34,49 @@ const collaboration = {
   user: { name: 'Demo User', color: '#06b6d4' },
 }
 
+// ─── Citations demo (Phase 6A) ────────────────────────────────────────────
+// Hardcoded CSL-JSON sources + a minimal prompt picker — proves the library
+// citation engine end-to-end with no backend. The real reference library,
+// CRUD, and importers are app-side work (Phase 6B).
+const DEMO_SOURCES: CslItemData[] = [
+  {
+    id: 'oetomo-2020',
+    type: 'book',
+    title: 'Arsitektur Kolaborasi Perangkat Lunak',
+    author: [{ family: 'Oetomo', given: 'Budi' }],
+    issued: { 'date-parts': [[2020]] },
+    publisher: 'Penerbit Andi',
+    'publisher-place': 'Yogyakarta',
+  },
+  {
+    id: 'smith-2021',
+    type: 'article-journal',
+    title: 'Conflict-free Replicated Data Types in Collaborative Editors',
+    author: [{ family: 'Smith', given: 'Jane' }, { family: 'Lee', given: 'Kevin' }],
+    issued: { 'date-parts': [[2021]] },
+    'container-title': 'Journal of Distributed Systems',
+    volume: '12',
+    issue: '3',
+    page: '45-61',
+    DOI: '10.1000/jds.2021.1234',
+  },
+  {
+    id: 'who-2023',
+    type: 'webpage',
+    title: 'The State of Open Source Editors',
+    author: [{ literal: 'Open Docs Foundation' }],
+    issued: { 'date-parts': [[2023, 5, 14]] },
+    URL: 'https://example.org/open-editors-2023',
+  },
+]
+
+const citationPort: CitationPort = {
+  sources: DEMO_SOURCES,
+  style: 'chicago-notes-bibliography',
+  // No onSourceRequest here: the editor falls back to its built-in picker —
+  // the references sidebar — which is exactly what we want to showcase.
+}
+
 const editorInstance = ref<DocsEditorInstance | null>(null)
 
 function handleEditorReady(docsEditor: DocsEditorInstance) {
@@ -59,6 +102,7 @@ async function handleExport(format: ExportFormat) {
     :model-value="content"
     :plugins="defaultPlugins"
     :collaboration="collaboration"
+    :citation="citationPort"
     :title="title"
     :starred="starred"
     :editable="true"

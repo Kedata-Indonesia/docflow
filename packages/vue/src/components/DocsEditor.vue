@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { type DocsEditor, type DocsEditorPlugin, type EditorOptions, type ImageUploadHandler } from '@kedata-indonesia/docflow-core'
+import { type DocsEditor, type DocsEditorPlugin, type EditorOptions, type ImageUploadHandler, type CitationPort, type CslItemData } from '@kedata-indonesia/docflow-core'
 import { PAGE_SIZES, getPageSize } from '@kedata-indonesia/docflow-layout-engine'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useEditor } from '../composables/useEditor.js'
@@ -13,6 +13,7 @@ import RulerBar from './RulerBar.vue'
 import VerticalRuler from './VerticalRuler.vue'
 import QuickActionChips from './QuickActionChips.vue'
 import TOCSidebar from './sidebars/TOCSidebar.vue'
+import ReferencesSidebar from './sidebars/ReferencesSidebar.vue'
 import DetailsDialog from './DetailsDialog.vue'
 import EmailDialog from './EmailDialog.vue'
 import FindReplaceDialog from './FindReplaceDialog.vue'
@@ -42,6 +43,7 @@ const props = withDefaults(
     documentMeta?: DocumentMeta
     shareUrl?: string
     onImageUpload?: ImageUploadHandler
+    citation?: CitationPort
   }>(),
   {
     editable: true,
@@ -60,6 +62,7 @@ const props = withDefaults(
     documentMeta: undefined,
     shareUrl: '',
     onImageUpload: undefined,
+    citation: undefined,
   },
 )
 
@@ -70,6 +73,8 @@ const emit = defineEmits<{
   'update:pageless': [pageless: boolean]
   'update:pageCount': [pageCount: number]
   'update:locale': [locale: Locale]
+  'citation-sources-change': [sources: CslItemData[]]
+  'update:citation-style': [style: string]
   'toggle-star': []
   back: []
   share: []
@@ -209,12 +214,61 @@ const persistCurrentDoc = () => {
   saveTimer.value = setTimeout(() => { savingStatus.value = 'saved'; lastSaved.value = Date.now() }, 800)
 }
 
+// ─── References / citations (Phase 6B) ────────────────────────────────────────
+
+// The host seeds the reference library through the CitationPort; the editor
+// then owns a live copy so sidebar CRUD re-renders citations immediately.
+// Hosts that persist (apps/web) listen to `citation-sources-change`.
+const citationSources = ref<CslItemData[]>(
+  (() => {
+    const s = props.citation?.sources
+    if (Array.isArray(s)) return [...s]
+    if (typeof s === 'function') return [...s()]
+    return []
+  })(),
+)
+const citationStyleId = ref(props.citation?.style || 'chicago-notes-bibliography')
+
+// Pending source pick (toolbar Citation → the references sidebar acts as the
+// picker). Resolved with a sourceId by the sidebar's Cite button, or with
+// null when the sidebar is closed without picking.
+let pendingSourceResolve: ((id: string | null) => void) | null = null
+const pendingSourceRequest = ref(false)
+
+const resolvePendingSource = (id: string | null) => {
+  pendingSourceResolve?.(id)
+  pendingSourceResolve = null
+  pendingSourceRequest.value = false
+}
+
+const defaultSourceRequest = (): Promise<string | null> =>
+  new Promise((resolve) => {
+    resolvePendingSource(null)
+    pendingSourceResolve = resolve
+    pendingSourceRequest.value = true
+    activeSidebar.value = 'references'
+  })
+
+// The port handed to the editor: live source getter (sidebar CRUD is always
+// reflected) + the sidebar picker as the default onSourceRequest when the
+// host does not provide its own.
+const citationPort = computed<CitationPort | undefined>(() => {
+  const port = props.citation
+  if (!port) return undefined
+  return {
+    ...port,
+    sources: () => citationSources.value,
+    onSourceRequest: port.onSourceRequest ?? defaultSourceRequest,
+  }
+})
+
 const { editorRef, editor, pluginActions, isReady, docsEditor: docEditor } = useEditor({
   content: activeTabContent,
   plugins: props.plugins,
   editable: props.editable,
   collaboration: props.collaboration,
   onImageUpload: props.onImageUpload,
+  citation: citationPort.value,
   getPageMap: () => new Map(),
   paginationOptions: paginationOptions.value,
   onUpdate: (json) => {
@@ -228,6 +282,60 @@ const isEmptyDocument = computed(() => {
   const json = editor.value.getJSON()
   if (!json.content || json.content.length === 0) return true
   return json.content.every((n) => n.type === 'paragraph' && (!n.content || n.content.length === 0))
+})
+
+// ─── Reference library CRUD + style switching (Phase 6B-3) ─────────────────
+
+interface CitationEngineLike {
+  updateSources: (sources: CslItemData[]) => void
+  setStyle: (styleId: string) => void
+}
+
+const getCitationEngineLike = (): CitationEngineLike | null =>
+  (((editor.value?.storage as Record<string, unknown> | undefined)?.citation) as
+    | { engine?: CitationEngineLike | null }
+    | undefined)?.engine ?? null
+
+/** Push the live library into the engine (re-renders every citation) and let the host persist. */
+const syncCitationEngine = () => {
+  getCitationEngineLike()?.updateSources(citationSources.value)
+  emit('citation-sources-change', citationSources.value)
+}
+
+const handleSourceCreate = (source: CslItemData) => {
+  citationSources.value = [...citationSources.value, source]
+  syncCitationEngine()
+}
+
+const handleSourceUpdate = (source: CslItemData) => {
+  citationSources.value = citationSources.value.map((s) => (s.id === source.id ? source : s))
+  syncCitationEngine()
+}
+
+const handleSourceRemove = (id: string) => {
+  citationSources.value = citationSources.value.filter((s) => s.id !== id)
+  syncCitationEngine()
+}
+
+const handleCitationStyleChange = (styleId: string) => {
+  citationStyleId.value = styleId
+  getCitationEngineLike()?.setStyle(styleId)
+  emit('update:citation-style', styleId)
+}
+
+const handleReferenceInsert = (sourceId: string) => {
+  if (pendingSourceResolve) {
+    // Picker flow: the citation command performs the insertion on resolve.
+    resolvePendingSource(sourceId)
+    activeSidebar.value = null
+  } else {
+    pluginActions.value.insertCitation?.({ sourceId })
+  }
+}
+
+// Closing the references sidebar mid-pick cancels the pending citation insert.
+watch(activeSidebar, (key, prev) => {
+  if (prev === 'references' && key !== 'references') resolvePendingSource(null)
 })
 
 const updateCounts = () => {
@@ -844,6 +952,47 @@ const updateFootnotes = () => {
   const paginationEl = editorDom.querySelector('[data-rm-pagination]')
   if (!paginationEl) return
 
+  /**
+   * Build one footnote row body. Free-text footnotes stay editable and sync
+   * back to the PM node on blur (existing behavior). Citation-backed
+   * footnotes (Phase 6, `data-footnote-source-id`) are citeproc-rendered and
+   * read-only — their text is derived, never typed.
+   */
+  const buildFootnoteTextDiv = (ref: HTMLElement): HTMLDivElement => {
+    const textDiv = document.createElement('div')
+    textDiv.className = 'docs-footnote-item-text'
+
+    if (ref.hasAttribute('data-footnote-source-id')) {
+      const citationId = ref.getAttribute('data-citation-id') ?? ''
+      const engine = (editor.value?.storage as Record<string, unknown> | undefined)?.citation as
+        { engine?: { renderCluster: (id: string) => string } | null } | undefined
+      const html = engine?.engine?.renderCluster(citationId) ?? ''
+      textDiv.classList.add('docs-footnote-item-text--citation')
+      if (html) {
+        textDiv.innerHTML = html
+      } else {
+        textDiv.setAttribute('data-empty', 'true')
+      }
+      return textDiv
+    }
+
+    const content = ref.getAttribute('data-footnote-content') ?? ''
+    textDiv.contentEditable = 'true'
+    textDiv.textContent = content
+    if (!content) textDiv.setAttribute('data-empty', 'true')
+
+    textDiv.addEventListener('input', () => {
+      textDiv.removeAttribute('data-empty')
+      if (!textDiv.textContent) textDiv.setAttribute('data-empty', 'true')
+    })
+
+    textDiv.addEventListener('blur', () => {
+      const newContent = textDiv.textContent?.trim() ?? ''
+      saveFootnoteItemContent(ref, newContent)
+    })
+    return textDiv
+  }
+
   const pageBreaks = Array.from(paginationEl.querySelectorAll<HTMLElement>('.rm-page-break'))
   const allRefs = Array.from(editorDom.querySelectorAll<HTMLElement>('.docs-footnote-ref'))
 
@@ -872,7 +1021,6 @@ const updateFootnotes = () => {
     container.appendChild(sep)
 
     allRefs.forEach((ref, n) => {
-      const content = ref.getAttribute('data-footnote-content') ?? ''
       const row = document.createElement('div')
       row.className = 'docs-footnote-item'
 
@@ -880,21 +1028,7 @@ const updateFootnotes = () => {
       num.className = 'docs-footnote-item-num'
       num.textContent = String(n + 1)
 
-      const textDiv = document.createElement('div')
-      textDiv.className = 'docs-footnote-item-text'
-      textDiv.contentEditable = 'true'
-      textDiv.textContent = content
-      if (!content) textDiv.setAttribute('data-empty', 'true')
-
-      textDiv.addEventListener('input', () => {
-        textDiv.removeAttribute('data-empty')
-        if (!textDiv.textContent) textDiv.setAttribute('data-empty', 'true')
-      })
-
-      textDiv.addEventListener('blur', () => {
-        const newContent = textDiv.textContent?.trim() ?? ''
-        saveFootnoteItemContent(ref, newContent)
-      })
+      const textDiv = buildFootnoteTextDiv(ref)
 
       ref.dataset.footnoteItemId = `fn-pageless-${n}`
       row.id = `fn-pageless-${n}`
@@ -946,8 +1080,6 @@ const updateFootnotes = () => {
     container.appendChild(sep)
 
     refs.forEach((ref, n) => {
-      const content = ref.getAttribute('data-footnote-content') ?? ''
-
       const row = document.createElement('div')
       row.className = 'docs-footnote-item'
 
@@ -955,21 +1087,7 @@ const updateFootnotes = () => {
       num.className = 'docs-footnote-item-num'
       num.textContent = String(n + 1)
 
-      const textDiv = document.createElement('div')
-      textDiv.className = 'docs-footnote-item-text'
-      textDiv.contentEditable = 'true'
-      textDiv.textContent = content
-      if (!content) textDiv.setAttribute('data-empty', 'true')
-
-      textDiv.addEventListener('input', () => {
-        textDiv.removeAttribute('data-empty')
-        if (!textDiv.textContent) textDiv.setAttribute('data-empty', 'true')
-      })
-
-      textDiv.addEventListener('blur', () => {
-        const newContent = textDiv.textContent?.trim() ?? ''
-        saveFootnoteItemContent(ref, newContent)
-      })
+      const textDiv = buildFootnoteTextDiv(ref)
 
       // Clicking the sup ref in the text jumps here
       ref.dataset.footnoteItemId = `fn-${pageIdx}-${n}`
@@ -1029,6 +1147,12 @@ watch(isReady, (ready) => {
   editor.value.on('update', () => { setTimeout(updateFootnotes, 60) })
   editor.value.on('selectionUpdate', () => { setTimeout(updateFootnotes, 100) })
 
+  // Citation-backed footnotes repaint when the engine emits change
+  // (source edit, style switch, citation add/remove).
+  const citationStorage = (editor.value.storage as Record<string, unknown>).citation as
+    { engine?: { onChange: (cb: () => void) => () => void } | null } | undefined
+  citationStorage?.engine?.onChange(() => { setTimeout(updateFootnotes, 30) })
+
   // Listen to window resize because pagination calculations layout can shift
   window.addEventListener('resize', updateFootnotes)
 })
@@ -1080,6 +1204,21 @@ watch(isReady, (ready) => {
           </div>
         </div>
       </div>
+
+      <!-- Reference manager (Phase 6B) — right sidebar; also acts as the
+           source picker while a citation insert is pending -->
+      <ReferencesSidebar
+        v-if="activeSidebar === 'references'"
+        :sources="citationSources"
+        :active-style="citationStyleId"
+        :picker-mode="pendingSourceRequest"
+        @close="activeSidebar = null"
+        @insert="handleReferenceInsert"
+        @create="handleSourceCreate"
+        @update="handleSourceUpdate"
+        @remove="handleSourceRemove"
+        @update:style="handleCitationStyleChange"
+      />
     </div>
     <StatusBar
 :connection-state="connectionState" :saving-status="savingStatus" :last-saved="lastSaved"
