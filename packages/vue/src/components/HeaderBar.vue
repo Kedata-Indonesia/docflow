@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, watch, computed, onMounted, onUnmounted } from 'vue'
-import { Star, Share2, Users, ChevronDown, MoreVertical } from 'lucide-vue-next'
+import { Star, Share2, Users, ChevronDown, MoreVertical, Check } from 'lucide-vue-next'
 import type { Collaborator } from '../types.js'
 import ThemeToggle from './ThemeToggle.vue'
 import { useLocale, getSupportedLocales, getLocaleName } from '../composables/useLocale.js'
@@ -15,6 +15,7 @@ const props = withDefaults(
     editable?: boolean
     collaborators?: Collaborator[]
     starred?: boolean
+    pageless?: boolean
     currentUserId?: string
     simulatorsActive?: boolean
     userName?: string
@@ -25,6 +26,7 @@ const props = withDefaults(
     editable: true,
     collaborators: () => [],
     starred: false,
+    pageless: false,
     currentUserId: '',
     simulatorsActive: false,
     userName: '',
@@ -83,6 +85,8 @@ interface MenuItem {
   divider?: boolean
   /** Keyboard shortcut hint displayed right-aligned (Google Docs style). */
   shortcut?: string
+  /** Toggle items render a check gutter; true shows the check mark. */
+  checked?: boolean
   sub?: { label: string; action: string; badge?: string }[]
 }
 
@@ -206,6 +210,8 @@ const menus = computed<Record<string, { label: string; items: MenuItem[] }>>(() 
           { label: t('header.pageNumberInFooter'), action: 'page-numbers-footer' },
         ]
       },
+      { label: 'divider', divider: true },
+      { label: t('header.pagelessFormat'), action: 'toggle-pageless', checked: props.pageless },
       { label: 'divider', divider: true },
       { label: t('header.clearFormatting'), action: 'clear-formatting' },
     ],
@@ -440,7 +446,16 @@ onUnmounted(() => document.removeEventListener('click', closeMenus, true))
                       class="flex w-full items-center justify-between gap-6 px-4 py-2 text-left hover:bg-slate-50 dark:hover:bg-white/5"
                       @click.stop="handleMenuAction(item.action!)"
                     >
-                      <span>{{ item.label }}</span>
+                      <span class="flex items-center gap-2">
+                        <!-- Check gutter — only rendered for toggle items so
+                             plain actions keep their existing alignment. -->
+                        <Check
+                          v-if="item.checked !== undefined"
+                          class="h-3.5 w-3.5"
+                          :class="item.checked ? 'text-blue-600 dark:text-blue-400' : 'text-transparent'"
+                        />
+                        <span>{{ item.label }}</span>
+                      </span>
                       <span
                         v-if="item.shortcut"
                         class="text-[11px] text-slate-400 dark:text-slate-500"
