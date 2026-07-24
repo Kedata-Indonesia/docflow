@@ -1002,7 +1002,9 @@ const saveFootnoteItemContent = (refEl: HTMLElement, newContent: string) => {
 
 /**
  * Build / refresh the inline footnote area at the bottom of each page.
- * ─ Numbers the inline <sup> refs per-page (restarting at 1).
+ * ─ Numbers the inline <sup> refs CONTINUOUSLY through the document (Word /
+ *   Google Docs behavior): page N continues from the last number on page
+ *   N-1. This also matches the citation engine's sequential noteIndex.
  * ─ Creates contenteditable footnote items that sync back to ProseMirror on blur.
  * ─ Skips rebuilding any page whose footnote area is currently focused.
  */
@@ -1118,11 +1120,16 @@ const updateFootnotes = () => {
     pageRefs.get(assigned)!.push(ref)
   })
 
+  // Footnotes are numbered continuously through the document — the first
+  // footnote on a page continues from the last number of the previous page.
+  let nextFootnoteNumber = 1
   pageBreaks.forEach((pb, pageIdx) => {
     const refs = pageRefs.get(pageIdx) ?? []
+    const pageStartNumber = nextFootnoteNumber
+    nextFootnoteNumber += refs.length
 
-    // Number inline refs
-    refs.forEach((ref, n) => { ref.textContent = String(n + 1) })
+    // Number inline refs (continuous across pages)
+    refs.forEach((ref, n) => { ref.textContent = String(pageStartNumber + n) })
 
     // Skip rebuild if a footnote item on this page has focus
     const existing = pb.querySelector<HTMLElement>('.docs-page-footnotes')
@@ -1146,7 +1153,7 @@ const updateFootnotes = () => {
 
       const num = document.createElement('sup')
       num.className = 'docs-footnote-item-num'
-      num.textContent = String(n + 1)
+      num.textContent = String(pageStartNumber + n)
 
       const textDiv = buildFootnoteTextDiv(ref)
 
