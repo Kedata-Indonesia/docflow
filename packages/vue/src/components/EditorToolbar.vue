@@ -342,6 +342,13 @@ function sidebarClass(key: SidebarKey) {
 // The references sidebar is only meaningful when the citation plugin is loaded.
 const hasCitationPlugin = computed(() => props.plugins?.some((p) => p.id === 'citation') ?? false)
 
+// The AI sidebar is only meaningful when the host injects an aiStream port.
+const hasAI = computed(
+  () =>
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    Boolean((props.editor?.storage as any)?.editorContext?.aiStream),
+)
+
 function handleUndo() {
   if (props.editor) {
     (props.editor.commands as any).undo()
@@ -841,6 +848,7 @@ function handleFontSize(delta: number) {
         <History class="h-[18px] w-[18px]" />
       </button>
       <button
+        v-if="hasAI"
         type="button"
         :class="['docs-editor-toolbar__control flex h-8 w-8 items-center justify-center rounded-md transition-all', sidebarClass('ai')]"
         :title="t('toolbar.ai')"
