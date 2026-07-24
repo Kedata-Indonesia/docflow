@@ -83,6 +83,19 @@ function handleEditorReady(docsEditor: DocsEditorInstance) {
   editorInstance.value = docsEditor
 }
 
+/** Live-engine citation renderer for the DOCX export (Phase 6D). */
+function getCitationExportPort(): { renderCitation: (citationId: string) => string; getBibliography: () => string[] } | undefined {
+  const storage = editorInstance.value?.editor.storage as Record<string, unknown> | undefined
+  const engine = (storage?.citation as
+    | { engine?: { renderCluster: (id: string) => string; getBibliography: () => string[] } | null }
+    | undefined)?.engine
+  if (!engine) return undefined
+  return {
+    renderCitation: (citationId: string) => engine.renderCluster(citationId),
+    getBibliography: () => engine.getBibliography(),
+  }
+}
+
 async function handleExport(format: ExportFormat) {
   if (!editorInstance.value) return
   try {
@@ -90,6 +103,7 @@ async function handleExport(format: ExportFormat) {
       format,
       editorInstance.value.editor as unknown as Parameters<typeof exportDocument>[1],
       props.title,
+      { citation: getCitationExportPort() },
     )
   } catch (err) {
     console.error('Export failed:', err)

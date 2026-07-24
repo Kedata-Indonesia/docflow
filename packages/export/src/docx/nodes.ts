@@ -7,7 +7,10 @@ import {
   ExternalHyperlink,
   BorderStyle,
   PageBreak,
+  FootnoteReferenceRun,
 } from 'docx'
+import type { CitationExportPort } from '../types.js'
+import { citeHtmlToRuns, footnoteBodyRuns, type FootnoteCollector } from './citation.js'
 
 export type PmMark = { type: string; attrs?: Record<string, unknown> }
 export type PmNode = {
@@ -16,6 +19,12 @@ export type PmNode = {
   content?: PmNode[]
   text?: string
   marks?: PmMark[]
+}
+
+/** Optional per-walk context for derived content (citations, footnotes). */
+export interface WalkContext {
+  citation?: CitationExportPort
+  footnotes?: FootnoteCollector
 }
 
 export function mapAlignment(value: unknown): (typeof AlignmentType)[keyof typeof AlignmentType] | undefined {
@@ -78,8 +87,8 @@ export function textToRun(text: string, marks: PmMark[] = []): (TextRun | Extern
   return [run]
 }
 
-export function inlineNodesToRuns(node: PmNode): (TextRun | ExternalHyperlink)[] {
-  const runs: (TextRun | ExternalHyperlink)[] = []
+export function inlineNodesToRuns(node: PmNode, walkCtx?: WalkContext): (TextRun | ExternalHyperlink | FootnoteReferenceRun)[] {
+  const runs: (TextRun | ExternalHyperlink | FootnoteReferenceRun)[] = []
   if (!node.content) return runs
   for (const child of node.content) {
     if (child.type === 'text') {
@@ -89,6 +98,16 @@ export function inlineNodesToRuns(node: PmNode): (TextRun | ExternalHyperlink)[]
     } else if (child.type === 'image') {
       // Images are handled separately by the block mapper.
       continue
+    } else if (child.type === 'citation') {
+      // Derived text — the host's CiteEngine already rendered it (6D).
+      const citationId = (child.attrs?.citationId as string | undefined) ?? ''
+      const html = walkCtx?.citation?.renderCitation(citationId) ?? ''
+      if (html) runs.push(...citeHtmlToRuns(html))
+    } else if (child.type === 'footnote' && walkCtx?.footnotes) {
+      // Real DOCX footnote: reference in-text, body collected for the
+      // Document-level footnotes option (citation-backed or free text).
+      const id = walkCtx.footnotes.add(footnoteBodyRuns(child, walkCtx.citation))
+      runs.push(new FootnoteReferenceRun(id))
     }
   }
   return runs
@@ -97,26 +116,27 @@ export function inlineNodesToRuns(node: PmNode): (TextRun | ExternalHyperlink)[]
 export function mapBlockNode(
   node: PmNode,
   listContext?: { type: 'bullet' | 'ordered'; level: number },
+  walkCtx?: WalkContext,
 ): Paragraph[] {
   const align = mapAlignment(node.attrs?.textAlign)
 
   switch (node.type) {
     case 'paragraph': {
-      const children = inlineNodesToRuns(node)
+      const children = inlineNodesToRuns(node, walkCtx)
       if (children.length === 0) return []
       return [new Paragraph({ children, alignment: align })]
     }
     case 'heading': {
-      const children = inlineNodesToRuns(node)
+      const children = inlineNodesToRuns(node, walkCtx)
       const heading = mapHeadingLevel(node.attrs?.level)
       return [new Paragraph({ children, heading, alignment: align })]
     }
     case 'blockquote': {
-      const children = inlineNodesToRuns(node)
+      const children = inlineNodesToRuns(node, walkCtx)
       return [new Paragraph({ children, indent: { left: 720 }, alignment: align })]
     }
     case 'codeBlock': {
-      const children = inlineNodesToRuns(node)
+      const children = inlineNodesToRuns(node, walkCtx)
       return [new Paragraph({ children, style: 'Code', alignment: align })]
     }
     case 'horizontalRule': {
@@ -136,7 +156,7 @@ export function mapBlockNode(
       return []
     }
     case 'listItem': {
-      const children = inlineNodesToRuns(node)
+      const children = inlineNodesToRuns(node, walkCtx)
       if (!listContext) return [new Paragraph({ children, alignment: align })]
       const prefix = listContext.type === 'ordered' ? `${listContext.level + 1}. ` : '• '
       return [new Paragraph({
@@ -145,7 +165,7 @@ export function mapBlockNode(
       })]
     }
     default: {
-      const children = inlineNodesToRuns(node)
+      const children = inlineNodesToRuns(node, walkCtx)
       return children.length > 0 ? [new Paragraph({ children, alignment: align })] : []
     }
   }
