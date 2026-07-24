@@ -32,6 +32,7 @@
     "@kedata-indonesia/docflow-core": "workspace:*",
     "@tiptap/extension-color": "^2.27.2",
     "@tiptap/extension-highlight": "^2.27.2",
+    "@tiptap/pm": "^2.11.0",
     "citeproc": "^2.4.63"
   },
   "peerDependencies": {
@@ -96,7 +97,6 @@
     }
   },
   "devDependencies": {
-    "@tiptap/pm": "^2.11.0",
     "happy-dom": "^20.10.6",
     "tsup": "^8.3.0",
     "typescript": "^5.6.3",
