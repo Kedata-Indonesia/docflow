@@ -223,4 +223,125 @@ describe('aiPlugin (Phase 7B)', () => {
     editor.commands.aiAccept()
     expect(editor.state.doc.textBetween(0, editor.state.doc.content.size)).toBe('Say: Hello world!')
   })
+
+  // ─── /ai generate at cursor (7C) ──────────────────────────────────────────
+
+  it('aiGenerate opens prompt mode without touching the document', () => {
+    const fake = makeFakeStream()
+    const editor = setup(fake.aiStream)
+
+    // Collapse the cursor at the end of "Hello world" (pos 12).
+    editor.commands.setTextSelection(12)
+    expect(editor.commands.aiGenerate()).toBe(true)
+
+    const preview = getAIPreview(editor)
+    expect(preview?.mode).toBe('generate')
+    expect(preview?.status).toBe('prompt')
+    expect(preview?.from).toBe(12)
+    expect(editor.state.doc.textBetween(0, editor.state.doc.content.size)).toBe('Hello world')
+    expect(fake.calls).toBe(0) // no request until the instruction is submitted
+  })
+
+  it('aiPromptSubmit streams ghost text and accept inserts it at the cursor in one transaction', async () => {
+    const fake = makeFakeStream()
+    const editor = setup(fake.aiStream)
+
+    editor.commands.setTextSelection(12)
+    editor.commands.aiGenerate()
+    expect(editor.commands.aiPromptSubmit({ prompt: 'write a greeting' })).toBe(true)
+    expect(fake.calls).toBe(1)
+
+    const probe = countDocChanges(editor)
+    fake.push(' — selamat ')
+    await flush()
+    fake.push('pagi')
+    await flush()
+
+    const preview = getAIPreview(editor)
+    expect(preview?.status).toBe('streaming')
+    expect(preview?.text).toBe(' — selamat pagi')
+    expect(probe.count).toBe(0) // still decoration-only
+    expect(editor.state.doc.textBetween(0, editor.state.doc.content.size)).toBe('Hello world')
+
+    fake.finish()
+    await flush()
+    expect(getAIPreview(editor)?.status).toBe('done')
+
+    expect(editor.commands.aiAccept()).toBe(true)
+    expect(probe.count).toBe(1) // exactly one doc-changing transaction
+    probe.stop()
+    expect(editor.state.doc.textBetween(0, editor.state.doc.content.size)).toBe('Hello world — selamat pagi')
+    expect(getAIPreview(editor)).toBeNull()
+  })
+
+  it('reject during prompt mode cancels without any request', () => {
+    const fake = makeFakeStream()
+    const editor = setup(fake.aiStream)
+
+    editor.commands.setTextSelection(12)
+    editor.commands.aiGenerate()
+    expect(editor.commands.aiReject()).toBe(true)
+    expect(getAIPreview(editor)).toBeNull()
+    expect(fake.calls).toBe(0)
+  })
+
+  it('moving the selection cancels prompt mode', () => {
+    const fake = makeFakeStream()
+    const editor = setup(fake.aiStream)
+
+    editor.commands.setTextSelection(12)
+    editor.commands.aiGenerate()
+    expect(getAIPreview(editor)?.status).toBe('prompt')
+
+    editor.commands.setTextSelection(1)
+    expect(getAIPreview(editor)).toBeNull()
+  })
+
+  it('generate is inert without an injected aiStream port', () => {
+    const editor = setup()
+    editor.commands.setTextSelection(12)
+    expect(editor.commands.aiGenerate()).toBe(false)
+    expect(getAIPreview(editor)).toBeNull()
+  })
+
+  it('generate never replaces a non-empty selection', async () => {
+    const fake = makeFakeStream()
+    const editor = setup(fake.aiStream)
+
+    // "world" is selected (setup) — /ai collapses to the cursor, accept must
+    // INSERT at position 12, not replace the selection.
+    editor.commands.aiGenerate()
+    editor.commands.aiPromptSubmit({ prompt: 'add something' })
+    fake.push('!')
+    await flush()
+    fake.finish()
+    await flush()
+    editor.commands.aiAccept()
+    expect(editor.state.doc.textBetween(0, editor.state.doc.content.size)).toBe('Hello world!')
+  })
+
+  it('ghost widget re-renders as chunks stream (PM same-key widget regression)', async () => {
+    const fake = makeFakeStream()
+    const editor = setup(fake.aiStream)
+
+    editor.commands.setTextSelection(12)
+    editor.commands.aiGenerate()
+    editor.commands.aiPromptSubmit({ prompt: 'x' })
+    await flush()
+
+    const ghostText = () => editor.view.dom.querySelector('.docs-ai-ghost')?.textContent ?? ''
+    // First paint: placeholder while no tokens yet.
+    expect(ghostText()).toContain('AI writing…')
+
+    fake.push(' flowing text')
+    await flush()
+    // Regression: a constant Decoration.widget key makes prosemirror-view
+    // skip the redraw (WidgetType.eq) — the ghost froze at "AI writing…".
+    expect(ghostText()).toContain('flowing text')
+
+    fake.finish()
+    await flush()
+    expect(ghostText()).toContain('flowing text')
+    expect(ghostText()).toContain('Accept')
+  })
 })
