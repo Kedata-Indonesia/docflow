@@ -14,6 +14,7 @@ export { fontSizePlugin, FontSizeExtension } from './fontSize.js'
 export { textColorPlugin } from './textColor.js'
 export { highlightPlugin } from './highlight.js'
 export { citationPlugin, CitationNode, CitationEngineExtension, getCitationEngine } from './citation.js'
+export { aiPlugin, AIExtension, getAIPreview, aiPluginKey, type AIPreviewState } from './ai.js'
 export { BibliographyNode } from './bibliography.js'
 export { CiteEngine, nextCitationId, sanitizeCiteprocHtml, type CitationAttrs, type CitationMode, type CitationCluster, type CiteEngineOptions } from './citeEngine.js'
 export { CSL_STYLES, DEFAULT_CSL_STYLE, CSL_LOCALE_EN_US, type CslStyleInfo } from './csl/index.js'
@@ -34,6 +35,7 @@ import { fontSizePlugin } from './fontSize.js'
 import { textColorPlugin } from './textColor.js'
 import { highlightPlugin } from './highlight.js'
 import { citationPlugin } from './citation.js'
+import { aiPlugin } from './ai.js'
 
 export const defaultPlugins = [
   formattingPlugin,
@@ -52,6 +54,7 @@ export const defaultPlugins = [
   textColorPlugin,
   highlightPlugin,
   citationPlugin,
+  aiPlugin,
 ]
 
 export type { DocsEditorPlugin, ToolbarItem, SlashCommand } from '@kedata-indonesia/docflow-core'

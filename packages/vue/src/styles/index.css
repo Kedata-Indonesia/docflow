@@ -582,6 +582,52 @@
   color: #64748b;
 }
 
+/* ── AI preview (Phase 7B) ────────────────────────────────────────────── */
+
+/* Original selection while an AI transform streams — marked as "about to be
+   replaced" with a cyan tint (matches the app's accent). */
+.docs-ai-selection {
+  border-radius: 3px;
+  background: rgba(6, 182, 212, 0.12);
+  transition: background 0.1s;
+}
+
+/* Ghost preview widget — streamed replacement text, decoration-only. */
+.docs-ai-ghost {
+  color: #0891b2;
+  background: rgba(6, 182, 212, 0.07);
+  border-radius: 3px;
+  font-style: italic;
+  white-space: pre-wrap;
+}
+
+.docs-ai-ghost--error {
+  color: #dc2626;
+  background: rgba(220, 38, 38, 0.08);
+  font-style: normal;
+}
+
+.docs-ai-ghost-hint {
+  color: #94a3b8;
+  font-size: 0.85em;
+  font-style: normal;
+  white-space: nowrap;
+}
+
+.dark .docs-ai-selection {
+  background: rgba(34, 211, 238, 0.18);
+}
+
+.dark .docs-ai-ghost {
+  color: #22d3ee;
+  background: rgba(34, 211, 238, 0.1);
+}
+
+.dark .docs-ai-ghost--error {
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.12);
+}
+
 /* ── Citations & Bibliography (Phase 6) ───────────────────────────────── */
 
 /* Inline citation — derived text, subtle chip like Zotero/Google Docs fields */

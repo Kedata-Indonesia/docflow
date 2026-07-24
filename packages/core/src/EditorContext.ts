@@ -1,9 +1,11 @@
 import { Extension } from '@tiptap/core'
 import type { ImageUploadHandler, CitationPort } from './ports.js'
+import type { AIStreamFn } from './ai/types.js'
 
 export interface EditorContextOptions {
   onImageUpload?: ImageUploadHandler
   citation?: CitationPort
+  aiStream?: AIStreamFn
 }
 
 /**
@@ -12,6 +14,7 @@ export interface EditorContextOptions {
  *
  *   editor.storage.editorContext.onImageUpload
  *   editor.storage.editorContext.citation
+ *   editor.storage.editorContext.aiStream
  *
  * Plugins must never import backend concerns — they read injected ports from
  * this storage instead. See docs/LIBRARY_CONTRACT.md.
@@ -23,6 +26,7 @@ export const EditorContextExtension = Extension.create<EditorContextOptions>({
     return {
       onImageUpload: undefined,
       citation: undefined,
+      aiStream: undefined,
     }
   },
 
@@ -30,6 +34,7 @@ export const EditorContextExtension = Extension.create<EditorContextOptions>({
     return {
       onImageUpload: this.options.onImageUpload,
       citation: this.options.citation,
+      aiStream: this.options.aiStream,
     }
   },
 })

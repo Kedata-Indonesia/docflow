@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { type DocsEditor, type DocsEditorPlugin, type EditorOptions, type ImageUploadHandler, type CitationPort, type CslItemData } from '@kedata-indonesia/docflow-core'
+import { type DocsEditor, type DocsEditorPlugin, type EditorOptions, type ImageUploadHandler, type CitationPort, type CslItemData, type AIStreamFn } from '@kedata-indonesia/docflow-core'
 import { PAGE_SIZES, getPageSize } from '@kedata-indonesia/docflow-layout-engine'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useEditor } from '../composables/useEditor.js'
@@ -44,6 +44,7 @@ const props = withDefaults(
     shareUrl?: string
     onImageUpload?: ImageUploadHandler
     citation?: CitationPort
+    aiStream?: AIStreamFn
   }>(),
   {
     editable: true,
@@ -63,6 +64,7 @@ const props = withDefaults(
     shareUrl: '',
     onImageUpload: undefined,
     citation: undefined,
+    aiStream: undefined,
   },
 )
 
@@ -269,6 +271,7 @@ const { editorRef, editor, pluginActions, isReady, docsEditor: docEditor } = use
   collaboration: props.collaboration,
   onImageUpload: props.onImageUpload,
   citation: citationPort.value,
+  aiStream: props.aiStream,
   getPageMap: () => new Map(),
   paginationOptions: paginationOptions.value,
   onUpdate: (json) => {
