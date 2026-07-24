@@ -47,6 +47,37 @@ export const CitationEngineExtension = Extension.create({
     const engine = getCitationEngine(editor)
     if (!engine) return
 
+    // Repair duplicate citationIds first: copy-pasting a citation clones the
+    // node WITH its id — two clusters sharing an id collapse into one engine
+    // entry and every occurrence renders the LAST computed form (wrong).
+    // Assign fresh ids to the later occurrences, then re-run on the next
+    // update (the repair dispatch re-triggers this hook).
+    {
+      const seen = new Set<string>()
+      const repairs: Array<{ pos: number; attrs: Record<string, unknown> }> = []
+      editor.state.doc.descendants((node, pos) => {
+        if (node.type.name === 'citation' || (node.type.name === 'footnote' && node.attrs.sourceId)) {
+          const id = node.attrs.citationId as string | null
+          if (id) {
+            if (seen.has(id)) {
+              repairs.push({ pos, attrs: { ...node.attrs } })
+            } else {
+              seen.add(id)
+            }
+          }
+        }
+        return true
+      })
+      if (repairs.length > 0) {
+        const tr = editor.state.tr
+        for (const { pos, attrs } of repairs) {
+          tr.setNodeMarkup(pos, undefined, { ...attrs, citationId: nextCitationId() })
+        }
+        editor.view.dispatch(tr)
+        return
+      }
+    }
+
     const ordered: Array<{ citationId: string; attrs: CitationAttrs }> = []
     editor.state.doc.descendants((node: PMNode, pos: number) => {
       if (node.type.name === 'citation' || (node.type.name === 'footnote' && node.attrs.sourceId)) {

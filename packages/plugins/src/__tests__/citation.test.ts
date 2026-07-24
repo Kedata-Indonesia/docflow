@@ -195,4 +195,35 @@ describe('citation plugin (T2)', () => {
     expect(raw).toContain('"content":"Manual note"')
     expect(raw).toContain('"sourceId":null')
   })
+
+  it('repairs duplicate citationIds from copy-pasted citations', async () => {
+    const { instance, target } = makeEditor({ citation: { sources: [bookDoe], style: 'apa' } })
+    cleanup = () => { instance.destroy(); target.remove() }
+
+    // Simulate a copy-paste: two citation nodes sharing one citationId.
+    instance.editor.commands.focus()
+    instance.editor.commands.insertContent({
+      type: 'paragraph',
+      content: [
+        { type: 'citation', attrs: { citationId: 'dup-1', sourceId: 'doe-2020' } },
+        { type: 'text', text: ' ' },
+        { type: 'citation', attrs: { citationId: 'dup-1', sourceId: 'doe-2020' } },
+      ],
+    })
+
+    await vi.waitFor(() => {
+      const raw = JSON.stringify(instance.editor.getJSON())
+      const ids = [...raw.matchAll(/"citationId":"([^"]+)"/g)].map((m) => m[1])
+      expect(ids.length).toBe(2)
+      expect(new Set(ids).size).toBe(2) // the later occurrence got a fresh id
+    })
+
+    // Both clusters render independently after the repair.
+    const raw = JSON.stringify(instance.editor.getJSON())
+    const ids = [...raw.matchAll(/"citationId":"([^"]+)"/g)].map((m) => m[1])
+    const engine = getCitationEngine(instance.editor)
+    for (const id of ids) {
+      expect(engine?.renderCluster(id)).toContain('Doe')
+    }
+  })
 })
