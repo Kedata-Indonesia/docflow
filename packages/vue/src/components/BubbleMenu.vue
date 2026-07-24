@@ -179,10 +179,10 @@ function runAction(action: string) {
       </span>
       <button
         type="button"
-        :disabled="aiPreview.status === 'streaming'"
+        :disabled="aiPreview.status !== 'done'"
         :class="[
           'docs-editor-bubble-menu__button flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-all',
-          aiPreview.status === 'streaming'
+          aiPreview.status !== 'done'
             ? 'cursor-not-allowed text-slate-300 dark:text-slate-600'
             : 'text-emerald-600 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-500/10',
         ]"
