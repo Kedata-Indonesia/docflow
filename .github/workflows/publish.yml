@@ -2,8 +2,11 @@ name: Publish to GitHub Packages & npm
 
 on:
   push:
+    branches:
+      - main
     tags:
       - 'v*'
+  workflow_dispatch:
 
 jobs:
   publish:
