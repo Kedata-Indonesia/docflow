@@ -14,6 +14,7 @@ import VerticalRuler from './VerticalRuler.vue'
 import QuickActionChips from './QuickActionChips.vue'
 import TOCSidebar from './sidebars/TOCSidebar.vue'
 import ReferencesSidebar from './sidebars/ReferencesSidebar.vue'
+import AISidebar from './sidebars/AISidebar.vue'
 import DetailsDialog from './DetailsDialog.vue'
 import EmailDialog from './EmailDialog.vue'
 import FindReplaceDialog from './FindReplaceDialog.vue'
@@ -1294,6 +1295,15 @@ watch(isReady, (ready) => {
         @update:style="handleCitationStyleChange"
         @import-doi="handleImportDoi"
         @import-bibliography="handleImportBibliography"
+      />
+
+      <!-- Doc-aware AI chat (Phase 7D) — right sidebar; only mounts when the
+           host injects an aiStream transport -->
+      <AISidebar
+        v-if="activeSidebar === 'ai'"
+        :editor="editor"
+        :ai-stream="props.aiStream"
+        @close="activeSidebar = null"
       />
     </div>
     <StatusBar
