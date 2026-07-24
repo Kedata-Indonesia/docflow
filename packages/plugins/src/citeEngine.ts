@@ -41,11 +41,11 @@ export function nextCitationId(): string {
 
 /**
  * citeproc-js emits a small, fixed set of formatting tags (<i>, <sup>,
- * <span style="font-variant:small-caps;">, …). Allow exactly those, escape
- * everything else — source metadata is user input and must never become
- * active markup.
+ * <span style="font-variant:small-caps;">, plus its <div class="csl-entry">
+ * bibliography wrapper). Allow exactly those, escape everything else —
+ * source metadata is user input and must never become active markup.
  */
-const CITEPROC_TAG = /^<\/?(i|b|em|strong|sup|sub|span|nobr)( style="font-variant: ?small-caps;?")?\/?>$/
+const CITEPROC_TAG = /^<\/?(i|b|em|strong|sup|sub|span|nobr)( style="font-variant: ?small-caps;?")?\/?>$|^<div class="csl-entry">$|^<\/div>$/
 
 export function sanitizeCiteprocHtml(html: string): string {
   return html.replace(/<[^>]*>/g, (tag) => (CITEPROC_TAG.test(tag) ? tag : tag.replace(/</g, '&lt;').replace(/>/g, '&gt;')))
@@ -221,7 +221,7 @@ export class CiteEngine {
 
     try {
       const bib = engine.makeBibliography()
-      this.bibliography = bib ? bib[1].map((entry) => sanitizeCiteprocHtml(entry)) : []
+      this.bibliography = bib ? bib[1].map((entry) => sanitizeCiteprocHtml(entry).trim()) : []
     } catch {
       this.bibliography = []
     }

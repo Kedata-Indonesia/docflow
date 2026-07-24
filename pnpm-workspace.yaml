@@ -4,6 +4,7 @@ packages:
 allowBuilds:
   '@percy/core': false
   core-js: true
+  es5-ext: false
   esbuild: true
   leveldown: false
   mongodb-memory-server: true
