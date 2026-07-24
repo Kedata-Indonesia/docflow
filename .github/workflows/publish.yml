@@ -12,7 +12,7 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       packages: write
 
     steps:
@@ -29,6 +29,31 @@ jobs:
           scope: '@kedata-indonesia'
 
       - run: pnpm install --frozen-lockfile
+
+      - name: Auto-bump version if already published
+        id: auto_bump
+        run: |
+          BUMPED=false
+          for pkg in core layout-engine plugins vue element; do
+            VERSION=$(node -e "console.log(require('./packages/$pkg/package.json').version)")
+            if npm view @kedata-indonesia/docflow-$pkg@$VERSION version &>/dev/null 2>&1; then
+              NEW_VERSION=$(node -e "
+                const fs = require('fs');
+                const fp = './packages/$pkg/package.json';
+                const p = JSON.parse(fs.readFileSync(fp, 'utf8'));
+                const parts = p.version.split('.').map(Number);
+                parts[2] = (parts[2] || 0) + 1;
+                p.version = parts.join('.');
+                fs.writeFileSync(fp, JSON.stringify(p, null, 2) + '\n');
+                console.log(p.version);
+              ")
+              echo "Auto-bumped @kedata-indonesia/docflow-$pkg from $VERSION to $NEW_VERSION"
+              BUMPED=true
+            else
+              echo "@kedata-indonesia/docflow-$pkg@$VERSION is new, using existing version"
+            fi
+          done
+          echo "bumped=$BUMPED" >> $GITHUB_OUTPUT
 
       - run: pnpm build
 
@@ -97,9 +122,9 @@ jobs:
         run: |
           echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" >> .npmrc
 
-          # Step 1: Rewrite ALL package.json files (name + deps + workspace:* → actual version)
-          # Dependency order: core → layout-engine → plugins → vue → element
+          # Step 1: Backup package.json and rewrite ALL package.json files (name + deps + workspace:* → actual version)
           for pkg in core layout-engine plugins vue element; do
+            cp "./packages/$pkg/package.json" "./packages/$pkg/package.json.bak"
             node -e "
               const fs = require('fs');
               const fp = './packages/$pkg/package.json';
@@ -136,7 +161,7 @@ jobs:
 
           # Step 3: Publish in dependency order
           for pkg in core layout-engine plugins vue element; do
-            VERSION=$(node -e "console.log(require('./packages/$pkg/package.json').version)")
+            VERSION=$(node -e "console.log(require('./packages/$pkg/package.json.bak').version)")
 
             if npm view @kedataindo/docflow-$pkg@\$VERSION version &>/dev/null 2>&1; then
               echo "@kedataindo/docflow-$pkg@\$VERSION already published, skipping"
@@ -146,10 +171,21 @@ jobs:
             fi
           done
 
-          # Step 4: Restore all original package.json (both source and dist)
+          # Step 4: Restore package.json from backup
           for pkg in core layout-engine plugins vue element; do
-            git checkout HEAD -- packages/$pkg/package.json
+            mv "./packages/$pkg/package.json.bak" "./packages/$pkg/package.json"
           done
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Commit and push bumped versions
+        if: steps.auto_bump.outputs.bumped == 'true' && github.ref == 'refs/heads/main'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add packages/*/package.json
+          git commit -m "chore(release): auto-bump package versions [skip ci]"
+          git push origin HEAD:main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
