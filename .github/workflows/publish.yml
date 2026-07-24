@@ -161,7 +161,7 @@ jobs:
 
           # Step 3: Publish in dependency order
           for pkg in core layout-engine plugins vue element; do
-            VERSION=$(node -e "console.log(require('./packages/$pkg/package.json.bak').version)")
+            VERSION=$(node -e "console.log(JSON.parse(require('fs').readFileSync('./packages/$pkg/package.json.bak', 'utf8')).version)")
 
             if npm view @kedataindo/docflow-$pkg@\$VERSION version &>/dev/null 2>&1; then
               echo "@kedataindo/docflow-$pkg@\$VERSION already published, skipping"
