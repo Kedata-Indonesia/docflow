@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { type DocsEditor, type DocsEditorPlugin, type EditorOptions, type ImageUploadHandler, type CitationPort, type CslItemData, type AIStreamFn } from '@kedata-indonesia/docflow-core'
+import { type DocsEditor, type DocsEditorPlugin, type EditorOptions, type ImageUploadHandler, type CitationPort, type CslItemData, type AIStreamFn, type AIDraftFn } from '@kedata-indonesia/docflow-core'
 import { PAGE_SIZES, getPageSize } from '@kedata-indonesia/docflow-layout-engine'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useEditor } from '../composables/useEditor.js'
@@ -46,6 +46,7 @@ const props = withDefaults(
     onImageUpload?: ImageUploadHandler
     citation?: CitationPort
     aiStream?: AIStreamFn
+    aiDraft?: AIDraftFn
   }>(),
   {
     editable: true,
@@ -66,6 +67,7 @@ const props = withDefaults(
     onImageUpload: undefined,
     citation: undefined,
     aiStream: undefined,
+    aiDraft: undefined,
   },
 )
 
@@ -271,8 +273,9 @@ const { editorRef, editor, pluginActions, isReady, docsEditor: docEditor } = use
   editable: props.editable,
   collaboration: props.collaboration,
   onImageUpload: props.onImageUpload,
-  citation: citationPort.value,
-  aiStream: props.aiStream,
+citation: citationPort.value,
+    aiStream: props.aiStream,
+    aiDraft: props.aiDraft,
   getPageMap: () => new Map(),
   paginationOptions: paginationOptions.value,
   onUpdate: (json) => {
@@ -1303,6 +1306,7 @@ watch(isReady, (ready) => {
         v-if="activeSidebar === 'ai'"
         :editor="editor"
         :ai-stream="props.aiStream"
+        :ai-draft="props.aiDraft"
         @close="activeSidebar = null"
       />
     </div>

@@ -36,3 +36,35 @@ export interface AIActionRequest {
  * Yields streamed text chunks in order; stops at end of stream, throws on error.
  */
 export type AIStreamFn = (req: AIActionRequest, signal: AbortSignal) => AsyncIterable<string>
+
+// ─── Phase 7E-4 — cited RAG drafting ─────────────────────────────────────────
+
+/** One entry in the citation table carried by the SSE `done` event (§3.4). */
+export interface AIDraftCitation {
+  /** 1-based index matching a `[n]` marker in the streamed text. */
+  ref: number
+  /** `Source._id` string — the library maps markers through this table. */
+  sourceId: string
+  /** "first author family + year" tag, e.g. "Doe (2024)". */
+  label: string
+}
+
+/**
+ * Events yielded by `aiDraft` (§3.5). The `done` event carries the citation
+ * table; the `error` event does NOT (the bug-hunter carry-forward — the client
+ * treats BOTH `done` and `error` as terminal; Insert is enabled only on `done`).
+ */
+export type AIDraftEvent =
+  | { type: 'delta'; text: string }
+  | { type: 'done'; citations: AIDraftCitation[] }
+  | { type: 'error'; message: string }
+
+/**
+ * The app implements this and injects it; the library never knows the URL.
+ * Mirrors `AIStreamFn` but yields richer `AIDraftEvent`s (carries the citation
+ * table on the terminal `done` event). Injected exactly like `aiStream`.
+ */
+export type AIDraftFn = (
+  req: { prompt: string; context?: { before: string; after: string }; k?: number },
+  signal: AbortSignal,
+) => AsyncIterable<AIDraftEvent>

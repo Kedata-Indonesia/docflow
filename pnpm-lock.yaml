@@ -496,6 +496,9 @@ importers:
       '@kedata-indonesia/docflow-layout-engine':
         specifier: workspace:*
         version: link:../layout-engine
+      '@kedata-indonesia/docflow-plugins':
+        specifier: workspace:*
+        version: link:../plugins
       lucide-vue-next:
         specifier: ^1.0.0
         version: 1.0.0(vue@3.5.39(typescript@5.9.3))
