@@ -1,20 +1,31 @@
 <script setup lang="ts">
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { ref, computed, watch, onUnmounted, nextTick, toRaw } from 'vue'
-import { Sparkles, Send, Copy, Check, ArrowDownToLine, AlignLeft, BadgeCheck, Wand2, Globe, X, User, PencilLine } from 'lucide-vue-next'
+import { Sparkles, Send, Copy, Check, ArrowDownToLine, AlignLeft, BadgeCheck, Wand2, Globe, X, User, PencilLine, Quote } from 'lucide-vue-next'
 import type { Editor } from '@tiptap/core'
-import type { AIActionRequest, AIStreamFn } from '@kedata-indonesia/docflow-core'
+import { Slice, Fragment } from 'prosemirror-model'
+import type { AIActionRequest, AIStreamFn, AIDraftCitation, AIDraftEvent, AIDraftFn } from '@kedata-indonesia/docflow-core'
+import { getCitationEngine } from '@kedata-indonesia/docflow-plugins'
 import { useLocale } from '../../composables/useLocale.js'
+import { buildContentArray, stripMarkers } from './markerGrammar.js'
 
 /**
- * Doc-aware AI chat sidebar (Phase 7D).
+ * Doc-aware AI chat sidebar (Phase 7D) + cited-drafting (Phase 7E-4).
  *
- * Rewritten from the old stub: no more direct `/api/ai/copilot` fetch (the
- * library-boundary leak), no whole-document payload, no non-streaming read.
- * Everything goes through the host-injected `aiStream` transport (editor →
- * server → LLM), assistant replies stream token-by-token, and "Insert" lands
- * in the document as a single ProseMirror transaction so it flows through
- * Yjs like a human edit.
+ * No more direct `/api/ai/copilot` fetch (the library-boundary leak), no
+ * whole-document payload, no non-streaming read. Everything goes through the
+ * host-injected `aiStream` / `aiDraft` transports (editor → server → LLM),
+ * assistant replies stream token-by-token, and "Insert" lands in the document
+ * as a single ProseMirror transaction so it flows through Yjs like a human edit.
+ *
+ * 7E-4: a "Draft with citations" quick action toggles draft mode; the prompt
+ * is sent to `/api/ai/draft` via `aiDraft`, which streams text carrying `[n]`
+ * markers and a terminal `done` event with a `{ ref, sourceId, label }` table.
+ * Insert maps markers through the table to Phase 6 citation nodes and dispatch
+ * ONE `view.dispatch(tr.replace(...))` (the §2 decision 6 — N markers must
+ * NOT become N transactions / N Yjs history entries). The model output is
+ * untrusted — only markers that resolve through the server-owned table become
+ * citations; unresolved markers are stripped from the inserted text.
  */
 
 interface ChatTurn {
@@ -22,12 +33,16 @@ interface ChatTurn {
   text: string
   streaming?: boolean
   error?: boolean
+  /** 7E-4: the citation table for a draft turn (set on the `done` event). */
+  citations?: AIDraftCitation[]
 }
 
 const props = defineProps<{
   editor?: Editor | null
   /** Host-injected transport (apps/web). Falls back to the editorContext port. */
   aiStream?: AIStreamFn
+  /** 7E-4: host-injected draft transport (yielding `AIDraftEvent`s). */
+  aiDraft?: AIDraftFn
 }>()
 
 const emit = defineEmits<{
@@ -60,6 +75,15 @@ const resolvedAiStream = computed<AIStreamFn | undefined>(() => {
   if (props.aiStream) return props.aiStream
   return (pmEditor()?.storage as any)?.editorContext?.aiStream
 })
+
+/** 7E-4: the host-injected draft transport (yields `AIDraftEvent`s). */
+const resolvedAiDraft = computed<AIDraftFn | undefined>(() => {
+  if (props.aiDraft) return props.aiDraft
+  return (pmEditor()?.storage as any)?.editorContext?.aiDraft
+})
+
+/** 7E-4: when true, the submit form drives `sendDraft` (→ /api/ai/draft) instead of chat. */
+const draftMode = ref(false)
 
 // ─── Selection awareness (macros that need one) ──────────────────────────────
 
@@ -145,6 +169,11 @@ function handleSubmit() {
   const prompt = promptInput.value.trim()
   if (!prompt || isStreaming.value) return
   promptInput.value = ''
+  if (draftMode.value) {
+    // 7E-4: draft → /api/ai/draft (no selection/action; §3.4 wire is leaner).
+    sendDraft({ prompt, context: boundedContext() }, prompt)
+    return
+  }
   const selection = currentSelection.value
   send(
     {
@@ -155,6 +184,71 @@ function handleSubmit() {
     },
     prompt,
   )
+}
+
+/**
+ * 7E-4: drive the host-injected `aiDraft` transport (→ POST /api/ai/draft).
+ * Yields `AIDraftEvent`s: `delta` (append text), `done` (set the citation
+ * table — enables Insert), `error` (mark the turn errored, clear citations —
+ * the bug-hunter carry-forward: Insert stays disabled on `error`).
+ */
+async function sendDraft(req: { prompt: string; context?: { before: string; after: string } }, userLabel: string) {
+  const stream = resolvedAiDraft.value
+  if (!stream || isStreaming.value) return
+
+  abort?.abort()
+  abort = new AbortController()
+  isStreaming.value = true
+
+  turns.value.push({ role: 'user', text: userLabel })
+  turns.value.push({ role: 'assistant', text: '', streaming: true })
+  const assistantIdx = turns.value.length - 1
+  await scrollToBottom()
+
+  try {
+    for await (const event of stream(req, abort.signal) as AsyncIterable<AIDraftEvent>) {
+      if (event.type === 'delta') {
+        turns.value[assistantIdx].text += event.text
+        scrollToBottom()
+      } else if (event.type === 'done') {
+        // The citation table arrived — enables Insert (the load-bearing §3.4
+        // wire: the table is the only source for sourceId; markers flow through
+        // it). Empty table = 0-results path; Insert still works (plain text).
+        turns.value[assistantIdx].citations = event.citations
+      } else if (event.type === 'error') {
+        turns.value[assistantIdx].text = `${t('sidebars.ai.aiError')}: ${event.message}`
+        turns.value[assistantIdx].error = true
+        // Carry-forward: no citations on error → Insert button hidden via v-if
+        // (turn.error === true breaks the gating) → stays disabled.
+        turns.value[assistantIdx].citations = undefined
+      }
+    }
+    if (!turns.value[assistantIdx].text && !turns.value[assistantIdx].error) {
+      turns.value[assistantIdx].text = t('sidebars.ai.emptyResponse')
+      turns.value[assistantIdx].error = true
+    }
+  } catch (err) {
+    if (!abort.signal.aborted) {
+      turns.value[assistantIdx].text = `${t('sidebars.ai.aiError')}: ${err instanceof Error ? err.message : String(err)}`
+      turns.value[assistantIdx].error = true
+      turns.value[assistantIdx].citations = undefined
+    }
+  } finally {
+    turns.value[assistantIdx].streaming = false
+    isStreaming.value = false
+    abort = null
+    scrollToBottom()
+  }
+}
+
+/** 7E-4: toggle draft mode on/off via the "Draft with citations" quick action. */
+function toggleDraftMode() {
+  draftMode.value = !draftMode.value
+  // Focus the prompt textarea so the user can immediately type the draft request.
+  nextTick(() => {
+    const ta = document.querySelector<HTMLTextAreaElement>('.ai-sidebar textarea')
+    ta?.focus()
+  })
 }
 
 // ─── Quick macros ─────────────────────────────────────────────────────────────
@@ -186,12 +280,27 @@ function improveSelection() {
   ;(pmEditor()?.commands as any)?.aiTransform?.({ action: 'rewrite' })
 }
 
-const quickActions = computed(() => [
-  { label: t('sidebars.ai.summarize'), icon: AlignLeft, color: 'text-cyan-500', action: 'summarize' as const, needsSelection: true },
-  { label: t('sidebars.ai.fixGrammar'), icon: BadgeCheck, color: 'text-emerald-500', action: 'grammar' as const, needsSelection: true },
-  { label: t('sidebars.ai.continue'), icon: Wand2, color: 'text-amber-500', action: 'generate' as const, prompt: 'Continue writing naturally from where the text ends, matching the existing style.' },
-  { label: t('sidebars.ai.toSpanish'), icon: Globe, color: 'text-cyan-500', action: 'translate' as const, prompt: 'translate to Spanish', needsSelection: true },
+interface QuickAction {
+  label: string
+  icon: typeof Sparkles
+  color: string
+  action?: AIActionRequest['action']
+  prompt?: string
+  needsSelection?: boolean
+  improve?: boolean
+  draft?: boolean
+  disabled?: boolean
+}
+
+const quickActions = computed<QuickAction[]>(() => [
+  { label: t('sidebars.ai.summarize'), icon: AlignLeft, color: 'text-cyan-500', action: 'summarize', needsSelection: true },
+  { label: t('sidebars.ai.fixGrammar'), icon: BadgeCheck, color: 'text-emerald-500', action: 'grammar', needsSelection: true },
+  { label: t('sidebars.ai.continue'), icon: Wand2, color: 'text-amber-500', action: 'generate', prompt: 'Continue writing naturally from where the text ends, matching the existing style.' },
+  { label: t('sidebars.ai.toSpanish'), icon: Globe, color: 'text-cyan-500', action: 'translate', prompt: 'translate to Spanish', needsSelection: true },
   { label: t('sidebars.ai.improveSelection'), icon: PencilLine, color: 'text-violet-500', improve: true, needsSelection: true },
+  // 7E-4: "Draft with citations" toggles draft mode (no immediate action).
+  // Only enabled when the host injected aiDraft; disabled otherwise.
+  { label: t('sidebars.ai.draft'), icon: Quote, color: 'text-cyan-500', draft: true, disabled: !resolvedAiDraft.value },
 ])
 
 // ─── Turn actions ─────────────────────────────────────────────────────────────
@@ -203,20 +312,79 @@ function handleCopy(turn: ChatTurn, index: number) {
   setTimeout(() => (copiedIndex.value = null), 2000)
 }
 
-/** Insert into the document as ONE ProseMirror transaction → flows through
- *  Yjs like a human edit (the old stub's raw-text insert is gone). Uses the
- *  transaction API directly — chain().focus() can dispatch a mismatched
- *  transaction when the editor isn't focused (same lesson as the footnote
- *  insert in DocsEditor). */
+/** Shared insert-feedback flash (the `inserted` check-mark on the button). */
+function markInserted(index: number) {
+  insertedIndex.value = index
+  setTimeout(() => {
+    if (insertedIndex.value === index) insertedIndex.value = null
+  }, 2000)
+}
+
+/**
+ * UNIFIED insert (7E-4) — ONE substantive `view.dispatch` per turn regardless
+ * of branch (the §2 decision 6 — never N dispatches for N markers):
+ *
+ *   1. Plain-text path (preserves 7D behavior for chat turns AND for draft
+ *      turns whose `done` arrived with `citations: []` — 0-results): a single
+ *      `tr.insertText(turn.text, from, to)` dispatch.
+ *   2. Citation content-array path (draft turn with ≥1 citation): build ONE
+ *      content array via `buildContentArray` (text spans interleaved with
+ *      `buildCitationNodes` specs — the helper owns the note-vs-inline
+ *      branching so this file does NOT duplicate it) and dispatch ONE
+ *      `view.dispatch(state.tr.replace(from, to, slice))`. (ProseMirror
+ *      `Transaction` has no `insertContent` helper — that's a TipTap chain
+ *      command that dispatches per call; the raw-PM primitive that lands the
+ *      same effect in ONE dispatch is `tr.replace` with a closed slice of
+ *      inline nodes.) The `CitationEngineExtension.onUpdate` walk fires on
+ *      this single dispatch → `onSourcesChange` → the host's snapshot persist
+ *      → peers render via Phase 6 snapshot (no new rendering path; not bypassed).
+ *   3. No-engine fallback for a cited draft: strip the markers (so a draft
+ *      with `[n]` but no citation engine inserts clean text, no leak) and
+ *      fall back to the plain-text path.
+ *
+ * Uses the transaction API directly — chain().focus() can dispatch a mismatched
+ * transaction when the editor isn't focused (same lesson as the footnote insert
+ * in DocsEditor). `view.focus()` afterward may fire a cosmetic zero-step tr
+ * (scroll/focus) — it does NOT expand Yjs history or push to collab, so the
+ * "ONE history entry" invariant holds (the content-array insert is one step). */
 function handleInsert(turn: ChatTurn, index: number) {
   const ed = pmEditor()
   if (!turn.text || !ed) return
   const { state, view } = ed
   const { from, to } = state.selection
-  view.dispatch(state.tr.insertText(turn.text, from, to))
+
+  if (!turn.citations || turn.citations.length === 0) {
+    // Plain-text path — preserves 7D behavior for chat turns + 0-results drafts.
+    view.dispatch(state.tr.insertText(turn.text, from, to))
+    view.focus()
+    markInserted(index)
+    return
+  }
+
+  const engine = getCitationEngine(ed)
+  if (!engine) {
+    // No citation engine — strip markers + insert plain text (no leak, no
+    // literal `[9]` reaching the document). Falls back to the plain-text path.
+    view.dispatch(state.tr.insertText(stripMarkers(turn.text), from, to))
+    view.focus()
+    markInserted(index)
+    return
+  }
+
+  // Citation content-array path — ONE substantive dispatch (§2 decision 6).
+  const tableByRef = new Map(turn.citations.map((c) => [c.ref, c]))
+  const array = buildContentArray(turn.text, tableByRef, engine)
+  const schema = state.schema
+  const nodes = array
+    .map((part) => {
+      if (typeof part === 'string') return schema.text(part)
+      return schema.nodeFromJSON(part)
+    })
+    .filter((n): n is NonNullable<typeof n> => Boolean(n))
+  const slice = new Slice(Fragment.from(nodes), 0, 0)
+  view.dispatch(state.tr.replace(from, to, slice))
   view.focus()
-  insertedIndex.value = index
-  setTimeout(() => (insertedIndex.value = null), 2000)
+  markInserted(index)
 }
 
 function handleClose() {
@@ -265,10 +433,15 @@ onUnmounted(() => {
             v-for="qa in quickActions"
             :key="qa.label"
             type="button"
-            :disabled="isStreaming || (qa.needsSelection && !currentSelection)"
+            :disabled="isStreaming || (qa.needsSelection && !currentSelection) || ('disabled' in qa && qa.disabled)"
             :title="qa.needsSelection && !currentSelection ? t('sidebars.ai.selectTextFirst') : qa.label"
-            class="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-left text-[11px] font-bold text-slate-700 transition-colors hover:border-cyan-500/50 disabled:opacity-40 dark:border-white/10 dark:bg-white/[0.02] dark:text-slate-300 dark:hover:border-cyan-500/30"
-            @click="qa.improve ? improveSelection() : runMacro(qa)"
+            :class="[
+              'flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-left text-[11px] font-bold transition-colors disabled:opacity-40',
+              'draft' in qa && qa.draft && draftMode
+                ? 'border-cyan-500 bg-cyan-500/10 text-cyan-700 dark:border-cyan-400/50 dark:bg-cyan-500/15 dark:text-cyan-300'
+                : 'border-slate-200 bg-slate-50 text-slate-700 hover:border-cyan-500/50 dark:border-white/10 dark:bg-white/[0.02] dark:text-slate-300 dark:hover:border-cyan-500/30',
+            ]"
+            @click="qa.improve ? improveSelection() : ('draft' in qa && qa.draft) ? toggleDraftMode() : runMacro(qa as Parameters<typeof runMacro>[0])"
           >
             <component :is="qa.icon" class="h-3 w-3" :class="qa.color" />
             <span>{{ qa.label }}</span>
@@ -305,6 +478,20 @@ onUnmounted(() => {
             ]"
           >{{ turn.text }}<span v-if="turn.streaming" class="animate-pulse text-cyan-500">▌</span></div>
 
+          <!-- 7E-4: citation chips under a draft turn (rendered after `done`). -->
+          <div
+            v-if="turn.role === 'assistant' && turn.citations && turn.citations.length > 0"
+            class="flex flex-wrap gap-1 pl-1"
+          >
+            <span
+              v-for="c in turn.citations"
+              :key="c.ref"
+              class="inline-flex items-center gap-1 rounded-full border border-cyan-500/30 bg-cyan-500/5 px-2 py-0.5 text-[10px] font-semibold text-cyan-700 dark:border-cyan-400/30 dark:bg-cyan-500/10 dark:text-cyan-300"
+            >
+              <Quote class="h-2.5 w-2.5" />{{ c.label }}
+            </span>
+          </div>
+
           <div v-if="turn.role === 'assistant' && !turn.streaming && !turn.error && turn.text" class="flex gap-1.5">
             <button
               type="button"
@@ -332,7 +519,7 @@ onUnmounted(() => {
             v-model="promptInput"
             rows="2"
             :disabled="isStreaming"
-            :placeholder="t('sidebars.ai.promptPlaceholder')"
+            :placeholder="draftMode ? t('sidebars.ai.draftPlaceholder') : t('sidebars.ai.promptPlaceholder')"
             class="w-full min-h-[55px] resize-none rounded-xl border border-slate-200 bg-white p-2.5 text-xs text-slate-800 transition-all focus:border-cyan-500/50 focus:shadow-cyan focus:outline-none disabled:opacity-60 dark:border-white/10 dark:bg-white/[0.02] dark:text-slate-100 dark:focus:border-cyan-500/30"
             @keydown.enter.exact.prevent="handleSubmit"
           />
@@ -342,7 +529,7 @@ onUnmounted(() => {
               :disabled="isStreaming || !promptInput.trim()"
               class="flex items-center gap-1 rounded-lg bg-cyan-500 px-3.5 py-2 text-xs font-bold text-black shadow-cyan transition-all hover:bg-cyan-400 disabled:opacity-40"
             >
-              <Send class="h-3.5 w-3.5" /> {{ t('sidebars.ai.promptAI') }}
+              <Send class="h-3.5 w-3.5" /> {{ draftMode ? t('sidebars.ai.promptDraft') : t('sidebars.ai.promptAI') }}
             </button>
           </div>
         </form>

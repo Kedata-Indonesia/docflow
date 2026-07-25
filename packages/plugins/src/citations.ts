@@ -12,4 +12,5 @@ export {
   type CitationCluster,
   type CiteEngineOptions,
 } from './citeEngine.js'
+export { buildCitationNodes } from './citation.js'
 export { CSL_STYLES, DEFAULT_CSL_STYLE, CSL_LOCALE_EN_US, type CslStyleInfo } from './csl/index.js'
