@@ -5,6 +5,9 @@ import { definePlugin } from '@kedata-indonesia/docflow-core'
 import type { CitationPort } from '@kedata-indonesia/docflow-core'
 import { CiteEngine, nextCitationId, type CitationAttrs } from './citeEngine.js'
 import { BibliographyNode } from './bibliography.js'
+import { buildCitationNodes } from './citationNodeSpec.js'
+
+export { buildCitationNodes } from './citationNodeSpec.js'
 
 interface EditorContextStorage {
   citation?: CitationPort
@@ -218,32 +221,31 @@ export const CitationNode = Node.create({
   },
 })
 
+/**
+ * Build ONE citation node spec (inline `citation` or note-style `footnote`)
+ * WITHOUT dispatching. Used by both the interactive `insertCitation` path
+ * (which dispatches its own transaction) and the 7E-4 content-array insert
+ * (which builds N nodes and dispatches once). Returns `null` only if the
+ * schema lacks the required node type (note style + no `footnote` node).
+ *
+ * PURE: takes the engine + attrs, returns a node spec, no editor mutation.
+ * Lives in `citationNodeSpec.ts` (no tiptap imports) so the standalone
+ * `citations.ts` server entry can re-export it without pulling the editor
+ * extension graph into the server bundle — `buildCitationNodes` should have
+ * exactly ONE definition (the helper in `citationNodeSpec.ts`); this file
+ * only re-exports it so existing importers keep resolving.
+ */
 function insertCitationWithSource(
   editor: Editor,
   engine: CiteEngine,
   attrs: { sourceId: string; locator?: string },
 ): boolean {
-  const citationId = nextCitationId()
-  if (engine.isNoteStyle()) {
-    // Note styles (Chicago notes-bib) cite via footnotes — the engine
-    // renders the note body, the existing DOM pass numbers the ref.
-    if (!editor.schema.nodes['footnote']) return false
-    return editor
-      .chain()
-      .focus()
-      .insertContent({
-        type: 'footnote',
-        attrs: { content: '', sourceId: attrs.sourceId, locator: attrs.locator ?? '', citationId },
-      })
-      .run()
-  }
+  const spec = buildCitationNodes(engine, attrs)
+  if (spec.type === 'footnote' && !editor.schema.nodes['footnote']) return false
   return editor
     .chain()
     .focus()
-    .insertContent({
-      type: 'citation',
-      attrs: { citationId, sourceId: attrs.sourceId, locator: attrs.locator ?? '' },
-    })
+    .insertContent({ type: spec.type, attrs: spec.attrs })
     .run()
 }
 

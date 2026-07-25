@@ -27,6 +27,7 @@
   "dependencies": {
     "@kedata-indonesia/docflow-core": "workspace:*",
     "@kedata-indonesia/docflow-layout-engine": "workspace:*",
+    "@kedata-indonesia/docflow-plugins": "workspace:*",
     "lucide-vue-next": "^1.0.0",
     "prosemirror-model": "^1.25.11"
   },

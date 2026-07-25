@@ -44,6 +44,7 @@ export function useEditor(options: UseEditorOptions): UseEditorReturn {
       onImageUpload: options.onImageUpload,
       citation: options.citation,
       aiStream: options.aiStream,
+      aiDraft: options.aiDraft,
     })
 
     docsEditor.value = nextEditor
