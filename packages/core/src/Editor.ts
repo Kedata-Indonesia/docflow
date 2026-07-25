@@ -17,7 +17,7 @@ import { BlockAttributesExtension } from './BlockAttributes.js'
 import { EditorContextExtension } from './EditorContext.js'
 import { SearchAndReplaceExtension } from './SearchAndReplace.js'
 import type { ImageUploadHandler, CitationPort } from './ports.js'
-import type { AIStreamFn } from './ai/types.js'
+import type { AIStreamFn, AIDraftFn } from './ai/types.js'
 import { PaginationPlus, type PaginationPlusOptions } from 'tiptap-pagination-plus'
 
 /**
@@ -120,6 +120,8 @@ export interface EditorOptions {
   citation?: CitationPort
   /** Host-injected AI transport (Phase 7 — editor → server → LLM). */
   aiStream?: AIStreamFn
+  /** Host-injected cited-draft transport (Phase 7E — editor → server → RAG LLM). */
+  aiDraft?: AIDraftFn
 }
 
 export interface DocsEditor {
@@ -632,6 +634,7 @@ function createTiptapEditor(
       onImageUpload: options.onImageUpload,
       citation: options.citation,
       aiStream: options.aiStream,
+      aiDraft: options.aiDraft,
     }),
     // Always present — find & replace decorations + state (core editing infra).
     SearchAndReplaceExtension,
