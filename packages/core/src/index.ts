@@ -34,4 +34,4 @@ export {
   type CollaborationSetup,
   type AwarenessState,
 } from './Collaboration.js'
-export type { AIAction, AIActionRequest, AIStreamFn } from './ai/types.js'
+export type { AIAction, AIActionRequest, AIStreamFn, AIDraftFn, AIDraftEvent, AIDraftCitation } from './ai/types.js'
