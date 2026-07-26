@@ -83,7 +83,7 @@ layout-engine (pagination measurement) ─────────────�
 
 ### Deployment
 
-Docker configs live in `docker/` (compose, nginx, entrypoints) plus `Dockerfile.server` / `Dockerfile.demo`. Two modes: **same-domain** (nginx proxies `/api/*` to server, serves demo statically) and **separate-domain** (frontend and API on different hosts, requiring cross-domain OAuth/cookie config). See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+Docker configs live in `docker/` (compose, nginx, entrypoints, all `docker/Dockerfile.*`). The root `Dockerfile.{server,web,demo}` files exist as **legacy Dokploy targets** — the Dokploy deployment references them by root path; keep in sync with the `docker/` versions until Dokploy is migrated (A1 follow-up). Compose is the canonical self-host path and points exclusively at `docker/Dockerfile.*`. Two modes: **same-domain** (nginx proxies `/api/*` to server, serves web/demo statically) and **separate-domain** (frontend and API on different hosts, requiring cross-domain OAuth/cookie config). See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ### AI assistance (Phase 7)
 
