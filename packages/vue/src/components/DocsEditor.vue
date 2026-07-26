@@ -182,7 +182,6 @@ const activeTabContent = computed(() => tabContents.value[activeTabId.value])
 const showBubbleMenu = ref(false)
 const bubblePosition = ref<{ top: number; left: number } | null>(null)
 const activeSidebar = ref<SidebarKey | null>(null)
-const leftSidebarOpen = ref(false)
 const wordCount = ref(0)
 const charCount = ref(0)
 const savingStatus = ref<SavingStatus>('saved')
@@ -1242,7 +1241,7 @@ watch(isReady, (ready) => {
       @export="$emit('export', $event)" @share="$emit('share')"><template #actions><slot name="header-actions" /></template><template #overflow-actions="slotProps"><slot name="overflow-actions" v-bind="slotProps" /></template><template #user-menu="slotProps"><slot name="user-menu" v-bind="slotProps" /></template></HeaderBar>
     <EditorToolbar
 :actions="pluginActions" :plugins="plugins" :editor="editor" :active-sidebar="activeSidebar"
-      @toggle-sidebar="toggleSidebar"       @print="handlePrint" @toggle-left-sidebar="leftSidebarOpen = !leftSidebarOpen" />
+      @toggle-sidebar="toggleSidebar"       @print="handlePrint" />
     <RulerBar :layout-options="resolvedLayoutOptions" />
     <BubbleMenu :visible="showBubbleMenu" :actions="pluginActions" :position="bubblePosition" :editor="editor" />
     <SlashMenuVue :editor="editor" :commands="slashCommands" />
@@ -1251,7 +1250,7 @@ watch(isReady, (ready) => {
       <FindReplaceDialog :is-open="showFindReplace" :editor="editor" @close="showFindReplace = false" />
 
       <!-- Document outline (heading map) — toggled by the floating button -->
-      <TOCSidebar v-if="leftSidebarOpen" :editor="editor" @close="leftSidebarOpen = false" />
+      <TOCSidebar v-if="activeSidebar === 'toc'" :editor="editor" @close="activeSidebar = null" />
 
       <!-- Floating toggle shown when the outline is collapsed -->
       <button
@@ -1259,7 +1258,7 @@ watch(isReady, (ready) => {
         type="button"
         class="absolute left-4 top-4 z-20 flex h-11 w-11 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-md transition-colors hover:bg-slate-100 dark:border-white/10 dark:bg-[#0e1525] dark:text-slate-300 dark:hover:bg-white/5"
         :title="t('editor.showOutline')"
-        @click="leftSidebarOpen = true"
+        @click="toggleSidebar('toc')"
       >
         <Menu class="h-5 w-5" />
       </button>
