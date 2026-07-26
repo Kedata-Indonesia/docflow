@@ -83,7 +83,11 @@ layout-engine (pagination measurement) ─────────────�
 
 ### Deployment
 
-Docker configs live in `docker/` (compose, nginx, entrypoints, all `docker/Dockerfile.*`). The root `Dockerfile.{server,web,demo}` files exist as **legacy Dokploy targets** — the Dokploy deployment references them by root path; keep in sync with the `docker/` versions until Dokploy is migrated (A1 follow-up). Compose is the canonical self-host path and points exclusively at `docker/Dockerfile.*`. Two modes: **same-domain** (nginx proxies `/api/*` to server, serves web/demo statically) and **separate-domain** (frontend and API on different hosts, requiring cross-domain OAuth/cookie config). See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+Docker configs live in `docker/` (compose, nginx, entrypoints, all `docker/Dockerfile.*`). The root `Dockerfile.{server,web,demo}` files exist as **legacy Dokploy targets** — the Dokploy deployment references them by root path; keep in sync with the `docker/` versions until Dokploy is migrated (A1 follow-up). Compose is the canonical self-host path and points exclusively at `docker/Dockerfile.*`. Two modes: **same-domain** (nginx proxies `/api/*` to server, serves web/demo statically) and **separate-domain** (frontend and API on different hosts, requiring cross-domain OAuth/cookie config).
+
+**Live reference deploy:** `https://dev-docflow.kedata.cloud/` runs the same-domain stack on Dokploy (web + server containers behind a host nginx), using **managed MongoDB Atlas**, **external S3-compatible storage**, and the **cloud AI provider** (`AI_PROVIDER=openai-compatible` → DeepSeek). The compose-managed path (Mongo + MinIO + local LLM container) lives in the *pure on-prem* backlog — not exercised by the current prod profile.
+
+Full guides: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) (operator-facing, both modes, env reference §3, backup/restore §11, upgrade §12) and [docs/AI_PROVIDERS.md](docs/AI_PROVIDERS.md) (per-provider env config + compat matrix for the OpenAI-compatible adapter).
 
 ### AI assistance (Phase 7)
 
