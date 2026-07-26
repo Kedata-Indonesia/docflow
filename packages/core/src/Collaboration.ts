@@ -10,6 +10,15 @@ export interface AwarenessState {
   clientId: number
   user: { name: string; color: string }
   cursor?: { from: number; to: number } | null
+  /**
+   * Phase 9 PR2 — *present* flag. False when the local user has navigated
+   * away from the editor route (the Yjs provider is still alive but the
+   * host has gated cursor emission off, per the §6 *\"TOC sidebar orphan
+   * wiring\"* / REST-heartbeat scope notes). Peers see this instantly
+   * via the awareness `change` event — far faster than the 15s REST
+   * heartbeat fallback. Defaults to true when the user is in the editor.
+   */
+  present: boolean
 }
 
 export interface CollaborationOptions {
@@ -20,6 +29,13 @@ export interface CollaborationOptions {
   user: { name: string; color: string }
   onAwarenessChange?: (states: AwarenessState[]) => void
   initialStorageState?: Uint8Array
+  /**
+   * Phase 9 PR2 — when false, the local user is treated as
+   * out-of-editor: their cursor field is nulled and `present` is false.
+   * Default is true (in editor). Toggle at runtime via
+   * `setLocalCursorEnabled()` returned from `createCollaboration`.
+   */
+  emitCursor?: boolean
 }
 
 export interface CollaborationSetup {
@@ -27,6 +43,13 @@ export interface CollaborationSetup {
   provider: WebrtcProvider | WebsocketProvider | null
   awareness: Awareness
   destroy: () => void
+  /**
+   * Phase 9 PR2 — toggle the local cursor emission + present flag.
+   * Pass `false` when the editor route unmounts, `true` when it remounts.
+   * Triggers an awareness `change` event so peers see the leave/rejoin
+   * instantly (no REST-heartbeat lag).
+   */
+  setLocalCursorEnabled: (enabled: boolean) => void
 }
 
 /** Local-only signaling default. Public signaling servers were removed in
@@ -58,7 +81,12 @@ export function resolveSignalingUrls(signaling?: string[]): string[] {
 interface AwarenessRawState {
   user?: { name: string; color: string }
   cursor?: { from: number; to: number } | null
+  /** Phase 9 PR2 — see AwarenessState.present. Defaults to true when not
+   *  explicitly set (legacy states that only carry `user` + `cursor`). */
+  present?: boolean
 }
+
+const LOCAL_PRESENT_DEFAULT = true
 
 function createAwarenessStates(awareness: Awareness): AwarenessState[] {
   const states: AwarenessState[] = []
@@ -68,6 +96,10 @@ function createAwarenessStates(awareness: Awareness): AwarenessState[] {
       clientId,
       user: raw.user ?? { name: '', color: '' },
       cursor: raw.cursor ?? null,
+      // `present` defaults to true for backwards compat (legacy states
+      // don't set it) and for the local user (always considered present
+      // until PR2 toggles it off).
+      present: raw.present ?? LOCAL_PRESENT_DEFAULT,
     })
   })
   return states
@@ -94,6 +126,26 @@ export function createCollaboration(options: CollaborationOptions): Collaboratio
   const awareness = provider?.awareness ?? new Awareness(ydoc)
   awareness.setLocalStateField('user', options.user)
 
+  // Phase 9 PR2 — emitCursor gate. Local cursor is published only when
+  // the host has set `emitCursor: true` (default). When toggled off via
+  // `setLocalCursorEnabled(false)`, we (a) clear `cursor` (no remote
+  // cursor paint), and (b) set `present: false` so peers can dim the
+  // avatar. The awareness `change` event fires on each toggle so peers
+  // see the leave/rejoin within one round-trip, no REST lag.
+  let emitCursor = options.emitCursor ?? true
+  const setLocalCursorEnabled = (enabled: boolean) => {
+    if (emitCursor === enabled) return
+    emitCursor = enabled
+    // When leaving: clear the cursor so peers don't paint a phantom one.
+    // When returning: leave the cursor field alone — the CollaborationCursor
+    // extension will repopulate it on the next selection change.
+    if (!enabled) {
+      awareness.setLocalStateField('cursor', null)
+    }
+    awareness.setLocalStateField('present', enabled)
+  }
+  awareness.setLocalStateField('present', emitCursor)
+
   let awarenessHandler: (() => void) | undefined
   if (options.onAwarenessChange) {
     const notify = () => {
@@ -114,7 +166,20 @@ export function createCollaboration(options: CollaborationOptions): Collaboratio
     ydoc.destroy()
   }
 
-  return { ydoc, provider, awareness, destroy }
+  return { ydoc, provider, awareness, destroy, setLocalCursorEnabled }
+}
+
+/**
+ * Phase 9 PR2 — read the current emit-cursor gate. The host's editor
+ * extension (or the CollaborationCursor ext itself) calls this to
+ * decide whether to publish cursor updates. Default true. Used by the
+ * host to short-circuit expensive `awareness.setLocalStateField('cursor', ...)`
+ * calls when the user is out-of-editor.
+ */
+export function isLocalCursorEnabled(setup: CollaborationSetup): boolean {
+  // Read the local state to keep the gate in a single place; the
+  // `present` field doubles as the gate (false = no cursor either).
+  return setup.awareness.getLocalState()?.present !== false
 }
 
 export function collaborationExtensions(
