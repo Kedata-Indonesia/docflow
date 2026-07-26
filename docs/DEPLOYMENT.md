@@ -134,11 +134,14 @@ docker build --build-arg VITE_API_BASE_URL=https://api.example.com -f docker/Doc
 ```bash
 # Same-domain build (frontend proxies /api to backend)
 docker build -f docker/Dockerfile.server -t docflow-server:latest .
+docker build -f docker/Dockerfile.web -t docflow-web:latest .
+
+# Optional library showcase (backend-free demo image)
 docker build -f docker/Dockerfile.demo -t docflow-demo:latest .
 
 # Separate-domain build (frontend calls backend directly)
 docker build --build-arg VITE_API_BASE_URL=https://api.example.com \
-  -f docker/Dockerfile.demo -t docflow-demo:latest .
+  -f docker/Dockerfile.web -t docflow-web:latest .
 
 # Tag for registry
 docker tag docflow-server:latest registry.yourcompany.com/docflow-server:v1.0.0
@@ -148,6 +151,12 @@ docker tag docflow-demo:latest registry.yourcompany.com/docflow-demo:v1.0.0
 docker push registry.yourcompany.com/docflow-server:v1.0.0
 docker push registry.yourcompany.com/docflow-demo:v1.0.0
 ```
+
+> **Note on Dockerfile variants:** the canonical self-host path lives under `docker/`
+> (`docker/Dockerfile.server`, `docker/Dockerfile.web`, `docker/Dockerfile.demo`) — the
+> compose file references these exclusively. The root-level `Dockerfile.{server,web,demo}`
+> files are **kept in sync** because the Dokploy deployment references them by root path;
+> delete them once Dokploy is migrated to the `docker/` variants (tracked as A1 follow-up).
 
 ## 3. docker-compose.prod.yml
 
