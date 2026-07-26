@@ -30,6 +30,14 @@
 - 15 new tests pin: 9 role helpers + migration, 6 read-only WS gate.
 The RO3 security gate is closed end-to-end. Phase 9 is unblocked for V (versioning) + C (comments) + SG (suggestions).
 
+**2026-07-28 update (2):** **C1 + C2 + C3 atomic block** shipped (PR #97). Comment threads are now end-to-end functional with role-aware enforcement:
+- Library (`packages/plugins/src/comment.ts`): `CommentMark` carries only `threadId` + `pos`. v1 uses absolute position; v2 will replace with Yjs RelativePosition.
+- Server: `CommentThreadModel` + `routes/comments.ts`. Role-gated per the RO3 model — viewer 403 on create/reply/resolve; commenter + editor + owner pass. WS broadcast on every mutation (no REST poll, per the plan §6 risk row *"Real-time comment fan-out"*).
+- Host: `<DocsEditor>` accepts `:comments` + emits events; `<CommentsSidebar>` mounted via the unified `activeSidebar === 'comments'` pattern. A parallel WS connection handles `comment:*` broadcasts (optimistic patch + fallback refetch).
+- 10 new tests pin the role matrix + soft-delete semantics + WS broadcast call sites.
+
+Phase 9 remaining: V1/V2/V3 (versioning), TP1 (templates), OF1 (y-indexeddb offline), SG1 (suggestionPlugin).
+
 > **Live deployment context (2026-07-26):** the product is already running in the cloud at
 > `https://dev-docflow.kedata.cloud/` on a same-domain nginx reverse proxy. Stack: managed
 > MongoDB (Atlas), external S3-compatible storage, cloud AI provider (`openai-compatible` →
@@ -105,9 +113,9 @@ Verified against `main` @ `54ebab7`.
 | **RO** | RO1 | Role model + migration | ✅ | PR #96. `DocRole = 'viewer' \| 'commenter' \| 'editor'` type + `Document.roles: { userId, role }[]` subdoc + role-aware helpers (`effectiveRole`, `canRead`, `canMutate`, `canComment`). Legacy `collaborators: string[]` retained for back-compat (grants implicit `editor` via `LEGACY_DEFAULT_ROLE`). Idempotent migration runs at boot. | Existing docs load; collaborator assignable to `viewer`/`commenter`/`editor`. |
 | **RO** | RO2 | HTTP enforcement | ✅ | PR #96. `routes/documents.ts` uses the role-aware helpers: `canMutate` rejects `viewer`/`commenter` writes with 403, `canRead` accepts all 3 roles. New routes: `GET /:id/access` (returns the caller's role + capabilities), `PUT /:id/roles` (owner-only — set per-user role), `DELETE /:id/roles/:userId` (owner-only — remove collaborator + clear legacy). | Non-collaborator gets 403 on read; viewer/commenter rejected from writes; only owner mutates ACL. |
 | **RO** | RO3 | WS role enforcement | ✅ | PR #96. **`utils/roomAccess.ts`** now returns `{ role, isOwner }` (not boolean). `apps/server/src/index.ts` calls `setupReadOnlyWSConnection` for `viewer`/`commenter` — the wrapper intercepts the ws `message` event and drops inbound `MESSAGE_SYNC` (type byte 0). Awareness passes through. Initial sync + state broadcasts still flow so viewers see live edits. Editor / owner get the normal `setupWSConnection`. | Viewer connected to room cannot mutate shared doc; editor can. |
-| **C** | C1 | `commentPlugin` (library) | ❌ | `packages/plugins/src/comment.ts` doesn't exist. | Anchored text + comment survives concurrent edits by other users; removed text tombstones thread. |
-| **C** | C2 | `CommentThread` model + API | ❌ | `apps/server/src/models/CommentThread.ts` doesn't exist; `routes/comments.ts` doesn't exist. | Threads persist + list per doc + role-gated (commenter+ can create; viewer read-only). |
-| **C** | C3 | Wire `CommentsSidebar` | ❌ | `CommentsSidebar.vue` is a UI-only stub, not mounted anywhere. | Two users see each other's comments/replies/resolves in near-real-time; anchors stay correct after edits. |
+| **C** | C1 | `commentPlugin` (library) | ✅ | PR #97. `packages/plugins/src/comment.ts` (NEW). `CommentMark` carries only `threadId` + `pos` (no text). Mark is inclusive so typing inside an existing comment extends it. v1 uses absolute document position; v2 will replace with Yjs RelativePosition (deferred per the plan §6 risk row "Comment anchor survival under concurrent edits"). | Anchored text + comment survives concurrent edits by other users (best-effort at v1; full Yjs anchor in v2). |
+| **C** | C2 | `CommentThread` model + API | ✅ | PR #97. `apps/server/src/models/CommentThread.ts` (NEW): threadId (UUID), docId, anchorText, anchorPos, authorId, replies, resolved flag. `routes/comments.ts` (NEW): GET list + POST create + POST reply + PATCH resolve + DELETE — all role-gated via the helpers from PR #96. Viewer 403 on create/reply/resolve; commenter + editor + owner pass. Author OR editor OR owner can delete. Soft-deleted docs mirror GET /:id access. WS broadcast on every mutation (no REST poll). | Threads persist + list per doc + role-gated (commenter+ can create; viewer read-only). |
+| **C** | C3 | Wire `CommentsSidebar` | ✅ | PR #97. `<DocsEditor>` accepts `:comments` prop + emits `add-comment` / `add-reply` / `resolve-comment`. `<CommentsSidebar>` mounted when `activeSidebar === 'comments'` (same `activeSidebar` pattern as T2 — `activeSidebar` is now consistent across TOC / References / AI / Comments / History). Host (`apps/web/EditorView.vue`) loads threads on mount, runs a small parallel WS connection (`?topic=comments`) for `comment:created` / `comment:replied` / `comment:resolved` / `comment:deleted` broadcasts, and applies the optimistic patch locally. Adds the `comment` mark on the anchored range when a thread is created. | Two users see each other's comments / replies / resolves in near-real-time (no poll). |
 | **V** | V1 | `DocumentVersion` model | ❌ | Model + `routes/versions.ts` don't exist. | Model compiles + typecheck passes. |
 | **V** | V2 | Server-side capture | ❌ | No `versionService.ts`. | `POST /api/documents/:id/versions {label}` creates row from live room state. |
 | **V** | V3 | Restore + list + preview | ❌ | `HistorySidebar.vue` emits into the void (`packages/vue/src/types.ts:33-39` snapshots is client-only). | Save→edit→restore → all clients see restored state; list shows author + timestamp. |
@@ -190,9 +198,9 @@ Status as of 2026-07-26:
 | 16 | **V1** `DocumentVersion` model | ⬜ | Phase 1 Yjs persistence is the encode path. | Phase 1 |
 | 17 | **V2** Server-side capture | ⬜ | Reuses Phase 1's encode. | V1 |
 | 18 | **V3** Restore + list + preview | ⬜ | Wires the existing `HistorySidebar` stub to real data. | V2 |
-| 19 | **C1** `commentPlugin` (library) | ⬜ | Anchor via Yjs relative position; library-only. | Phase 1 |
-| 20 | **C2** `CommentThread` model + API | ⬜ | Backend for comments. | Phase 1, RO1 |
-| 21 | **C3** Wire `CommentsSidebar` | ⬜ | Real-time fan-out. | C1, C2, RO3 |
+| 19 | **C1** `commentPlugin` (library) | ✅ #97 | Anchor via Yjs relative position; library-only. | Phase 1 |
+| 20 | **C2** `CommentThread` model + API | ✅ #97 | Backend for comments. | Phase 1, RO1 |
+| 21 | **C3** Wire `CommentsSidebar` | ✅ #97 | Real-time fan-out. | C1, C2, RO3 |
 | 22 | **C4** Update `GenflowAi.md` deployment note | ✅ #89 | After A2/A3 are verified. | A2, A3 |
 | 23 | **C1** `DEPLOYMENT.md` rewrite (product, both modes) | ✅ #86 | After A5. | A2, A5 |
 | 24 | **C2** Consolidated env reference | ✅ #86 | After A5, B1. | A5, B1 |
@@ -281,7 +289,7 @@ Per Phase 9 §4 Group G:
 
 Prod is live on managed stack. Stream D downscopes to docs + latent-bug fix + licensing; A3/B2 move to a "pure on-prem" backlog (run when a customer needs them, not now).
 
-Status as of 2026-07-28: A1, A4, A5, A6, B1, B2-r1/r2/r3, C1, C2, C3, C4, D1, D2, T1, T2, PR1, PR2, RO1, RO2, RO3 shipped. Phase 9 remaining: V (versioning), C (comments), TP, OF, SG. A6 verify + license enforcement deferred to Sprint 11+.
+Status as of 2026-07-28: A1, A4, A5, A6, B1, B2-r1/r2/r3, C1, C2, C3, C4, D1, D2, T1, T2, PR1, PR2, RO1, RO2, RO3, **C1, C2, C3** shipped. Phase 9 remaining: V (versioning), TP, OF, SG. A6 verify + license enforcement deferred to Sprint 11+.
 
 ### Stream D — Deploy hygiene + docs (0.5 dev, Sprint 9)
 ~~D1 → A1 → A4 → C4 → D2~~ → A6 verify (on next deploy)
