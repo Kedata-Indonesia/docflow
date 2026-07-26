@@ -21,7 +21,14 @@
 - Subscribes to `onAwarenessChange` via the new `awarenessStates` ref.
 - Replaces the REST-driven avatar stack with the awareness-driven `presentPeers` derived view (filters `present: true` + excludes the local clientId). Peer-leave is instant.
 - Calls `setLocalCursorEnabled(false)` on route unmount + on `document.visibilitychange` (tab switch / minimize). The REST 15s heartbeat is kept for the menu UI metadata only.
-The acceptance gates from §2 are now met end-to-end (library + host).
+
+**2026-07-28 update:** **RO1 + RO2 + RO3 atomic block** shipped (PR #96). The Phase 9 role model is now enforced end-to-end:
+- `DocRole` (`viewer` / `commenter` / `editor`) + `Document.roles` subdoc + legacy `collaborators` back-compat (legacy grants implicit `editor`).
+- HTTP: `canRead` / `canMutate` / `canComment` replace the old boolean checks in `routes/documents.ts`. New `GET /:id/access` (caller's role + capabilities), `PUT /:id/roles`, `DELETE /:id/roles/:userId`.
+- WS: `utils/roomAccess.ts` returns `{ role, isOwner }`. Viewer / commenter get `setupReadOnlyWSConnection` (drops inbound `MESSAGE_SYNC` at the ws layer; awareness still flows). Editor / owner get the normal `setupWSConnection`.
+- Idempotent migration runs at boot, lifting legacy `collaborators` entries into `roles` with `editor` parity.
+- 15 new tests pin: 9 role helpers + migration, 6 read-only WS gate.
+The RO3 security gate is closed end-to-end. Phase 9 is unblocked for V (versioning) + C (comments) + SG (suggestions).
 
 > **Live deployment context (2026-07-26):** the product is already running in the cloud at
 > `https://dev-docflow.kedata.cloud/` on a same-domain nginx reverse proxy. Stack: managed
@@ -95,9 +102,9 @@ Verified against `main` @ `54ebab7`.
 | **T** | T2 | Mount TOC via `activeSidebar` | ✅ | PR #92. TOC now mounts on `v-if="activeSidebar === 'toc'"`. The dead `leftSidebarOpen` ref + `@toggle-left-sidebar` listener were removed. The toolbar TOC button already emits `toggle-sidebar: 'toc'` — now correctly routes through the unified `toggleSidebar()`. | Toolbar TOC button opens a live outline without host wiring. |
 | **PR** | PR1 | Awareness-driven UI | ✅ | PR #94 (library) + PR #95 (host wiring). Avatar stack in `apps/web/src/components/EditorView.vue` now subscribes to `onAwarenessChange` via the new `awarenessStates` ref, filtered by `present: true` + excludes the local clientId. Peer-leave is instant (one awareness round-trip) — the previous REST 15s lag is gone for presence signals. | Two browsers: live cursors + selections + avatars; peer-leave removes marker instantly (awareness, not TTL). |
 | **PR** | PR2 | Scope REST heartbeat | ✅ | PR #94 (library) + PR #95 (host wiring). `EditorView.vue` calls `setLocalCursorEnabled(false)` on route unmount + on `document.visibilitychange` (tab switch / minimize). The awareness `change` event fires synchronously, so peers see the leave within one event tick. The REST `/api/collab/online/:room` 15s poll is kept for the menu UI metadata (better-auth user ids) but no longer drives the avatar stack. | No duplicate/conflicting presence UI in editor. |
-| **RO** | RO1 | Role model + migration | ❌ | `apps/server/src/models/Document.ts:10,33` — `collaborators: string[]` flat. | Existing docs load; collaborator assignable to `viewer`/`commenter`/`editor`. |
-| **RO** | RO2 | HTTP enforcement | ❌ | `apps/server/src/routes/documents.ts:33-42` — `GET /:id` has no access check. | Non-collaborator gets 403 on read; only owner mutates ACL. |
-| **RO** | RO3 | WS role enforcement | ❌ | `apps/server/src/index.ts:80-93` — `canAccessRoom` is boolean. **Crux security gate.** | Viewer connected to room cannot mutate shared doc; editor can. |
+| **RO** | RO1 | Role model + migration | ✅ | PR #96. `DocRole = 'viewer' \| 'commenter' \| 'editor'` type + `Document.roles: { userId, role }[]` subdoc + role-aware helpers (`effectiveRole`, `canRead`, `canMutate`, `canComment`). Legacy `collaborators: string[]` retained for back-compat (grants implicit `editor` via `LEGACY_DEFAULT_ROLE`). Idempotent migration runs at boot. | Existing docs load; collaborator assignable to `viewer`/`commenter`/`editor`. |
+| **RO** | RO2 | HTTP enforcement | ✅ | PR #96. `routes/documents.ts` uses the role-aware helpers: `canMutate` rejects `viewer`/`commenter` writes with 403, `canRead` accepts all 3 roles. New routes: `GET /:id/access` (returns the caller's role + capabilities), `PUT /:id/roles` (owner-only — set per-user role), `DELETE /:id/roles/:userId` (owner-only — remove collaborator + clear legacy). | Non-collaborator gets 403 on read; viewer/commenter rejected from writes; only owner mutates ACL. |
+| **RO** | RO3 | WS role enforcement | ✅ | PR #96. **`utils/roomAccess.ts`** now returns `{ role, isOwner }` (not boolean). `apps/server/src/index.ts` calls `setupReadOnlyWSConnection` for `viewer`/`commenter` — the wrapper intercepts the ws `message` event and drops inbound `MESSAGE_SYNC` (type byte 0). Awareness passes through. Initial sync + state broadcasts still flow so viewers see live edits. Editor / owner get the normal `setupWSConnection`. | Viewer connected to room cannot mutate shared doc; editor can. |
 | **C** | C1 | `commentPlugin` (library) | ❌ | `packages/plugins/src/comment.ts` doesn't exist. | Anchored text + comment survives concurrent edits by other users; removed text tombstones thread. |
 | **C** | C2 | `CommentThread` model + API | ❌ | `apps/server/src/models/CommentThread.ts` doesn't exist; `routes/comments.ts` doesn't exist. | Threads persist + list per doc + role-gated (commenter+ can create; viewer read-only). |
 | **C** | C3 | Wire `CommentsSidebar` | ❌ | `CommentsSidebar.vue` is a UI-only stub, not mounted anywhere. | Two users see each other's comments/replies/resolves in near-real-time; anchors stay correct after edits. |
@@ -170,9 +177,9 @@ Status as of 2026-07-26:
 
 | # | Task | State | Why now | Depends on |
 |---|------|-------|---------|------------|
-| 9 | **RO1** Role model + migration | ⬜ | Unblocks safe sharing + gates comments + suggestions. | none |
-| 10 | **RO2** HTTP enforcement | ⬜ | Closes the live read-authz gap. | RO1 |
-| 11 | **RO3** WS role enforcement | ⬜ | **Security gate** for comments + suggestions; prototype early to de-risk. | RO1, Phase 1 |
+| 9 | **RO1** Role model + migration | ✅ #96 | Unblocks safe sharing + gates comments + suggestions. | none |
+| 10 | **RO2** HTTP enforcement | ✅ #96 | Closes the live read-authz gap. | RO1 |
+| 11 | **RO3** WS role enforcement | ✅ #96 | **Security gate** for comments + suggestions; prototype early to de-risk. | RO1, Phase 1 |
 | 12 | **A2** Verify `apps/web` image | ✅ #84 (compose) + 🟢 live | Already mostly done; verify end-to-end in stack. | A1, A3 |
 | 13 | **A5** Consolidated env template | ✅ #84 + #85 | After A2/A3; remove `*.kedata.cloud` hardcodes; include all vars. | A2, A3, B1 |
 | 14 | **B1** AI env in compose | ✅ live + documented | Server env is done (7F-1); expose to compose. | Phase 7 |
@@ -274,13 +281,16 @@ Per Phase 9 §4 Group G:
 
 Prod is live on managed stack. Stream D downscopes to docs + latent-bug fix + licensing; A3/B2 move to a "pure on-prem" backlog (run when a customer needs them, not now).
 
-Status as of 2026-07-27: A1, A4, A5, A6, B1, B2-r1/r2/r3, C1, C2, C3, C4, D1, D2, T1, T2, PR1 (lib+host), PR2 (lib+host) shipped. Phase 9 remaining: RO1/2/3, V, C comments, TP, OF, SG. A6 verify + license enforcement deferred to Sprint 11+.
+Status as of 2026-07-28: A1, A4, A5, A6, B1, B2-r1/r2/r3, C1, C2, C3, C4, D1, D2, T1, T2, PR1, PR2, RO1, RO2, RO3 shipped. Phase 9 remaining: V (versioning), C (comments), TP, OF, SG. A6 verify + license enforcement deferred to Sprint 11+.
 
 ### Stream D — Deploy hygiene + docs (0.5 dev, Sprint 9)
 ~~D1 → A1 → A4 → C4 → D2~~ → A6 verify (on next deploy)
 
 ### Stream T — TOC + Presence (0.5 dev, Sprint 9)
 ~~T1 → T2 → PR1 (lib+host) → PR2 (lib+host)~~
+
+### Stream C — Collab (1 dev, Sprint 10)
+~~RO1 → RO2 → RO3~~ → V1 → V2 → V3 → C1 → C2 → C3 → TP1 → OF1 → SG1
 
 ### Stream C — Collab (1 dev, Sprint 10)
 RO1 → RO2 → RO3 (prototype early, security gate) → V1 → V2 → V3 → C1 → C2 → C3 → TP1 → OF1 → SG1
