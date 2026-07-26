@@ -7,7 +7,9 @@
 **Last updated:** 2026-07-26
 **Status:** ready for sprint planning. Acceptance gates mirror §5 of each phase plan. Post-deploy-context update: A2/A4/A6 confirmed live in prod at `dev-docflow.kedata.cloud`; A3/B2 downscoped to "pure on-prem" backlog.
 
-**2026-07-26 update:** A1, A5, C1, C2, C3 shipped (PR #83, #85, #86). A3/4 latency fix shipped in #84. B1 verified in prod. A6 verified in prod (live cold start). Status table below reflects this.
+**2026-07-26 update:** A1, A5, C1, C2, C3 shipped (PR #83, #85, #86). A3/4 latency fix shipped in #84. B1 verified in prod. A6 verified in prod (live cold start).
+
+**2026-07-26 update (2):** B2-r1/r2/r3 shipped (PR #88) — provider-agnostic AI compat matrix with 38 unit tests + `docs/AI_PROVIDERS.md`. C4 shipped (PR #89) — `GenflowAi.md` §Deployment now lists the prod stack + links to operator-facing docs. Status table below reflects this.
 
 > **Live deployment context (2026-07-26):** the product is already running in the cloud at
 > `https://dev-docflow.kedata.cloud/` on a same-domain nginx reverse proxy. Stack: managed
@@ -49,25 +51,24 @@ Legend:
 | **A5** | Consolidated env template | ✅ | PR #84 (completeness) + PR #85 (placeholder hygiene). `docker/server.env.example` + `docker/demo.env.example` + `apps/demo/.env.example` + `.env.docker.example` are aligned; no production concrete values. | Copy `.env.docker.example` → `.env.docker` + fill secrets = working same-domain stack, no other edits. |
 | **A6** | Healthchecks + startup order | ✅ | Server healthcheck + `depends_on: service_healthy` + `entrypoint.sh` wait-for-Mongo. Confirmed live (SPA + backend responsive at `dev-docflow.kedata.cloud`). | Cold start reaches all-healthy without manual restart. ✅ in prod. |
 | **B1** | AI env in compose + server env | ✅ | `config.ts:46-71` reads `AI_*` (7F-1). Documented in `docker/server.env.example` + `.env.docker.example` + `DEPLOYMENT.md` §3.4 + §7. Prod runs `openai-compatible` → DeepSeek. | `AI_PROVIDER=claude` works; switch to local preset works, env-only, no rebuild. ✅ in prod (openai-compatible → DeepSeek). |
-| **B2-r1** | Compat test suite (fixtures) | ❌ | `apps/server/src/ai/__tests__/openaiCompat.spec.ts` doesn't exist. Existing `ai.test.ts` covers the wire-shape equivalence (claude === openai-compatible) + DeepSeek error-body surfacing, but no per-provider fixtures for happy paths. | Each provider in the matrix (DeepSeek, OpenAI, Ollama, vLLM, LM Studio, OpenRouter) has a recorded happy-path + an error-path fixture that the OpenAI-compatible adapter must normalize correctly. |
-| **B2-r2** | Compat matrix docs | ❌ | `docs/AI_PROVIDERS.md` doesn't exist. `DEPLOYMENT.md` §7 lists the three modes (Claude / DeepSeek / local) but doesn't enumerate which OpenAI-compatible providers are tested. | A `docs/AI_PROVIDERS.md` documents (a) the matrix of supported providers, (b) the per-provider env config, (c) known quirks (e.g. DeepSeek's `finish_reason: 'tool_calls'` vs OpenAI's `finish_reason: 'stop'`). Linked from `DEPLOYMENT.md` §7. |
-| **B2-r3** | Streaming edge-case tests | ❌ | Edge cases not covered: empty `choices[]`, double `done`, missing `[DONE]`, multi-byte chunk splits, abort mid-stream. | Each edge case pinned by a unit test in `apps/server/src/ai/__tests__/openaiCompatEdges.spec.ts`. |
+| **B2-r1** | Compat test suite (fixtures) | ✅ #88 | PR #88. `apps/server/src/ai/__tests__/openaiCompat.spec.ts` (NEW, 21 tests): happy-path + error-path fixtures for DeepSeek / OpenAI / Ollama / vLLM / LM Studio / OpenRouter. | Each provider in the matrix (DeepSeek, OpenAI, Ollama, vLLM, LM Studio, OpenRouter) has a recorded happy-path + an error-path fixture that the OpenAI-compatible adapter must normalize correctly. |
+| **B2-r2** | Compat matrix docs | ✅ #88 | PR #88. `docs/AI_PROVIDERS.md` (NEW, 146 lines) — provider matrix + per-provider env config + per-provider quirks + recipe for adding a new provider. Linked from `DEPLOYMENT.md` §7. | A `docs/AI_PROVIDERS.md` documents (a) the matrix of supported providers, (b) the per-provider env config, (c) known quirks (e.g. DeepSeek's `finish_reason: 'tool_calls'` vs OpenAI's `finish_reason: 'stop'`). Linked from `DEPLOYMENT.md` §7. |
+| **B2-r3** | Streaming edge-case tests | ✅ #88 | PR #88. `apps/server/src/ai/__tests__/openaiCompatEdges.spec.ts` (NEW, 17 tests): empty choices, double done, missing `[DONE]`, multi-byte UTF-8 chunks, abort mid-stream, response-body edge cases, parser-level edge cases. | Each edge case pinned by a unit test in `apps/server/src/ai/__tests__/openaiCompatEdges.spec.ts`. |
 | **B2-c** | Local-LLM compose profile | 🔵 backlog | No `llm` service, no `profiles: [local-llm]`, no GPU override. Cloud-AI customers (current prod) don't need it; pure on-prem + privacy-strict customers do. | `docker compose --profile local-llm up` starts model server; local preset AI action completes with no egress (asserted by privacy test from 7F-3). |
 | **B3** | GPU / hardware doc | ✅ | `DEPLOYMENT.md` §7 documents Claude vs DeepSeek vs local-Ollama/vLLM options. NVIDIA Container Toolkit + GPU sizing is the next thing to add — but only relevant once B2 is built. | Reader can pick Claude vs cloud openai-compatible vs local; specifics of GPU/VRAM sizing deferred to B2. |
 | **C1** | Re-point DEPLOYMENT.md to product | ✅ | PR #86. §1 topology (same-domain + separate-domain), §2 quickstart on clean machine, §9 run pointing at `docker/docker-compose.yml`, §14 local dev uses `apps/web` + `apps/server`. All examples use `docs.example.com` / `api.example.com`. | Same-domain quickstart on clean machine → working login + collab edit. ✅ in prod since A6; doc now captures it. |
 | **C2** | Consolidated env reference | ✅ | PR #86 §3. Nine tables (§3.1–§3.9) covering every var read by `config.ts` + Phase 4/7 + compose build args + container runtime. | Every var read by `config.ts` + Phase 4/7 + compose appears exactly once with purpose + default. |
 | **C3** | Backup / restore / upgrade runbook | ✅ | PR #86 §11 (Backup / restore: Atlas auto-backup + S3 versioning for managed; mongodump + mc mirror for self-hosted; recommended quarterly drill) + §12 (Upgrade: image tag swap, never `-v`, pre-upgrade backup, rollback). | Dry-run backup→wipe→restore reproduces docs + collab state; image-tag upgrade preserves data. |
-| **C4** | Update `GenflowAi.md` deployment note | ❌ | `GenflowAi.md:86` still demo-only — should reflect the prod stack (web + server + managed Atlas + external S3 + cloud AI). | Note matches shipped stack. |
+| **C4** | Update `GenflowAi.md` deployment note | ✅ #89 | PR #89. §Deployment now lists the live prod stack (`dev-docflow.kedata.cloud` on managed Atlas + external S3 + cloud AI) and links to `DEPLOYMENT.md` + `AI_PROVIDERS.md`. | Note matches shipped stack. |
 | **D1** | Licensing decision | ❌ | No `LICENSE` file; no `"license"` field in any `package.json`; README says "MIT" but inconsistent. Independent of deployment mode — release blocker. | License unambiguous + consistent across README, `LICENSE`, every `package.json`; roadmap §5 marked resolved. |
 | **D2** | Third-party license note | ❌ | No NOTICE / third-party note. Even though prod uses managed Atlas (no SSPL implication), the on-prem compose pulls Mongo + MinIO + (optional) Ollama — each has redistribution constraints a customer must know. | Mongo SSPL + MinIO AGPL + Ollama/model licenses surfaced in deploy docs. |
 
 ### What the prod deploy actually proves
 
-- **A1, A2, A4, A5, A6, B1, C1, C2, C3** are shipped (PRs #83, #84, #85, #86). The SPA serves; auth + collab work end-to-end behind nginx; env templates are complete and placeholder-clean; deployment doc captures the actual stack.
+- **A1, A2, A4, A5, A6, B1, B2-r1/r2/r3, C1, C2, C3, C4** are shipped (PRs #83, #84, #85, #86, #88, #89). The SPA serves; auth + collab work end-to-end behind nginx; env templates are complete and placeholder-clean; deployment doc captures the actual stack; the AI provider-agnostic compat matrix is asserted at the wire level.
 - **A3 (self-hosted)** is **deferred**, not done — managed Atlas + external S3 cover prod. The compose path is a "pure on-prem" feature; the on-prem acceptance gate still requires it, but it's no longer blocking the current customer profile.
-- **B2** (provider-agnostic robustness): re-scoped from "compose local-LLM profile" to a **compat test matrix** (B2-r1: fixtures for DeepSeek/OpenAI/Ollama/vLLM/LM Studio/OpenRouter; B2-r2: `docs/AI_PROVIDERS.md` matrix; B2-r3: streaming edge cases). The original "local LLM container" goal (B2-c) becomes a **backlog item** — pull when a privacy-strict on-prem customer is on the roadmap. The re-scope makes the library *actually* agnostic: every provider we ship with is asserted at the wire level, not just assumed compatible.
-- **B3** (GPU / hardware guide) is partially covered by `DEPLOYMENT.md` §7 (Claude vs DeepSeek vs local Ollama). Full GPU/VRAM sizing is contingent on B2.
-- **C4** (GenflowAi.md note) is one paragraph — pending.
+- **B2-c** (local-LLM compose profile) stays in the backlog — pull when a privacy-strict on-prem customer is on the roadmap.
+- **B3** (GPU / hardware guide) is partially covered by `DEPLOYMENT.md` §7 (Claude vs DeepSeek vs local Ollama) and `AI_PROVIDERS.md`. Full GPU/VRAM sizing is contingent on B2-c.
 - **D1, D2** are release blockers — not deployment blockers.
 
 ---
@@ -140,7 +141,7 @@ Status as of 2026-07-26:
 | 2 | **A1** Consolidate Dockerfile set | ✅ #83 | Every later phase-8 task touches images; do this first to avoid double-touch. | none |
 | 3 | **A4** Fix `mongo-init.js` indexes | ✅ #84 | Latent bug for any customer who runs Mongo locally; trivial fix. | Phase 1 (schema known) |
 | 4 | **A6 verify** Confirm `/api/health` reaches `db: connected` in prod (Dokploy log + curl from inside cluster) | 🟡 | Ship evidence for the "all-healthy cold start" gate that's already green in reality but undocumented. | none |
-| 5 | **C4** Update `GenflowAi.md` deployment note | ⬜ | Doc lag — the note still says demo; one paragraph fix. | A2, A6 |
+| 5 | **C4** Update `GenflowAi.md` deployment note | ✅ #89 | Doc lag — the note still says demo; one paragraph fix. | A2, A6 |
 | 6 | **C1** Re-point `DEPLOYMENT.md` to product (managed + on-prem both modes) | ✅ #86 | Doc lag — prod has Atlas+external-S3+cloud-AI; on-prem compose is the fork. | A1, A5 |
 | 7 | **T1** Make TOC live | ⬜ | Library-only quick win; no deps; ships value immediately. | none |
 | 8 | **T2** Mount TOC via `activeSidebar` | ⬜ | Establishes the mount pattern other sidebars reuse. | none |
@@ -163,9 +164,9 @@ Status as of 2026-07-26:
 | 12 | **A2** Verify `apps/web` image | ✅ #84 (compose) + 🟢 live | Already mostly done; verify end-to-end in stack. | A1, A3 |
 | 13 | **A5** Consolidated env template | ✅ #84 + #85 | After A2/A3; remove `*.kedata.cloud` hardcodes; include all vars. | A2, A3, B1 |
 | 14 | **B1** AI env in compose | ✅ live + documented | Server env is done (7F-1); expose to compose. | Phase 7 |
-| 15a | **B2-r1** Compat test suite (fixtures) | ⬜ | Each provider in the matrix must have a happy-path + error-path fixture. Hardens the library's "truly agnostic" claim. | B1 |
-| 15b | **B2-r2** Compat matrix docs | ⬜ | `docs/AI_PROVIDERS.md` — supported providers, env config, known quirks. Linked from `DEPLOYMENT.md` §7. | B2-r1 |
-| 15c | **B2-r3** Streaming edge-case tests | ⬜ | Empty choices, double done, missing `[DONE]`, multi-byte chunk splits, abort mid-stream. | B2-r1 |
+| 15a | **B2-r1** Compat test suite (fixtures) | ✅ #88 | Each provider in the matrix must have a happy-path + error-path fixture. Hardens the library's "truly agnostic" claim. | B1 |
+| 15b | **B2-r2** Compat matrix docs | ✅ #88 | `docs/AI_PROVIDERS.md` — supported providers, env config, known quirks. Linked from `DEPLOYMENT.md` §7. | B2-r1 |
+| 15c | **B2-r3** Streaming edge-case tests | ✅ #88 | Empty choices, double done, missing `[DONE]`, multi-byte chunk splits, abort mid-stream. | B2-r1 |
 | 15d | **B2-c** Local-LLM compose profile | 🔵 backlog | Privacy-strict on-prem customers. Pull into a sprint when needed. | B1 |
 | 16 | **V1** `DocumentVersion` model | ⬜ | Phase 1 Yjs persistence is the encode path. | Phase 1 |
 | 17 | **V2** Server-side capture | ⬜ | Reuses Phase 1's encode. | V1 |
@@ -173,7 +174,7 @@ Status as of 2026-07-26:
 | 19 | **C1** `commentPlugin` (library) | ⬜ | Anchor via Yjs relative position; library-only. | Phase 1 |
 | 20 | **C2** `CommentThread` model + API | ⬜ | Backend for comments. | Phase 1, RO1 |
 | 21 | **C3** Wire `CommentsSidebar` | ⬜ | Real-time fan-out. | C1, C2, RO3 |
-| 22 | **C4** Update `GenflowAi.md` deployment note | ⬜ | After A2/A3 are verified. | A2, A3 |
+| 22 | **C4** Update `GenflowAi.md` deployment note | ✅ #89 | After A2/A3 are verified. | A2, A3 |
 | 23 | **C1** `DEPLOYMENT.md` rewrite (product, both modes) | ✅ #86 | After A5. | A2, A5 |
 | 24 | **C2** Consolidated env reference | ✅ #86 | After A5, B1. | A5, B1 |
 | 25 | **C3** Backup/restore/upgrade runbook | ✅ #86 §11–§12 | Verified dry-run before declaring done. | A3, A6 |
@@ -261,10 +262,10 @@ Per Phase 9 §4 Group G:
 
 Prod is live on managed stack. Stream D downscopes to docs + latent-bug fix + licensing; A3/B2 move to a "pure on-prem" backlog (run when a customer needs them, not now).
 
-Status as of 2026-07-26: A1, A4, A5, A6, B1, C1, C2, C3 shipped. A6 verify + C4 + D1/D2 remain.
+Status as of 2026-07-26: A1, A4, A5, A6, B1, B2-r1/r2/r3, C1, C2, C3, C4 shipped. D1/D2 + Phase 9 items (T1/T2/PR1, RO1/2/3, V, C comments, TP, OF, SG) remain.
 
 ### Stream D — Deploy hygiene + docs (0.5 dev, Sprint 9)
-D1 → ~~A1 → A4~~ → A6 verify → C4 → D2
+~~D1 → A1 → A4 → C4~~ → A6 verify (on next deploy) → D1 → D2
 
 ### Stream T — TOC + Presence (0.5 dev, Sprint 9)
 T1 → T2 → PR1 → PR2 (end of Sprint 10)
@@ -284,5 +285,5 @@ A3 (self-hosted Mongo + MinIO), B2-c (local-LLM profile), B3 (GPU guide). Pull i
 - [`phase-9-google-docs-parity.md`](phase-9-google-docs-parity.md) — T/PR/RO/C/V/TP/OF/SG task spec
 - [`ENHANCEMENT_ROADMAP.md`](../ENHANCEMENT_ROADMAP.md) §5 — open questions including licensing
 - [`DEPLOYMENT.md`](../DEPLOYMENT.md) — current deployment doc (rewritten by C1 in PR #86, both modes + consolidated env reference)
-- [`GenflowAi.md`](../../CLAUDE.md) §Deployment — current note (still demo-only; C4 follow-up)
-- [`AI_PROVIDERS.md`](../AI_PROVIDERS.md) — supported OpenAI-compatible providers matrix (B2-r2 follow-up)
+- [`GenflowAi.md`](../../CLAUDE.md) §Deployment — deployment note (updated by C4 in PR #89 — lists live prod stack + links to `DEPLOYMENT.md` + `AI_PROVIDERS.md`)
+- [`AI_PROVIDERS.md`](../AI_PROVIDERS.md) — supported OpenAI-compatible providers matrix (shipped in B2-r2 PR #88)
