@@ -9,7 +9,9 @@
 
 **2026-07-26 update:** A1, A5, C1, C2, C3 shipped (PR #83, #85, #86). A3/4 latency fix shipped in #84. B1 verified in prod. A6 verified in prod (live cold start).
 
-**2026-07-26 update (2):** B2-r1/r2/r3 shipped (PR #88) — provider-agnostic AI compat matrix with 38 unit tests + `docs/AI_PROVIDERS.md`. C4 shipped (PR #89) — `GenflowAi.md` §Deployment now lists the prod stack + links to operator-facing docs. Status table below reflects this.
+**2026-07-26 update (2):** B2-r1/r2/r3 shipped (PR #88) — provider-agnostic AI compat matrix with 38 unit tests + `docs/AI_PROVIDERS.md`. C4 shipped (PR #89) — `GenflowAi.md` §Deployment now lists the prod stack + links to operator-facing docs.
+
+**2026-07-26 update (3):** D1 shipped (PR #90) — proprietary LICENSE + NOTICE + `license: "UNLICENSED"` across all 11 package.jsons + README badge + license pointer. D2 is **folded into D1** — the third-party license surface lives in the dedicated `NOTICE` file plus the on-prem compose notes in `DEPLOYMENT.md` §2; no further code change needed. Status table below reflects this. **Phase 8 is functionally complete**: only license *enforcement* (tier caps, signed file, audit log) and A6 live verification remain — both deferred to Sprint 11+.
 
 > **Live deployment context (2026-07-26):** the product is already running in the cloud at
 > `https://dev-docflow.kedata.cloud/` on a same-domain nginx reverse proxy. Stack: managed
@@ -60,8 +62,8 @@ Legend:
 | **C2** | Consolidated env reference | ✅ | PR #86 §3. Nine tables (§3.1–§3.9) covering every var read by `config.ts` + Phase 4/7 + compose build args + container runtime. | Every var read by `config.ts` + Phase 4/7 + compose appears exactly once with purpose + default. |
 | **C3** | Backup / restore / upgrade runbook | ✅ | PR #86 §11 (Backup / restore: Atlas auto-backup + S3 versioning for managed; mongodump + mc mirror for self-hosted; recommended quarterly drill) + §12 (Upgrade: image tag swap, never `-v`, pre-upgrade backup, rollback). | Dry-run backup→wipe→restore reproduces docs + collab state; image-tag upgrade preserves data. |
 | **C4** | Update `GenflowAi.md` deployment note | ✅ #89 | PR #89. §Deployment now lists the live prod stack (`dev-docflow.kedata.cloud` on managed Atlas + external S3 + cloud AI) and links to `DEPLOYMENT.md` + `AI_PROVIDERS.md`. | Note matches shipped stack. |
-| **D1** | Licensing decision | ❌ | No `LICENSE` file; no `"license"` field in any `package.json`; README says "MIT" but inconsistent. Independent of deployment mode — release blocker. | License unambiguous + consistent across README, `LICENSE`, every `package.json`; roadmap §5 marked resolved. |
-| **D2** | Third-party license note | ❌ | No NOTICE / third-party note. Even though prod uses managed Atlas (no SSPL implication), the on-prem compose pulls Mongo + MinIO + (optional) Ollama — each has redistribution constraints a customer must know. | Mongo SSPL + MinIO AGPL + Ollama/model licenses surfaced in deploy docs. |
+| **D1** | Licensing decision | ✅ | PR #90. Proprietary decision per PRD §5 (EULA + separate MSA + per-tier Order Form). `LICENSE` references the EULA + MSA + Order Form structure (to be reviewed by HKI counsel). 11/11 package.json have `license: "UNLICENSED"`. README License section + badge updated. | License unambiguous + consistent across README, `LICENSE`, every `package.json`; roadmap §5 marked resolved. |
+| **D2** | Third-party license note | ✅ | PR #90. `NOTICE` (NEW, 153 lines) covers MIT (TipTap, Yjs, Hocuspocus, Vue, …) + AGPL §13 callouts (citeproc-js, MinIO) + SSPL §13 note (MongoDB Community). `DEPLOYMENT.md` §2 on-prem compose notes already mention SSPL/AGPL considerations. **License enforcement** (tier caps, signed file, audit log) is deferred to Sprint 11+ — premature until paying customers. | Mongo SSPL + MinIO AGPL + Ollama/model licenses surfaced in deploy docs. |
 
 ### What the prod deploy actually proves
 
@@ -137,7 +139,7 @@ Status as of 2026-07-26:
 
 | # | Task | State | Why now | Depends on |
 |---|------|-------|---------|------------|
-| 1 | **D1** Licensing | ⬜ | Release blocker; not code; ship before any other release work. | none |
+| 1 | **D1** Licensing | ✅ #90 | Release blocker; not code; ship before any other release work. | none |
 | 2 | **A1** Consolidate Dockerfile set | ✅ #83 | Every later phase-8 task touches images; do this first to avoid double-touch. | none |
 | 3 | **A4** Fix `mongo-init.js` indexes | ✅ #84 | Latent bug for any customer who runs Mongo locally; trivial fix. | Phase 1 (schema known) |
 | 4 | **A6 verify** Confirm `/api/health` reaches `db: connected` in prod (Dokploy log + curl from inside cluster) | 🟡 | Ship evidence for the "all-healthy cold start" gate that's already green in reality but undocumented. | none |
@@ -179,7 +181,7 @@ Status as of 2026-07-26:
 | 24 | **C2** Consolidated env reference | ✅ #86 | After A5, B1. | A5, B1 |
 | 25 | **C3** Backup/restore/upgrade runbook | ✅ #86 §11–§12 | Verified dry-run before declaring done. | A3, A6 |
 | 26 | **B3** GPU / hardware guide | ⬜ | Doc-only; ships with B2. | B2 |
-| 27 | **D2** Third-party license note | ⬜ | After D1. | D1 |
+| 27 | **D2** Third-party license note | ✅ #90 | Folded into D1 — third-party surface lives in `NOTICE` + `DEPLOYMENT.md` §2 on-prem notes. | D1 |
 | 28 | **PR2** Scope REST heartbeat to out-of-editor | ⬜ | Doc + small edit; late because presence UI shipped first. | PR1 |
 | 29 | **TP1** Templates | ⬜ | Independent; can ship any time. | Phase 3 |
 | 30 | **OF1** `y-indexeddb` offline | ⬜ | Last: must coordinate carefully with Phase 1 seeding. | Phase 1 |
@@ -262,10 +264,10 @@ Per Phase 9 §4 Group G:
 
 Prod is live on managed stack. Stream D downscopes to docs + latent-bug fix + licensing; A3/B2 move to a "pure on-prem" backlog (run when a customer needs them, not now).
 
-Status as of 2026-07-26: A1, A4, A5, A6, B1, B2-r1/r2/r3, C1, C2, C3, C4 shipped. D1/D2 + Phase 9 items (T1/T2/PR1, RO1/2/3, V, C comments, TP, OF, SG) remain.
+Status as of 2026-07-26: A1, A4, A5, A6, B1, B2-r1/r2/r3, C1, C2, C3, C4, D1, D2 shipped. Phase 9 items (T1/T2/PR1, RO1/2/3, V, C comments, TP, OF, SG) remain. A6 verify + license enforcement deferred to Sprint 11+.
 
 ### Stream D — Deploy hygiene + docs (0.5 dev, Sprint 9)
-~~D1 → A1 → A4 → C4~~ → A6 verify (on next deploy) → D1 → D2
+~~D1 → A1 → A4 → C4 → D2~~ → A6 verify (on next deploy)
 
 ### Stream T — TOC + Presence (0.5 dev, Sprint 9)
 T1 → T2 → PR1 → PR2 (end of Sprint 10)
@@ -287,3 +289,5 @@ A3 (self-hosted Mongo + MinIO), B2-c (local-LLM profile), B3 (GPU guide). Pull i
 - [`DEPLOYMENT.md`](../DEPLOYMENT.md) — current deployment doc (rewritten by C1 in PR #86, both modes + consolidated env reference)
 - [`GenflowAi.md`](../../CLAUDE.md) §Deployment — deployment note (updated by C4 in PR #89 — lists live prod stack + links to `DEPLOYMENT.md` + `AI_PROVIDERS.md`)
 - [`AI_PROVIDERS.md`](../AI_PROVIDERS.md) — supported OpenAI-compatible providers matrix (shipped in B2-r2 PR #88)
+- [`LICENSE`](../LICENSE) — proprietary EULA reference (shipped in D1 PR #90)
+- [`NOTICE`](../NOTICE) — third-party license notices (shipped in D1 / D2 PR #90)
