@@ -7,26 +7,38 @@ export interface Collaborator {
 }
 
 export interface CommentReply {
+  /** Unique id (server-issued UUID). */
   id: string
   authorId: string
   authorName: string
   authorColor: string
   content: string
+  /** Epoch ms. */
   createdAt: number
 }
 
+/**
+ * Phase 9 P9-4 — comment-thread shape. Mirrors the server's
+ * `CommentThread` model (the host maps \`threadId\` → \`id\` so the
+ * library stays storage-agnostic). The \`anchorIndex\` is the
+ * document position at creation time — v1 uses an absolute
+ * position; v2 will replace it with a Yjs RelativePosition.
+ */
 export interface CommentItem {
+  /** Server-issued UUID; matches the `data-comment-thread` mark attr. */
   id: string
   authorId: string
   authorName: string
   authorColor: string
   content: string
   anchorText?: string
+  /** Document position at creation time. */
   anchorIndex?: number
+  /** Epoch ms. */
   createdAt: number
   resolved?: boolean
-  resolvedBy?: string
-  resolvedAt?: number
+  resolvedBy?: string | null
+  resolvedAt?: number | null
   replies: CommentReply[]
 }
 
