@@ -268,9 +268,17 @@ The server proxies all LLM calls — the browser never holds an API key. Choose 
 | Cloud DeepSeek | `AI_PROVIDER=openai-compatible`, `AI_BASE_URL=https://api.deepseek.com/v1`, `AI_MODEL=deepseek-chat`, `AI_API_KEY=...` |
 | Local Ollama | `AI_PROVIDER=openai-compatible`, `AI_BASE_URL=http://<ollama-host>:11434/v1`, `AI_API_KEY=` (keyless) |
 
-The local LLM profile is **planned for Phase 8 B2** (deferred to the "pure on-prem" backlog
-per [`sprint-9-10-execution-plan.md`](sprint-9-10-execution-plan.md) §2 — revisit when a
-privacy-strict on-prem customer is on the roadmap).
+For the **full compatibility matrix** (Claude / DeepSeek / OpenAI / Ollama / vLLM / LM Studio
+/ OpenRouter, per-provider env config, known quirks, and a recipe for adding a new
+provider), see [`docs/AI_PROVIDERS.md`](AI_PROVIDERS.md). The matrix is asserted at the
+wire level by the unit tests in `apps/server/src/ai/__tests__/openaiCompat.spec.ts` (one
+happy-path + one error-path fixture per provider, no network needed).
+
+> **B2 scope:** the local LLM compose profile (Ollama container in `docker-compose.yml`
+> under `profiles: [local-llm]`) is **deferred** to the "pure on-prem" backlog per
+> [`sprint-9-10-execution-plan.md`](sprint-9-10-execution-plan.md) §2 — revisit when a
+> privacy-strict on-prem customer is on the roadmap. The library is **already** agnostic
+> for any provider that speaks OpenAI's `/chat/completions` streaming protocol.
 
 Privacy: `AI_LOG_PROMPTS=false` by default. With a local provider + logging off, no document
 content leaves the network.
