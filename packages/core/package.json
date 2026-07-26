@@ -1,5 +1,6 @@
 {
   "name": "@kedata-indonesia/docflow-core",
+  "license": "UNLICENSED",
   "version": "0.0.2",
   "type": "module",
   "main": "./dist/index.js",
@@ -46,10 +47,18 @@
     "yjs": "^13.6.20"
   },
   "peerDependenciesMeta": {
-    "@tiptap/extension-collaboration": { "optional": true },
-    "@tiptap/extension-collaboration-cursor": { "optional": true },
-    "y-webrtc": { "optional": true },
-    "y-websocket": { "optional": true }
+    "@tiptap/extension-collaboration": {
+      "optional": true
+    },
+    "@tiptap/extension-collaboration-cursor": {
+      "optional": true
+    },
+    "y-webrtc": {
+      "optional": true
+    },
+    "y-websocket": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@vitest/coverage-v8": "^2.1.3",
