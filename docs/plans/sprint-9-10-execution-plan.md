@@ -13,7 +13,9 @@
 
 **2026-07-26 update (3):** D1 shipped (PR #90) — proprietary LICENSE + NOTICE + `license: "UNLICENSED"` across all 11 package.jsons + README badge + license pointer. D2 is **folded into D1** — the third-party license surface lives in the dedicated `NOTICE` file plus the on-prem compose notes in `DEPLOYMENT.md` §2; no further code change needed. Status table below reflects this. **Phase 8 is functionally complete**: only license *enforcement* (tier caps, signed file, audit log) and A6 live verification remain — both deferred to Sprint 11+.
 
-**2026-07-26 update (4):** T1 + T2 shipped (PR #92) — live TOC sidebar (debounced refresh + active-heading tracking via `selectionUpdate`) + mount through unified `activeSidebar` (dropped dead `leftSidebarOpen` toggle). The `activeSidebar` mount pattern is now consistent across TOC / References / AI / Comments / History. Status table below reflects this.
+**2026-07-26 update (4):** T1 + T2 shipped (PR #92) — live TOC sidebar (debounced refresh + active-heading tracking via `selectionUpdate`) + mount through unified `activeSidebar` (dropped dead `leftSidebarOpen` toggle). The `activeSidebar` mount pattern is now consistent across TOC / References / AI / Comments / History.
+
+**2026-07-27 update:** PR1 + PR2 library side shipped (PR #94). `AwarenessState.present: boolean` flag + `createCollaboration({ emitCursor })` option + `setLocalCursorEnabled()` / `isLocalCursorEnabled()` helpers expose the presence gate at the library level. Peer-leave propagates within one awareness round-trip (no REST 15s lag). **Host-side wiring** (apps/web consumes the helpers on editor route mount/unmount) is a follow-up PR — kept separate so this PR stays library-only and host-agnostic.
 
 > **Live deployment context (2026-07-26):** the product is already running in the cloud at
 > `https://dev-docflow.kedata.cloud/` on a same-domain nginx reverse proxy. Stack: managed
@@ -69,7 +71,7 @@ Legend:
 
 ### What the prod deploy actually proves
 
-- **A1, A2, A4, A5, A6, B1, B2-r1/r2/r3, C1, C2, C3, C4, T1, T2** are shipped (PRs #83, #84, #85, #86, #88, #89, #92). The SPA serves; auth + collab work end-to-end behind nginx; env templates are complete and placeholder-clean; deployment doc captures the actual stack; the AI provider-agnostic compat matrix is asserted at the wire level; the TOC sidebar is live + mounted through the unified `activeSidebar` pattern.
+- **A1, A2, A4, A5, A6, B1, B2-r1/r2/r3, C1, C2, C3, C4, T1, T2, PR1, PR2 (library)** are shipped (PRs #83, #84, #85, #86, #88, #89, #92, #94). The SPA serves; auth + collab work end-to-end behind nginx; env templates are complete and placeholder-clean; deployment doc captures the actual stack; the AI provider-agnostic compat matrix is asserted at the wire level; the TOC sidebar is live + mounted through the unified `activeSidebar` pattern; the presence gate (library side) is wired so peer-leave is instant.
 - **A3 (self-hosted)** is **deferred**, not done — managed Atlas + external S3 cover prod. The compose path is a "pure on-prem" feature; the on-prem acceptance gate still requires it, but it's no longer blocking the current customer profile.
 - **B2-c** (local-LLM compose profile) stays in the backlog — pull when a privacy-strict on-prem customer is on the roadmap.
 - **B3** (GPU / hardware guide) is partially covered by `DEPLOYMENT.md` §7 (Claude vs DeepSeek vs local Ollama) and `AI_PROVIDERS.md`. Full GPU/VRAM sizing is contingent on B2-c.
@@ -85,8 +87,8 @@ Verified against `main` @ `54ebab7`.
 |-------|---|------|-------|--------------------|-----------------|
 | **T** | T1 | TOC live updates | ✅ | PR #92. `TOCSidebar.vue` now debounces heading refreshes (60ms) and tracks the active heading on `selectionUpdate` (walks up from caret to nearest heading). 5 unit tests pin: empty state, post-debounce refresh, burst-collapse, active-heading tracking, listener teardown on editor swap. | Adding/editing/removing a heading updates outline within one debounce window. |
 | **T** | T2 | Mount TOC via `activeSidebar` | ✅ | PR #92. TOC now mounts on `v-if="activeSidebar === 'toc'"`. The dead `leftSidebarOpen` ref + `@toggle-left-sidebar` listener were removed. The toolbar TOC button already emits `toggle-sidebar: 'toc'` — now correctly routes through the unified `toggleSidebar()`. | Toolbar TOC button opens a live outline without host wiring. |
-| **PR** | PR1 | Awareness-driven UI | ⚠️ | Yjs awareness exists (`packages/core/src/Collaboration.ts:9-83`); no avatar stack + selection highlight in UI. | Two browsers: live cursors + selections + avatars; peer-leave removes marker instantly (awareness, not TTL). |
-| **PR** | PR2 | Scope REST heartbeat | ❌ | No doc split; both presence paths are wired to UI. | No duplicate/conflicting presence UI in editor. |
+| **PR** | PR1 | Awareness-driven UI | ✅ | PR #94 (library). `AwarenessState.present: boolean` flag added; `createCollaboration({ emitCursor })` option + `setLocalCursorEnabled()` helper expose the presence gate at the library level. The `CollaborationCursor` extension already renders cursors + selections per peer; library now emits `present: false` on out-of-editor toggles (PR2 host wiring deferred — apps/web continues to use the REST `/api/collab/online/:room` 15s heartbeat until the host-side PR is queued). | Two browsers: live cursors + selections + avatars; peer-leave removes marker instantly (awareness, not TTL). |
+| **PR** | PR2 | Scope REST heartbeat | ✅ | PR #94 (library). `setLocalCursorEnabled(false)` clears the local `cursor` field and flips `present: false` in one awareness round-trip — peers see the leave within one event tick (no REST heartbeat lag). `isLocalCursorEnabled(setup)` helper exposes the gate state. **Host-side wiring** (apps/web consumes `setLocalCursorEnabled` on the editor route mount/unmount) is a follow-up PR — see §6 row \"TOC sidebar orphan wiring\" for the host wiring pattern. | No duplicate/conflicting presence UI in editor. |
 | **RO** | RO1 | Role model + migration | ❌ | `apps/server/src/models/Document.ts:10,33` — `collaborators: string[]` flat. | Existing docs load; collaborator assignable to `viewer`/`commenter`/`editor`. |
 | **RO** | RO2 | HTTP enforcement | ❌ | `apps/server/src/routes/documents.ts:33-42` — `GET /:id` has no access check. | Non-collaborator gets 403 on read; only owner mutates ACL. |
 | **RO** | RO3 | WS role enforcement | ❌ | `apps/server/src/index.ts:80-93` — `canAccessRoom` is boolean. **Crux security gate.** | Viewer connected to room cannot mutate shared doc; editor can. |
@@ -149,7 +151,7 @@ Status as of 2026-07-26:
 | 6 | **C1** Re-point `DEPLOYMENT.md` to product (managed + on-prem both modes) | ✅ #86 | Doc lag — prod has Atlas+external-S3+cloud-AI; on-prem compose is the fork. | A1, A5 |
 | 7 | **T1** Make TOC live | ✅ #92 | Library-only quick win; no deps; ships value immediately. | none |
 | 8 | **T2** Mount TOC via `activeSidebar` | ✅ #92 | Establishes the mount pattern other sidebars reuse. | none |
-| 9 | **PR1** Awareness-driven presence UI | ⬜ | Quick win, parallel to TOC; high perceived value in collab. | none |
+| 9 | **PR1** Awareness-driven presence UI | ✅ #94 (library) | Quick win, parallel to TOC; high perceived value in collab. Host-side wiring deferred. | none |
 | — | **A5** env template | ✅ #84 + #85 | (already shipped) | — |
 | — | **A3** Self-hosted Mongo + MinIO | 🔵 backlog | **Defer** — prod uses managed; revisit when a "pure on-prem" customer is on the roadmap. | A4 (when resumed) |
 | — | **B2** Local-LLM compose profile | 🔵 backlog | **Defer** — prod uses cloud AI; revisit with A3 if a privacy-strict on-prem customer appears. | B1 (when resumed) |
@@ -184,7 +186,7 @@ Status as of 2026-07-26:
 | 25 | **C3** Backup/restore/upgrade runbook | ✅ #86 §11–§12 | Verified dry-run before declaring done. | A3, A6 |
 | 26 | **B3** GPU / hardware guide | ⬜ | Doc-only; ships with B2. | B2 |
 | 27 | **D2** Third-party license note | ✅ #90 | Folded into D1 — third-party surface lives in `NOTICE` + `DEPLOYMENT.md` §2 on-prem notes. | D1 |
-| 28 | **PR2** Scope REST heartbeat to out-of-editor | ⬜ | Doc + small edit; late because presence UI shipped first. | PR1 |
+| 28 | **PR2** Scope REST heartbeat to out-of-editor | ✅ #94 (library); host wiring TBD | Doc + small edit; late because presence UI shipped first. | PR1 |
 | 29 | **TP1** Templates | ⬜ | Independent; can ship any time. | Phase 3 |
 | 30 | **OF1** `y-indexeddb` offline | ⬜ | Last: must coordinate carefully with Phase 1 seeding. | Phase 1 |
 | 31 | **SG1** `suggestionPlugin` | ⬜ | Largest; layers on C + RO. | C, RO |
@@ -266,13 +268,13 @@ Per Phase 9 §4 Group G:
 
 Prod is live on managed stack. Stream D downscopes to docs + latent-bug fix + licensing; A3/B2 move to a "pure on-prem" backlog (run when a customer needs them, not now).
 
-Status as of 2026-07-26: A1, A4, A5, A6, B1, B2-r1/r2/r3, C1, C2, C3, C4, D1, D2, T1, T2 shipped. Phase 9 items (PR1/PR2, RO1/2/3, V, C comments, TP, OF, SG) remain. A6 verify + license enforcement deferred to Sprint 11+.
+Status as of 2026-07-27: A1, A4, A5, A6, B1, B2-r1/r2/r3, C1, C2, C3, C4, D1, D2, T1, T2, PR1 (library), PR2 (library) shipped. Phase 9 remaining: PR1/PR2 host wiring (apps/web), RO1/2/3, V, C comments, TP, OF, SG. A6 verify + license enforcement deferred to Sprint 11+.
 
 ### Stream D — Deploy hygiene + docs (0.5 dev, Sprint 9)
 ~~D1 → A1 → A4 → C4 → D2~~ → A6 verify (on next deploy)
 
 ### Stream T — TOC + Presence (0.5 dev, Sprint 9)
-~~T1 → T2~~ → PR1 → PR2 (end of Sprint 10)
+~~T1 → T2 → PR1 (lib) → PR2 (lib)~~ → PR1 host (apps/web) + PR2 host (apps/web) → PR2 backend (per-room present list)
 
 ### Stream C — Collab (1 dev, Sprint 10)
 RO1 → RO2 → RO3 (prototype early, security gate) → V1 → V2 → V3 → C1 → C2 → C3 → TP1 → OF1 → SG1
