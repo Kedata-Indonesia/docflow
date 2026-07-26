@@ -1,4 +1,4 @@
-# Sprint 9-10 Execution Plan — Deployment + Collaboration
+# Sprint 9-10 Execution Plan — Deployment + Collaboration 
 
 **Sprint window:** Weeks 9–10 (≈2 sprints)
 **Roadmap refs:** [`github-issues-execution-order.md`](github-issues-execution-order.md) §Sprint 9-10
@@ -49,7 +49,10 @@ Legend:
 | **A5** | Consolidated env template | ✅ | PR #84 (completeness) + PR #85 (placeholder hygiene). `docker/server.env.example` + `docker/demo.env.example` + `apps/demo/.env.example` + `.env.docker.example` are aligned; no production concrete values. | Copy `.env.docker.example` → `.env.docker` + fill secrets = working same-domain stack, no other edits. |
 | **A6** | Healthchecks + startup order | ✅ | Server healthcheck + `depends_on: service_healthy` + `entrypoint.sh` wait-for-Mongo. Confirmed live (SPA + backend responsive at `dev-docflow.kedata.cloud`). | Cold start reaches all-healthy without manual restart. ✅ in prod. |
 | **B1** | AI env in compose + server env | ✅ | `config.ts:46-71` reads `AI_*` (7F-1). Documented in `docker/server.env.example` + `.env.docker.example` + `DEPLOYMENT.md` §3.4 + §7. Prod runs `openai-compatible` → DeepSeek. | `AI_PROVIDER=claude` works; switch to local preset works, env-only, no rebuild. ✅ in prod (openai-compatible → DeepSeek). |
-| **B2** | Local-LLM compose profile | ❌ | No `llm` service, no `profiles: [local-llm]`, no GPU override. Cloud-AI customers (current prod) don't need it; pure on-prem + privacy-strict customers do. | `docker compose --profile local-llm up` starts model server; local preset AI action completes with no egress (asserted by privacy test from 7F-3). |
+| **B2-r1** | Compat test suite (fixtures) | ❌ | `apps/server/src/ai/__tests__/openaiCompat.spec.ts` doesn't exist. Existing `ai.test.ts` covers the wire-shape equivalence (claude === openai-compatible) + DeepSeek error-body surfacing, but no per-provider fixtures for happy paths. | Each provider in the matrix (DeepSeek, OpenAI, Ollama, vLLM, LM Studio, OpenRouter) has a recorded happy-path + an error-path fixture that the OpenAI-compatible adapter must normalize correctly. |
+| **B2-r2** | Compat matrix docs | ❌ | `docs/AI_PROVIDERS.md` doesn't exist. `DEPLOYMENT.md` §7 lists the three modes (Claude / DeepSeek / local) but doesn't enumerate which OpenAI-compatible providers are tested. | A `docs/AI_PROVIDERS.md` documents (a) the matrix of supported providers, (b) the per-provider env config, (c) known quirks (e.g. DeepSeek's `finish_reason: 'tool_calls'` vs OpenAI's `finish_reason: 'stop'`). Linked from `DEPLOYMENT.md` §7. |
+| **B2-r3** | Streaming edge-case tests | ❌ | Edge cases not covered: empty `choices[]`, double `done`, missing `[DONE]`, multi-byte chunk splits, abort mid-stream. | Each edge case pinned by a unit test in `apps/server/src/ai/__tests__/openaiCompatEdges.spec.ts`. |
+| **B2-c** | Local-LLM compose profile | 🔵 backlog | No `llm` service, no `profiles: [local-llm]`, no GPU override. Cloud-AI customers (current prod) don't need it; pure on-prem + privacy-strict customers do. | `docker compose --profile local-llm up` starts model server; local preset AI action completes with no egress (asserted by privacy test from 7F-3). |
 | **B3** | GPU / hardware doc | ✅ | `DEPLOYMENT.md` §7 documents Claude vs DeepSeek vs local-Ollama/vLLM options. NVIDIA Container Toolkit + GPU sizing is the next thing to add — but only relevant once B2 is built. | Reader can pick Claude vs cloud openai-compatible vs local; specifics of GPU/VRAM sizing deferred to B2. |
 | **C1** | Re-point DEPLOYMENT.md to product | ✅ | PR #86. §1 topology (same-domain + separate-domain), §2 quickstart on clean machine, §9 run pointing at `docker/docker-compose.yml`, §14 local dev uses `apps/web` + `apps/server`. All examples use `docs.example.com` / `api.example.com`. | Same-domain quickstart on clean machine → working login + collab edit. ✅ in prod since A6; doc now captures it. |
 | **C2** | Consolidated env reference | ✅ | PR #86 §3. Nine tables (§3.1–§3.9) covering every var read by `config.ts` + Phase 4/7 + compose build args + container runtime. | Every var read by `config.ts` + Phase 4/7 + compose appears exactly once with purpose + default. |
@@ -62,7 +65,7 @@ Legend:
 
 - **A1, A2, A4, A5, A6, B1, C1, C2, C3** are shipped (PRs #83, #84, #85, #86). The SPA serves; auth + collab work end-to-end behind nginx; env templates are complete and placeholder-clean; deployment doc captures the actual stack.
 - **A3 (self-hosted)** is **deferred**, not done — managed Atlas + external S3 cover prod. The compose path is a "pure on-prem" feature; the on-prem acceptance gate still requires it, but it's no longer blocking the current customer profile.
-- **B2** (local-LLM compose profile) is deferred — prod uses DeepSeek (cloud); revisit when a privacy-strict on-prem customer is on the roadmap.
+- **B2** (provider-agnostic robustness): re-scoped from "compose local-LLM profile" to a **compat test matrix** (B2-r1: fixtures for DeepSeek/OpenAI/Ollama/vLLM/LM Studio/OpenRouter; B2-r2: `docs/AI_PROVIDERS.md` matrix; B2-r3: streaming edge cases). The original "local LLM container" goal (B2-c) becomes a **backlog item** — pull when a privacy-strict on-prem customer is on the roadmap. The re-scope makes the library *actually* agnostic: every provider we ship with is asserted at the wire level, not just assumed compatible.
 - **B3** (GPU / hardware guide) is partially covered by `DEPLOYMENT.md` §7 (Claude vs DeepSeek vs local Ollama). Full GPU/VRAM sizing is contingent on B2.
 - **C4** (GenflowAi.md note) is one paragraph — pending.
 - **D1, D2** are release blockers — not deployment blockers.
@@ -160,7 +163,10 @@ Status as of 2026-07-26:
 | 12 | **A2** Verify `apps/web` image | ✅ #84 (compose) + 🟢 live | Already mostly done; verify end-to-end in stack. | A1, A3 |
 | 13 | **A5** Consolidated env template | ✅ #84 + #85 | After A2/A3; remove `*.kedata.cloud` hardcodes; include all vars. | A2, A3, B1 |
 | 14 | **B1** AI env in compose | ✅ live + documented | Server env is done (7F-1); expose to compose. | Phase 7 |
-| 15 | **B2** Local-LLM compose profile | 🔵 backlog | Privacy-strict customers. | B1 |
+| 15a | **B2-r1** Compat test suite (fixtures) | ⬜ | Each provider in the matrix must have a happy-path + error-path fixture. Hardens the library's "truly agnostic" claim. | B1 |
+| 15b | **B2-r2** Compat matrix docs | ⬜ | `docs/AI_PROVIDERS.md` — supported providers, env config, known quirks. Linked from `DEPLOYMENT.md` §7. | B2-r1 |
+| 15c | **B2-r3** Streaming edge-case tests | ⬜ | Empty choices, double done, missing `[DONE]`, multi-byte chunk splits, abort mid-stream. | B2-r1 |
+| 15d | **B2-c** Local-LLM compose profile | 🔵 backlog | Privacy-strict on-prem customers. Pull into a sprint when needed. | B1 |
 | 16 | **V1** `DocumentVersion` model | ⬜ | Phase 1 Yjs persistence is the encode path. | Phase 1 |
 | 17 | **V2** Server-side capture | ⬜ | Reuses Phase 1's encode. | V1 |
 | 18 | **V3** Restore + list + preview | ⬜ | Wires the existing `HistorySidebar` stub to real data. | V2 |
@@ -267,7 +273,7 @@ T1 → T2 → PR1 → PR2 (end of Sprint 10)
 RO1 → RO2 → RO3 (prototype early, security gate) → V1 → V2 → V3 → C1 → C2 → C3 → TP1 → OF1 → SG1
 
 ### Backlog (pure on-prem fork — not on Sprint 9-10 critical path)
-A3 (self-hosted Mongo + MinIO), B2 (local-LLM profile), B3 (GPU guide). Pull into a sprint when a customer asks for air-gapped-style self-host.
+A3 (self-hosted Mongo + MinIO), B2-c (local-LLM profile), B3 (GPU guide). Pull into a sprint when a customer asks for air-gapped-style self-host.
 
 ---
 
@@ -279,3 +285,4 @@ A3 (self-hosted Mongo + MinIO), B2 (local-LLM profile), B3 (GPU guide). Pull int
 - [`ENHANCEMENT_ROADMAP.md`](../ENHANCEMENT_ROADMAP.md) §5 — open questions including licensing
 - [`DEPLOYMENT.md`](../DEPLOYMENT.md) — current deployment doc (rewritten by C1 in PR #86, both modes + consolidated env reference)
 - [`GenflowAi.md`](../../CLAUDE.md) §Deployment — current note (still demo-only; C4 follow-up)
+- [`AI_PROVIDERS.md`](../AI_PROVIDERS.md) — supported OpenAI-compatible providers matrix (B2-r2 follow-up)
