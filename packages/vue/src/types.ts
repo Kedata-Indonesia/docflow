@@ -38,6 +38,8 @@ export interface CommentItem {
   createdAt: number
   resolved?: boolean
   resolvedBy?: string | null
+  /** Display name for the resolver. Older records may be `null`. */
+  resolvedByName?: string | null
   resolvedAt?: number | null
   replies: CommentReply[]
 }
