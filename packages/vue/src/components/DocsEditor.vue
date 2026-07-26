@@ -4,7 +4,7 @@ import { PAGE_SIZES, getPageSize } from '@kedata-indonesia/docflow-layout-engine
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useEditor } from '../composables/useEditor.js'
 import SlashMenuVue from './SlashMenu.vue'
-import type { Collaborator, ConnectionState, DocumentMeta, SavingStatus, SidebarKey } from '../types.js'
+import type { Collaborator, CommentItem, ConnectionState, DocumentMeta, SavingStatus, SidebarKey } from '../types.js'
 import HeaderBar from './HeaderBar.vue'
 import EditorToolbar from './EditorToolbar.vue'
 import BubbleMenu from './BubbleMenu.vue'
@@ -15,6 +15,7 @@ import QuickActionChips from './QuickActionChips.vue'
 import TOCSidebar from './sidebars/TOCSidebar.vue'
 import ReferencesSidebar from './sidebars/ReferencesSidebar.vue'
 import AISidebar from './sidebars/AISidebar.vue'
+import CommentsSidebar from './sidebars/CommentsSidebar.vue'
 import DetailsDialog from './DetailsDialog.vue'
 import EmailDialog from './EmailDialog.vue'
 import FindReplaceDialog from './FindReplaceDialog.vue'
@@ -47,6 +48,13 @@ const props = withDefaults(
     citation?: CitationPort
     aiStream?: AIStreamFn
     aiDraft?: AIDraftFn
+    // Phase 9 P9-4 — comment threads. The library stays free of REST;
+    // the host feeds the threads + handles the events.
+    comments?: CommentItem[]
+    /** Currently-selected text snippet. */
+    selectedTextSnippet?: string
+    /** Currently-selected start position (Phase 9 P9-4 anchor). */
+    selectedTextIndex?: number
   }>(),
   {
     editable: true,
@@ -68,6 +76,9 @@ const props = withDefaults(
     citation: undefined,
     aiStream: undefined,
     aiDraft: undefined,
+    comments: () => [],
+    selectedTextSnippet: '',
+    selectedTextIndex: undefined,
   },
 )
 
@@ -86,6 +97,12 @@ const emit = defineEmits<{
   'menu-click': [menu: string]
   export: [format: 'markdown' | 'html' | 'html-zip' | 'txt' | 'docx' | 'pdf' | 'odt' | 'rtf']
   ready: [docsEditor: DocsEditor]
+  // Phase 9 P9-4 — comment-thread events. The host owns the REST
+  // surface; the editor just re-emits what the CommentsSidebar
+  // collects from the user.
+  'add-comment': [content: string, anchorText?: string, anchorIndex?: number]
+  'add-reply': [threadId: string, content: string]
+  'resolve-comment': [threadId: string]
 }>()
 
 // Provide locale context for all editor chrome components.
@@ -1297,6 +1314,21 @@ watch(isReady, (ready) => {
         @update:style="handleCitationStyleChange"
         @import-doi="handleImportDoi"
         @import-bibliography="handleImportBibliography"
+      />
+
+      <!-- Phase 9 P9-4 — comment threads; library-only stub that
+           forwards user intent to the host (which owns the REST
+           surface). The host resolves selections + sets the
+           \`comment\` mark on the anchored range. -->
+      <CommentsSidebar
+        v-if="activeSidebar === 'comments'"
+        :comments="props.comments"
+        :selected-text-snippet="props.selectedTextSnippet"
+        :selected-text-index="props.selectedTextIndex"
+        @close="activeSidebar = null"
+        @add-comment="(c, t, i) => $emit('add-comment', c, t, i)"
+        @add-reply="(id, c) => $emit('add-reply', id, c)"
+        @resolve-comment="(id) => $emit('resolve-comment', id)"
       />
 
       <!-- Doc-aware AI chat (Phase 7D) — right sidebar; only mounts when the
