@@ -4,6 +4,10 @@
 
 Built on [TipTap](https://tiptap.dev) / [ProseMirror](https://prosemirror.net) with page pagination engine and Yjs-based collaboration.
 
+![License: Proprietary](https://img.shields.io/badge/license-Proprietary-blue)
+![Gov-friendly: offline + escrow](https://img.shields.io/badge/deployment-air--gapped--ready-green)
+![Built on: TipTap + Yjs + Vue](https://img.shields.io/badge/built%20on-TipTap%20%2B%20Yjs%20%2B%20Vue-blueviolet)
+
 ---
 
 ## Packages
@@ -352,4 +356,21 @@ git push --tags
 
 ## License
 
-MIT
+**Proprietary** — see [`LICENSE`](./LICENSE) at the repo root.
+
+DocFlow is **not open-source**. The source code is published for
+review, support, and source-code escrow (Government tier); no rights
+are granted to reuse, redistribute, or run the software without a
+signed End-User License Agreement (EULA) and Order Form.
+
+The docflow packages are intended to be installed by customers who
+have already accepted the EULA. The published npm packages on
+GitHub Packages are intentionally scoped to the organization
+`@kedata-indonesia` and require a GitHub PAT with `read:packages`
+from a licensed account.
+
+Bundled third-party components (TipTap, Yjs, Hocuspocus, Vue, etc.)
+keep their original MIT (or other) licenses — see [`NOTICE`](./NOTICE)
+for the full list and per-component pointers.
+
+For licensing questions (Indonesian / English): **legal@kedata.co**.
