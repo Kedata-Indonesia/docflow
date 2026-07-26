@@ -194,7 +194,7 @@ function getInitials(name: string) {
           v-if="comment.resolved"
           class="rounded-lg border border-green-100/40 bg-green-50/55 p-2 text-[10px] text-green-700 dark:border-green-500/10 dark:bg-green-950/10 dark:text-green-400"
         >
-          {{ t('sidebars.comments.resolvedBy').replace('{user}', comment.resolvedBy || 'You') }}
+          {{ t('sidebars.comments.resolvedBy').replace('{user}', comment.resolvedByName || comment.resolvedBy || 'You') }}
           <span v-if="comment.resolvedAt">at {{ new Date(comment.resolvedAt).toLocaleTimeString() }}</span>
         </div>
       </div>
