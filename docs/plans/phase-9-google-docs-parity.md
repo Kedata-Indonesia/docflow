@@ -1,6 +1,8 @@
 # Phase 9 — Google-Docs Feature Parity · Task-Level Implementation Plan
 
-**Roadmap ref:** [ENHANCEMENT_ROADMAP.md](../ENHANCEMENT_ROADMAP.md) Phase 9 · **Priority:** P2 (candidate scope) · **Last updated:** 2026-07-17
+**Roadmap ref:** [ENHANCEMENT_ROADMAP.md](../ENHANCEMENT_ROADMAP.md) Phase 9 · **Priority:** P2 (candidate scope) · **Last updated:** 2026-07-26
+
+> **Sprint execution plan:** see [`sprint-9-10-execution-plan.md`](sprint-9-10-execution-plan.md) for current-vs-target state per task and the recommended order (this doc is the task spec; the sprint plan is the work-breakdown).
 
 > **Goal:** close the gap to a Docs-class experience — version history, comments &
 > suggestions, live TOC, presence polish, templates, offline editing, and permission roles.
