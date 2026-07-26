@@ -13,6 +13,8 @@
 
 **2026-07-26 update (3):** D1 shipped (PR #90) — proprietary LICENSE + NOTICE + `license: "UNLICENSED"` across all 11 package.jsons + README badge + license pointer. D2 is **folded into D1** — the third-party license surface lives in the dedicated `NOTICE` file plus the on-prem compose notes in `DEPLOYMENT.md` §2; no further code change needed. Status table below reflects this. **Phase 8 is functionally complete**: only license *enforcement* (tier caps, signed file, audit log) and A6 live verification remain — both deferred to Sprint 11+.
 
+**2026-07-26 update (4):** T1 + T2 shipped (PR #92) — live TOC sidebar (debounced refresh + active-heading tracking via `selectionUpdate`) + mount through unified `activeSidebar` (dropped dead `leftSidebarOpen` toggle). The `activeSidebar` mount pattern is now consistent across TOC / References / AI / Comments / History. Status table below reflects this.
+
 > **Live deployment context (2026-07-26):** the product is already running in the cloud at
 > `https://dev-docflow.kedata.cloud/` on a same-domain nginx reverse proxy. Stack: managed
 > MongoDB (Atlas), external S3-compatible storage, cloud AI provider (`openai-compatible` →
@@ -67,7 +69,7 @@ Legend:
 
 ### What the prod deploy actually proves
 
-- **A1, A2, A4, A5, A6, B1, B2-r1/r2/r3, C1, C2, C3, C4** are shipped (PRs #83, #84, #85, #86, #88, #89). The SPA serves; auth + collab work end-to-end behind nginx; env templates are complete and placeholder-clean; deployment doc captures the actual stack; the AI provider-agnostic compat matrix is asserted at the wire level.
+- **A1, A2, A4, A5, A6, B1, B2-r1/r2/r3, C1, C2, C3, C4, T1, T2** are shipped (PRs #83, #84, #85, #86, #88, #89, #92). The SPA serves; auth + collab work end-to-end behind nginx; env templates are complete and placeholder-clean; deployment doc captures the actual stack; the AI provider-agnostic compat matrix is asserted at the wire level; the TOC sidebar is live + mounted through the unified `activeSidebar` pattern.
 - **A3 (self-hosted)** is **deferred**, not done — managed Atlas + external S3 cover prod. The compose path is a "pure on-prem" feature; the on-prem acceptance gate still requires it, but it's no longer blocking the current customer profile.
 - **B2-c** (local-LLM compose profile) stays in the backlog — pull when a privacy-strict on-prem customer is on the roadmap.
 - **B3** (GPU / hardware guide) is partially covered by `DEPLOYMENT.md` §7 (Claude vs DeepSeek vs local Ollama) and `AI_PROVIDERS.md`. Full GPU/VRAM sizing is contingent on B2-c.
@@ -81,8 +83,8 @@ Verified against `main` @ `54ebab7`.
 
 | Group | # | Task | State | Gap / file pointer | Acceptance gate |
 |-------|---|------|-------|--------------------|-----------------|
-| **T** | T1 | TOC live updates | ⚠️ | `TOCSidebar.vue:36-54` only refreshes on mount, never on transaction. | Adding/editing/removing a heading updates outline within one debounce window. |
-| **T** | T2 | Mount TOC via `activeSidebar` | ⚠️ | `DocsEditor.vue:1254` mounts under `leftSidebarOpen` (a separate toggle), not `activeSidebar==='toc'`. | Toolbar TOC button opens a live outline without host wiring. |
+| **T** | T1 | TOC live updates | ✅ | PR #92. `TOCSidebar.vue` now debounces heading refreshes (60ms) and tracks the active heading on `selectionUpdate` (walks up from caret to nearest heading). 5 unit tests pin: empty state, post-debounce refresh, burst-collapse, active-heading tracking, listener teardown on editor swap. | Adding/editing/removing a heading updates outline within one debounce window. |
+| **T** | T2 | Mount TOC via `activeSidebar` | ✅ | PR #92. TOC now mounts on `v-if="activeSidebar === 'toc'"`. The dead `leftSidebarOpen` ref + `@toggle-left-sidebar` listener were removed. The toolbar TOC button already emits `toggle-sidebar: 'toc'` — now correctly routes through the unified `toggleSidebar()`. | Toolbar TOC button opens a live outline without host wiring. |
 | **PR** | PR1 | Awareness-driven UI | ⚠️ | Yjs awareness exists (`packages/core/src/Collaboration.ts:9-83`); no avatar stack + selection highlight in UI. | Two browsers: live cursors + selections + avatars; peer-leave removes marker instantly (awareness, not TTL). |
 | **PR** | PR2 | Scope REST heartbeat | ❌ | No doc split; both presence paths are wired to UI. | No duplicate/conflicting presence UI in editor. |
 | **RO** | RO1 | Role model + migration | ❌ | `apps/server/src/models/Document.ts:10,33` — `collaborators: string[]` flat. | Existing docs load; collaborator assignable to `viewer`/`commenter`/`editor`. |
@@ -145,8 +147,8 @@ Status as of 2026-07-26:
 | 4 | **A6 verify** Confirm `/api/health` reaches `db: connected` in prod (Dokploy log + curl from inside cluster) | 🟡 | Ship evidence for the "all-healthy cold start" gate that's already green in reality but undocumented. | none |
 | 5 | **C4** Update `GenflowAi.md` deployment note | ✅ #89 | Doc lag — the note still says demo; one paragraph fix. | A2, A6 |
 | 6 | **C1** Re-point `DEPLOYMENT.md` to product (managed + on-prem both modes) | ✅ #86 | Doc lag — prod has Atlas+external-S3+cloud-AI; on-prem compose is the fork. | A1, A5 |
-| 7 | **T1** Make TOC live | ⬜ | Library-only quick win; no deps; ships value immediately. | none |
-| 8 | **T2** Mount TOC via `activeSidebar` | ⬜ | Establishes the mount pattern other sidebars reuse. | none |
+| 7 | **T1** Make TOC live | ✅ #92 | Library-only quick win; no deps; ships value immediately. | none |
+| 8 | **T2** Mount TOC via `activeSidebar` | ✅ #92 | Establishes the mount pattern other sidebars reuse. | none |
 | 9 | **PR1** Awareness-driven presence UI | ⬜ | Quick win, parallel to TOC; high perceived value in collab. | none |
 | — | **A5** env template | ✅ #84 + #85 | (already shipped) | — |
 | — | **A3** Self-hosted Mongo + MinIO | 🔵 backlog | **Defer** — prod uses managed; revisit when a "pure on-prem" customer is on the roadmap. | A4 (when resumed) |
@@ -264,13 +266,13 @@ Per Phase 9 §4 Group G:
 
 Prod is live on managed stack. Stream D downscopes to docs + latent-bug fix + licensing; A3/B2 move to a "pure on-prem" backlog (run when a customer needs them, not now).
 
-Status as of 2026-07-26: A1, A4, A5, A6, B1, B2-r1/r2/r3, C1, C2, C3, C4, D1, D2 shipped. Phase 9 items (T1/T2/PR1, RO1/2/3, V, C comments, TP, OF, SG) remain. A6 verify + license enforcement deferred to Sprint 11+.
+Status as of 2026-07-26: A1, A4, A5, A6, B1, B2-r1/r2/r3, C1, C2, C3, C4, D1, D2, T1, T2 shipped. Phase 9 items (PR1/PR2, RO1/2/3, V, C comments, TP, OF, SG) remain. A6 verify + license enforcement deferred to Sprint 11+.
 
 ### Stream D — Deploy hygiene + docs (0.5 dev, Sprint 9)
 ~~D1 → A1 → A4 → C4 → D2~~ → A6 verify (on next deploy)
 
 ### Stream T — TOC + Presence (0.5 dev, Sprint 9)
-T1 → T2 → PR1 → PR2 (end of Sprint 10)
+~~T1 → T2~~ → PR1 → PR2 (end of Sprint 10)
 
 ### Stream C — Collab (1 dev, Sprint 10)
 RO1 → RO2 → RO3 (prototype early, security gate) → V1 → V2 → V3 → C1 → C2 → C3 → TP1 → OF1 → SG1
