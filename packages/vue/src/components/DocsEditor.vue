@@ -51,6 +51,10 @@ const props = withDefaults(
     // Phase 9 P9-4 — comment threads. The library stays free of REST;
     // the host feeds the threads + handles the events.
     comments?: CommentItem[]
+    /** Currently-selected text snippet. */
+    selectedTextSnippet?: string
+    /** Currently-selected start position (Phase 9 P9-4 anchor). */
+    selectedTextIndex?: number
   }>(),
   {
     editable: true,
@@ -73,6 +77,8 @@ const props = withDefaults(
     aiStream: undefined,
     aiDraft: undefined,
     comments: () => [],
+    selectedTextSnippet: '',
+    selectedTextIndex: undefined,
   },
 )
 
@@ -1317,6 +1323,8 @@ watch(isReady, (ready) => {
       <CommentsSidebar
         v-if="activeSidebar === 'comments'"
         :comments="props.comments"
+        :selected-text-snippet="props.selectedTextSnippet"
+        :selected-text-index="props.selectedTextIndex"
         @close="activeSidebar = null"
         @add-comment="(c, t, i) => $emit('add-comment', c, t, i)"
         @add-reply="(id, c) => $emit('add-reply', id, c)"
