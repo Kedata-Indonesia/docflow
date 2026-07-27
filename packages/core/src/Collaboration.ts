@@ -2,6 +2,7 @@ import type { AnyExtension } from '@tiptap/core'
 import { Collaboration } from '@tiptap/extension-collaboration'
 import { CollaborationCursor } from '@tiptap/extension-collaboration-cursor'
 import { Awareness } from 'y-protocols/awareness'
+import { IndexeddbPersistence } from 'y-indexeddb'
 import { WebrtcProvider } from 'y-webrtc'
 import { WebsocketProvider } from 'y-websocket'
 import * as Y from 'yjs'
@@ -36,12 +37,28 @@ export interface CollaborationOptions {
    * `setLocalCursorEnabled()` returned from `createCollaboration`.
    */
   emitCursor?: boolean
+  /**
+   * Phase 9 OF1 — when true, mirror the room's Y.Doc into IndexedDB
+   * (`docflow-<room>`) via y-indexeddb so edits survive offline and reload.
+   * Reconcile-on-reconnect is plain Yjs merge — no conflict resolution
+   * needed. The IndexedDB mirror is NEVER a seed source: the server (or the
+   * legacy-JSON seed path) still owns initial state; the mirror only
+   * contributes local offline edits via the normal Yjs update exchange.
+   */
+  offline?: boolean
 }
 
 export interface CollaborationSetup {
   ydoc: Y.Doc
   provider: WebrtcProvider | WebsocketProvider | null
   awareness: Awareness
+  /**
+   * Phase 9 OF1 — y-indexeddb persistence instance, present only when
+   * `options.offline` is true. Exposed so hosts/tests can `await
+   * persistence.whenSynced` before asserting the mirror contents. Do not
+   * use it as a seed source.
+   */
+  persistence?: IndexeddbPersistence
   destroy: () => void
   /**
    * Phase 9 PR2 — toggle the local cursor emission + present flag.
@@ -110,6 +127,15 @@ export function createCollaboration(options: CollaborationOptions): Collaboratio
   if (options.initialStorageState) {
     Y.applyUpdate(ydoc, options.initialStorageState)
   }
+  // Phase 9 OF1 — opt-in offline mirror. y-indexeddb loads any previously
+  // persisted state into the doc and writes every local update back to
+  // IndexedDB (`docflow-<room>`). It never seeds: the server still owns
+  // initial state; the mirror only carries local offline edits into the
+  // normal Yjs merge on reconnect.
+  let persistence: IndexeddbPersistence | undefined
+  if (options.offline) {
+    persistence = new IndexeddbPersistence(`docflow-${options.room}`, ydoc)
+  }
   let provider: WebrtcProvider | WebsocketProvider | null = null
 
   if (options.provider === 'webrtc') {
@@ -163,10 +189,12 @@ export function createCollaboration(options: CollaborationOptions): Collaboratio
     awareness.setLocalState(null)
     ;(provider as { destroy?: () => void } | null)?.destroy?.()
     ;(awareness as { destroy?: () => void }).destroy?.()
+    // Destroy the offline mirror before the doc so pending writes settle.
+    void persistence?.destroy()
     ydoc.destroy()
   }
 
-  return { ydoc, provider, awareness, destroy, setLocalCursorEnabled }
+  return { ydoc, provider, awareness, persistence, destroy, setLocalCursorEnabled }
 }
 
 /**

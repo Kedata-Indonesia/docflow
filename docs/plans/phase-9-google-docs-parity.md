@@ -63,9 +63,10 @@ A host app must import and wire each sidebar itself, supplying all data via prop
 - **Templates — shipped (TP1).** `DocumentTemplate` model + `routes/templates.ts` + boot-seeded
   system templates; dashboard gallery is API-driven; "new from template" clones via the existing
   `POST /api/documents` + seed-on-open; doc-card menu has "Save as template".
-- **Offline — nonexistent.** No `y-indexeddb`; the only `offline` token is a `SavingStatus`
-  string in the status bar ([StatusBar.vue:80](../../packages/vue/src/components/StatusBar.vue)).
-  Closing the tab offline loses unsynced edits.
+- **Offline — shipped (OF1).** `packages/core/Collaboration.ts` attaches `IndexeddbPersistence`
+  (`docflow-<room>`) via an opt-in `offline` option; the host enables it in both provider
+  branches; `connection-state` is driven by the real provider status. Offline edits persist
+  across reload and merge on reconnect (verified: no loss, no duplication).
 
 ### The permission model is flat, and the WS grant is binary
 
