@@ -60,8 +60,9 @@ A host app must import and wire each sidebar itself, supplying all data via prop
   `POST /api/collab/heartbeat`, `GET /api/collab/online/:roomId`
   ([collab.ts:15-84](../../apps/server/src/routes/collab.ts)). No consolidated avatar stack,
   follow-cursor, or selection highlighting in the UI.
-- **Templates — nonexistent.** No template model, gallery, or "new from template" flow (the
-  only `template` hits in the tree are Vue `<template>` tags).
+- **Templates — shipped (TP1).** `DocumentTemplate` model + `routes/templates.ts` + boot-seeded
+  system templates; dashboard gallery is API-driven; "new from template" clones via the existing
+  `POST /api/documents` + seed-on-open; doc-card menu has "Save as template".
 - **Offline — nonexistent.** No `y-indexeddb`; the only `offline` token is a `SavingStatus`
   string in the status bar ([StatusBar.vue:80](../../packages/vue/src/components/StatusBar.vue)).
   Closing the tab offline loses unsynced edits.
