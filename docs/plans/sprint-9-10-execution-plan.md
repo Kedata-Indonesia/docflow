@@ -36,7 +36,14 @@ The RO3 security gate is closed end-to-end. Phase 9 is unblocked for V (versioni
 - Host: `<DocsEditor>` accepts `:comments` + emits events; `<CommentsSidebar>` mounted via the unified `activeSidebar === 'comments'` pattern. A parallel WS connection handles `comment:*` broadcasts (optimistic patch + fallback refetch).
 - 10 new tests pin the role matrix + soft-delete semantics + WS broadcast call sites.
 
-Phase 9 remaining: V1/V2/V3 (versioning), TP1 (templates), OF1 (y-indexeddb offline), SG1 (suggestionPlugin).
+**2026-07-28 update (3):** **V1 + V2 + V3 atomic block** shipped. Version history is end-to-end functional:
+- Server: `DocumentVersionModel` (Yjs update blob per spec §3) + `services/versionService.ts` + `routes/versions.ts`. Capture reads the live room (`liveDocs.get`) or hydrates cold rooms via `persistence.bindState`; role-gated (list/preview = canRead, create = canMutate). `broadcast('version:created')` fan-out, no poll.
+- Library: `DocumentSnapshot` upgraded to `{ versionId, versionIndex, title, contentPreview, modifiedBy, timestamp }`; `HistorySidebar` mounted via the unified `activeSidebar === 'history'` pattern.
+- Host: save / list / preview (read-only modal) / restore. **Restore is client-driven** — `GET /versions/:versionId/content` derives PM JSON from the stored blob and the client `setContent`s it, so convergence rides the proven Yjs sync path (a bare server-side `applyUpdate` would CRDT-union histories instead of reverting).
+- 7 new tests pin: capture fidelity, role matrix, list shape (no `state`, author + timestamp + sequential versionNumber), content endpoint, broadcast call site.
+- Local acceptance gate passed: save → edit → restore → second client converges to restored state (websocket provider). NOTE: capture requires the websocket collab provider (server-side room state); in webrtc-only dev mode the server has no room state to capture.
+
+Phase 9 remaining: TP1 (templates), OF1 (y-indexeddb offline), SG1 (suggestionPlugin).
 
 > **Live deployment context (2026-07-26):** the product is already running in the cloud at
 > `https://dev-docflow.kedata.cloud/` on a same-domain nginx reverse proxy. Stack: managed
@@ -116,9 +123,9 @@ Verified against `main` @ `54ebab7`.
 | **C** | C1 | `commentPlugin` (library) | ✅ | PR #97. `packages/plugins/src/comment.ts` (NEW). `CommentMark` carries only `threadId` + `pos` (no text). Mark is inclusive so typing inside an existing comment extends it. v1 uses absolute document position; v2 will replace with Yjs RelativePosition (deferred per the plan §6 risk row "Comment anchor survival under concurrent edits"). | Anchored text + comment survives concurrent edits by other users (best-effort at v1; full Yjs anchor in v2). |
 | **C** | C2 | `CommentThread` model + API | ✅ | PR #97. `apps/server/src/models/CommentThread.ts` (NEW): threadId (UUID), docId, anchorText, anchorPos, authorId, replies, resolved flag. `routes/comments.ts` (NEW): GET list + POST create + POST reply + PATCH resolve + DELETE — all role-gated via the helpers from PR #96. Viewer 403 on create/reply/resolve; commenter + editor + owner pass. Author OR editor OR owner can delete. Soft-deleted docs mirror GET /:id access. WS broadcast on every mutation (no REST poll). | Threads persist + list per doc + role-gated (commenter+ can create; viewer read-only). |
 | **C** | C3 | Wire `CommentsSidebar` | ✅ | PR #97. `<DocsEditor>` accepts `:comments` prop + emits `add-comment` / `add-reply` / `resolve-comment`. `<CommentsSidebar>` mounted when `activeSidebar === 'comments'` (same `activeSidebar` pattern as T2 — `activeSidebar` is now consistent across TOC / References / AI / Comments / History). Host (`apps/web/EditorView.vue`) loads threads on mount, runs a small parallel WS connection (`?topic=comments`) for `comment:created` / `comment:replied` / `comment:resolved` / `comment:deleted` broadcasts, and applies the optimistic patch locally. Adds the `comment` mark on the anchored range when a thread is created. | Two users see each other's comments / replies / resolves in near-real-time (no poll). |
-| **V** | V1 | `DocumentVersion` model | ❌ | Model + `routes/versions.ts` don't exist. | Model compiles + typecheck passes. |
-| **V** | V2 | Server-side capture | ❌ | No `versionService.ts`. | `POST /api/documents/:id/versions {label}` creates row from live room state. |
-| **V** | V3 | Restore + list + preview | ❌ | `HistorySidebar.vue` emits into the void (`packages/vue/src/types.ts:33-39` snapshots is client-only). | Save→edit→restore → all clients see restored state; list shows author + timestamp. |
+| **V** | V1 | `DocumentVersion` model | ✅ | `apps/server/src/models/DocumentVersion.ts` — `docId`, `label`, `auto`, `state` (Yjs update blob), `contentPreview`, `createdBy`/`createdByName`, per-doc sequential `versionNumber`; indexes `{docId, createdAt}` + `{docId, versionNumber}`. | Model compiles + typecheck passes. |
+| **V** | V2 | Server-side capture | ✅ | `apps/server/src/services/versionService.ts` + `routes/versions.ts`. Live room via `liveDocs.get(roomId)`, cold rooms hydrate via `persistence.bindState`. `POST /api/documents/:id/versions {label}` (editor+) encodes `Y.encodeStateAsUpdate` from the live room; `broadcast('version:created')`. | `POST /api/documents/:id/versions {label}` creates row from live room state. |
+| **V** | V3 | Restore + list + preview | ✅ | `GET /versions` (no `state`) + `GET /versions/:versionId/content` (PM JSON derived from blob). Restore is client-driven: `setContent(pmJson)` rides the proven Yjs sync path (bare `applyUpdate` would union histories, not revert). `HistorySidebar` mounted via `activeSidebar === 'history'`; `DocumentSnapshot` upgraded (`versionId`, `contentPreview`); read-only preview modal in host. | Save→edit→restore → all clients see restored state; list shows author + timestamp. |
 | **TP** | TP1 | Templates | ❌ | No template model, no gallery, no "new from template" flow. | Pick template → new doc opens pre-filled; save doc as personal template. |
 | **OF** | OF1 | `y-indexeddb` mirror | ❌ | No offline persistence; only `SavingStatus` indicator exists. | Edit offline + reload offline → edits persist; reconnect → merge without loss. |
 | **SG** | SG1 | `suggestionPlugin` | ❌ | No track-changes mark. | Suggesting mode renders attributed marks; accept/reject converges; `commenter` role restricted to suggest-only. |
@@ -195,9 +202,9 @@ Status as of 2026-07-26:
 | 15b | **B2-r2** Compat matrix docs | ✅ #88 | `docs/AI_PROVIDERS.md` — supported providers, env config, known quirks. Linked from `DEPLOYMENT.md` §7. | B2-r1 |
 | 15c | **B2-r3** Streaming edge-case tests | ✅ #88 | Empty choices, double done, missing `[DONE]`, multi-byte chunk splits, abort mid-stream. | B2-r1 |
 | 15d | **B2-c** Local-LLM compose profile | 🔵 backlog | Privacy-strict on-prem customers. Pull into a sprint when needed. | B1 |
-| 16 | **V1** `DocumentVersion` model | ⬜ | Phase 1 Yjs persistence is the encode path. | Phase 1 |
-| 17 | **V2** Server-side capture | ⬜ | Reuses Phase 1's encode. | V1 |
-| 18 | **V3** Restore + list + preview | ⬜ | Wires the existing `HistorySidebar` stub to real data. | V2 |
+| 16 | **V1** `DocumentVersion` model | ✅ | Phase 1 Yjs persistence is the encode path. | Phase 1 |
+| 17 | **V2** Server-side capture | ✅ | Reuses Phase 1's encode. | V1 |
+| 18 | **V3** Restore + list + preview | ✅ | Wires the existing `HistorySidebar` stub to real data. | V2 |
 | 19 | **C1** `commentPlugin` (library) | ✅ #97 | Anchor via Yjs relative position; library-only. | Phase 1 |
 | 20 | **C2** `CommentThread` model + API | ✅ #97 | Backend for comments. | Phase 1, RO1 |
 | 21 | **C3** Wire `CommentsSidebar` | ✅ #97 | Real-time fan-out. | C1, C2, RO3 |
@@ -289,7 +296,7 @@ Per Phase 9 §4 Group G:
 
 Prod is live on managed stack. Stream D downscopes to docs + latent-bug fix + licensing; A3/B2 move to a "pure on-prem" backlog (run when a customer needs them, not now).
 
-Status as of 2026-07-28: A1, A4, A5, A6, B1, B2-r1/r2/r3, C1, C2, C3, C4, D1, D2, T1, T2, PR1, PR2, RO1, RO2, RO3, **C1, C2, C3** shipped. Phase 9 remaining: V (versioning), TP, OF, SG. A6 verify + license enforcement deferred to Sprint 11+.
+Status as of 2026-07-28: A1, A4, A5, A6, B1, B2-r1/r2/r3, C1, C2, C3, C4, D1, D2, T1, T2, PR1, PR2, RO1, RO2, RO3, C1, C2, C3, **V1, V2, V3** shipped. Phase 9 remaining: TP, OF, SG. A6 verify + license enforcement deferred to Sprint 11+.
 
 ### Stream D — Deploy hygiene + docs (0.5 dev, Sprint 9)
 ~~D1 → A1 → A4 → C4 → D2~~ → A6 verify (on next deploy)
