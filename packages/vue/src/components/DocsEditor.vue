@@ -4,7 +4,7 @@ import { PAGE_SIZES, getPageSize } from '@kedata-indonesia/docflow-layout-engine
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useEditor } from '../composables/useEditor.js'
 import SlashMenuVue from './SlashMenu.vue'
-import type { Collaborator, CommentItem, ConnectionState, DocumentMeta, SavingStatus, SidebarKey } from '../types.js'
+import type { Collaborator, CommentItem, ConnectionState, DocumentMeta, DocumentSnapshot, SavingStatus, SidebarKey } from '../types.js'
 import HeaderBar from './HeaderBar.vue'
 import EditorToolbar from './EditorToolbar.vue'
 import BubbleMenu from './BubbleMenu.vue'
@@ -16,6 +16,7 @@ import TOCSidebar from './sidebars/TOCSidebar.vue'
 import ReferencesSidebar from './sidebars/ReferencesSidebar.vue'
 import AISidebar from './sidebars/AISidebar.vue'
 import CommentsSidebar from './sidebars/CommentsSidebar.vue'
+import HistorySidebar from './sidebars/HistorySidebar.vue'
 import DetailsDialog from './DetailsDialog.vue'
 import EmailDialog from './EmailDialog.vue'
 import FindReplaceDialog from './FindReplaceDialog.vue'
@@ -55,6 +56,10 @@ const props = withDefaults(
     selectedTextSnippet?: string
     /** Currently-selected start position (Phase 9 P9-4 anchor). */
     selectedTextIndex?: number
+    // Phase 9 — version history. The host feeds the version list +
+    // handles save/restore/preview events (it owns the REST surface).
+    snapshots?: DocumentSnapshot[]
+    activePreviewIndex?: number | null
   }>(),
   {
     editable: true,
@@ -79,6 +84,8 @@ const props = withDefaults(
     comments: () => [],
     selectedTextSnippet: '',
     selectedTextIndex: undefined,
+    snapshots: () => [],
+    activePreviewIndex: null,
   },
 )
 
@@ -103,6 +110,11 @@ const emit = defineEmits<{
   'add-comment': [content: string, anchorText?: string, anchorIndex?: number]
   'add-reply': [threadId: string, content: string]
   'resolve-comment': [threadId: string]
+  // Phase 9 — version-history events. The host owns the REST surface;
+  // the editor just re-emits what the HistorySidebar collects.
+  'save-snapshot': [name: string]
+  'restore-snapshot': [versionIndex: number]
+  'preview-snapshot': [snapshot: DocumentSnapshot | null]
 }>()
 
 // Provide locale context for all editor chrome components.
@@ -1329,6 +1341,18 @@ watch(isReady, (ready) => {
         @add-comment="(c, t, i) => $emit('add-comment', c, t, i)"
         @add-reply="(id, c) => $emit('add-reply', id, c)"
         @resolve-comment="(id) => $emit('resolve-comment', id)"
+      />
+
+      <!-- Phase 9 — version history; library-only stub that forwards
+           user intent to the host (which owns the REST surface). No
+           close emit — toggled via the toolbar History button. -->
+      <HistorySidebar
+        v-if="activeSidebar === 'history'"
+        :snapshots="props.snapshots"
+        :active-preview-index="props.activePreviewIndex"
+        @save-snapshot="(name) => $emit('save-snapshot', name)"
+        @restore-snapshot="(idx) => $emit('restore-snapshot', idx)"
+        @preview-snapshot="(s) => $emit('preview-snapshot', s)"
       />
 
       <!-- Doc-aware AI chat (Phase 7D) — right sidebar; only mounts when the
