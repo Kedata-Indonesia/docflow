@@ -37,10 +37,10 @@ A host app must import and wire each sidebar itself, supplying all data via prop
 
 ### Feature-by-feature reality
 
-- **Version history — 0% backend.** `DocumentSnapshot` is a client-side type with
-  `content: string` ([types.ts:33-39](../../packages/vue/src/types.ts)); there is **no server
-  model, no route, no capture path.** The "Save Named Snapshot" / "Restore" buttons emit events
-  into the void.
+- **Version history — shipped (V1+V2+V3).** `DocumentVersion` model (Yjs update blob per §3) +
+  `services/versionService.ts` + `routes/versions.ts` capture from the live room;
+  `HistorySidebar` is mounted and wired end-to-end; restore is client-driven via
+  `GET /versions/:versionId/content` + `setContent` (rides the Yjs sync path).
 - **Comments — 0% backend, fragile anchor model.** `CommentItem` is client-only
   ([types.ts:18-31](../../packages/vue/src/types.ts)) and anchors to text via
   `anchorText: string` / `anchorIndex: number` — **plain strings, not ProseMirror positions or

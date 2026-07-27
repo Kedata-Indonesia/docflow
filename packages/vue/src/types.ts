@@ -45,9 +45,12 @@ export interface CommentItem {
 }
 
 export interface DocumentSnapshot {
+  /** Server-issued version id (matches `/versions/:versionId/content`). */
+  versionId: string
   versionIndex: number
   title: string
-  content: string
+  /** Short plain-text preview of the version content (no full state). */
+  contentPreview: string
   modifiedBy: string
   timestamp: number
 }
