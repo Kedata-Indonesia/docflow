@@ -23,7 +23,7 @@ import DetailsDialog from './DetailsDialog.vue'
 import EmailDialog from './EmailDialog.vue'
 import FindReplaceDialog from './FindReplaceDialog.vue'
 import LinkDialog from './LinkDialog.vue'
-import { Menu } from 'lucide-vue-next'
+import { Menu, Minimize2 } from 'lucide-vue-next'
 import { useTheme } from '../composables/useTheme.js'
 import { provideLocale, type Locale } from '../composables/useLocale.js'
 import { writeClipboard, readClipboardHtml, readClipboardText } from '../composables/useClipboard.js'
@@ -225,6 +225,12 @@ const activeTabContent = computed(() => tabContents.value[activeTabId.value])
 const showBubbleMenu = ref(false)
 const bubblePosition = ref<{ top: number; left: number } | null>(null)
 const activeSidebar = ref<SidebarKey | null>(null)
+// View menu toggles — ruler visibility persists across sessions, focus mode does not.
+const showRuler = ref(localStorage.getItem('docflow:view:showRuler') !== 'false')
+const focusMode = ref(false)
+watch(showRuler, (next) => {
+  localStorage.setItem('docflow:view:showRuler', next ? 'true' : 'false')
+})
 const wordCount = ref(0)
 const charCount = ref(0)
 const savingStatus = ref<SavingStatus>('saved')
@@ -1467,6 +1473,10 @@ const handleDeleteSelection = () => {
 // ⌘⇧V pastes plain text (native in some browsers; registered here for parity);
 // ⌘⇧H opens find & replace (Google Docs parity).
 const handleEditKeydown = (e: KeyboardEvent) => {
+  if (e.key === 'Escape' && focusMode.value) {
+    focusMode.value = false
+    return
+  }
   if (!(e.metaKey || e.ctrlKey) || !e.shiftKey) return
   if (!editor.value?.view.dom.contains(e.target as Node)) return
   if (e.key.toLowerCase() === 'v') {
@@ -1548,6 +1558,13 @@ let menuClick = (action: string) => {
     openFooterModal()
   } else if (action === 'toggle-pageless') {
     applyPageless(!isPageless.value)
+  } else if (action === 'toggle-left-sidebar') {
+    toggleSidebar('toc')
+  } else if (action === 'toggle-ruler') {
+    showRuler.value = !showRuler.value
+  } else if (action === 'toggle-focus-mode') {
+    focusMode.value = !focusMode.value
+    if (focusMode.value) activeSidebar.value = null
   } else if (action === 'insert-footnote') {
     // Use ProseMirror's transaction API directly — more reliable than chain()
     // because chain().focus() can fail when focus has left the editor via menu click.
@@ -1833,14 +1850,27 @@ watch(isReady, (ready) => {
 <template>
   <div class="docs-editor flex h-screen w-full flex-col overflow-hidden bg-slate-50 transition-colors dark:bg-[#02040a]">
     <HeaderBar
+v-if="!focusMode"
 :title="title" :editable="editable" :collaborators="collaborators" :starred="starred" :user-name="userName" :user-avatar="userAvatar"
-      :pageless="isPageless"
+      :pageless="isPageless" :outline-open="activeSidebar === 'toc'" :show-ruler="showRuler" :focus-mode="focusMode"
       @menu-click="menuClick" @back="$emit('back')" @update:title="$emit('update:title', $event)" @toggle-star="$emit('toggle-star')"
       @export="$emit('export', $event)" @share="$emit('share')"><template #actions><slot name="header-actions" /></template><template #overflow-actions="slotProps"><slot name="overflow-actions" v-bind="slotProps" /></template><template #user-menu="slotProps"><slot name="user-menu" v-bind="slotProps" /></template></HeaderBar>
     <EditorToolbar
+v-if="!focusMode"
 :actions="pluginActions" :plugins="plugins" :editor="editor" :active-sidebar="activeSidebar"
       @toggle-sidebar="toggleSidebar"       @print="handlePrint" />
-    <RulerBar :layout-options="resolvedLayoutOptions" />
+    <RulerBar v-if="showRuler && !focusMode" :layout-options="resolvedLayoutOptions" />
+    <!-- Floating exit button shown only while focus mode is active -->
+    <button
+      v-if="focusMode"
+      type="button"
+      class="fixed right-4 top-4 z-50 flex h-11 w-11 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-md transition-colors hover:bg-slate-100 dark:border-white/10 dark:bg-[#0e1525] dark:text-slate-300 dark:hover:bg-white/5"
+      :title="t('header.focusMode')"
+      :aria-label="t('header.focusMode')"
+      @click="focusMode = false"
+    >
+      <Minimize2 class="h-5 w-5" />
+    </button>
     <BubbleMenu :visible="showBubbleMenu" :actions="pluginActions" :position="bubblePosition" :editor="editor" />
     <SlashMenuVue :editor="editor" :commands="slashCommands" />
     <div class="docs-editor__body relative flex flex-1 overflow-hidden">
@@ -1862,7 +1892,7 @@ watch(isReady, (ready) => {
       </button>
 
       <div ref="scrollContainerRef" class="docs-editor-scroll relative flex flex-1 overflow-auto px-4 py-6 bg-slate-100 dark:bg-[#02040a]" @scroll="handleScroll">
-        <VerticalRuler :layout-options="resolvedLayoutOptions" />
+        <VerticalRuler v-if="showRuler && !focusMode" :layout-options="resolvedLayoutOptions" />
         <div class="flex flex-1 flex-col items-center gap-4 w-full relative">
           <QuickActionChips :visible="isReady && isEmptyDocument" @meeting-notes="() => {}" @email-draft="() => {}" @more="() => {}" />
           
@@ -1942,6 +1972,7 @@ watch(isReady, (ready) => {
       />
     </div>
     <StatusBar
+v-if="!focusMode"
 :connection-state="connectionState" :saving-status="savingStatus" :last-saved="lastSaved"
       :word-count="wordCount" :char-count="charCount" :page-count="pageCount" :current-page="currentPage"
       :page-size="pageSizeId" :page-sizes="PAGE_SIZES" :pageless="isPageless"

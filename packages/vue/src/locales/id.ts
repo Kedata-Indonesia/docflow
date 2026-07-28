@@ -74,7 +74,7 @@ export default {
     pasteWithoutFormatting: 'Tempel tanpa pemformatan',
     delete: 'Hapus',
     findAndReplace: 'Temukan dan ganti',
-    showSidebar: 'Tampilkan sidebar',
+    showSidebar: 'Tampilkan kerangka',
     focusMode: 'Mode Fokus Penuh',
     showRuler: 'Tampilkan penggaris',
     meetingNotes: 'Catatan Rapat',

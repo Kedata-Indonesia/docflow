@@ -3,6 +3,12 @@ import { describe, expect, it } from 'vitest'
 import type { DocsEditorPlugin } from '@kedata-indonesia/docflow-core'
 import type { Editor } from '@tiptap/core'
 import DocsEditor from '../components/DocsEditor.vue'
+import HeaderBar from '../components/HeaderBar.vue'
+import EditorToolbar from '../components/EditorToolbar.vue'
+import StatusBar from '../components/StatusBar.vue'
+import RulerBar from '../components/RulerBar.vue'
+import VerticalRuler from '../components/VerticalRuler.vue'
+import TOCSidebar from '../components/sidebars/TOCSidebar.vue'
 
 const defaultPlugins: DocsEditorPlugin[] = [
   {
@@ -195,6 +201,86 @@ describe('DocsEditor', () => {
     expect(wrapper.emitted('update:pageless')?.[1]).toEqual([false])
     expect(vm.editor?.storage.PaginationPlus?.enabled).toBe(true)
     expect(JSON.stringify(vm.editor?.getJSON() ?? {})).toBe(contentBefore)
+
+    wrapper.unmount()
+  })
+
+  it('toggles the outline sidebar via menuClick(\'toggle-left-sidebar\')', async () => {
+    const wrapper = mount(DocsEditor, {
+      props: { plugins: defaultPlugins },
+    })
+    await new Promise((resolve) => setTimeout(resolve, 50))
+
+    const vm = wrapper.vm as unknown as {
+      menuClick: (id: string) => void
+      activeSidebar: string | null
+    }
+
+    expect(wrapper.findComponent(TOCSidebar).exists()).toBe(false)
+
+    vm.menuClick('toggle-left-sidebar')
+    await wrapper.vm.$nextTick()
+    expect(vm.activeSidebar).toBe('toc')
+    expect(wrapper.findComponent(TOCSidebar).exists()).toBe(true)
+
+    vm.menuClick('toggle-left-sidebar')
+    await wrapper.vm.$nextTick()
+    expect(vm.activeSidebar).toBeNull()
+    expect(wrapper.findComponent(TOCSidebar).exists()).toBe(false)
+
+    wrapper.unmount()
+  })
+
+  it('toggles ruler visibility via menuClick(\'toggle-ruler\')', async () => {
+    localStorage.removeItem('docflow:view:showRuler')
+    const wrapper = mount(DocsEditor, {
+      props: { plugins: defaultPlugins },
+    })
+    await new Promise((resolve) => setTimeout(resolve, 50))
+
+    const vm = wrapper.vm as unknown as { menuClick: (id: string) => void }
+
+    expect(wrapper.findComponent(RulerBar).exists()).toBe(true)
+    expect(wrapper.findComponent(VerticalRuler).exists()).toBe(true)
+
+    vm.menuClick('toggle-ruler')
+    await wrapper.vm.$nextTick()
+    expect(wrapper.findComponent(RulerBar).exists()).toBe(false)
+    expect(wrapper.findComponent(VerticalRuler).exists()).toBe(false)
+    expect(localStorage.getItem('docflow:view:showRuler')).toBe('false')
+
+    vm.menuClick('toggle-ruler')
+    await wrapper.vm.$nextTick()
+    expect(wrapper.findComponent(RulerBar).exists()).toBe(true)
+    expect(wrapper.findComponent(VerticalRuler).exists()).toBe(true)
+    expect(localStorage.getItem('docflow:view:showRuler')).toBe('true')
+
+    wrapper.unmount()
+  })
+
+  it('toggles focus mode via menuClick(\'toggle-focus-mode\') and exits on Escape', async () => {
+    const wrapper = mount(DocsEditor, {
+      props: { plugins: defaultPlugins },
+    })
+    await new Promise((resolve) => setTimeout(resolve, 50))
+
+    const vm = wrapper.vm as unknown as { menuClick: (id: string) => void }
+
+    expect(wrapper.findComponent(HeaderBar).exists()).toBe(true)
+    expect(wrapper.findComponent(EditorToolbar).exists()).toBe(true)
+    expect(wrapper.findComponent(StatusBar).exists()).toBe(true)
+
+    vm.menuClick('toggle-focus-mode')
+    await wrapper.vm.$nextTick()
+    expect(wrapper.findComponent(HeaderBar).exists()).toBe(false)
+    expect(wrapper.findComponent(EditorToolbar).exists()).toBe(false)
+    expect(wrapper.findComponent(StatusBar).exists()).toBe(false)
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    await wrapper.vm.$nextTick()
+    expect(wrapper.findComponent(HeaderBar).exists()).toBe(true)
+    expect(wrapper.findComponent(EditorToolbar).exists()).toBe(true)
+    expect(wrapper.findComponent(StatusBar).exists()).toBe(true)
 
     wrapper.unmount()
   })

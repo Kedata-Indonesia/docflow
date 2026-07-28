@@ -74,7 +74,7 @@ export default {
     pasteWithoutFormatting: 'Paste without formatting',
     delete: 'Delete',
     findAndReplace: 'Find and replace',
-    showSidebar: 'Show sidebar',
+    showSidebar: 'Show outline',
     focusMode: 'Full focus mode',
     showRuler: 'Show ruler',
     meetingNotes: 'Meeting notes',

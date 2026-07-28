@@ -16,6 +16,9 @@ const props = withDefaults(
     collaborators?: Collaborator[]
     starred?: boolean
     pageless?: boolean
+    outlineOpen?: boolean
+    showRuler?: boolean
+    focusMode?: boolean
     currentUserId?: string
     simulatorsActive?: boolean
     userName?: string
@@ -27,6 +30,9 @@ const props = withDefaults(
     collaborators: () => [],
     starred: false,
     pageless: false,
+    outlineOpen: false,
+    showRuler: true,
+    focusMode: false,
     currentUserId: '',
     simulatorsActive: false,
     userName: '',
@@ -153,10 +159,10 @@ const menus = computed<Record<string, { label: string; items: MenuItem[] }>>(() 
   View: {
     label: t('header.view'),
     items: [
-      { label: t('header.showSidebar'), action: 'toggle-left-sidebar' },
+      { label: t('header.showSidebar'), action: 'toggle-left-sidebar', checked: props.outlineOpen },
       { label: 'divider', divider: true },
-      { label: t('header.focusMode'), action: 'toggle-focus-mode' },
-      { label: t('header.showRuler'), action: 'toggle-ruler' },
+      { label: t('header.focusMode'), action: 'toggle-focus-mode', checked: props.focusMode },
+      { label: t('header.showRuler'), action: 'toggle-ruler', checked: props.showRuler },
     ],
   },
   Insert: {
@@ -446,18 +452,15 @@ onUnmounted(() => document.removeEventListener('click', closeMenus, true))
                       class="flex w-full items-center justify-between gap-6 px-4 py-2 text-left hover:bg-slate-50 dark:hover:bg-white/5"
                       @click.stop="handleMenuAction(item.action!)"
                     >
-                      <span class="flex items-center gap-2">
-                        <!-- Check gutter — only rendered for toggle items so
-                             plain actions keep their existing alignment. -->
-                        <Check
-                          v-if="item.checked !== undefined"
-                          class="h-3.5 w-3.5"
-                          :class="item.checked ? 'text-blue-600 dark:text-blue-400' : 'text-transparent'"
-                        />
-                        <span>{{ item.label }}</span>
+                      <span>{{ item.label }}</span>
+                      <span
+                        v-if="item.checked"
+                        class="text-blue-600 dark:text-blue-400"
+                      >
+                        <Check class="h-3.5 w-3.5" />
                       </span>
                       <span
-                        v-if="item.shortcut"
+                        v-else-if="item.shortcut"
                         class="text-[11px] text-slate-400 dark:text-slate-500"
                       >
                         {{ item.shortcut }}
