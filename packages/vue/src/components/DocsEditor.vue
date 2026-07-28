@@ -13,7 +13,6 @@ import BubbleMenu from './BubbleMenu.vue'
 import StatusBar from './StatusBar.vue'
 import RulerBar from './RulerBar.vue'
 import VerticalRuler from './VerticalRuler.vue'
-import QuickActionChips from './QuickActionChips.vue'
 import TOCSidebar from './sidebars/TOCSidebar.vue'
 import ReferencesSidebar from './sidebars/ReferencesSidebar.vue'
 import AISidebar from './sidebars/AISidebar.vue'
@@ -330,13 +329,6 @@ citation: citationPort.value,
     tabContents.value[activeTabId.value] = json
     persistCurrentDoc()
   },
-})
-
-const isEmptyDocument = computed(() => {
-  if (!editor.value) return true
-  const json = editor.value.getJSON()
-  if (!json.content || json.content.length === 0) return true
-  return json.content.every((n) => n.type === 'paragraph' && (!n.content || n.content.length === 0))
 })
 
 // ─── Reference library CRUD + style switching (Phase 6B-3) ─────────────────
@@ -1894,8 +1886,6 @@ v-if="!focusMode"
       <div ref="scrollContainerRef" class="docs-editor-scroll relative flex flex-1 overflow-auto px-4 py-6 bg-slate-100 dark:bg-[#02040a]" @scroll="handleScroll">
         <VerticalRuler v-if="showRuler && !focusMode" :layout-options="resolvedLayoutOptions" />
         <div class="flex flex-1 flex-col items-center gap-4 w-full relative">
-          <QuickActionChips :visible="isReady && isEmptyDocument" @meeting-notes="() => {}" @email-draft="() => {}" @more="() => {}" />
-          
           <div class="relative w-full max-w-[794px]">
             <!-- Virtual Page Overlay (experimental) — renders only visible pages.
                  Positioned absolutely over the editor, behind content (z-index: 0) -->
