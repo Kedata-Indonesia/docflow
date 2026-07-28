@@ -34,4 +34,9 @@ export {
   type CollaborationSetup,
   type AwarenessState,
 } from './Collaboration.js'
+export {
+  SubdocumentProvider,
+  type SubdocState,
+  type SubdocumentProviderOptions,
+} from './SubdocumentProvider.js'
 export type { AIAction, AIActionRequest, AIStreamFn, AIDraftFn, AIDraftEvent, AIDraftCitation } from './ai/types.js'

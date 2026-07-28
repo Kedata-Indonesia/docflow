@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { type DocsEditor, type DocsEditorPlugin, type EditorOptions, type ImageUploadHandler, type CitationPort, type CslItemData, type AIStreamFn, type AIDraftFn } from '@kedata-indonesia/docflow-core'
 import { PAGE_SIZES, getPageSize } from '@kedata-indonesia/docflow-layout-engine'
+import { useVirtualPages } from '../composables/useVirtualPages.js'
+import VirtualPageOverlay from './VirtualPageOverlay.vue'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useEditor } from '../composables/useEditor.js'
 import SlashMenuVue from './SlashMenu.vue'
@@ -36,6 +38,12 @@ const props = withDefaults(
     collaboration?: NonNullable<EditorOptions['collaboration']>
     pageSize?: string
     pageless?: boolean
+    /**
+     * Enable virtual page overlay (experimental).
+     * When true, only visible pages are rendered in DOM instead of all pages.
+     * Uses PageLayout for measurement + viewport-based visibility tracking.
+     */
+    virtualPages?: boolean
     title?: string
     collaborators?: Collaborator[]
     starred?: boolean
@@ -68,6 +76,7 @@ const props = withDefaults(
     collaboration: undefined,
     pageSize: 'a4',
     pageless: false,
+    virtualPages: false,
     title: 'Untitled Document',
     collaborators: () => [],
     starred: false,
@@ -153,8 +162,12 @@ const resolvedLayoutOptions = computed(() => {
 
 const { isDark } = useTheme()
 
+// Experimental: virtual page overlay flag. Must be defined early — referenced
+// by paginationOptions computed (below) to disable PaginationPlus when active.
+const useVirtual = computed(() => props.virtualPages === true)
+
 const paginationOptions = computed(() => ({
-  enabled: !isPageless.value,
+  enabled: !isPageless.value && !useVirtual.value,
   pageHeight: resolvedLayoutOptions.value.pageHeight,
   pageWidth: resolvedLayoutOptions.value.pageWidth,
   marginTop: resolvedLayoutOptions.value.margins.top,
@@ -169,11 +182,12 @@ const paginationOptions = computed(() => ({
   headerRight: '',
   footerLeft: '',
   footerRight: '',
-  onHeaderClick: () => {
-    openHeaderFooterModal()
+  onHeaderClick: (params?: { event?: MouseEvent; pageNumber?: number }) => {
+    startInlineHeaderEdit(params?.event)
   },
-  onFooterClick: () => {
-    openHeaderFooterModal()
+  onFooterClick: (params?: { event?: MouseEvent; pageNumber?: number }) => {
+    if (params?.event && params.event.detail !== 2) return
+    openFooterModal()
   },
 }))
 
@@ -472,6 +486,46 @@ const handleScroll = () => {
 const pageCount = ref(1)
 const currentPage = ref(1)
 
+// ─── Virtual Pages (experimental) ──────────────────────────────────────────
+
+const virtualConfig = computed(() => {
+  const lo = resolvedLayoutOptions.value
+  return {
+    pageSize: { id: pageSizeId.value, name: pageSizeId.value.toUpperCase(), pageWidth: lo.pageWidth, pageHeight: lo.pageHeight },
+    margins: { top: lo.margins.top, bottom: lo.margins.bottom, left: lo.margins.left, right: lo.margins.right },
+    pageGap: 40,
+    headerLeft: userHeaderLeft.value,
+    headerRight: userHeaderRight.value,
+    footerLeft: userFooterLeft.value,
+    footerRight: userFooterRight.value,
+  }
+})
+
+const {
+  data: virtualData,
+  totalPages: virtualTotalPages,
+  isReady: virtualReady,
+  refreshData: refreshVirtual,
+} = useVirtualPages({
+  editorRef: computed(() => editor.value as { view: { dom: HTMLElement } } | null),
+  scrollRef: scrollContainerRef,
+  config: virtualConfig.value,
+  bufferPages: 2,
+})
+
+watch([virtualTotalPages, virtualReady], () => {
+  if (useVirtual.value && virtualReady.value) {
+    pageCount.value = virtualTotalPages.value
+  }
+})
+
+watch(useVirtual, (enabled) => {
+  if (enabled) {
+    // When virtual pages toggle on, re-measure
+    refreshVirtual()
+  }
+})
+
 const updatePageStats = () => {
   if (!editor.value || !isReady.value) {
     pageCount.value = 1
@@ -567,16 +621,166 @@ watch(
 
 // Header & footer refs are defined above to support initialization from props
 
+const isDifferentFirstPage = ref(false)
+const isDifferentOddEven = ref(false)
+const userFirstPageHeaderLeft = ref('')
+const userFirstPageHeaderRight = ref('')
+const userEvenPageHeaderLeft = ref('')
+const userEvenPageHeaderRight = ref('')
+
+const headerMarginCm = ref(1.27)
+const footerMarginCm = ref(1.27)
+
+const showHeaderFormatModal = ref(false)
+const draftHeaderMarginCm = ref(1.27)
+const draftFooterMarginCm = ref(1.27)
+const draftDifferentFirstPage = ref(false)
+const draftDifferentOddEven = ref(false)
+
+const showPageNumberModal = ref(false)
+const pageNumberPosition = ref<'header' | 'footer'>('header')
+const showPageNumberOnFirstPage = ref(true)
+const pageNumberMode = ref<'startAt' | 'continue'>('startAt')
+const pageNumberStartAt = ref(1)
+
+const draftPageNumberPosition = ref<'header' | 'footer'>('header')
+const draftShowPageNumberOnFirstPage = ref(true)
+const draftPageNumberMode = ref<'startAt' | 'continue'>('startAt')
+const draftPageNumberStartAt = ref(1)
+
+const getResolvedPageNumber = (pageIndex: number) => {
+  if (!showPageNumberOnFirstPage.value && pageIndex === 0) return ''
+  let num = pageIndex + 1
+  if (pageNumberMode.value === 'startAt') {
+    num = pageIndex + pageNumberStartAt.value
+  }
+  return String(num)
+}
+
 const applyHeaderFooter = () => {
   if (!editor.value || !isReady.value) return
-  const resolvedHeaderLeft = userHeaderLeft.value.replace(/{total}/g, String(pageCount.value))
-  const resolvedHeaderRight = userHeaderRight.value.replace(/{total}/g, String(pageCount.value))
-  const resolvedFooterLeft = userFooterLeft.value.replace(/{total}/g, String(pageCount.value))
-  const resolvedFooterRight = userFooterRight.value.replace(/{total}/g, String(pageCount.value))
+  const totalStr = String(pageCount.value)
+
+  const defaultHLeft = userHeaderLeft.value.replace(/{total}/g, totalStr)
+  const defaultHRight = userHeaderRight.value.replace(/{total}/g, totalStr)
+  const defaultFLeft = userFooterLeft.value.replace(/{total}/g, totalStr)
+  const defaultFRight = userFooterRight.value.replace(/{total}/g, totalStr)
   
-  editor.value.commands.updateHeaderContent(resolvedHeaderLeft, resolvedHeaderRight)
-  editor.value.commands.updateFooterContent(resolvedFooterLeft, resolvedFooterRight)
+  editor.value.commands.updateHeaderContent(defaultHLeft, defaultHRight)
+  editor.value.commands.updateFooterContent(defaultFLeft, defaultFRight)
+
+  // Dispatch an empty transaction so PaginationPlus's apply() detects the
+  // storage change (headerLeft !== appliedConfig.headerLeft, etc.) and
+  // rebuilds its widget decorations with the new content.
+  editor.value.view.dispatch(editor.value.state.tr)
+
+  // Wait for the decoration rebuild to settle before applying per-page
+  // customizations (Different First Page, Odd/Even, Page Numbers, margins).
+  // Use rAF inside setTimeout so DOM updates from the decoration rebuild
+  // have been painted before we read/modify elements.
+  setTimeout(() => {
+    requestAnimationFrame(() => {
+      if (!editor.value) return
+      // Apply Header/Footer Margins
+      const headerMarginPx = `${headerMarginCm.value * 37.795}px`
+      const footerMarginPx = `${footerMarginCm.value * 37.795}px`
+      document.documentElement.style.setProperty('--rm-header-margin-top', headerMarginPx)
+      document.documentElement.style.setProperty('--rm-footer-margin-bottom', footerMarginPx)
+      const editorEl = document.querySelector('.rm-with-pagination') as HTMLElement
+      if (editorEl) {
+        editorEl.style.setProperty('--rm-header-margin-top', headerMarginPx)
+        editorEl.style.setProperty('--rm-footer-margin-bottom', footerMarginPx)
+      }
+
+      // Process each page element for Different First Page, Different Odd/Even, & Page Numbers
+      const pageContainers = Array.from(document.querySelectorAll('.rm-with-pagination .page, .rm-with-pagination .rm-page, .rm-page-break'))
+      
+      if (pageContainers.length > 0) {
+        pageContainers.forEach((pageEl, idx) => {
+          const headerEl = pageEl.querySelector('.rm-page-header')
+          const footerEl = pageEl.querySelector('.rm-page-footer')
+          const isFirst = idx === 0
+          const isEven = (idx + 1) % 2 === 0
+          const pageNum = getResolvedPageNumber(idx)
+
+          if (headerEl) {
+            (headerEl as HTMLElement).style.marginTop = headerMarginPx
+            const leftEl = headerEl.querySelector('.rm-page-header-left') as HTMLElement
+            const rightEl = headerEl.querySelector('.rm-page-header-right') as HTMLElement
+
+            let targetLeft = defaultHLeft
+            let targetRight = defaultHRight
+
+            if (isDifferentFirstPage.value && isFirst) {
+              targetLeft = userFirstPageHeaderLeft.value.replace(/{total}/g, totalStr)
+              targetRight = userFirstPageHeaderRight.value.replace(/{total}/g, totalStr)
+            } else if (isDifferentOddEven.value && isEven) {
+              targetLeft = userEvenPageHeaderLeft.value.replace(/{total}/g, totalStr)
+              targetRight = userEvenPageHeaderRight.value.replace(/{total}/g, totalStr)
+            }
+
+            if (leftEl) leftEl.innerHTML = targetLeft.replace(/{page}/g, pageNum)
+            if (rightEl) rightEl.innerHTML = targetRight.replace(/{page}/g, pageNum)
+          }
+
+          if (footerEl) {
+            (footerEl as HTMLElement).style.marginBottom = footerMarginPx
+            const leftEl = footerEl.querySelector('.rm-page-footer-left') as HTMLElement
+            const rightEl = footerEl.querySelector('.rm-page-footer-right') as HTMLElement
+
+            if (leftEl) leftEl.innerHTML = defaultFLeft.replace(/{page}/g, pageNum)
+            if (rightEl) rightEl.innerHTML = defaultFRight.replace(/{page}/g, pageNum)
+          }
+        })
+      } else {
+        const headerElements = document.querySelectorAll('.rm-page-header')
+        const footerElements = document.querySelectorAll('.rm-page-footer')
+
+        headerElements.forEach((headerEl, idx) => {
+          (headerEl as HTMLElement).style.marginTop = headerMarginPx
+          const isFirst = idx === 0
+          const isEven = (idx + 1) % 2 === 0
+          const pageNum = getResolvedPageNumber(idx)
+
+          const leftEl = headerEl.querySelector('.rm-page-header-left') as HTMLElement
+          const rightEl = headerEl.querySelector('.rm-page-header-right') as HTMLElement
+
+          let targetLeft = defaultHLeft
+          let targetRight = defaultHRight
+
+          if (isDifferentFirstPage.value && isFirst) {
+            targetLeft = userFirstPageHeaderLeft.value.replace(/{total}/g, totalStr)
+            targetRight = userFirstPageHeaderRight.value.replace(/{total}/g, totalStr)
+          } else if (isDifferentOddEven.value && isEven) {
+            targetLeft = userEvenPageHeaderLeft.value.replace(/{total}/g, totalStr)
+            targetRight = userEvenPageHeaderRight.value.replace(/{total}/g, totalStr)
+          }
+
+          if (leftEl) leftEl.innerHTML = targetLeft.replace(/{page}/g, pageNum)
+          if (rightEl) rightEl.innerHTML = targetRight.replace(/{page}/g, pageNum)
+        })
+
+        footerElements.forEach((footerEl, idx) => {
+          (footerEl as HTMLElement).style.marginBottom = footerMarginPx
+          const pageNum = getResolvedPageNumber(idx)
+          const leftEl = footerEl.querySelector('.rm-page-footer-left') as HTMLElement
+          const rightEl = footerEl.querySelector('.rm-page-footer-right') as HTMLElement
+
+          if (leftEl) leftEl.innerHTML = defaultFLeft.replace(/{page}/g, pageNum)
+          if (rightEl) rightEl.innerHTML = defaultFRight.replace(/{page}/g, pageNum)
+        })
+      }
+    })
+  }, 50)
 }
+
+watch(isDifferentFirstPage, () => {
+  applyHeaderFooter()
+})
+
+watch([isDifferentOddEven, headerMarginCm, footerMarginCm, pageNumberPosition, showPageNumberOnFirstPage, pageNumberMode, pageNumberStartAt], () => {
+  applyHeaderFooter()
+})
 
 watch(pageCount, (next) => {
   applyHeaderFooter()
@@ -586,8 +790,49 @@ watch(pageCount, (next) => {
 watch(isDark, (darkVal) => {
   if (editor.value) {
     editor.value.commands.updatePageBreakBackground(darkVal ? '#02040a' : '#f1f5f9')
+    // Dispatch transaction to trigger decoration rebuild with new background
+    editor.value.view.dispatch(editor.value.state.tr)
   }
 })
+
+// Reactively sync layout changes (margins, page size, orientation) to the
+// PaginationPlus extension storage so decoration rebuilds use current values.
+watch(paginationOptions, (opts) => {
+  if (!editor.value || !isReady.value) return
+  const storage = editor.value.storage.PaginationPlus
+  if (!storage) return
+
+  // Sync page dimensions & margins
+  const changed =
+    storage.pageHeight !== opts.pageHeight ||
+    storage.pageWidth !== opts.pageWidth ||
+    storage.marginTop !== opts.marginTop ||
+    storage.marginBottom !== opts.marginBottom ||
+    storage.marginLeft !== opts.marginLeft ||
+    storage.marginRight !== opts.marginRight ||
+    storage.pageGap !== opts.pageGap ||
+    storage.contentMarginTop !== opts.contentMarginTop ||
+    storage.contentMarginBottom !== opts.contentMarginBottom ||
+    storage.pageBreakBackground !== opts.pageBreakBackground ||
+    storage.enabled !== opts.enabled
+
+  if (!changed) return
+
+  storage.pageHeight = opts.pageHeight
+  storage.pageWidth = opts.pageWidth
+  storage.marginTop = opts.marginTop
+  storage.marginBottom = opts.marginBottom
+  storage.marginLeft = opts.marginLeft
+  storage.marginRight = opts.marginRight
+  storage.pageGap = opts.pageGap
+  storage.contentMarginTop = opts.contentMarginTop
+  storage.contentMarginBottom = opts.contentMarginBottom
+  storage.pageBreakBackground = opts.pageBreakBackground
+  storage.enabled = opts.enabled
+
+  // Dispatch empty transaction to trigger decoration rebuild
+  editor.value.view.dispatch(editor.value.state.tr)
+}, { deep: true })
 
 
 
@@ -637,6 +882,64 @@ watch(isReady, (ready) => {
         openLinkDialog()
       }
     })
+
+    // Handle clicks on top margin / page header area to activate header inline editing
+    editor.value.view.dom.addEventListener('click', (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null
+      if (!target) return
+
+      // Ignore clicks on options dropdown, active bar tools, or active editable header
+      if (target.closest('.rm-google-docs-header-bar, .rm-options-dropdown, [contenteditable="true"]')) return
+
+      // Direct click on header or its children
+      const headerEl = target.closest<HTMLElement>('.rm-page-header, .rm-first-page-header')
+      if (headerEl) {
+        startInlineHeaderEdit(e)
+        return
+      }
+
+      // Click on top margin boundary area of editor or page
+      const pageWrap = target.closest<HTMLElement>('.rm-with-pagination, .rm-page-break, .page, .docs-editor-page')
+      if (pageWrap) {
+        const rect = pageWrap.getBoundingClientRect()
+        const relativeY = e.clientY - rect.top
+        const topMarginPx = headerMarginCm.value * 37.795
+        if (relativeY >= 0 && relativeY <= Math.max(topMarginPx, 40) + 15) {
+          let targetHeader: HTMLElement | null = null
+          if (pageWrap.classList.contains('rm-page-break')) {
+            targetHeader = pageWrap.querySelector<HTMLElement>('.rm-page-header')
+          }
+          if (!targetHeader) {
+            targetHeader = document.querySelector<HTMLElement>('.rm-page-header, .rm-first-page-header')
+          }
+          if (targetHeader) {
+            startInlineHeaderEdit(e)
+          }
+        }
+      }
+    })
+
+    // Handle double clicks on bottom margin / footer area to open footer modal
+    editor.value.view.dom.addEventListener('dblclick', (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null
+      if (!target) return
+
+      const footerEl = target.closest<HTMLElement>('.rm-page-footer')
+      if (footerEl) {
+        openFooterModal()
+        return
+      }
+
+      const pageWrap = target.closest<HTMLElement>('.rm-with-pagination, .rm-page-break, .page, .docs-editor-page')
+      if (pageWrap) {
+        const rect = pageWrap.getBoundingClientRect()
+        const relativeY = rect.bottom - e.clientY
+        const bottomMarginPx = footerMarginCm.value * 37.795
+        if (relativeY >= 0 && relativeY <= Math.max(bottomMarginPx, 40) + 15) {
+          openFooterModal()
+        }
+      }
+    })
   }
 })
 
@@ -646,9 +949,7 @@ onUnmounted(() => {
   if (scrollTimeout) clearTimeout(scrollTimeout)
 })
 
-const showHeaderFooterModal = ref(false)
-const headerLeftInput = ref('')
-const headerRightInput = ref('')
+const showFooterModal = ref(false)
 const footerLeftInput = ref('')
 const footerRightInput = ref('')
 
@@ -750,27 +1051,293 @@ const applyPageSetup = () => {
   showPageSetupModal.value = false
 }
 
-const openHeaderFooterModal = () => {
-  if (!editor.value) return
-  // Use either local raw inputs if customized in this session, or storage fallback
-  headerLeftInput.value = userHeaderLeft.value || editor.value.storage.PaginationPlus?.appliedConfig?.headerLeft || ''
-  headerRightInput.value = userHeaderRight.value || editor.value.storage.PaginationPlus?.appliedConfig?.headerRight || ''
-  footerLeftInput.value = userFooterLeft.value || editor.value.storage.PaginationPlus?.appliedConfig?.footerLeft || ''
-  footerRightInput.value = userFooterRight.value || editor.value.storage.PaginationPlus?.appliedConfig?.footerRight || ''
-  showHeaderFooterModal.value = true
+const isHeaderActive = ref(false)
+const openHeaderFormatModal = () => {
+  draftHeaderMarginCm.value = headerMarginCm.value
+  draftFooterMarginCm.value = footerMarginCm.value
+  draftDifferentFirstPage.value = isDifferentFirstPage.value
+  draftDifferentOddEven.value = isDifferentOddEven.value
+  showHeaderFormatModal.value = true
 }
 
-const saveHeaderFooter = () => {
+const applyHeaderFormat = () => {
+  headerMarginCm.value = draftHeaderMarginCm.value
+  footerMarginCm.value = draftFooterMarginCm.value
+  isDifferentFirstPage.value = draftDifferentFirstPage.value
+  isDifferentOddEven.value = draftDifferentOddEven.value
+  showHeaderFormatModal.value = false
+  applyHeaderFooter()
+  persistCurrentDoc()
+}
+
+const openPageNumberModal = () => {
+  draftPageNumberPosition.value = pageNumberPosition.value
+  draftShowPageNumberOnFirstPage.value = showPageNumberOnFirstPage.value
+  draftPageNumberMode.value = pageNumberMode.value
+  draftPageNumberStartAt.value = pageNumberStartAt.value
+  showPageNumberModal.value = true
+}
+
+const applyPageNumberSettings = () => {
+  pageNumberPosition.value = draftPageNumberPosition.value
+  showPageNumberOnFirstPage.value = draftShowPageNumberOnFirstPage.value
+  pageNumberMode.value = draftPageNumberMode.value
+  pageNumberStartAt.value = draftPageNumberStartAt.value
+  showPageNumberModal.value = false
+
+  const pageToken = '{page}'
+
+  if (pageNumberPosition.value === 'footer') {
+    // If moving page numbers to footer, clear page token from header
+    if (userHeaderRight.value.includes(pageToken)) {
+      userHeaderRight.value = userHeaderRight.value.replace(/{page}/g, '').trim()
+    }
+    userFooterRight.value = pageToken
+  } else {
+    // If moving page numbers to header, clear page token from footer
+    if (userFooterRight.value.includes(pageToken)) {
+      userFooterRight.value = userFooterRight.value.replace(/{page}/g, '').trim()
+    }
+    userHeaderRight.value = pageToken
+  }
+
+  applyHeaderFooter()
+  persistCurrentDoc()
+}
+
+const clearHeaderContent = () => {
+  userHeaderLeft.value = ''
+  userHeaderRight.value = ''
+  applyHeaderFooter()
+  persistCurrentDoc()
+  isHeaderActive.value = false
+}
+
+const startInlineHeaderEdit = (event?: MouseEvent) => {
+  let headerEl: HTMLElement | null = null
+  if (event) {
+    const target = event.target as HTMLElement | null
+    headerEl = target?.closest('.rm-page-header, .rm-first-page-header') as HTMLElement | null
+  }
+  if (!headerEl) {
+    headerEl = document.querySelector('.rm-page-header, .rm-first-page-header') as HTMLElement | null
+  }
+  if (!headerEl) return
+
+  const targetHeader = headerEl
+  isHeaderActive.value = true
+  targetHeader.classList.add('rm-header-active')
+  let editableEl = targetHeader.querySelector('.rm-page-header-left') as HTMLElement | null
+  if (!editableEl) {
+    editableEl = document.createElement('div')
+    editableEl.className = 'rm-page-header-left'
+    targetHeader.prepend(editableEl)
+  }
+
+  editableEl.contentEditable = 'true'
+  editableEl.setAttribute('tabindex', '0')
+  editableEl.dataset.placeholder = t('editor.headerFooter.headerPlaceholder') || 'Header'
+
+  // Prevent ProseMirror from intercepting keyboard events (backspace,
+  // delete, arrows, etc.) while editing header content.
+  editableEl.addEventListener('keydown', (e: KeyboardEvent) => {
+    e.stopPropagation()
+  })
+
+  editableEl.focus()
+
+  setTimeout(() => {
+    if (editableEl) {
+      const range = document.createRange()
+      const sel = window.getSelection()
+      range.selectNodeContents(editableEl)
+      range.collapse(false)
+      sel?.removeAllRanges()
+      sel?.addRange(range)
+    }
+  }, 10)
+
+  // Render Google Docs Header active bar at bottom edge of header
+  let activeBar = targetHeader.querySelector('.rm-google-docs-header-bar') as HTMLElement
+  if (!activeBar) {
+    activeBar = document.createElement('div')
+    activeBar.className = 'rm-google-docs-header-bar'
+    activeBar.innerHTML = `
+      <span class="rm-header-label">Header</span>
+      <div class="rm-header-right-tools">
+        <label class="rm-diff-label">
+          <input type="checkbox" class="rm-diff-cb" ${isDifferentFirstPage.value ? 'checked' : ''}>
+          <span>${t('editor.headerFooter.differentFirstPage') || 'Halaman pertama berbeda'}</span>
+        </label>
+        <div class="rm-options-wrapper">
+          <button type="button" class="rm-options-btn">
+            <span>${t('editor.headerFooter.options') || 'Opsi'}</span>
+            <span class="rm-arrow-icon" style="font-size: 8px;">▼</span>
+          </button>
+          <div class="rm-options-dropdown">
+            <button type="button" class="rm-opt-format">${t('editor.headerFooter.formatHeader') || 'Format header'}</button>
+            <button type="button" class="rm-opt-page-num">${t('editor.headerFooter.pageNumber') || 'Nomor halaman'}</button>
+            <button type="button" class="rm-opt-remove">${t('editor.headerFooter.removeHeader') || 'Hapus header'}</button>
+          </div>
+        </div>
+      </div>
+    `
+    targetHeader.appendChild(activeBar)
+
+    activeBar.addEventListener('mousedown', (e) => {
+      e.stopPropagation()
+      e.preventDefault()
+    })
+
+    const cb = activeBar.querySelector('.rm-diff-cb') as HTMLInputElement
+    cb?.addEventListener('change', (e) => {
+      e.stopPropagation()
+      const isChecked = (e.target as HTMLInputElement).checked
+      if (isChecked) {
+        userFirstPageHeaderLeft.value = ''
+        userFirstPageHeaderRight.value = ''
+      }
+      isDifferentFirstPage.value = isChecked
+      applyHeaderFooter()
+    })
+
+    const optBtn = activeBar.querySelector('.rm-options-btn') as HTMLButtonElement
+    const dropdown = activeBar.querySelector('.rm-options-dropdown') as HTMLElement
+    const arrowIcon = activeBar.querySelector('.rm-arrow-icon') as HTMLElement
+
+    optBtn?.addEventListener('mousedown', (e) => {
+      e.stopPropagation()
+      e.preventDefault()
+    })
+
+    optBtn?.addEventListener('click', (e) => {
+      e.stopPropagation()
+      e.preventDefault()
+      const isOpen = dropdown.classList.toggle('is-open')
+      if (arrowIcon) arrowIcon.textContent = isOpen ? '▲' : '▼'
+    })
+
+    const optFormat = activeBar.querySelector('.rm-opt-format') as HTMLButtonElement
+    optFormat?.addEventListener('mousedown', (e) => {
+      e.stopPropagation()
+      e.preventDefault()
+    })
+    optFormat?.addEventListener('click', (e) => {
+      e.stopPropagation()
+      dropdown.classList.remove('is-open')
+      if (arrowIcon) arrowIcon.textContent = '▼'
+      openHeaderFormatModal()
+    })
+
+    const optPageNum = activeBar.querySelector('.rm-opt-page-num') as HTMLButtonElement
+    optPageNum?.addEventListener('mousedown', (e) => {
+      e.stopPropagation()
+      e.preventDefault()
+    })
+    optPageNum?.addEventListener('click', (e) => {
+      e.stopPropagation()
+      dropdown.classList.remove('is-open')
+      if (arrowIcon) arrowIcon.textContent = '▼'
+      openPageNumberModal()
+    })
+
+    const optRemove = activeBar.querySelector('.rm-opt-remove') as HTMLButtonElement
+    optRemove?.addEventListener('mousedown', (e) => {
+      e.stopPropagation()
+      e.preventDefault()
+    })
+    optRemove?.addEventListener('click', (e) => {
+      e.stopPropagation()
+      dropdown.classList.remove('is-open')
+      if (arrowIcon) arrowIcon.textContent = '▼'
+      clearHeaderContent()
+    })
+  }
+
+  const handleOutsideClick = (e: MouseEvent) => {
+    const targetNode = e.target as Node | null
+    if (!targetNode) return
+    if (targetHeader.contains(targetNode)) return
+    if (activeBar && activeBar.contains(targetNode)) return
+    if ((targetNode as HTMLElement).closest('.rm-google-docs-header-bar, .rm-options-dropdown, .fixed.z-50')) return
+    // Don't deactivate header while a modal triggered from the header bar is open
+    if (showHeaderFormatModal.value || showPageNumberModal.value) return
+
+    editableEl.contentEditable = 'false'
+    targetHeader.classList.remove('rm-header-active')
+    if (activeBar) activeBar.remove()
+    isHeaderActive.value = false
+
+    const allHeaders = Array.from(document.querySelectorAll('.rm-page-header'))
+    const pageIndex = allHeaders.indexOf(targetHeader)
+    const isFirstPage = pageIndex === 0
+    const isEvenPage = (pageIndex + 1) % 2 === 0
+
+    if (isDifferentFirstPage.value && isFirstPage) {
+      userFirstPageHeaderLeft.value = editableEl.innerHTML
+    } else if (isDifferentOddEven.value && isEvenPage) {
+      userEvenPageHeaderLeft.value = editableEl.innerHTML
+    } else {
+      userHeaderLeft.value = editableEl.innerHTML
+    }
+
+    applyHeaderFooter()
+    persistCurrentDoc()
+    document.removeEventListener('mousedown', handleOutsideClick)
+  }
+
+  setTimeout(() => {
+    document.addEventListener('mousedown', handleOutsideClick)
+  }, 50)
+
+  const stopEditing = (e: FocusEvent) => {
+    const rel = e.relatedTarget as HTMLElement | null
+    if (activeBar && (activeBar.contains(rel) || rel?.closest('.rm-google-docs-header-bar, .rm-options-dropdown'))) return
+    // Don't deactivate header while a modal triggered from the header bar is open
+    if (showHeaderFormatModal.value || showPageNumberModal.value) return
+    editableEl.contentEditable = 'false'
+    targetHeader.classList.remove('rm-header-active')
+    if (activeBar) activeBar.remove()
+    isHeaderActive.value = false
+
+    const allHeaders = Array.from(document.querySelectorAll('.rm-page-header'))
+    const pageIndex = allHeaders.indexOf(targetHeader)
+    const isFirstPage = pageIndex === 0
+    const isEvenPage = (pageIndex + 1) % 2 === 0
+
+    if (isDifferentFirstPage.value && isFirstPage) {
+      userFirstPageHeaderLeft.value = editableEl.innerHTML
+    } else if (isDifferentOddEven.value && isEvenPage) {
+      userEvenPageHeaderLeft.value = editableEl.innerHTML
+    } else {
+      userHeaderLeft.value = editableEl.innerHTML
+    }
+
+    applyHeaderFooter()
+    persistCurrentDoc()
+    editableEl.removeEventListener('blur', stopEditing)
+    document.removeEventListener('mousedown', handleOutsideClick)
+  }
+
+  editableEl.addEventListener('blur', stopEditing)
+}
+
+const openFooterModal = () => {
   if (!editor.value) return
-  userHeaderLeft.value = headerLeftInput.value
-  userHeaderRight.value = headerRightInput.value
+  footerLeftInput.value = userFooterLeft.value || editor.value.storage.PaginationPlus?.appliedConfig?.footerLeft || ''
+  footerRightInput.value = userFooterRight.value || editor.value.storage.PaginationPlus?.appliedConfig?.footerRight || ''
+  showFooterModal.value = true
+}
+
+const saveFooter = () => {
+  if (!editor.value) return
   userFooterLeft.value = footerLeftInput.value
   userFooterRight.value = footerRightInput.value
 
   applyHeaderFooter()
   persistCurrentDoc()
 
-  showHeaderFooterModal.value = false
+  showFooterModal.value = false
 }
 
 // ─── Edit / Format menu commands ─────────────────────────────────────────────
@@ -975,8 +1542,10 @@ let menuClick = (action: string) => {
     openLinkDialog()
   } else if (action === 'security') {
     emit('share')
-  } else if (action === 'insert-header' || action === 'insert-footer') {
-    openHeaderFooterModal()
+  } else if (action === 'insert-header') {
+    startInlineHeaderEdit()
+  } else if (action === 'insert-footer') {
+    openFooterModal()
   } else if (action === 'toggle-pageless') {
     applyPageless(!isPageless.value)
   } else if (action === 'insert-footnote') {
@@ -1298,6 +1867,13 @@ watch(isReady, (ready) => {
           <QuickActionChips :visible="isReady && isEmptyDocument" @meeting-notes="() => {}" @email-draft="() => {}" @more="() => {}" />
           
           <div class="relative w-full max-w-[794px]">
+            <!-- Virtual Page Overlay (experimental) — renders only visible pages.
+                 Positioned absolutely over the editor, behind content (z-index: 0) -->
+            <VirtualPageOverlay
+              v-if="useVirtual"
+              :data="virtualData"
+              :is-ready="virtualReady"
+            />
             <!-- Loading Indicator Overlay -->
             <div v-if="!isReady" class="absolute inset-0 z-10 flex flex-col items-center justify-center bg-white dark:bg-[#0e1525]/60 backdrop-blur-[2px] gap-3 rounded-lg" :aria-label="t('editor.loadingDocument')">
             </div>
@@ -1371,29 +1947,11 @@ watch(isReady, (ready) => {
       :page-size="pageSizeId" :page-sizes="PAGE_SIZES" :pageless="isPageless"
       @update:page-size="pageSizeId = $event; emit('update:pageSize', $event)" />
 
-    <!-- Dialog Header & Footer Customization -->
-    <div v-if="showHeaderFooterModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm px-4">
+    <!-- Dialog Footer Customization -->
+    <div v-if="showFooterModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm px-4">
       <div class="w-full max-w-lg rounded-xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-800 dark:bg-[#0e1525] text-slate-800 dark:text-slate-200">
-        <h2 class="text-lg font-bold mb-4">{{ t('editor.headerFooter.title') }}</h2>
+        <h2 class="text-lg font-bold mb-4">{{ t('editor.headerFooter.footer') }}</h2>
         
-        <!-- Header Section -->
-        <div class="mb-4">
-          <div class="flex justify-between items-center mb-2">
-            <h3 class="text-sm font-semibold text-slate-500 dark:text-slate-400">{{ t('editor.headerFooter.header') }}</h3>
-            <button type="button" class="text-[11px] text-red-500 hover:text-red-600 font-medium transition-colors" @click="headerLeftInput = ''; headerRightInput = ''">{{ t('editor.headerFooter.clear') }}</button>
-          </div>
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="text-[11px] font-medium block mb-1">{{ t('editor.headerFooter.left') }}</label>
-              <input v-model="headerLeftInput" type="text" class="w-full rounded-md border border-slate-200 bg-transparent px-3 py-1.5 text-xs focus:outline-none dark:border-slate-700" :placeholder="t('editor.headerFooter.headerLeftPlaceholder')">
-            </div>
-            <div>
-              <label class="text-[11px] font-medium block mb-1">{{ t('editor.headerFooter.right') }}</label>
-              <input v-model="headerRightInput" type="text" class="w-full rounded-md border border-slate-200 bg-transparent px-3 py-1.5 text-xs focus:outline-none dark:border-slate-700" :placeholder="t('editor.headerFooter.headerRightPlaceholder')">
-            </div>
-          </div>
-        </div>
-
         <!-- Footer Section -->
         <div class="mb-6">
           <div class="flex justify-between items-center mb-2">
@@ -1419,11 +1977,112 @@ watch(isReady, (ready) => {
 
         <!-- Actions -->
         <div class="flex justify-end gap-2">
-          <button type="button" class="rounded-md px-3 py-1.5 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-white/5" @click="showHeaderFooterModal = false">
+          <button type="button" class="rounded-md px-3 py-1.5 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-white/5" @click="showFooterModal = false">
             {{ t('editor.headerFooter.cancel') }}
           </button>
-          <button type="button" class="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700" @click="saveHeaderFooter">
+          <button type="button" class="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700" @click="saveFooter">
             {{ t('editor.headerFooter.save') }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dialog Header & Footer Format (Google Docs Style) -->
+    <div v-if="showHeaderFormatModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm px-4 select-none">
+      <div class="w-full max-w-sm rounded-3xl border border-slate-100 bg-white p-7 shadow-2xl dark:border-slate-800 dark:bg-[#0e1525] text-slate-800 dark:text-slate-200">
+        <h2 class="text-xl font-medium mb-6 text-slate-900 dark:text-white">{{ t('editor.headerFooter.headerFooterFormatTitle') }}</h2>
+        
+        <!-- Margin Section -->
+        <div class="mb-6">
+          <h3 class="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-3">{{ t('editor.headerFooter.marginSection') }}</h3>
+          <div class="space-y-4">
+            <div>
+              <label class="text-xs font-medium text-slate-600 dark:text-slate-400 block mb-1.5">{{ t('editor.headerFooter.headerTopMargin') }}</label>
+              <input v-model="draftHeaderMarginCm" type="number" step="0.01" class="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a2332] px-3.5 py-2 text-sm text-slate-800 dark:text-slate-100 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 focus:outline-none transition-all" />
+            </div>
+            <div>
+              <label class="text-xs font-medium text-slate-600 dark:text-slate-400 block mb-1.5">{{ t('editor.headerFooter.footerBottomMargin') }}</label>
+              <input v-model="draftFooterMarginCm" type="number" step="0.01" class="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a2332] px-3.5 py-2 text-sm text-slate-800 dark:text-slate-100 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 focus:outline-none transition-all" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Tata Letak Section -->
+        <div class="mb-8">
+          <h3 class="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-3">{{ t('editor.headerFooter.layoutSection') }}</h3>
+          <div class="space-y-3">
+            <label class="flex items-center gap-3 cursor-pointer text-xs font-medium text-slate-700 dark:text-slate-300 select-none">
+              <input v-model="draftDifferentFirstPage" type="checkbox" class="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
+              <span>{{ t('editor.headerFooter.differentFirstPage') }}</span>
+            </label>
+            <label class="flex items-center gap-3 cursor-pointer text-xs font-medium text-slate-700 dark:text-slate-300 select-none">
+              <input v-model="draftDifferentOddEven" type="checkbox" class="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
+              <span>{{ t('editor.headerFooter.differentOddEven') }}</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex justify-end items-center gap-3">
+          <button type="button" class="rounded-full px-5 py-2 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors" @click="showHeaderFormatModal = false">
+            {{ t('editor.headerFooter.cancel') }}
+          </button>
+          <button type="button" class="rounded-full bg-blue-600 hover:bg-blue-700 px-6 py-2 text-xs font-semibold text-white shadow-md transition-colors" @click="applyHeaderFormat">
+            {{ t('editor.headerFooter.apply') }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dialog Nomor Halaman (Google Docs Style) -->
+    <div v-if="showPageNumberModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm px-4 select-none">
+      <div class="w-full max-w-sm rounded-3xl border border-slate-100 bg-white p-7 shadow-2xl dark:border-slate-800 dark:bg-[#0e1525] text-slate-800 dark:text-slate-200">
+        <h2 class="text-xl font-medium mb-6 text-slate-900 dark:text-white">{{ t('editor.headerFooter.pageNumberTitle') }}</h2>
+        
+        <!-- Posisi Section -->
+        <div class="mb-6">
+          <h3 class="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-3">{{ t('editor.headerFooter.positionSection') }}</h3>
+          <div class="space-y-3">
+            <label class="flex items-center gap-3 cursor-pointer text-xs font-medium text-slate-700 dark:text-slate-300 select-none">
+              <input v-model="draftPageNumberPosition" type="radio" value="header" class="w-4 h-4 text-blue-600 focus:ring-blue-500" />
+              <span>{{ t('editor.headerFooter.positionHeader') }}</span>
+            </label>
+            <label class="flex items-center gap-3 cursor-pointer text-xs font-medium text-slate-700 dark:text-slate-300 select-none">
+              <input v-model="draftPageNumberPosition" type="radio" value="footer" class="w-4 h-4 text-blue-600 focus:ring-blue-500" />
+              <span>{{ t('editor.headerFooter.positionFooter') }}</span>
+            </label>
+            <label class="flex items-center gap-3 cursor-pointer text-xs font-medium text-slate-700 dark:text-slate-300 select-none pt-1">
+              <input v-model="draftShowPageNumberOnFirstPage" type="checkbox" class="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
+              <span>{{ t('editor.headerFooter.showOnFirstPage') }}</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Penomoran Section -->
+        <div class="mb-8">
+          <h3 class="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-3">{{ t('editor.headerFooter.numberingSection') }}</h3>
+          <div class="space-y-3">
+            <div class="flex items-center gap-3">
+              <label class="flex items-center gap-3 cursor-pointer text-xs font-medium text-slate-700 dark:text-slate-300 select-none">
+                <input v-model="draftPageNumberMode" type="radio" value="startAt" class="w-4 h-4 text-blue-600 focus:ring-blue-500" />
+                <span>{{ t('editor.headerFooter.startAt') }}</span>
+              </label>
+              <input v-model="draftPageNumberStartAt" type="number" min="1" class="w-16 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a2332] px-2.5 py-1 text-xs text-slate-800 dark:text-slate-100 focus:border-blue-600 focus:outline-none" />
+            </div>
+            <label class="flex items-center gap-3 cursor-pointer text-xs font-medium text-slate-700 dark:text-slate-300 select-none">
+              <input v-model="draftPageNumberMode" type="radio" value="continue" class="w-4 h-4 text-blue-600 focus:ring-blue-500" />
+              <span>{{ t('editor.headerFooter.continueFromPrevious') }}</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex justify-end items-center gap-3">
+          <button type="button" class="rounded-full px-5 py-2 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors" @click="showPageNumberModal = false">
+            {{ t('editor.headerFooter.cancel') }}
+          </button>
+          <button type="button" class="rounded-full bg-blue-600 hover:bg-blue-700 px-6 py-2 text-xs font-semibold text-white shadow-md transition-colors" @click="applyPageNumberSettings">
+            {{ t('editor.headerFooter.apply') }}
           </button>
         </div>
       </div>
