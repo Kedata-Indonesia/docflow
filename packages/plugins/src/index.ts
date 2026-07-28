@@ -10,6 +10,7 @@ export { codeBlockPlugin } from './codeBlock.js'
 export { placeholderPlugin, createPlaceholderPlugin, type PlaceholderPluginOptions } from './placeholder.js'
 export { pageBreakPlugin, PageBreak } from './pageBreak.js'
 export { footnotePlugin, FootnoteNode } from './footnote.js'
+export { tocPlugin, TocNode, TocEntryNode, TocPageNumNode, collectHeadings, regenerateToc } from './toc.js'
 export { fontSizePlugin, FontSizeExtension } from './fontSize.js'
 export { textColorPlugin } from './textColor.js'
 export { highlightPlugin } from './highlight.js'
@@ -32,6 +33,7 @@ import { codeBlockPlugin } from './codeBlock.js'
 import { placeholderPlugin } from './placeholder.js'
 import { pageBreakPlugin } from './pageBreak.js'
 import { footnotePlugin } from './footnote.js'
+import { tocPlugin } from './toc.js'
 import { fontSizePlugin } from './fontSize.js'
 import { textColorPlugin } from './textColor.js'
 import { highlightPlugin } from './highlight.js'
@@ -52,6 +54,7 @@ export const defaultPlugins = [
   placeholderPlugin,
   pageBreakPlugin,
   footnotePlugin,
+  tocPlugin,
   fontSizePlugin,
   textColorPlugin,
   highlightPlugin,
