@@ -1,5 +1,5 @@
 import { PageBreaker } from './PageBreaker'
-import type { BlockInfo, LayoutOptions, LayoutResult } from './types'
+import type { BlockInfo, LayoutOptions, LayoutResult, Page } from './types'
 
 export interface EditorLike {
   dom: HTMLElement
@@ -18,6 +18,7 @@ export class PageLayout {
   private resizeObserver: ResizeObserver | null = null
   private debounceTimer: ReturnType<typeof setTimeout> | null = null
   private lastDocHash = ''
+  private lastBlockHashes = new Map<number, string>()
   private lastShadowHash = ''
   private lastSize = { width: 0, height: 0 }
   private lastResult: LayoutResult | null = null
@@ -141,6 +142,7 @@ export class PageLayout {
     this.shadowRoot = null
     this.lastResult = null
     this.lastDocHash = ''
+    this.lastBlockHashes = new Map()
     this.lastShadowHash = ''
   }
 
@@ -157,23 +159,71 @@ export class PageLayout {
       this.debounceTimer = null
     }
 
-    const docHash = this.computeDocHash()
     const size = this.getContainerSize()
+    const containerChanged = this.lastSize.width !== size.width || this.lastSize.height !== size.height
 
-    if (this.lastResult && this.lastDocHash === docHash && this.lastSize.width === size.width && this.lastSize.height === size.height) {
+    // Fast path: nothing changed.
+    const docHash = this.computeDocHash()
+    if (this.lastResult && !containerChanged && this.lastDocHash === docHash) {
       this.resolveAll(this.lastResult)
       return this.lastResult
     }
 
     this.prepareShadowLayout()
-    const root = this.element
-    const blocks = this.measureBlocks(root)
+    const blocks = this.measureBlocks(this.element)
     const availableHeight = this.availableHeight()
-    const pages = this.breaker.computePages(blocks, availableHeight, this.options.maxCharsPerPage)
-    const result: LayoutResult = { pages, invalidatedAt: Date.now() }
+    const newBlockHashes = this.computeBlockHashes()
 
+    // Always run full page computation (fast — integer arithmetic),
+    // but track which pages changed for potential incremental merging.
+    const allPages = this.breaker.computePages(blocks, availableHeight, this.options.maxCharsPerPage)
+
+    // Incremental merge: if only tail pages changed, reuse head pages
+    // from the previous result to minimize downstream DOM churn.
+    let pages: Page[]
+    if (this.lastResult && !containerChanged && this.lastBlockHashes.size > 0) {
+      let firstChangedBlockIdx = -1
+      for (let i = 0; i < blocks.length; i++) {
+        if (newBlockHashes.get(i) !== this.lastBlockHashes.get(i)) {
+          firstChangedBlockIdx = i
+          break
+        }
+      }
+      if (firstChangedBlockIdx === -1 && newBlockHashes.size !== this.lastBlockHashes.size) {
+        firstChangedBlockIdx = Math.min(newBlockHashes.size, this.lastBlockHashes.size)
+      }
+
+      if (firstChangedBlockIdx >= 0) {
+        const firstChangedFrom = blocks[firstChangedBlockIdx]?.from ?? 0
+        const oldPages = this.lastResult.pages
+        let affectedPageIdx = oldPages.length
+
+        for (let p = 0; p < oldPages.length; p++) {
+          const lastBlock = oldPages[p].blocks[oldPages[p].blocks.length - 1]
+          if (lastBlock && lastBlock.to >= firstChangedFrom) {
+            affectedPageIdx = p
+            break
+          }
+        }
+
+        // Try to reuse head pages if their boundaries match.
+        if (affectedPageIdx > 0 && affectedPageIdx < allPages.length &&
+            oldPages[affectedPageIdx - 1]?.to === allPages[affectedPageIdx - 1]?.to) {
+          pages = [...oldPages.slice(0, affectedPageIdx), ...allPages.slice(affectedPageIdx)]
+        } else {
+          pages = allPages
+        }
+      } else {
+        pages = allPages
+      }
+    } else {
+      pages = allPages
+    }
+
+    const result: LayoutResult = { pages, invalidatedAt: Date.now() }
     this.lastResult = result
     this.lastDocHash = docHash
+    this.lastBlockHashes = newBlockHashes
     this.lastSize = size
     this.resolveAll(result)
     return result
@@ -199,6 +249,23 @@ export class PageLayout {
       }
     }
     return hash
+  }
+
+  /** Compute per-block hashes for incremental recalculation. */
+  private computeBlockHashes(): Map<number, string> {
+    const map = new Map<number, string>()
+    let idx = 0
+    for (const child of Array.from(this.element.children)) {
+      if (child instanceof HTMLElement) {
+        map.set(idx, child.tagName +
+          (child.getAttribute('data-from') ?? '') +
+          (child.getAttribute('data-to') ?? '') +
+          (child.getAttribute('data-node-type') ?? '') +
+          (child.textContent ?? ''))
+      }
+      idx++
+    }
+    return map
   }
 
   private getContainerSize(): { width: number; height: number } {
