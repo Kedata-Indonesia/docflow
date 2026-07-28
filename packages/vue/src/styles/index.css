@@ -810,6 +810,229 @@
   background-color: #0a0f1e;
 }
 
+/* Header and Footer: ONLY margin-top for header (moves DOWN), ONLY margin-bottom for footer (moves UP) */
+.rm-page-header {
+  position: relative !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  margin-top: var(--rm-header-margin-top, 8px) !important;
+  cursor: default !important;
+  font-size: 14px !important;
+  line-height: 1.5 !important;
+  min-height: 24px !important;
+}
+
+.rm-page-footer {
+  position: relative !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  margin-bottom: var(--rm-footer-margin-bottom, 8px) !important;
+  cursor: default !important;
+  font-size: 14px !important;
+  line-height: 1.5 !important;
+  min-height: 24px !important;
+}
+
+.rm-page-header-left,
+.rm-page-header-right,
+.rm-page-footer-left,
+.rm-page-footer-right {
+  font-size: 14px !important;
+  line-height: 1.5 !important;
+  min-height: 24px !important;
+  pointer-events: auto !important;
+}
+
+.rm-page-header-left {
+  display: inline-block !important;
+  min-width: 200px !important;
+  min-height: 24px !important;
+  cursor: text !important;
+  pointer-events: auto !important;
+  user-select: text !important;
+  -webkit-user-select: text !important;
+}
+
+/* Active Header Inline Editable Area */
+.rm-page-header [contenteditable='true'] {
+  outline: none !important;
+  min-height: 24px !important;
+  font-size: 14px !important;
+  line-height: 1.5 !important;
+  display: inline-block !important;
+  min-width: 200px !important;
+  cursor: text !important;
+  pointer-events: auto !important;
+  user-select: text !important;
+  -webkit-user-select: text !important;
+}
+
+/* Active Header Separator Indicator (Google Docs style solid separator line) */
+.rm-page-header.rm-header-active {
+  position: relative !important;
+  overflow: visible !important;
+  margin-bottom: 28px !important; /* Space below header for active options bar */
+}
+
+/* Active Header Bar (Google Docs style - Full Paper Page Sheet Width Edge to Edge) */
+.rm-google-docs-header-bar {
+  position: absolute !important;
+  top: 100% !important; /* Sits right at the bottom edge of header, BELOW header text & caret */
+  left: calc(-1 * var(--rm-margin-left, 72px)) !important;
+  right: calc(-1 * var(--rm-margin-right, 72px)) !important;
+  width: calc(100% + var(--rm-margin-left, 72px) + var(--rm-margin-right, 72px)) !important;
+  height: 28px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding-left: var(--rm-margin-left, 72px) !important;
+  padding-right: var(--rm-margin-right, 72px) !important;
+  background-color: #f8fafc !important;
+  border-top: 1px solid #3b82f6 !important;
+  font-family: inherit !important;
+  font-size: 11px !important;
+  color: #64748b !important;
+  user-select: none !important;
+  z-index: 20 !important;
+  box-sizing: border-box !important;
+}
+
+.dark .rm-google-docs-header-bar {
+  background-color: #0f172a !important;
+  border-top: 1px solid #3b82f6 !important;
+  color: #94a3b8 !important;
+}
+
+.rm-google-docs-header-bar .rm-header-label {
+  font-weight: 400 !important;
+  color: #94a3b8 !important;
+}
+
+.rm-google-docs-header-bar .rm-header-right-tools {
+  display: flex !important;
+  align-items: center !important;
+  gap: 16px !important;
+}
+
+.rm-google-docs-header-bar .rm-diff-label {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  cursor: pointer !important;
+  color: #475569 !important;
+  font-size: 11px !important;
+  transition: color 0.15s ease !important;
+}
+
+.dark .rm-google-docs-header-bar .rm-diff-label {
+  color: #cbd5e1 !important;
+}
+
+.rm-google-docs-header-bar .rm-diff-label:hover {
+  color: #0f172a !important;
+}
+
+.dark .rm-google-docs-header-bar .rm-diff-label:hover {
+  color: #ffffff !important;
+}
+
+.rm-google-docs-header-bar .rm-diff-cb {
+  width: 13px !important;
+  height: 13px !important;
+  border-radius: 2px !important;
+  border: 1px solid #94a3b8 !important;
+  accent-color: #2563eb !important;
+  cursor: pointer !important;
+}
+
+.rm-google-docs-header-bar .rm-options-wrapper {
+  position: relative !important;
+}
+
+.rm-google-docs-header-bar .rm-options-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  color: #1d4ed8 !important;
+  font-weight: 600 !important;
+  font-size: 11px !important;
+  background-color: #dbeafe !important;
+  border: none !important;
+  cursor: pointer !important;
+  padding: 3px 12px !important;
+  border-radius: 9999px !important;
+  transition: all 0.15s ease !important;
+}
+
+.dark .rm-google-docs-header-bar .rm-options-btn {
+  background-color: #1e3a8a !important;
+  color: #93c5fd !important;
+}
+
+.rm-google-docs-header-bar .rm-options-btn:hover {
+  background-color: #bfdbfe !important;
+}
+
+.dark .rm-google-docs-header-bar .rm-options-btn:hover {
+  background-color: #1d4ed8 !important;
+}
+
+/* Options Floating Dropdown Card (Google Docs style) */
+.rm-options-dropdown {
+  position: absolute !important;
+  top: calc(100% + 6px) !important;
+  right: 12px !important;
+  width: 170px !important;
+  background-color: #edf2fa !important;
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 12px !important;
+  padding: 6px 0 !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
+  z-index: 100 !important;
+  display: none !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+}
+
+.rm-options-dropdown.is-open {
+  display: flex !important;
+}
+
+.dark .rm-options-dropdown {
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+}
+
+.rm-options-dropdown button {
+  display: block !important;
+  width: 100% !important;
+  text-align: left !important;
+  padding: 9px 16px !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  color: #1e293b !important;
+  background: none !important;
+  border: none !important;
+  cursor: pointer !important;
+  transition: background-color 0.15s ease !important;
+}
+
+.dark .rm-options-dropdown button {
+  color: #f1f5f9 !important;
+}
+
+.rm-options-dropdown button:hover {
+  background-color: #dbeafe !important;
+}
+
+.dark .rm-options-dropdown button:hover {
+  background-color: #334155 !important;
+}
+
 /* ── Responsive: full-width on mobile ────────────────────────────── */
 @media (max-width: 768px) {
   /* Scroll container: remove horizontal padding, clip overflow */

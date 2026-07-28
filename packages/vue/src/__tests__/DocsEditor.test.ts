@@ -198,5 +198,150 @@ describe('DocsEditor', () => {
 
     wrapper.unmount()
   })
+
+  it('opens footer modal with left/right inputs on double click (detail: 2)', async () => {
+    const wrapper = mount(DocsEditor, {
+      props: { plugins: defaultPlugins },
+    })
+    await new Promise((resolve) => setTimeout(resolve, 50))
+
+    const vm = wrapper.vm as unknown as {
+      paginationOptions: {
+        onHeaderClick: (params: { event: { detail: number } }) => void
+        onFooterClick: (params: { event: { detail: number } }) => void
+      }
+      showFooterModal: boolean
+      footerLeftInput: string
+      footerRightInput: string
+    }
+
+    // Single click: detail = 1 -> modal does not open
+    vm.paginationOptions.onFooterClick({ event: { detail: 1 } })
+    await wrapper.vm.$nextTick()
+    expect(vm.showFooterModal).toBe(false)
+
+    // Double click footer: detail = 2 -> opens footer modal
+    vm.paginationOptions.onFooterClick({ event: { detail: 2 } })
+    await wrapper.vm.$nextTick()
+    expect(vm.showFooterModal).toBe(true)
+
+    // Verify modal has left and right input fields
+    expect(wrapper.find('input[placeholder*="Confidential"], input[placeholder*="Rahasia"]').exists()).toBe(true)
+
+    wrapper.unmount()
+  })
+
+  it('supports Different First Page and Different Odd/Even optional header settings', async () => {
+    const wrapper = mount(DocsEditor, {
+      props: { plugins: defaultPlugins },
+    })
+    await new Promise((resolve) => setTimeout(resolve, 50))
+
+    const vm = wrapper.vm as unknown as {
+      isDifferentFirstPage: boolean
+      isDifferentOddEven: boolean
+      applyHeaderFooter: () => void
+    }
+
+    expect(vm.isDifferentFirstPage).toBe(false)
+    expect(vm.isDifferentOddEven).toBe(false)
+
+    // Toggle different first page
+    vm.isDifferentFirstPage = true
+    await wrapper.vm.$nextTick()
+    expect(vm.isDifferentFirstPage).toBe(true)
+
+    // Toggle different odd/even
+    vm.isDifferentOddEven = true
+    await wrapper.vm.$nextTick()
+    expect(vm.isDifferentOddEven).toBe(true)
+
+    wrapper.unmount()
+  })
+
+  it('supports Header & Footer format modal margin customization with draft states', async () => {
+    const wrapper = mount(DocsEditor, {
+      props: { plugins: defaultPlugins },
+    })
+    await new Promise((resolve) => setTimeout(resolve, 50))
+
+    const vm = wrapper.vm as unknown as {
+      showHeaderFormatModal: boolean
+      headerMarginCm: number
+      footerMarginCm: number
+      draftHeaderMarginCm: number
+      draftFooterMarginCm: number
+      openHeaderFormatModal: () => void
+      applyHeaderFormat: () => void
+    }
+
+    expect(vm.showHeaderFormatModal).toBe(false)
+    vm.openHeaderFormatModal()
+    await wrapper.vm.$nextTick()
+    expect(vm.showHeaderFormatModal).toBe(true)
+
+    // Set draft margins (does not touch active headerMarginCm until apply)
+    vm.draftHeaderMarginCm = 2.0
+    vm.draftFooterMarginCm = 2.0
+    expect(vm.headerMarginCm).toBe(1.27)
+
+    vm.applyHeaderFormat()
+    await wrapper.vm.$nextTick()
+
+    expect(vm.showHeaderFormatModal).toBe(false)
+    expect(vm.headerMarginCm).toBe(2.0)
+    expect(vm.footerMarginCm).toBe(2.0)
+
+    wrapper.unmount()
+  })
+
+  it('supports Page Number modal settings with draft states (position, start at, show on first page)', async () => {
+    const wrapper = mount(DocsEditor, {
+      props: { plugins: defaultPlugins },
+    })
+    await new Promise((resolve) => setTimeout(resolve, 50))
+
+    const vm = wrapper.vm as unknown as {
+      showPageNumberModal: boolean
+      pageNumberPosition: 'header' | 'footer'
+      showPageNumberOnFirstPage: boolean
+      pageNumberStartAt: number
+      draftPageNumberPosition: 'header' | 'footer'
+      draftShowPageNumberOnFirstPage: boolean
+      draftPageNumberStartAt: number
+      userHeaderRight: string
+      userFooterRight: string
+      openPageNumberModal: () => void
+      applyPageNumberSettings: () => void
+    }
+
+    expect(vm.showPageNumberModal).toBe(false)
+    vm.openPageNumberModal()
+    await wrapper.vm.$nextTick()
+    expect(vm.showPageNumberModal).toBe(true)
+
+    // Configure page number settings to header first
+    vm.draftPageNumberPosition = 'header'
+    vm.applyPageNumberSettings()
+    await wrapper.vm.$nextTick()
+    expect(vm.userHeaderRight).toBe('{page}')
+
+    // Open modal again and set draft position to footer -> clears header page token only on apply
+    vm.openPageNumberModal()
+    vm.draftPageNumberPosition = 'footer'
+    vm.draftShowPageNumberOnFirstPage = false
+    vm.draftPageNumberStartAt = 5
+    vm.applyPageNumberSettings()
+    await wrapper.vm.$nextTick()
+
+    expect(vm.showPageNumberModal).toBe(false)
+    expect(vm.pageNumberPosition).toBe('footer')
+    expect(vm.userHeaderRight).toBe('')
+    expect(vm.userFooterRight).toBe('{page}')
+    expect(vm.showPageNumberOnFirstPage).toBe(false)
+    expect(vm.pageNumberStartAt).toBe(5)
+
+    wrapper.unmount()
+  })
 })
 
