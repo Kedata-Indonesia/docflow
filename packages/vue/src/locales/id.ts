@@ -85,6 +85,7 @@ export default {
     header: 'Header',
     footer: 'Footer',
     footnote: 'Catatan Kaki',
+    tableOfContents: 'Daftar isi',
     bold: 'Teks Tebal',
     italic: 'Teks Miring',
     underline: 'Garis Bawah',

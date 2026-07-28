@@ -1533,6 +1533,7 @@ const editFormatMenuCommands: Record<string, () => void> = {
   'insert-image': () => runPluginMenuAction('insertImage'),
   'insert-table': () => runPluginMenuAction('insertTable', { rows: 3, cols: 3, withHeaderRow: true }),
   'insert-code': () => runPluginMenuAction('toggleCodeBlock'),
+  'insert-toc': () => runPluginMenuAction('insertToc'),
 }
 
 let menuClick = (action: string) => {
