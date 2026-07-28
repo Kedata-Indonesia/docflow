@@ -288,11 +288,6 @@ export default {
     basicBlocks: 'Blok Dasar',
     noMatch: 'Tidak ada perintah yang cocok',
   },
-  quickActions: {
-    meetingNotes: 'Catatan Rapat',
-    emailDraft: 'Draf Email',
-    more: 'Lainnya',
-  },
   documentTabs: {
     documentTabs: 'Tab Dokumen',
     addTab: 'Tambah tab',

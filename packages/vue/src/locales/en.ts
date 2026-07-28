@@ -288,11 +288,6 @@ export default {
     basicBlocks: 'Basic Blocks',
     noMatch: 'No matching commands',
   },
-  quickActions: {
-    meetingNotes: 'Meeting notes',
-    emailDraft: 'Email draft',
-    more: 'More',
-  },
   documentTabs: {
     documentTabs: 'Document Tabs',
     addTab: 'Add tab',
