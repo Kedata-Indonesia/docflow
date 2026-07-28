@@ -180,6 +180,7 @@ const menus = computed<Record<string, { label: string; items: MenuItem[] }>>(() 
       { label: t('header.header'), action: 'insert-header' },
       { label: t('header.footer'), action: 'insert-footer' },
       { label: t('header.footnote'), action: 'insert-footnote' },
+      { label: t('header.tableOfContents'), action: 'insert-toc' },
     ],
   },
   Format: {
