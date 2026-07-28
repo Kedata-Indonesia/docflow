@@ -20,7 +20,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsup src/index.ts --format esm,cjs --dts",
+    "build": "tsup",
     "typecheck": "tsc --noEmit",
     "test:unit": "vitest run"
   },
