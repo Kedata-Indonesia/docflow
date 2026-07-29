@@ -19,6 +19,7 @@ export { commentPlugin, CommentMarkExtension, type CommentMarkAttrs } from './co
 export { BibliographyNode } from './bibliography.js'
 export { CiteEngine, nextCitationId, sanitizeCiteprocHtml, type CitationAttrs, type CitationMode, type CitationCluster, type CiteEngineOptions } from './citeEngine.js'
 export { CSL_STYLES, DEFAULT_CSL_STYLE, CSL_LOCALE_EN_US, type CslStyleInfo } from './csl/index.js'
+export { slashMenuPlugin, SlashMenuExtension, slashState, onSlashStateChange, registerSlashCommands } from './slashMenu.js'
 
 import { formattingPlugin } from './formatting.js'
 import { headingsPlugin } from './headings.js'
