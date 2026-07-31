@@ -18,6 +18,15 @@ export interface AIConfig {
   baseUrl: string
   auth: Auth
   model: string
+  /**
+   * Who may receive this config in their browser (issue #126).
+   * - `shared` (default): any authenticated user gets it via GET and calls
+   *   the LLM browser-direct — the #119 model.
+   * - `admin-only`: only tenant admins get it; everyone else must complete
+   *   through the server's `/api/ai/complete` proxy so the key never leaves
+   *   the server.
+   */
+  visibility?: 'shared' | 'admin-only'
 }
 
 export interface KeyStorage {
