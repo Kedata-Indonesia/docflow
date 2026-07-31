@@ -26,6 +26,12 @@ import { buildContentArray, stripMarkers } from './markerGrammar.js'
  * NOT become N transactions / N Yjs history entries). The model output is
  * untrusted — only markers that resolve through the server-owned table become
  * citations; unresolved markers are stripped from the inserted text.
+ *
+ * Boundary: `aiStream` / `aiDraft` are declared library ports on
+ * `EditorOptions` — see docs/LIBRARY_CONTRACT.md §2.1 and
+ * docs/plans/PLUGGABLE_AI_PROVIDER.md. The library never names an AI endpoint;
+ * hosts inject transports (`toAIStreamFn(openaiCompatibleProvider({...}))` or
+ * a custom function).
  */
 
 interface ChatTurn {
