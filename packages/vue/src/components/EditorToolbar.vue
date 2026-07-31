@@ -475,22 +475,66 @@ const currentFontSize = computed<number>(() => {
 })
 
 function handleFontSize(delta: number) {
-  console.log('[FontSize] handleFontSize called, delta:', delta, 'editor:', !!props.editor)
   if (!props.editor) return
-  const idx = FONT_SIZES.indexOf(currentFontSize.value)
-  const startIdx = idx >= 0
-    ? idx
-    : FONT_SIZES.findIndex(s => s >= currentFontSize.value)
-  const nextIdx = Math.min(Math.max((startIdx >= 0 ? startIdx : 0) + delta, 0), FONT_SIZES.length - 1)
-  const nextSize = FONT_SIZES[nextIdx]
-  console.log('[FontSize] currentFontSize:', currentFontSize.value, '→ nextSize:', nextSize)
+  const current = currentFontSize.value
+  const idx = FONT_SIZES.indexOf(current)
+  let nextSize: number
+  if (idx >= 0) {
+    nextSize = FONT_SIZES[Math.min(Math.max(idx + delta, 0), FONT_SIZES.length - 1)]
+  } else if (delta < 0) {
+    // Non-preset size (typed manually): step to the nearest preset below.
+    nextSize = [...FONT_SIZES].reverse().find((s) => s < current) ?? FONT_SIZES[0]
+  } else {
+    // Non-preset size: step to the nearest preset above. Sizes beyond the
+    // largest preset have no step up, so keep the current size.
+    nextSize = FONT_SIZES.find((s) => s > current) ?? current
+  }
   // Use direct command (not chain) to avoid chaining-proxy conflict with the
   // inner setMark calls inside FontSizeExtension.
   const commands = props.editor.commands as any
-  console.log('[FontSize] commands.setFontSize type:', typeof commands.setFontSize)
-  const result = commands.setFontSize(`${nextSize}px`)
-  console.log('[FontSize] setFontSize returned:', result)
+  commands.setFontSize(`${nextSize}px`)
   props.editor.commands.focus()
+}
+
+const MIN_FONT_SIZE = 1
+const MAX_FONT_SIZE = 400
+
+/** Non-null while the user is typing into the font-size box. */
+const fontSizeDraft = ref<string | null>(null)
+
+function onFontSizeFocus(event: FocusEvent) {
+  fontSizeDraft.value = String(currentFontSize.value)
+  ;(event.target as HTMLInputElement).select()
+}
+
+function onFontSizeInput(event: Event) {
+  fontSizeDraft.value = (event.target as HTMLInputElement).value
+}
+
+function applyFontSize(size: number) {
+  if (!props.editor) return
+  const clamped = Math.min(Math.max(size, MIN_FONT_SIZE), MAX_FONT_SIZE)
+  const commands = props.editor.commands as any
+  commands.setFontSize(`${clamped}px`)
+}
+
+function commitFontSize(event: FocusEvent) {
+  const parsed = parseInt((event.target as HTMLInputElement).value, 10)
+  if (!isNaN(parsed) && parsed !== currentFontSize.value) {
+    applyFontSize(parsed)
+  }
+  fontSizeDraft.value = null
+  props.editor?.commands.focus()
+}
+
+function cancelFontSize(event: KeyboardEvent) {
+  fontSizeDraft.value = null
+  // Restore the displayed value before blurring so the blur handler's commit
+  // sees no change and does not apply the discarded input.
+  const input = event.target as HTMLInputElement
+  input.value = String(currentFontSize.value)
+  input.blur()
+  props.editor?.commands.focus()
 }
 </script>
 
@@ -633,7 +677,20 @@ function handleFontSize(delta: number) {
       >
         <Minus class="h-3.5 w-3.5" />
       </button>
-      <span class="flex h-8 w-7 flex-shrink-0 select-none items-center justify-center text-xs text-slate-700 dark:text-slate-200">{{ currentFontSize }}</span>
+      <input
+        type="text"
+        inputmode="numeric"
+        class="h-8 w-8 flex-shrink-0 rounded border border-transparent bg-transparent text-center text-xs text-slate-700 outline-none transition hover:border-slate-300 focus:border-cyan-400 focus:bg-white disabled:opacity-40 dark:text-slate-200 dark:hover:border-slate-600 dark:focus:bg-slate-800"
+        :value="fontSizeDraft ?? String(currentFontSize)"
+        :title="t('toolbar.fontSize')"
+        :aria-label="t('toolbar.fontSize')"
+        :disabled="!editor"
+        @focus="onFontSizeFocus"
+        @input="onFontSizeInput"
+        @keydown.enter.prevent="($event.target as HTMLInputElement).blur()"
+        @keydown.esc.prevent="cancelFontSize"
+        @blur="commitFontSize"
+      />
       <button
         type="button"
         :class="[controlBaseClass, 'w-7 text-sm']"
