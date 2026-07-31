@@ -34,6 +34,12 @@ server**, so it cannot detect browser-side CORS failures — a config can show
 "verified" and still fail in the browser. If the sidebar errors on first use
 while Test connection passed, suspect CORS.
 
+**Built-in CORS relief (issue #126):** our SaaS deployment ships a thin
+`POST /api/ai/complete` forwarder on the server — same-origin, attaches the
+tenant key server-side. Pointing the web app at it (automatic in
+`admin-only` mode) sidesteps endpoint CORS entirely. Embedded apps should
+use their own backend hop (§3).
+
 ## 2. Provider matrix
 
 | Provider | Base URL | Auth | Notes |

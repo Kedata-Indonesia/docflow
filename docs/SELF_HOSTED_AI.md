@@ -42,10 +42,28 @@ traffic, holds no LLM keys in env, and does no token metering.
 **Security notes:** the config file holds credentials — it is written
 `0600` and should live on the data volume (already covered by
 `apps/server/data/` in `.gitignore`). Writes are admin-only
-(`requireAdmin`); reads are open to any authenticated user **by design** —
-the browser holds the key, so the key is not secret from tenant users, only
-from outsiders. If that doesn't fit your threat model, put the LLM behind a
-gateway with its own auth and hand out the gateway URL.
+(`requireAdmin`). Reads default to `visibility: 'shared'` — any
+authenticated user gets the config in their browser **by design** (the
+browser holds the key; it is not secret from tenant users, only from
+outsiders).
+
+### Proxy mode (`visibility: 'admin-only'`, issue #126)
+
+If tenant users must NOT see the key, enable **"Hide key from non-admin
+users"** in AI Settings:
+
+- `GET /api/ai/config` → 403 for non-admins; the key never leaves the server.
+- Non-admin completions go through `POST /api/ai/complete` — a thin
+  forwarder that attaches the key server-side (rate-limited by
+  `RATE_LIMIT_AI_MAX`). Users see only your own server in their network
+  tab.
+- Admins keep browser-direct calls (no extra hop).
+- Trade-off: the server carries LLM traffic again (latency + bandwidth),
+  and abuse protection on that route is your concern (`aiLimiter`).
+
+The same `/api/ai/complete` route also works as **CORS relief** even in
+`shared` mode — point the app at it when the LLM endpoint cannot answer
+browser preflight.
 
 ## CORS (the common failure)
 
@@ -73,7 +91,9 @@ sidebar's draft action stays disabled — everything else keeps working.
 
 - Removed env: `AI_PROVIDER`, `AI_BASE_URL`, `AI_MODEL`, `AI_FAST_MODEL`,
   `AI_HEAVY_MODEL`, `AI_API_KEY`, `AI_MAX_TOKENS`, `AI_LOG_PROMPTS`.
-- Removed route: `POST /api/ai/complete` (404 now).
+- Removed route: the Phase 7 `POST /api/ai/complete` (env-adapter proxy).
+  (#126 later re-added the path as a thin config-driven forwarder — see the
+  proxy-mode section above.)
 - Moved route: `POST /api/ai/draft` → `POST /api/ai-extensions/draft`.
 - Server-side prompt logging (`AI_LOG_PROMPTS`) is gone — completions never
   touch the server. If you need audit logging, put it in your gateway.
