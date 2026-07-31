@@ -218,7 +218,7 @@ Authoritative reference: `docs/DEPLOYMENT.md` §3 and `.env.docker.example`. Hig
 |-----|---------|
 | `MONGODB_URI` | mongoose (skip TCP healthcheck on `mongodb+srv://`) |
 | `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `CLIENT_ORIGIN`, `GOOGLE_CLIENT_ID/SECRET`, `GITHUB_CLIENT_ID/SECRET`, `MICROSOFT_CLIENT_ID/SECRET` | Better Auth + CORS |
-| `AI_PROVIDER` (`claude` / `openai-compatible`), `AI_BASE_URL`, `AI_MODEL`, `AI_FAST_MODEL`, `AI_HEAVY_MODEL`, `AI_API_KEY`, `AI_MAX_TOKENS`, `AI_LOG_PROMPTS` (default false) | AI proxy |
+| `ADMIN_EMAILS`, `AI_CONFIG_PATH` | Tenant admins + AI config file (pluggable AI provider, #119) |
 | `AI_EMBED_MODEL`, `AI_EMBED_BASE_URL`, `AI_EMBED_API_KEY`, `AI_EMBED_DIMENSIONS`, `AI_RAG_VECTOR_BACKEND` (`scan` / `atlas`), `VECTOR_INDEX_NUM_DIMENSIONS` | RAG / embeddings |
 | `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_FORCE_PATH_STYLE` | S3/MinIO asset backend |
 | `STORAGE_BACKEND` (`gridfs` / `s3`), `STORAGE_MAX_UPLOAD_BYTES`, `STORAGE_ALLOWED_MIME` | Asset adapter switch |
@@ -226,7 +226,7 @@ Authoritative reference: `docs/DEPLOYMENT.md` §3 and `.env.docker.example`. Hig
 | `COLLAB_WRITE_DEBOUNCE_MS` (default 2500) | Yjs persistence debounce |
 | `LOG_LEVEL` (`trace` / `debug` / `info` / `warn` / `error`) | Pino |
 
-Production stack at `dev-docflow.kedata.cloud`: managed MongoDB Atlas, managed MinIO, `AI_PROVIDER=openai-compatible` → DeepSeek.
+Production stack at `dev-docflow.kedata.cloud`: managed MongoDB Atlas, managed MinIO, tenant LLM configured via the AI Settings page (DeepSeek endpoint).
 
 ---
 
@@ -388,26 +388,19 @@ sequenceDiagram
     actor User as User
     participant SPA as apps/web (AISidebar)
     participant Server as apps/server
-    participant AI as External AI provider
+    participant AI as Tenant LLM endpoint
 
+    Note over SPA,Server: boot: SPA reads tenant config via GET /api/ai/config<br/>(admin writes it via AI Settings; file is the state)
     User->>SPA: prompt + action (chat/improve/etc.)
-    SPA->>Server: POST /api/ai/complete (SSE)
-    Server->>Server: requireAuth + rateLimiter (RATE_LIMIT_AI_MAX)
-    alt over quota
-        Server-->>SPA: 429
-    else
-        Server->>AI: stream (openai-compatible / claude)
-        loop while streaming
-            AI-->>Server: delta
-            Server-->>SPA: event: delta
-        end
-        AI-->>Server: stop reason
-        Server-->>SPA: event: done
+    SPA->>AI: POST {baseUrl}/chat/completions (SSE, browser-direct — #119)
+    loop while streaming
+        AI-->>SPA: data: delta chunk
     end
+    AI-->>SPA: data: [DONE]
     Note over SPA: stream open → only meta-only TipTap<br/>transactions (decorations accumulate preview)
     User->>SPA: accept
     SPA->>SPA: ONE TipTap chain transaction<br/>→ Yjs propagates to peers
-    Note over Server: privacy: AI_LOG_PROMPTS=false<br/>+ local provider + logging off = no egress
+    Note over Server: no LLM traffic, no keys in env.<br/>Only RAG draft (/api/ai-extensions/draft) still<br/>calls the LLM server-side (vector search needs Mongo)
 ```
 
 ---
@@ -459,7 +452,7 @@ Per-AGENTS.md gate order after any non-trivial change: **lint → typecheck → 
 | A new REST route | `apps/server/src/routes/<name>.ts`; mount in `apps/server/src/index.ts`; type the client surface in `apps/web/src/api.ts` | Mount order matters (`requireAuth` before role-aware routes); use `requireAuth` + `canRead`/`canMutate` |
 | A new MongoDB collection | `apps/server/src/models/<Name>.ts`; index in `docker/mongo-init.js` (self-host) + rely on Mongoose autoIndex (Atlas) | Backward-compat read of older docs (default values, migration on boot) |
 | A new sidebar | Add to `activeSidebar` union in `packages/vue/src/types.ts`; mount under `<DocsEditor>` with `v-if="activeSidebar === '…'"` | Establishes the mount pattern for later sidebars (TOC, Comments, History) |
-| A new AI adapter | `apps/server/src/ai/<name>Adapter.ts`; export in `apps/server/src/ai/index.ts`; wire env reading in `config.ts`; document in `docs/AI_PROVIDERS.md` | Adapter must normalize to the §3 wire shape (`delta` / `done` / `error`) — pinned by `openaiCompat.spec.ts` |
+| A new AI provider | Hosts inject `toAIStreamFn(openaiCompatibleProvider({...}))` or a custom `AIProvider` class — no server work; document in `docs/AI_PROVIDERS.md` | Library-side `AIProvider` contract (prompt in / `StreamEvent` out) — pinned by `packages/core/src/ai/__tests__/openaiCompatibleProvider.test.ts` |
 | A new env var | `apps/server/src/config.ts` + `.env.docker.example` + `docker/server.env.example` + `docs/DEPLOYMENT.md` §3 + `apps/web/.env.example` | Default value + readonly validation at boot; do not log the value |
 | A new WebSocket broadcast type | `routes/<name>.ts` for `broadcast(...)`; `apps/web` listener in `EditorView.vue` for `case msg.type === '<name>:…'` | The WS broadcast helper routes by `roomId`; pick a clear `type:` namespace |
 

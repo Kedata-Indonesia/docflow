@@ -211,6 +211,16 @@ but the footnote must be extended to optionally hold a `sourceId` so it reformat
 ---
 
 ### Phase 7 — AI assistance (pluggable LLM) · **P1, headline feature**
+
+> **Status (2026-07-31): the server-proxy direction of this phase is SUPERSEDED
+> by [PLUGGABLE_AI_PROVIDER](plans/PLUGGABLE_AI_PROVIDER.md) (issue #119).** The
+> "never call an LLM from the browser" non-negotiable below was deliberately
+> reversed: completions now go browser-direct through the host-injected
+> `aiStream`/`aiDraft` ports; the server only stores the tenant config
+> (`/api/ai/config`) and the opt-in RAG draft extension
+> (`/api/ai-extensions/draft`). The transaction-safety non-negotiables still
+> stand. Operator guide: [SELF_HOSTED_AI.md](SELF_HOSTED_AI.md).
+
 **Goal:** AI writing help — inline transforms, generation, chat, and cited drafting — with the LLM provider chosen per deployment (Claude API *or* self-hosted local).
 
 **Decisions (2026-07-17):**

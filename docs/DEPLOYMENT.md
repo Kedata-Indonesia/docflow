@@ -152,24 +152,24 @@ Yjs binary state is stored in the `collabstates` collection (authoritative);
 The bucket stays private; the server proxies bytes via `GET /api/assets/:id` with auth
 enforced server-side. No public bucket, no CDN.
 
-### 3.4 AI assistance (Phase 7)
+### 3.4 AI assistance (pluggable provider — issue #119)
+
+The server no longer proxies LLM completions. The tenant admin configures the
+provider in the web app (**AI Settings** in the user menu) and browsers call
+the LLM directly — rotating providers or keys needs no redeploy. The Phase 7
+proxy variables (`AI_PROVIDER`, `AI_BASE_URL`, `AI_MODEL`, `AI_FAST_MODEL`,
+`AI_HEAVY_MODEL`, `AI_API_KEY`, `AI_MAX_TOKENS`, `AI_LOG_PROMPTS`) were
+removed.
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `AI_PROVIDER` | `claude` | `claude` (Anthropic) or `openai-compatible` (DeepSeek, Ollama, vLLM, OpenAI). |
-| `AI_BASE_URL` | _none_ | **Required** when `AI_PROVIDER=openai-compatible`. e.g. `https://api.deepseek.com/v1`. |
-| `AI_MODEL` | `claude-sonnet-5` | Workhorse model |
-| `AI_FAST_MODEL` | `claude-haiku-4-5-20251001` | Cheap model for simple transforms |
-| `AI_HEAVY_MODEL` | `claude-opus-4-8` | Powerful model for heavy tasks |
-| `AI_API_KEY` | — | **Required** for Claude. Unused for keyless local endpoints. |
-| `AI_MAX_TOKENS` | `2048` | Max completion tokens per request |
-| `AI_LOG_PROMPTS` | `false` | **Privacy:** off by default. Setting `true` writes full prompts to logs and emits a boot warning. |
+| `ADMIN_EMAILS` | — | Comma-separated emails allowed to write the tenant AI config. **Required** for the AI Settings page to save. |
+| `AI_CONFIG_PATH` | `data/ai-config.json` | Where the tenant LLM config is persisted. Point at the mounted data volume (e.g. `/data/ai-config.json`). |
 
-Provider hints (sprint 9 B2 plans a local-LLM profile; for now use one of these):
-
-- **Cloud (Claude API):** `AI_PROVIDER=claude`, `AI_API_KEY=sk-ant-...` — needs internet, document text leaves the premises.
-- **Cloud (DeepSeek):** `AI_PROVIDER=openai-compatible`, `AI_BASE_URL=https://api.deepseek.com/v1`, `AI_MODEL=deepseek-chat`.
-- **Local OpenAI-compatible (Ollama, vLLM):** `AI_PROVIDER=openai-compatible`, `AI_BASE_URL=http://<ollama-host>:11434/v1`, `AI_API_KEY=` (keyless). No data egress.
+**CORS note:** because browsers call the LLM directly, the endpoint must
+allow the web origin. Ollama: set `OLLAMA_ORIGINS`. Hosted OpenAI does not
+allow browser-direct calls — put a small same-origin proxy/gateway in front
+(see [`docs/AI_PROVIDERS.md`](AI_PROVIDERS.md)).
 
 ### 3.5 AI embeddings / RAG (Phase 7E)
 
@@ -177,8 +177,8 @@ Provider hints (sprint 9 B2 plans a local-LLM profile; for now use one of these)
 |----------|---------|---------|
 | `AI_RAG_VECTOR_BACKEND` | `scan` | `scan` (app-side cosine, works on any Mongo) or `atlas` (Mongo Atlas `$vectorSearch`, needs the manual index). |
 | `AI_EMBED_MODEL` | `text-embedding-3-small` | Embedding model |
-| `AI_EMBED_BASE_URL` | _none_ | Falls back to `AI_BASE_URL` when unset. |
-| `AI_EMBED_API_KEY` | _none_ | Falls back to `AI_API_KEY` when unset. |
+| `AI_EMBED_BASE_URL` | _none_ | **Required** for the RAG draft extension (no fallback since #119). |
+| `AI_EMBED_API_KEY` | _none_ | Embeddings key (unused for keyless local endpoints). |
 | `AI_EMBED_DIMENSIONS` | `1536` | Output vector length. OpenAI `text-embedding-3-*` supports shortening; local models (e.g. `nomic-embed-text`) **must** match their native length. |
 | `VECTOR_INDEX_NUM_DIMENSIONS` | `1536` | Only for `AI_RAG_VECTOR_BACKEND=atlas` — must equal `AI_EMBED_DIMENSIONS` AND the Atlas index `numDimensions`. Boot warns on mismatch. |
 
@@ -260,19 +260,22 @@ enforced server-side.
 
 ## 7. AI provider
 
-The server proxies all LLM calls — the browser never holds an API key. Choose by env:
+Since the pluggable AI provider work (issue #119), the server no longer
+proxies LLM calls. There is nothing to choose by env for completions: set
+`ADMIN_EMAILS` + `AI_CONFIG_PATH` (§3.4), then let the tenant admin pick the
+provider in the web app's **AI Settings** page (OpenAI-compatible endpoint,
+Ollama, vLLM, a gateway — anything speaking `/chat/completions` SSE).
 
-| Use case | Settings |
-|----------|----------|
-| Cloud Claude | `AI_PROVIDER=claude`, `AI_API_KEY=sk-ant-...` |
-| Cloud DeepSeek | `AI_PROVIDER=openai-compatible`, `AI_BASE_URL=https://api.deepseek.com/v1`, `AI_MODEL=deepseek-chat`, `AI_API_KEY=...` |
-| Local Ollama | `AI_PROVIDER=openai-compatible`, `AI_BASE_URL=http://<ollama-host>:11434/v1`, `AI_API_KEY=` (keyless) |
+| Use case | Setup |
+|----------|-------|
+| Any OpenAI-compatible endpoint | AI Settings → base URL + bearer key + model |
+| Local Ollama | AI Settings → `http://<ollama-host>:11434/v1`, auth `none`; set `OLLAMA_ORIGINS` on the Ollama side for CORS |
+| Hosted provider without browser CORS (e.g. OpenAI) | Small same-origin proxy/gateway in front; point AI Settings at it |
 
-For the **full compatibility matrix** (Claude / DeepSeek / OpenAI / Ollama / vLLM / LM Studio
-/ OpenRouter, per-provider env config, known quirks, and a recipe for adding a new
-provider), see [`docs/AI_PROVIDERS.md`](AI_PROVIDERS.md). The matrix is asserted at the
-wire level by the unit tests in `apps/server/src/ai/__tests__/openaiCompat.spec.ts` (one
-happy-path + one error-path fixture per provider, no network needed).
+For the **compatibility matrix** (per-provider base URLs, auth shapes, CORS
+notes, and known quirks), see [`docs/AI_PROVIDERS.md`](AI_PROVIDERS.md). The
+browser-side provider is unit-tested in
+`packages/core/src/ai/__tests__/openaiCompatibleProvider.test.ts`.
 
 > **B2 scope:** the local LLM compose profile (Ollama container in `docker-compose.yml`
 > under `profiles: [local-llm]`) is **deferred** to the "pure on-prem" backlog per
