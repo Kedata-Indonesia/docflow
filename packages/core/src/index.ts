@@ -39,4 +39,18 @@ export {
   type SubdocState,
   type SubdocumentProviderOptions,
 } from './SubdocumentProvider.js'
-export type { AIAction, AIActionRequest, AIStreamFn, AIDraftFn, AIDraftEvent, AIDraftCitation } from './ai/types.js'
+export type { AIAction, AIActionRequest, AIStreamFn, AIDraftFn, AIDraftEvent, AIDraftCitation, AIProviderFactory } from './ai/types.js'
+export type { StreamEvent, AICompleteRequest, AIProvider } from './ai/provider.js'
+export { toAIStreamFn } from './ai/adapter.js'
+export { buildAIPrompt, trimContextBefore, trimContextAfter, CONTEXT_CHAR_CAP } from './ai/prompts.js'
+export {
+  type Auth,
+  type AIConfig,
+  type KeyStorage,
+  type HttpKeyStorageUrls,
+  LOCAL_STORAGE_KEY,
+  memoryKeyStorage,
+  localStorageKeyStorage,
+  httpKeyStorage,
+} from './ai/keyStorage.js'
+export { openaiCompatibleProvider, type OpenAICompatibleConfig } from './ai/openaiCompatibleProvider.js'

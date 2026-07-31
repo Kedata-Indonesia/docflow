@@ -1,6 +1,6 @@
 # Library Contract — DocsEditor
 
-**Status:** Living document · **Owner:** Kedata Indonesia · **Last updated:** 2026-07-19
+**Status:** Living document · **Owner:** Kedata Indonesia · **Last updated:** 2026-07-31
 
 > This file is the **single source of truth for the library/app boundary**. It catalogues
 > every injection port through which the library (`packages/*`) may reach backend concerns,
@@ -51,6 +51,8 @@ A change that respects this principle touches either the library *or* the app �
 | `onUpdate` | `(json: object) => void` | `EditorOptions` — [packages/core/src/Editor.ts:28](../packages/core/src/Editor.ts) | Persist the document JSON for **single-user / non-collaborative** documents. In collaboration mode the Yjs document is authoritative and this hook must not be used as the edit source (see [phase-1-collab-persistence.md](plans/phase-1-collab-persistence.md)). |
 | `collaboration` | `CollaborationOptions` — see field table below | `EditorOptions` — [Editor.ts:29](../packages/core/src/Editor.ts); interface — [Collaboration.ts:15-23](../packages/core/src/Collaboration.ts) | Supply the full collaboration configuration: room id, transport provider, signaling/websocket endpoints, user identity, and awareness callback. The library never picks endpoints on its own; webrtc without explicit `signaling` is localhost-only with a one-time warning (Phase 2). |
 | `onImageUpload` | `(file: File) => Promise<ImageUploadResult>` (`{ src, alt?, title? }`) | `EditorOptions` — [Editor.ts:33](../packages/core/src/Editor.ts); type — [ports.ts](../packages/core/src/ports.ts); carried in `editor.storage.editorContext` ([EditorContext.ts](../packages/core/src/EditorContext.ts)) | Store the user's picked file (object storage — Phase 4) and resolve its URL. With no handler, `insertImage` falls back to a URL prompt; the library never names a storage host. |
+| `aiStream` | `AIStreamFn` — `(req: AIActionRequest, signal: AbortSignal) => AsyncIterable<string>` | `EditorOptions` — [Editor.ts:122](../packages/core/src/Editor.ts); type — [ai/types.ts](../packages/core/src/ai/types.ts); carried in `editor.storage.editorContext` ([EditorContext.ts](../packages/core/src/EditorContext.ts)) | Provide the AI completion transport (Phase 7; promoted to a declared port by [PLUGGABLE_AI_PROVIDER](plans/PLUGGABLE_AI_PROVIDER.md)). The library never names an LLM endpoint: hosts inject `toAIStreamFn(openaiCompatibleProvider({ baseUrl, auth, model }))` or a custom function wrapping their own backend/agent. With no port injected, AI actions are inert (one-time `console.warn`). |
+| `aiDraft` | `AIDraftFn` — `(req: { prompt, context?, k? }, signal: AbortSignal) => AsyncIterable<AIDraftEvent>` | `EditorOptions` — [Editor.ts:124](../packages/core/src/Editor.ts); type — [ai/types.ts](../packages/core/src/ai/types.ts); carried in `editor.storage.editorContext` | Opt-in RAG-cited drafting transport (Phase 7E): streams text with `[n]` markers plus a terminal citation table. Hosts plug their own corpus/RAG backend; the library only maps markers to citation nodes. Disabled when not injected. |
 
 **`CollaborationOptions` fields** ([Collaboration.ts:15-23](../packages/core/src/Collaboration.ts)):
 
@@ -122,6 +124,16 @@ How each existing port flows through the layers (verified 2026-07-19):
 | vue (component) | `onImageUpload` prop, forwarded to `useEditor` — [DocsEditor.vue](../packages/vue/src/components/DocsEditor.vue) |
 | element | JS property `el.onImageUpload` with a setter that re-applies props (functions can't be HTML attributes) — [DocsEditorElement.ts](../packages/element/src/DocsEditorElement.ts) |
 
+### `aiStream` / `aiDraft`
+
+| Layer | Wiring |
+|-------|--------|
+| core | Declared on `EditorOptions` — [Editor.ts:122-124](../packages/core/src/Editor.ts); carried by the always-registered `EditorContextExtension` into `editor.storage.editorContext` — [EditorContext.ts](../packages/core/src/EditorContext.ts), forwarded in [Editor.ts:636-637](../packages/core/src/Editor.ts). Default transport + adapter ship in [packages/core/src/ai/](../packages/core/src/ai) (`openaiCompatibleProvider`, `toAIStreamFn`, `KeyStorage` impls) |
+| plugins | `aiPlugin` reads `editorContext.aiStream` for inline transforms / generation — [ai.ts](../packages/plugins/src/ai.ts); no shape change, no endpoint knowledge |
+| vue (component) | `AISidebar.vue` accepts `aiStream` / `aiDraft` props and falls back to `editor.storage.editorContext` — [AISidebar.vue:75-82](../packages/vue/src/components/sidebars/AISidebar.vue) |
+| vue (composable) | `useAIProvider(editor)` exposes the injected ports reactively — [useAIProvider.ts](../packages/vue/src/composables/useAIProvider.ts); provider + key-storage impls re-exported from [packages/vue/src/index.ts](../packages/vue/src/index.ts) |
+| element | Not wired — embedded hosts using the Web Component inject transports via JS properties (planned; see [PLUGGABLE_AI_PROVIDER](plans/PLUGGABLE_AI_PROVIDER.md)) |
+
 ---
 
 ## 4. Rules for Library Authors
@@ -157,12 +169,14 @@ reviewers to ask which side of the boundary it really belongs on.
 
 ## 5. Known Deviations
 
-Violations of this contract and their status. One remains open (`#1`, Phase 7);
-the rest were resolved in Phase 2.
+Violations of this contract and their status. All known deviations are now
+resolved — deviation #1 was closed by the pluggable AI provider work
+([PLUGGABLE_AI_PROVIDER](plans/PLUGGABLE_AI_PROVIDER.md)); the rest were
+resolved in Phase 2.
 
 | # | Deviation | Location | Class | Status | Remediation |
 |---|-----------|----------|-------|--------|-------------|
-| 1 | `AISidebar.vue` fetches the AI backend directly | [AISidebar.vue:7,30](../packages/vue/src/components/sidebars/AISidebar.vue) — `fetch(\`${API_BASE}/api/ai/copilot\`)` | Direct backend call (rule 3) | ⏳ **Open → [Phase 7](plans/phase-7-ai-assistance.md)** | Move AI behind a host-injected provider/port; delete the in-library `fetch`. |
+| 1 | `AISidebar.vue` fetched the AI backend directly | [AISidebar.vue](../packages/vue/src/components/sidebars/AISidebar.vue) — previously `fetch(\`${API_BASE}/api/ai/copilot\`)` | Direct backend call (rule 3) | ✅ **Resolved** ([PLUGGABLE_AI_PROVIDER](plans/PLUGGABLE_AI_PROVIDER.md)) | AI is behind the host-injected `aiStream` / `aiDraft` ports (§2.1) with a browser-side default transport (`openaiCompatibleProvider`); no `fetch` to any AI endpoint remains in `packages/*` (`grep -rn "fetch.*api/ai" packages` returns nothing). |
 | 2 | Image plugin hardcoded `via.placeholder.com` + `window.prompt` fallback | `packages/plugins/src/image.ts` (pre-Phase-2) | Hardcoded external URL / storage assumption (rule 4) | ✅ **Resolved in Phase 2** | Replaced by the `onImageUpload` port (§2.1); URL prompt kept as an explicit no-host fallback. |
 | 3 | webrtc signaling defaulted to public servers (`wss://signaling.yjs.dev`, `wss://y-webrtc-eu.fly.dev`) | `packages/core/src/Collaboration.ts` (pre-Phase-2) | External-network assumption (rule 4) | ✅ **Resolved in Phase 2** | Defaults to localhost-only + one-time `console.warn`; cross-network webrtc requires explicit `signaling`; websocket + own server is the documented production path. |
 | 4 | Document draft autosave to `localStorage` (`docs-editor-current-doc`) | `packages/vue/src/components/DocsEditor.vue` (pre-Phase-2) | Document persistence in the library (rule 5) | ✅ **Resolved in Phase 2** | Write removed (it was never read anywhere); hosts persist via `update:modelValue` / `onUpdate`. |
