@@ -18,6 +18,8 @@ export {
   type Auth,
   type KeyStorage,
   type HttpKeyStorageUrls,
+  type AIStreamFn,
+  type AIDraftFn,
 } from '@kedata-indonesia/docflow-core'
 export { useTheme } from './composables/useTheme.js'
 export { useLocale, provideLocale, getLocaleName, getSupportedLocales, type Locale } from './composables/useLocale.js'
