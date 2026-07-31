@@ -126,6 +126,7 @@ export default {
     fontFamily: 'Keluarga font',
     decreaseFontSize: 'Kecilkan font',
     increaseFontSize: 'Perbesar font',
+    fontSize: 'Ukuran font',
     lists: 'Daftar',
     alignment: 'Perataan',
     insert: 'Sisipkan',

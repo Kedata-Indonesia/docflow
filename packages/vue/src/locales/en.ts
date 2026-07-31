@@ -126,6 +126,7 @@ export default {
     fontFamily: 'Font family',
     decreaseFontSize: 'Decrease font size',
     increaseFontSize: 'Increase font size',
+    fontSize: 'Font size',
     lists: 'Lists',
     alignment: 'Alignment',
     insert: 'Insert',
