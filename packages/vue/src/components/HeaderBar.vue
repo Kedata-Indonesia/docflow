@@ -4,8 +4,12 @@ import { Star, Share2, Users, ChevronDown, MoreVertical, Check } from 'lucide-vu
 import type { Collaborator } from '../types.js'
 import ThemeToggle from './ThemeToggle.vue'
 import { useLocale, getSupportedLocales, getLocaleName } from '../composables/useLocale.js'
+import { useTheme } from '../composables/useTheme.js'
+import logoWhite from '../assets/logo-white.png'
+import logoColored from '../assets/logo-colored.png'
 
 const { setLocale, t } = useLocale()
+const { isDark } = useTheme()
 
 const supportedLocales = getSupportedLocales()
 
@@ -66,6 +70,8 @@ const handleSaveTitle = () => {
   titleInput.value = props.title
   isRenaming.value = false
 }
+
+const editorLogoSrc = computed(() => isDark.value ? logoWhite : logoColored)
 
 const getInitials = (name: string) =>
   name
@@ -326,11 +332,15 @@ onUnmounted(() => document.removeEventListener('click', closeMenus, true))
       <div class="flex items-center gap-3">
         <button
           type="button"
-          class="flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl bg-gradient-to-br from-cyan-400 to-blue-600 text-base font-bold text-white shadow-[0_0_15px_rgba(34,211,238,0.3)] hover:opacity-90 transition-opacity"
+          class="flex h-9 cursor-pointer items-center justify-center hover:opacity-90 transition-opacity"
           :title="t('header.backToDocuments')"
           @click="emit('back')"
         >
-          DF
+          <img
+            :src="editorLogoSrc"
+            alt="Docflow"
+            class="h-9 w-auto"
+          >
         </button>
 
         <div class="flex min-w-0 flex-col gap-0.5">
