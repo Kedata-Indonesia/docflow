@@ -19,6 +19,7 @@ import { SearchAndReplaceExtension } from './SearchAndReplace.js'
 import type { ImageUploadHandler, CitationPort } from './ports.js'
 import type { AIStreamFn, AIDraftFn } from './ai/types.js'
 import { PaginationPlus, type PaginationPlusOptions } from 'tiptap-pagination-plus'
+import { createPerformanceMonitor, type PerformanceMonitor } from './PerformanceMonitor.js'
 
 /**
  * Sanitize pasted HTML content (e.g. from Google Docs) to prevent crashes
@@ -122,6 +123,12 @@ export interface EditorOptions {
   aiStream?: AIStreamFn
   /** Host-injected cited-draft transport (Phase 7E — editor → server → RAG LLM). */
   aiDraft?: AIDraftFn
+  /**
+   * Enable the debug overlay (CPU + RAM monitor) pinned to the bottom-right
+   * corner of the viewport. Pure debug view — never touches document state.
+   * Defaults to `false`, so production consumers are unaffected.
+   */
+  debug?: boolean
 }
 
 export interface DocsEditor {
@@ -132,6 +139,8 @@ export interface DocsEditor {
   destroy: () => void
   use: (plugin: DocsEditorPlugin) => void
   pluginActions: Record<string, (...args: unknown[]) => boolean>
+  /** Active performance monitor when `debug: true` was set (undefined otherwise). */
+  performanceMonitor?: PerformanceMonitor
 }
 
 function migrateContent(content: unknown): unknown {
@@ -184,6 +193,11 @@ export function createEditor(options: EditorOptions = {}): DocsEditor {
     ? createCollaboration(migratedOptions.collaboration)
     : undefined
 
+  // Debug overlay: opt-in via `debug: true`. Lives and dies with the editor.
+  const performanceMonitor = migratedOptions.debug
+    ? createPerformanceMonitor()
+    : undefined
+
   let tiptapEditor = createTiptapEditor(migratedOptions, plugins, collaborationSetup)
   let pluginActions = createActionMap(tiptapEditor, plugins)
 
@@ -232,6 +246,7 @@ export function createEditor(options: EditorOptions = {}): DocsEditor {
       }
       tiptapEditor.destroy()
       collaborationSetup?.destroy()
+      performanceMonitor?.destroy()
     },
     use: (plugin) => {
       plugins.push(plugin)
@@ -241,6 +256,7 @@ export function createEditor(options: EditorOptions = {}): DocsEditor {
     get pluginActions() {
       return pluginActions
     },
+    performanceMonitor,
   }
 
   return editor

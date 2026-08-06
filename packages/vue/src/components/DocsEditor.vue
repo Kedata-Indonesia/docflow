@@ -56,6 +56,12 @@ const props = withDefaults(
     citation?: CitationPort
     aiStream?: AIStreamFn
     aiDraft?: AIDraftFn
+    /**
+     * Enable the debug overlay (CPU + RAM monitor) pinned to the bottom-right
+     * corner of the viewport. Pure debug view — never touches document state.
+     * Defaults to `false`, so production consumers are unaffected.
+     */
+    debug?: boolean
     // Phase 9 P9-4 — comment threads. The library stays free of REST;
     // the host feeds the threads + handles the events.
     comments?: CommentItem[]
@@ -89,6 +95,7 @@ const props = withDefaults(
     citation: undefined,
     aiStream: undefined,
     aiDraft: undefined,
+    debug: false,
     comments: () => [],
     selectedTextSnippet: '',
     selectedTextIndex: undefined,
@@ -320,9 +327,10 @@ const { editorRef, editor, pluginActions, isReady, docsEditor: docEditor } = use
   editable: props.editable,
   collaboration: props.collaboration,
   onImageUpload: props.onImageUpload,
-citation: citationPort.value,
+  citation: citationPort.value,
     aiStream: props.aiStream,
     aiDraft: props.aiDraft,
+    debug: props.debug,
   getPageMap: () => new Map(),
   paginationOptions: paginationOptions.value,
   onUpdate: (json) => {
