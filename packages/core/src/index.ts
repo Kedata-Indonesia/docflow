@@ -1,4 +1,10 @@
 export { createEditor, sanitizePastedHTML, type EditorOptions, type DocsEditor } from './Editor.js'
+export {
+  PerformanceMonitor,
+  createPerformanceMonitor,
+  type PerformanceMonitorOptions,
+  type MonitorMetric,
+} from './PerformanceMonitor.js'
 export { BlockAttributesExtension } from './BlockAttributes.js'
 export { FontSizeExtension } from './FontSize.js'
 export { EditorContextExtension, type EditorContextOptions } from './EditorContext.js'

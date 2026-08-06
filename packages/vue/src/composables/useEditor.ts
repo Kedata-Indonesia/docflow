@@ -45,6 +45,7 @@ export function useEditor(options: UseEditorOptions): UseEditorReturn {
       citation: options.citation,
       aiStream: options.aiStream,
       aiDraft: options.aiDraft,
+      debug: options.debug,
     })
 
     docsEditor.value = nextEditor

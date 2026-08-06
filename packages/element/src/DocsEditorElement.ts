@@ -9,7 +9,7 @@ import shadowStyles from './shadow.css?inline'
 const VueDocsEditorElement = defineCustomElement(DocsEditor)
 
 export class DocsEditorElement extends HTMLElement {
-  static observedAttributes = ['room', 'theme', 'editable', 'content', 'websocket-url']
+  static observedAttributes = ['room', 'theme', 'editable', 'content', 'websocket-url', 'debug']
 
   private _vueElement?: HTMLElement
   private _shadowRoot?: ShadowRoot
@@ -73,6 +73,11 @@ export class DocsEditorElement extends HTMLElement {
     const editableAttr = this.getAttribute('editable')
     const editable = editableAttr === null ? true : editableAttr !== 'false'
 
+    // Boolean attribute semantics: `<docs-editor debug>` or `debug="true"` enables
+    // the performance overlay; `debug="false"` disables it.
+    const debugAttr = this.getAttribute('debug')
+    const debug = debugAttr === null ? false : debugAttr !== 'false'
+
     let modelValue: object | string | undefined
     const contentAttr = this.getAttribute('content')
     if (contentAttr !== null) {
@@ -100,6 +105,7 @@ export class DocsEditorElement extends HTMLElement {
     return {
       modelValue,
       editable,
+      debug,
       collaboration,
       plugins: this._plugins,
       onImageUpload: this._onImageUpload,
