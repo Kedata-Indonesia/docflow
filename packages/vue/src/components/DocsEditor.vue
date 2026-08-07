@@ -73,6 +73,13 @@ const props = withDefaults(
     // handles save/restore/preview events (it owns the REST surface).
     snapshots?: DocumentSnapshot[]
     activePreviewIndex?: number | null
+    /** Page orientation: 'portrait' or 'landscape'. Persisted by the host. */
+    orientation?: 'portrait' | 'landscape'
+    /** Page margins in points. Persisted by the host. */
+    margins?: { top: number; bottom: number; left: number; right: number }
+    /** Distance from the paper edge to the header/footer content, in cm. */
+    headerMarginCm?: number
+    footerMarginCm?: number
   }>(),
   {
     editable: true,
@@ -101,6 +108,10 @@ const props = withDefaults(
     selectedTextIndex: undefined,
     snapshots: () => [],
     activePreviewIndex: null,
+    orientation: 'portrait',
+    margins: () => ({ top: 94, bottom: 94, left: 94, right: 94 }),
+    headerMarginCm: 0.5,
+    footerMarginCm: 0.5,
   },
 )
 
@@ -108,6 +119,9 @@ const emit = defineEmits<{
   'update:modelValue': [value: object]
   'update:title': [title: string]
   'update:pageSize': [pageSize: string]
+  'update:orientation': [orientation: 'portrait' | 'landscape']
+  'update:margins': [margins: { top: number; bottom: number; left: number; right: number }]
+  'update:header-footer-margins': [margins: { headerMarginCm: number; footerMarginCm: number }]
   'update:pageless': [pageless: boolean]
   'update:pageCount': [pageCount: number]
   'update:locale': [locale: Locale]
@@ -150,13 +164,40 @@ watch(currentLocale, (next) => {
 
 // ─── Page Size ────────────────────────────────────────────────────────────────
 
-const margins = ref({ top: 72, bottom: 72, left: 90, right: 90 })
-const PAGE_MARGIN_MIN = 0
-const PAGE_MARGIN_MAX = 100
-const orientation = ref<'portrait' | 'landscape'>('portrait')
+const margins = ref({ top: props.margins?.top ?? 94, bottom: props.margins?.bottom ?? 94, left: props.margins?.left ?? 94, right: props.margins?.right ?? 94 })
+const PAGE_MARGIN_MAX = 189
+const CM_TO_PX = 37.795
+const HEADER_MARGIN_CM_MIN = 0
+const HEADER_MARGIN_CM_MAX = 5
+const HEADER_MARGIN_CM_STEP = 0.1
+
+function normalizeMarginCm(value: unknown, fallback = 0.5): number {
+  const numericValue = typeof value === 'number' ? value : Number(value)
+  if (!Number.isFinite(numericValue)) return fallback
+  const clamped = Math.min(HEADER_MARGIN_CM_MAX, Math.max(HEADER_MARGIN_CM_MIN, numericValue))
+  return Math.round(clamped * 10) / 10
+}
+
+const orientation = ref<'portrait' | 'landscape'>(props.orientation ?? 'portrait')
 
 const pageSizeId = ref(props.pageSize ?? 'a4')
 const isPageless = ref(props.pageless ?? false)
+
+watch(() => props.orientation, (v) => {
+  if (v !== undefined) orientation.value = v
+})
+
+watch(() => props.margins, (v) => {
+  if (v !== undefined) margins.value = { ...v }
+})
+
+watch(() => props.headerMarginCm, (v) => {
+  if (typeof v === 'number' && Number.isFinite(v)) headerMarginCm.value = normalizeMarginCm(v)
+})
+
+watch(() => props.footerMarginCm, (v) => {
+  if (typeof v === 'number' && Number.isFinite(v)) footerMarginCm.value = normalizeMarginCm(v)
+})
 
 const resolvedLayoutOptions = computed(() => {
   const size = getPageSize(pageSizeId.value) ?? PAGE_SIZES[0]
@@ -167,6 +208,8 @@ const resolvedLayoutOptions = computed(() => {
   }
   return { pageHeight: h, pageWidth: w, margins: { ...margins.value } }
 })
+
+const paperMaxWidth = computed(() => `${resolvedLayoutOptions.value.pageWidth}px`)
 
 const { isDark } = useTheme()
 
@@ -182,8 +225,8 @@ const paginationOptions = computed(() => ({
   marginBottom: resolvedLayoutOptions.value.margins.bottom,
   marginLeft: resolvedLayoutOptions.value.margins.left,
   marginRight: resolvedLayoutOptions.value.margins.right,
-  contentMarginTop: 10,
-  contentMarginBottom: 10,
+  contentMarginTop: 0,
+  contentMarginBottom: 0,
   pageGap: 40,
   pageBreakBackground: isDark.value ? '#02040a' : '#f1f5f9',
   headerLeft: '',
@@ -657,12 +700,12 @@ const userFirstPageHeaderRight = ref('')
 const userEvenPageHeaderLeft = ref('')
 const userEvenPageHeaderRight = ref('')
 
-const headerMarginCm = ref(1.27)
-const footerMarginCm = ref(1.27)
+const headerMarginCm = ref(normalizeMarginCm(props.headerMarginCm))
+const footerMarginCm = ref(normalizeMarginCm(props.footerMarginCm))
 
 const showHeaderFormatModal = ref(false)
-const draftHeaderMarginCm = ref(1.27)
-const draftFooterMarginCm = ref(1.27)
+const draftHeaderMarginCm = ref(headerMarginCm.value)
+const draftFooterMarginCm = ref(footerMarginCm.value)
 const draftDifferentFirstPage = ref(false)
 const draftDifferentOddEven = ref(false)
 
@@ -689,116 +732,68 @@ const getResolvedPageNumber = (pageIndex: number) => {
 const applyHeaderFooter = () => {
   if (!editor.value || !isReady.value) return
   const totalStr = String(pageCount.value)
+  const root = editor.value.view.dom
 
   const defaultHLeft = userHeaderLeft.value.replace(/{total}/g, totalStr)
   const defaultHRight = userHeaderRight.value.replace(/{total}/g, totalStr)
   const defaultFLeft = userFooterLeft.value.replace(/{total}/g, totalStr)
   const defaultFRight = userFooterRight.value.replace(/{total}/g, totalStr)
-  
+
   editor.value.commands.updateHeaderContent(defaultHLeft, defaultHRight)
   editor.value.commands.updateFooterContent(defaultFLeft, defaultFRight)
 
-  // Dispatch an empty transaction so PaginationPlus's apply() detects the
-  // storage change (headerLeft !== appliedConfig.headerLeft, etc.) and
-  // rebuilds its widget decorations with the new content.
+  const headerMarginPx = `${Math.max(0, headerMarginCm.value) * CM_TO_PX}px`
+  const footerMarginPx = `${Math.max(0, footerMarginCm.value) * CM_TO_PX}px`
+  root.style.setProperty('--rm-header-margin-top', headerMarginPx)
+  root.style.setProperty('--rm-footer-margin-bottom', footerMarginPx)
+
+  // Dispatch an empty transaction so PaginationPlus rebuilds its generated
+  // header/footer widgets after the content configuration changes.
   editor.value.view.dispatch(editor.value.state.tr)
 
-  // Wait for the decoration rebuild to settle before applying per-page
-  // customizations (Different First Page, Odd/Even, Page Numbers, margins).
-  // Use rAF inside setTimeout so DOM updates from the decoration rebuild
-  // have been painted before we read/modify elements.
   setTimeout(() => {
     requestAnimationFrame(() => {
-      if (!editor.value) return
-      // Apply Header/Footer Margins
-      const headerMarginPx = `${headerMarginCm.value * 37.795}px`
-      const footerMarginPx = `${footerMarginCm.value * 37.795}px`
-      document.documentElement.style.setProperty('--rm-header-margin-top', headerMarginPx)
-      document.documentElement.style.setProperty('--rm-footer-margin-bottom', footerMarginPx)
-      const editorEl = document.querySelector('.rm-with-pagination') as HTMLElement
-      if (editorEl) {
-        editorEl.style.setProperty('--rm-header-margin-top', headerMarginPx)
-        editorEl.style.setProperty('--rm-footer-margin-bottom', footerMarginPx)
+      if (!editor.value || editor.value.view.dom !== root) return
+
+      const resolveHeader = (pageNumber: number, firstPage: boolean) => {
+        let left = defaultHLeft
+        let right = defaultHRight
+        if (firstPage && isDifferentFirstPage.value) {
+          left = userFirstPageHeaderLeft.value.replace(/{total}/g, totalStr)
+          right = userFirstPageHeaderRight.value.replace(/{total}/g, totalStr)
+        } else if (isDifferentOddEven.value && pageNumber % 2 === 0) {
+          left = userEvenPageHeaderLeft.value.replace(/{total}/g, totalStr)
+          right = userEvenPageHeaderRight.value.replace(/{total}/g, totalStr)
+        }
+        return {
+          left: left.replace(/{page}/g, getResolvedPageNumber(pageNumber - 1)),
+          right: right.replace(/{page}/g, getResolvedPageNumber(pageNumber - 1)),
+        }
       }
 
-      // Process each page element for Different First Page, Different Odd/Even, & Page Numbers
-      const pageContainers = Array.from(document.querySelectorAll('.rm-with-pagination .page, .rm-with-pagination .rm-page, .rm-page-break'))
-      
-      if (pageContainers.length > 0) {
-        pageContainers.forEach((pageEl, idx) => {
-          const headerEl = pageEl.querySelector('.rm-page-header')
-          const footerEl = pageEl.querySelector('.rm-page-footer')
-          const isFirst = idx === 0
-          const isEven = (idx + 1) % 2 === 0
-          const pageNum = getResolvedPageNumber(idx)
-
-          if (headerEl) {
-            (headerEl as HTMLElement).style.marginTop = headerMarginPx
-            const leftEl = headerEl.querySelector('.rm-page-header-left') as HTMLElement
-            const rightEl = headerEl.querySelector('.rm-page-header-right') as HTMLElement
-
-            let targetLeft = defaultHLeft
-            let targetRight = defaultHRight
-
-            if (isDifferentFirstPage.value && isFirst) {
-              targetLeft = userFirstPageHeaderLeft.value.replace(/{total}/g, totalStr)
-              targetRight = userFirstPageHeaderRight.value.replace(/{total}/g, totalStr)
-            } else if (isDifferentOddEven.value && isEven) {
-              targetLeft = userEvenPageHeaderLeft.value.replace(/{total}/g, totalStr)
-              targetRight = userEvenPageHeaderRight.value.replace(/{total}/g, totalStr)
-            }
-
-            if (leftEl) leftEl.innerHTML = targetLeft.replace(/{page}/g, pageNum)
-            if (rightEl) rightEl.innerHTML = targetRight.replace(/{page}/g, pageNum)
-          }
-
-          if (footerEl) {
-            (footerEl as HTMLElement).style.marginBottom = footerMarginPx
-            const leftEl = footerEl.querySelector('.rm-page-footer-left') as HTMLElement
-            const rightEl = footerEl.querySelector('.rm-page-footer-right') as HTMLElement
-
-            if (leftEl) leftEl.innerHTML = defaultFLeft.replace(/{page}/g, pageNum)
-            if (rightEl) rightEl.innerHTML = defaultFRight.replace(/{page}/g, pageNum)
-          }
-        })
-      } else {
-        const headerElements = document.querySelectorAll('.rm-page-header')
-        const footerElements = document.querySelectorAll('.rm-page-footer')
-
-        headerElements.forEach((headerEl, idx) => {
-          (headerEl as HTMLElement).style.marginTop = headerMarginPx
-          const isFirst = idx === 0
-          const isEven = (idx + 1) % 2 === 0
-          const pageNum = getResolvedPageNumber(idx)
-
-          const leftEl = headerEl.querySelector('.rm-page-header-left') as HTMLElement
-          const rightEl = headerEl.querySelector('.rm-page-header-right') as HTMLElement
-
-          let targetLeft = defaultHLeft
-          let targetRight = defaultHRight
-
-          if (isDifferentFirstPage.value && isFirst) {
-            targetLeft = userFirstPageHeaderLeft.value.replace(/{total}/g, totalStr)
-            targetRight = userFirstPageHeaderRight.value.replace(/{total}/g, totalStr)
-          } else if (isDifferentOddEven.value && isEven) {
-            targetLeft = userEvenPageHeaderLeft.value.replace(/{total}/g, totalStr)
-            targetRight = userEvenPageHeaderRight.value.replace(/{total}/g, totalStr)
-          }
-
-          if (leftEl) leftEl.innerHTML = targetLeft.replace(/{page}/g, pageNum)
-          if (rightEl) rightEl.innerHTML = targetRight.replace(/{page}/g, pageNum)
-        })
-
-        footerElements.forEach((footerEl, idx) => {
-          (footerEl as HTMLElement).style.marginBottom = footerMarginPx
-          const pageNum = getResolvedPageNumber(idx)
-          const leftEl = footerEl.querySelector('.rm-page-footer-left') as HTMLElement
-          const rightEl = footerEl.querySelector('.rm-page-footer-right') as HTMLElement
-
-          if (leftEl) leftEl.innerHTML = defaultFLeft.replace(/{page}/g, pageNum)
-          if (rightEl) rightEl.innerHTML = defaultFRight.replace(/{page}/g, pageNum)
-        })
+      const applyHeader = (header: Element, pageNumber: number, firstPage: boolean) => {
+        const content = resolveHeader(pageNumber, firstPage)
+        const left = header.querySelector('.rm-page-header-left')
+        const right = header.querySelector('.rm-page-header-right')
+        if (left) left.innerHTML = content.left
+        if (right) right.innerHTML = content.right
       }
+
+      const firstHeader = root.querySelector('.rm-first-page-header')
+      if (firstHeader) applyHeader(firstHeader, 1, true)
+
+      Array.from(root.querySelectorAll('.rm-page-break .rm-page-header')).forEach((header, index) => {
+        applyHeader(header, index + 2, false)
+      })
+
+      Array.from(root.querySelectorAll('.rm-page-break .rm-page-footer')).forEach((footer, index) => {
+        const pageNumber = index + 1
+        const pageValue = getResolvedPageNumber(pageNumber - 1)
+        const left = footer.querySelector('.rm-page-footer-left')
+        const right = footer.querySelector('.rm-page-footer-right')
+        if (left) left.innerHTML = defaultFLeft.replace(/{page}/g, pageValue)
+        if (right) right.innerHTML = defaultFRight.replace(/{page}/g, pageValue)
+      })
     })
   }, 50)
 }
@@ -974,6 +969,7 @@ watch(isReady, (ready) => {
 
 watch(() => props.collaboration, () => {}, { deep: true })
 onUnmounted(() => {
+  finishHeaderEdit(false)
   if (saveTimer.value) clearTimeout(saveTimer.value)
   if (scrollTimeout) clearTimeout(scrollTimeout)
 })
@@ -1063,36 +1059,81 @@ function removeLink() {
 }
 const pageSetupSize = ref(pageSizeId.value)
 const pageSetupOrientation = ref(orientation.value)
-const pageSetupMargins = ref({ ...margins.value })
+const pageSetupMarginsCm = ref({
+  top: toCm(margins.value.top),
+  bottom: toCm(margins.value.bottom),
+  left: toCm(margins.value.left),
+  right: toCm(margins.value.right),
+})
+const PAGE_MARGIN_CM_MIN = 0
+const PAGE_MARGIN_CM_MAX = Number((PAGE_MARGIN_MAX / CM_TO_PX).toFixed(1))
+
+function toCm(px: number): number {
+  return Math.round((px / CM_TO_PX) * 10) / 10
+}
+
+function toPx(cm: number): number {
+  return Math.round(cm * CM_TO_PX)
+}
 
 const openPageSetupModal = () => {
   pageSetupSize.value = pageSizeId.value
   pageSetupOrientation.value = orientation.value
-  pageSetupMargins.value = { ...margins.value }
+  pageSetupMarginsCm.value = {
+    top: toCm(margins.value.top),
+    bottom: toCm(margins.value.bottom),
+    left: toCm(margins.value.left),
+    right: toCm(margins.value.right),
+  }
   showPageSetupModal.value = true
 }
 
 const applyPageSetup = () => {
-  const clampMargin = (value: unknown) => {
+  const clampCm = (value: unknown) => {
     const numericValue = typeof value === 'number' ? value : Number(value)
-    if (!Number.isFinite(numericValue)) return PAGE_MARGIN_MIN
-    return Math.min(PAGE_MARGIN_MAX, Math.max(PAGE_MARGIN_MIN, numericValue))
+    if (!Number.isFinite(numericValue)) return PAGE_MARGIN_CM_MIN
+    return Math.min(PAGE_MARGIN_CM_MAX, Math.max(PAGE_MARGIN_CM_MIN, numericValue))
   }
 
   pageSizeId.value = pageSetupSize.value
   orientation.value = pageSetupOrientation.value
-  pageSetupMargins.value = {
-    top: clampMargin(pageSetupMargins.value.top),
-    bottom: clampMargin(pageSetupMargins.value.bottom),
-    left: clampMargin(pageSetupMargins.value.left),
-    right: clampMargin(pageSetupMargins.value.right),
+  pageSetupMarginsCm.value = {
+    top: clampCm(pageSetupMarginsCm.value.top),
+    bottom: clampCm(pageSetupMarginsCm.value.bottom),
+    left: clampCm(pageSetupMarginsCm.value.left),
+    right: clampCm(pageSetupMarginsCm.value.right),
   }
-  margins.value = { ...pageSetupMargins.value }
+  margins.value = {
+    top: toPx(pageSetupMarginsCm.value.top),
+    bottom: toPx(pageSetupMarginsCm.value.bottom),
+    left: toPx(pageSetupMarginsCm.value.left),
+    right: toPx(pageSetupMarginsCm.value.right),
+  }
   emit('update:pageSize', pageSizeId.value)
+  emit('update:orientation', pageSetupOrientation.value)
+  emit('update:margins', { ...margins.value })
   showPageSetupModal.value = false
 }
 
 const isHeaderActive = ref(false)
+
+interface HeaderEditSession {
+  targetHeader: HTMLElement
+  overlay: HTMLElement
+  input: HTMLElement
+  activeBar: HTMLElement
+  generatedContent: HTMLElement | null
+  isFirstPage: boolean
+  pageIndex: number
+  onOutsideMouseDown: (event: MouseEvent) => void
+  onInputBlur: () => void
+  onResize: () => void
+  onScroll: () => void
+  onWindowScroll: () => void
+}
+
+const headerEditSession: { value: HeaderEditSession | null } = { value: null }
+
 const openHeaderFormatModal = () => {
   draftHeaderMarginCm.value = headerMarginCm.value
   draftFooterMarginCm.value = footerMarginCm.value
@@ -1102,12 +1143,18 @@ const openHeaderFormatModal = () => {
 }
 
 const applyHeaderFormat = () => {
-  headerMarginCm.value = draftHeaderMarginCm.value
-  footerMarginCm.value = draftFooterMarginCm.value
+  headerMarginCm.value = normalizeMarginCm(draftHeaderMarginCm.value)
+  footerMarginCm.value = normalizeMarginCm(draftFooterMarginCm.value)
+  draftHeaderMarginCm.value = headerMarginCm.value
+  draftFooterMarginCm.value = footerMarginCm.value
   isDifferentFirstPage.value = draftDifferentFirstPage.value
   isDifferentOddEven.value = draftDifferentOddEven.value
   showHeaderFormatModal.value = false
   applyHeaderFooter()
+  emit('update:header-footer-margins', {
+    headerMarginCm: headerMarginCm.value,
+    footerMarginCm: footerMarginCm.value,
+  })
   persistCurrentDoc()
 }
 
@@ -1154,213 +1201,264 @@ const clearHeaderContent = () => {
   isHeaderActive.value = false
 }
 
+const getHeaderEditValue = (pageNumber: number): string => {
+  const isFirstPage = pageNumber === 1
+  const isEvenPage = pageNumber % 2 === 0
+  if (isDifferentFirstPage.value && isFirstPage) return userFirstPageHeaderLeft.value
+  if (isDifferentOddEven.value && isEvenPage) return userEvenPageHeaderLeft.value
+  return userHeaderLeft.value
+}
+
+const finishHeaderEdit = (commit = true) => {
+  const session = headerEditSession.value
+  if (!session) return
+
+  const value = session.input.innerHTML.trim()
+  document.removeEventListener('mousedown', session.onOutsideMouseDown)
+  window.removeEventListener('resize', session.onResize)
+  window.removeEventListener('scroll', session.onWindowScroll)
+  scrollContainerRef.value?.removeEventListener('scroll', session.onScroll)
+  session.overlay.remove()
+  if (session.generatedContent) session.generatedContent.style.visibility = ''
+  session.targetHeader.classList.remove('rm-header-active')
+  headerEditSession.value = null
+  isHeaderActive.value = false
+
+  if (!commit) return
+
+  if (isDifferentFirstPage.value && session.isFirstPage) {
+    userFirstPageHeaderLeft.value = value
+  } else if (isDifferentOddEven.value && session.pageIndex % 2 === 0) {
+    userEvenPageHeaderLeft.value = value
+  } else {
+    userHeaderLeft.value = value
+  }
+
+  applyHeaderFooter()
+  persistCurrentDoc()
+}
+
+const positionHeaderEdit = (session: HeaderEditSession) => {
+  if (!session.targetHeader.parentNode || !editor.value) return
+
+  const root = editor.value.view.dom
+  const headerRect = session.targetHeader.getBoundingClientRect()
+  const paperRect = root.getBoundingClientRect()
+
+  // Later-page headers live inside the full-bleed page breaker, so their
+  // element rectangle spans the paper edge-to-edge while the header content
+  // is inset by the body margins (`.rm-page-header-left/right` float margins).
+  // Vertically the element reserves the whole top-margin zone and the text
+  // sits at the header margin inside it, so the overlay aligns to the
+  // CONTENT rectangle. The first-page header is absolutely positioned at the
+  // body margins with no padding, so its rectangle already is the content
+  // rectangle.
+  const paperStyle = getComputedStyle(root)
+  const bodyMarginLeft = parseFloat(paperStyle.getPropertyValue('--rm-margin-left')) || 0
+  const bodyMarginRight = parseFloat(paperStyle.getPropertyValue('--rm-margin-right')) || 0
+  const contentEl = session.targetHeader.querySelector('.rm-page-header-content')
+  const contentRect = contentEl?.getBoundingClientRect() ?? headerRect
+  const contentLeft = session.isFirstPage ? headerRect.left : headerRect.left + bodyMarginLeft
+  const contentRight = session.isFirstPage ? headerRect.right : headerRect.right - bodyMarginRight
+
+  const leftInset = Math.max(0, contentLeft - paperRect.left)
+  const rightInset = Math.max(0, paperRect.right - contentRight)
+
+  session.overlay.style.left = `${contentLeft}px`
+  session.overlay.style.top = `${contentRect.top}px`
+  session.overlay.style.width = `${Math.max(contentRight - contentLeft, 1)}px`
+  session.overlay.style.height = `${Math.max(contentRect.height, 24)}px`
+  session.activeBar.style.setProperty('--rm-header-bar-left', `${-leftInset}px`)
+  session.activeBar.style.setProperty('--rm-header-bar-width', `${paperRect.width}px`)
+  session.activeBar.style.setProperty('--rm-header-bar-padding-left', `${leftInset}px`)
+  session.activeBar.style.setProperty('--rm-header-bar-padding-right', `${rightInset}px`)
+}
+
 const startInlineHeaderEdit = (event?: MouseEvent) => {
+  const existing = headerEditSession.value
+  if (existing) {
+    const target = event?.target
+    if (!target || target instanceof Node && existing.targetHeader.contains(target)) return
+    finishHeaderEdit(false)
+  }
+
   let headerEl: HTMLElement | null = null
   if (event) {
     const target = event.target as HTMLElement | null
     headerEl = target?.closest('.rm-page-header, .rm-first-page-header') as HTMLElement | null
   }
   if (!headerEl) {
-    headerEl = document.querySelector('.rm-page-header, .rm-first-page-header') as HTMLElement | null
+    headerEl = editor.value?.view.dom.querySelector('.rm-first-page-header, .rm-page-header') as HTMLElement | null
   }
-  if (!headerEl) return
+  if (!headerEl || !editor.value) return
 
-  const targetHeader = headerEl
-  isHeaderActive.value = true
-  targetHeader.classList.add('rm-header-active')
-  let editableEl = targetHeader.querySelector('.rm-page-header-left') as HTMLElement | null
-  if (!editableEl) {
-    editableEl = document.createElement('div')
-    editableEl.className = 'rm-page-header-left'
-    targetHeader.prepend(editableEl)
-  }
+  const root = editor.value.view.dom
+  // Explicit page mapping: the first-page header widget is page 1; each
+  // `.rm-page-break .rm-page-header` is the header of a later page. Note the
+  // first-page header also carries the `rm-page-header` class, so a flat
+  // `.rm-page-header` query cannot be indexed for page numbers.
+  const isFirstPage = headerEl.classList.contains('rm-first-page-header')
+  const breakHeaders = Array.from(root.querySelectorAll<HTMLElement>('.rm-page-break .rm-page-header'))
+  const pageNumber = isFirstPage ? 1 : breakHeaders.indexOf(headerEl) + 2
+  if (!isFirstPage && pageNumber < 2) return
+  const generatedContent = headerEl.querySelector('.rm-page-header-content') as HTMLElement | null
+  if (generatedContent) generatedContent.style.visibility = 'hidden'
+  const input = document.createElement('div')
+  input.className = 'rm-header-edit-input'
+  input.contentEditable = 'true'
+  input.setAttribute('role', 'textbox')
+  input.setAttribute('aria-label', t('editor.headerFooter.header') || 'Header')
+  input.dataset.placeholder = t('editor.headerFooter.headerPlaceholder') || 'Header'
+  input.innerHTML = getHeaderEditValue(pageNumber)
 
-  editableEl.contentEditable = 'true'
-  editableEl.setAttribute('tabindex', '0')
-  editableEl.dataset.placeholder = t('editor.headerFooter.headerPlaceholder') || 'Header'
+  const overlay = document.createElement('div')
+  overlay.className = 'rm-header-edit-overlay'
+  overlay.appendChild(input)
 
-  // Prevent ProseMirror from intercepting keyboard events (backspace,
-  // delete, arrows, etc.) while editing header content.
-  editableEl.addEventListener('keydown', (e: KeyboardEvent) => {
-    e.stopPropagation()
-  })
-
-  editableEl.focus()
-
-  setTimeout(() => {
-    if (editableEl) {
-      const range = document.createRange()
-      const sel = window.getSelection()
-      range.selectNodeContents(editableEl)
-      range.collapse(false)
-      sel?.removeAllRanges()
-      sel?.addRange(range)
-    }
-  }, 10)
-
-  // Render Google Docs Header active bar at bottom edge of header
-  let activeBar = targetHeader.querySelector('.rm-google-docs-header-bar') as HTMLElement
-  if (!activeBar) {
-    activeBar = document.createElement('div')
-    activeBar.className = 'rm-google-docs-header-bar'
-    activeBar.innerHTML = `
-      <span class="rm-header-label">Header</span>
-      <div class="rm-header-right-tools">
-        <label class="rm-diff-label">
-          <input type="checkbox" class="rm-diff-cb" ${isDifferentFirstPage.value ? 'checked' : ''}>
-          <span>${t('editor.headerFooter.differentFirstPage') || 'Halaman pertama berbeda'}</span>
-        </label>
-        <div class="rm-options-wrapper">
-          <button type="button" class="rm-options-btn">
-            <span>${t('editor.headerFooter.options') || 'Opsi'}</span>
-            <span class="rm-arrow-icon" style="font-size: 8px;">▼</span>
-          </button>
-          <div class="rm-options-dropdown">
-            <button type="button" class="rm-opt-format">${t('editor.headerFooter.formatHeader') || 'Format header'}</button>
-            <button type="button" class="rm-opt-page-num">${t('editor.headerFooter.pageNumber') || 'Nomor halaman'}</button>
-            <button type="button" class="rm-opt-remove">${t('editor.headerFooter.removeHeader') || 'Hapus header'}</button>
-          </div>
+  const activeBar = document.createElement('div')
+  activeBar.className = 'rm-google-docs-header-bar'
+  activeBar.innerHTML = `
+    <span class="rm-header-label">${t('editor.headerFooter.header') || 'Header'}</span>
+    <div class="rm-header-right-tools">
+      <label class="rm-diff-label">
+        <input type="checkbox" class="rm-diff-cb" ${isDifferentFirstPage.value ? 'checked' : ''}>
+        <span>${t('editor.headerFooter.differentFirstPage') || 'Different first page'}</span>
+      </label>
+      <div class="rm-options-wrapper">
+        <button type="button" class="rm-options-btn">
+          <span>${t('editor.headerFooter.options') || 'Options'}</span>
+          <span class="rm-arrow-icon" style="font-size: 8px;">▼</span>
+        </button>
+        <div class="rm-options-dropdown">
+          <button type="button" class="rm-opt-format">${t('editor.headerFooter.formatHeader') || 'Header format'}</button>
+          <button type="button" class="rm-opt-page-num">${t('editor.headerFooter.pageNumber') || 'Page numbers'}</button>
+          <button type="button" class="rm-opt-remove">${t('editor.headerFooter.removeHeader') || 'Remove header'}</button>
         </div>
       </div>
-    `
-    targetHeader.appendChild(activeBar)
+    </div>
+  `
+  overlay.appendChild(activeBar)
+  document.body.appendChild(overlay)
 
-    activeBar.addEventListener('mousedown', (e) => {
-      e.stopPropagation()
-      e.preventDefault()
-    })
+  headerEl.classList.add('rm-header-active')
 
-    const cb = activeBar.querySelector('.rm-diff-cb') as HTMLInputElement
-    cb?.addEventListener('change', (e) => {
-      e.stopPropagation()
-      const isChecked = (e.target as HTMLInputElement).checked
-      if (isChecked) {
-        userFirstPageHeaderLeft.value = ''
-        userFirstPageHeaderRight.value = ''
-      }
-      isDifferentFirstPage.value = isChecked
-      applyHeaderFooter()
-    })
-
-    const optBtn = activeBar.querySelector('.rm-options-btn') as HTMLButtonElement
-    const dropdown = activeBar.querySelector('.rm-options-dropdown') as HTMLElement
-    const arrowIcon = activeBar.querySelector('.rm-arrow-icon') as HTMLElement
-
-    optBtn?.addEventListener('mousedown', (e) => {
-      e.stopPropagation()
-      e.preventDefault()
-    })
-
-    optBtn?.addEventListener('click', (e) => {
-      e.stopPropagation()
-      e.preventDefault()
-      const isOpen = dropdown.classList.toggle('is-open')
-      if (arrowIcon) arrowIcon.textContent = isOpen ? '▲' : '▼'
-    })
-
-    const optFormat = activeBar.querySelector('.rm-opt-format') as HTMLButtonElement
-    optFormat?.addEventListener('mousedown', (e) => {
-      e.stopPropagation()
-      e.preventDefault()
-    })
-    optFormat?.addEventListener('click', (e) => {
-      e.stopPropagation()
-      dropdown.classList.remove('is-open')
-      if (arrowIcon) arrowIcon.textContent = '▼'
-      openHeaderFormatModal()
-    })
-
-    const optPageNum = activeBar.querySelector('.rm-opt-page-num') as HTMLButtonElement
-    optPageNum?.addEventListener('mousedown', (e) => {
-      e.stopPropagation()
-      e.preventDefault()
-    })
-    optPageNum?.addEventListener('click', (e) => {
-      e.stopPropagation()
-      dropdown.classList.remove('is-open')
-      if (arrowIcon) arrowIcon.textContent = '▼'
-      openPageNumberModal()
-    })
-
-    const optRemove = activeBar.querySelector('.rm-opt-remove') as HTMLButtonElement
-    optRemove?.addEventListener('mousedown', (e) => {
-      e.stopPropagation()
-      e.preventDefault()
-    })
-    optRemove?.addEventListener('click', (e) => {
-      e.stopPropagation()
-      dropdown.classList.remove('is-open')
-      if (arrowIcon) arrowIcon.textContent = '▼'
-      clearHeaderContent()
+  const onResize = () => {
+    const current = headerEditSession.value
+    if (current) positionHeaderEdit(current)
+  }
+  const onScroll = onResize
+  const onWindowScroll = onResize
+  const onOutsideMouseDown = (mouseEvent: MouseEvent) => {
+    const target = mouseEvent.target
+    if (target instanceof Node && overlay.contains(target)) return
+    if (target instanceof Element && target.closest('.fixed.z-50')) return
+    finishHeaderEdit(true)
+  }
+  const onInputBlur = () => {
+    requestAnimationFrame(() => {
+      const current = headerEditSession.value
+      if (current && !current.overlay.contains(document.activeElement)) finishHeaderEdit(true)
     })
   }
 
-  const handleOutsideClick = (e: MouseEvent) => {
-    const targetNode = e.target as Node | null
-    if (!targetNode) return
-    if (targetHeader.contains(targetNode)) return
-    if (activeBar && activeBar.contains(targetNode)) return
-    if ((targetNode as HTMLElement).closest('.rm-google-docs-header-bar, .rm-options-dropdown, .fixed.z-50')) return
-    // Don't deactivate header while a modal triggered from the header bar is open
-    if (showHeaderFormatModal.value || showPageNumberModal.value) return
+  const session: HeaderEditSession = {
+    targetHeader: headerEl,
+    overlay,
+    input,
+    activeBar,
+    generatedContent,
+    isFirstPage,
+    pageIndex: pageNumber,
+    onOutsideMouseDown,
+    onInputBlur,
+    onResize,
+    onScroll,
+    onWindowScroll,
+  }
+  headerEditSession.value = session
+  isHeaderActive.value = true
 
-    editableEl.contentEditable = 'false'
-    targetHeader.classList.remove('rm-header-active')
-    if (activeBar) activeBar.remove()
-    isHeaderActive.value = false
-
-    const allHeaders = Array.from(document.querySelectorAll('.rm-page-header'))
-    const pageIndex = allHeaders.indexOf(targetHeader)
-    const isFirstPage = pageIndex === 0
-    const isEvenPage = (pageIndex + 1) % 2 === 0
-
-    if (isDifferentFirstPage.value && isFirstPage) {
-      userFirstPageHeaderLeft.value = editableEl.innerHTML
-    } else if (isDifferentOddEven.value && isEvenPage) {
-      userEvenPageHeaderLeft.value = editableEl.innerHTML
-    } else {
-      userHeaderLeft.value = editableEl.innerHTML
+  const checkbox = activeBar.querySelector('.rm-diff-cb') as HTMLInputElement | null
+  checkbox?.addEventListener('mousedown', (mouseEvent) => {
+    mouseEvent.stopPropagation()
+  })
+  checkbox?.addEventListener('change', (changeEvent) => {
+    changeEvent.stopPropagation()
+    const checked = (changeEvent.target as HTMLInputElement).checked
+    finishHeaderEdit(true)
+    if (checked) {
+      userFirstPageHeaderLeft.value = ''
+      userFirstPageHeaderRight.value = ''
     }
-
+    isDifferentFirstPage.value = checked
     applyHeaderFooter()
-    persistCurrentDoc()
-    document.removeEventListener('mousedown', handleOutsideClick)
-  }
+  })
 
-  setTimeout(() => {
-    document.addEventListener('mousedown', handleOutsideClick)
-  }, 50)
+  const optionsButton = activeBar.querySelector('.rm-options-btn') as HTMLButtonElement | null
+  const dropdown = activeBar.querySelector('.rm-options-dropdown') as HTMLElement | null
+  const arrow = activeBar.querySelector('.rm-arrow-icon') as HTMLElement | null
+  optionsButton?.addEventListener('mousedown', (mouseEvent) => {
+    mouseEvent.stopPropagation()
+    mouseEvent.preventDefault()
+  })
+  optionsButton?.addEventListener('click', (clickEvent) => {
+    clickEvent.stopPropagation()
+    clickEvent.preventDefault()
+    const open = dropdown?.classList.toggle('is-open') ?? false
+    if (arrow) arrow.textContent = open ? '▲' : '▼'
+  })
 
-  const stopEditing = (e: FocusEvent) => {
-    const rel = e.relatedTarget as HTMLElement | null
-    if (activeBar && (activeBar.contains(rel) || rel?.closest('.rm-google-docs-header-bar, .rm-options-dropdown'))) return
-    // Don't deactivate header while a modal triggered from the header bar is open
-    if (showHeaderFormatModal.value || showPageNumberModal.value) return
-    editableEl.contentEditable = 'false'
-    targetHeader.classList.remove('rm-header-active')
-    if (activeBar) activeBar.remove()
-    isHeaderActive.value = false
+  const formatButton = activeBar.querySelector('.rm-opt-format') as HTMLButtonElement | null
+  formatButton?.addEventListener('mousedown', (mouseEvent) => {
+    mouseEvent.stopPropagation()
+    mouseEvent.preventDefault()
+  })
+  formatButton?.addEventListener('click', (clickEvent) => {
+    clickEvent.stopPropagation()
+    finishHeaderEdit(true)
+    openHeaderFormatModal()
+  })
 
-    const allHeaders = Array.from(document.querySelectorAll('.rm-page-header'))
-    const pageIndex = allHeaders.indexOf(targetHeader)
-    const isFirstPage = pageIndex === 0
-    const isEvenPage = (pageIndex + 1) % 2 === 0
+  const pageNumberButton = activeBar.querySelector('.rm-opt-page-num') as HTMLButtonElement | null
+  pageNumberButton?.addEventListener('mousedown', (mouseEvent) => {
+    mouseEvent.stopPropagation()
+    mouseEvent.preventDefault()
+  })
+  pageNumberButton?.addEventListener('click', (clickEvent) => {
+    clickEvent.stopPropagation()
+    finishHeaderEdit(true)
+    openPageNumberModal()
+  })
 
-    if (isDifferentFirstPage.value && isFirstPage) {
-      userFirstPageHeaderLeft.value = editableEl.innerHTML
-    } else if (isDifferentOddEven.value && isEvenPage) {
-      userEvenPageHeaderLeft.value = editableEl.innerHTML
-    } else {
-      userHeaderLeft.value = editableEl.innerHTML
-    }
+  const removeButton = activeBar.querySelector('.rm-opt-remove') as HTMLButtonElement | null
+  removeButton?.addEventListener('mousedown', (mouseEvent) => {
+    mouseEvent.stopPropagation()
+    mouseEvent.preventDefault()
+  })
+  removeButton?.addEventListener('click', (clickEvent) => {
+    clickEvent.stopPropagation()
+    finishHeaderEdit(false)
+    clearHeaderContent()
+  })
 
-    applyHeaderFooter()
-    persistCurrentDoc()
-    editableEl.removeEventListener('blur', stopEditing)
-    document.removeEventListener('mousedown', handleOutsideClick)
-  }
+  input.addEventListener('blur', onInputBlur)
+  document.addEventListener('mousedown', onOutsideMouseDown)
+  window.addEventListener('resize', onResize)
+  window.addEventListener('scroll', onWindowScroll)
+  scrollContainerRef.value?.addEventListener('scroll', onScroll)
+  // Position once the DOM/layout has settled (PaginationPlus may still be
+  // rebuilding its generated widgets when the edit session starts).
+  requestAnimationFrame(() => {
+    if (headerEditSession.value === session) positionHeaderEdit(session)
+  })
+  input.focus()
 
-  editableEl.addEventListener('blur', stopEditing)
+  const selection = window.getSelection()
+  const range = document.createRange()
+  range.selectNodeContents(input)
+  range.collapse(false)
+  selection?.removeAllRanges()
+  selection?.addRange(range)
 }
 
 const openFooterModal = () => {
@@ -1930,7 +2028,7 @@ v-if="!focusMode"
       <div ref="scrollContainerRef" class="docs-editor-scroll relative flex flex-1 overflow-auto px-4 py-6 bg-slate-100 dark:bg-[#02040a]" @scroll="handleScroll">
         <VerticalRuler v-if="showRuler && !focusMode" :layout-options="resolvedLayoutOptions" />
         <div class="flex flex-1 flex-col items-center gap-4 w-full relative">
-          <div class="relative w-full max-w-[794px]">
+          <div class="relative w-full" :style="{ maxWidth: paperMaxWidth }">
             <!-- Virtual Page Overlay (experimental) — renders only visible pages.
                  Positioned absolutely over the editor, behind content (z-index: 0) -->
             <VirtualPageOverlay
@@ -2062,12 +2160,16 @@ v-if="!focusMode"
           <h3 class="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-3">{{ t('editor.headerFooter.marginSection') }}</h3>
           <div class="space-y-4">
             <div>
-              <label class="text-xs font-medium text-slate-600 dark:text-slate-400 block mb-1.5">{{ t('editor.headerFooter.headerTopMargin') }}</label>
-              <input v-model="draftHeaderMarginCm" type="number" step="0.01" class="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a2332] px-3.5 py-2 text-sm text-slate-800 dark:text-slate-100 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 focus:outline-none transition-all" />
+              <label class="text-xs font-medium text-slate-600 dark:text-slate-400 block mb-1.5">
+                {{ t('editor.headerFooter.headerTopMargin') }} (cm)
+              </label>
+              <input v-model.number="draftHeaderMarginCm" type="number" :min="HEADER_MARGIN_CM_MIN" :max="HEADER_MARGIN_CM_MAX" :step="HEADER_MARGIN_CM_STEP" class="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a2332] px-3.5 py-2 text-sm text-slate-800 dark:text-slate-100 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 focus:outline-none transition-all" />
             </div>
             <div>
-              <label class="text-xs font-medium text-slate-600 dark:text-slate-400 block mb-1.5">{{ t('editor.headerFooter.footerBottomMargin') }}</label>
-              <input v-model="draftFooterMarginCm" type="number" step="0.01" class="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a2332] px-3.5 py-2 text-sm text-slate-800 dark:text-slate-100 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 focus:outline-none transition-all" />
+              <label class="text-xs font-medium text-slate-600 dark:text-slate-400 block mb-1.5">
+                {{ t('editor.headerFooter.footerBottomMargin') }} (cm)
+              </label>
+              <input v-model.number="draftFooterMarginCm" type="number" :min="HEADER_MARGIN_CM_MIN" :max="HEADER_MARGIN_CM_MAX" :step="HEADER_MARGIN_CM_STEP" class="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a2332] px-3.5 py-2 text-sm text-slate-800 dark:text-slate-100 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 focus:outline-none transition-all" />
             </div>
           </div>
         </div>
@@ -2214,23 +2316,23 @@ v-if="!focusMode"
 
         <!-- Margins -->
         <div class="mb-6">
-          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{{ t('editor.pageSetup.margins') }}</label>
+          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{{ t('editor.pageSetup.margins') }} (cm)</label>
           <div class="grid grid-cols-2 gap-3">
             <div>
               <label class="text-[11px] text-slate-500 dark:text-slate-400 block mb-1">{{ t('editor.pageSetup.top') }}</label>
-              <input v-model.number="pageSetupMargins.top" type="number" :min="PAGE_MARGIN_MIN" :max="PAGE_MARGIN_MAX" class="w-full rounded-md border border-slate-200 bg-transparent px-3 py-1.5 text-xs focus:outline-none dark:border-slate-700">
+              <input v-model.number="pageSetupMarginsCm.top" type="number" :min="PAGE_MARGIN_CM_MIN" :max="PAGE_MARGIN_CM_MAX" step="0.1" class="w-full rounded-md border border-slate-200 bg-transparent px-3 py-1.5 text-xs focus:outline-none dark:border-slate-700">
             </div>
             <div>
               <label class="text-[11px] text-slate-500 dark:text-slate-400 block mb-1">{{ t('editor.pageSetup.bottom') }}</label>
-              <input v-model.number="pageSetupMargins.bottom" type="number" :min="PAGE_MARGIN_MIN" :max="PAGE_MARGIN_MAX" class="w-full rounded-md border border-slate-200 bg-transparent px-3 py-1.5 text-xs focus:outline-none dark:border-slate-700">
+              <input v-model.number="pageSetupMarginsCm.bottom" type="number" :min="PAGE_MARGIN_CM_MIN" :max="PAGE_MARGIN_CM_MAX" step="0.1" class="w-full rounded-md border border-slate-200 bg-transparent px-3 py-1.5 text-xs focus:outline-none dark:border-slate-700">
             </div>
             <div>
               <label class="text-[11px] text-slate-500 dark:text-slate-400 block mb-1">{{ t('editor.pageSetup.left') }}</label>
-              <input v-model.number="pageSetupMargins.left" type="number" :min="PAGE_MARGIN_MIN" :max="PAGE_MARGIN_MAX" class="w-full rounded-md border border-slate-200 bg-transparent px-3 py-1.5 text-xs focus:outline-none dark:border-slate-700">
+              <input v-model.number="pageSetupMarginsCm.left" type="number" :min="PAGE_MARGIN_CM_MIN" :max="PAGE_MARGIN_CM_MAX" step="0.1" class="w-full rounded-md border border-slate-200 bg-transparent px-3 py-1.5 text-xs focus:outline-none dark:border-slate-700">
             </div>
             <div>
               <label class="text-[11px] text-slate-500 dark:text-slate-400 block mb-1">{{ t('editor.pageSetup.right') }}</label>
-              <input v-model.number="pageSetupMargins.right" type="number" :min="PAGE_MARGIN_MIN" :max="PAGE_MARGIN_MAX" class="w-full rounded-md border border-slate-200 bg-transparent px-3 py-1.5 text-xs focus:outline-none dark:border-slate-700">
+              <input v-model.number="pageSetupMarginsCm.right" type="number" :min="PAGE_MARGIN_CM_MIN" :max="PAGE_MARGIN_CM_MAX" step="0.1" class="w-full rounded-md border border-slate-200 bg-transparent px-3 py-1.5 text-xs focus:outline-none dark:border-slate-700">
             </div>
           </div>
         </div>
