@@ -140,6 +140,58 @@ describe('DocsEditor', () => {
     wrapper.unmount()
   })
 
+  it('renders task list content with an inline checkbox and text column', async () => {
+    const { listsPlugin } = await import('../../../plugins/src/lists')
+    const wrapper = mount(DocsEditor, {
+      props: {
+        plugins: [listsPlugin],
+        modelValue: {
+          type: 'doc',
+          content: [{
+            type: 'taskList',
+            content: [{
+              type: 'taskItem',
+              attrs: { checked: false },
+              content: [{
+                type: 'paragraph',
+                content: [{ type: 'text', text: 'Task item' }],
+              }],
+            }],
+          }],
+        },
+      },
+    })
+    await new Promise((resolve) => setTimeout(resolve, 50))
+
+    const vm = wrapper.vm as unknown as {
+      editor?: { commands: { setContent: (content: object) => void } }
+    }
+    vm.editor?.commands.setContent({
+      type: 'doc',
+      content: [{
+        type: 'taskList',
+        content: [{
+          type: 'taskItem',
+          attrs: { checked: false },
+          content: [{
+            type: 'paragraph',
+            content: [{ type: 'text', text: 'Task item' }],
+          }],
+        }],
+      }],
+    })
+    await wrapper.vm.$nextTick()
+    const taskItem = wrapper.element.querySelector('ul[data-type="taskList"] > li')
+    expect(taskItem).not.toBeNull()
+    const label = taskItem?.querySelector('label')
+    const content = taskItem?.querySelector(':scope > div')
+
+    expect(label?.querySelector('input[type="checkbox"]')).not.toBeNull()
+    expect(content?.querySelector(':scope > p')?.textContent).toBe('Task item')
+
+    wrapper.unmount()
+  })
+
   it('can insert footnote and render its ref element', async () => {
     const { footnotePlugin } = await import('../../../plugins/src/footnote')
     const wrapper = mount(DocsEditor, {
