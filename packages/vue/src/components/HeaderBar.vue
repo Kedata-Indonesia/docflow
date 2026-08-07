@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, computed, onMounted, onUnmounted } from 'vue'
+import { ref, watch, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { Star, Share2, Users, ChevronDown, MoreVertical, Check } from 'lucide-vue-next'
 import type { Collaborator } from '../types.js'
 import ThemeToggle from './ThemeToggle.vue'
@@ -56,11 +56,19 @@ const emit = defineEmits<{
 
 const isRenaming = ref(false)
 const titleInput = ref(props.title)
+const titleInputEl = ref<HTMLInputElement | null>(null)
 const activeMenu = ref<string | null>(null)
 
 watch(() => props.title, (next) => {
   titleInput.value = next
 })
+
+const startRenaming = async () => {
+  isRenaming.value = true
+  await nextTick()
+  titleInputEl.value?.focus()
+  titleInputEl.value?.select()
+}
 
 const handleSaveTitle = () => {
   const trimmed = titleInput.value.trim()
@@ -309,7 +317,7 @@ const handleMenuAction = (action: string) => {
     emit('toggle-star')
     activeMenu.value = null
   } else if (action === 'rename') {
-    isRenaming.value = true
+    void startRenaming()
     activeMenu.value = null
   } else if (action.startsWith('set-locale:')) {
     const loc = action.replace('set-locale:', '') as 'en' | 'id'
@@ -361,6 +369,7 @@ onUnmounted(() => document.removeEventListener('click', closeMenus, true))
           <div class="flex items-center gap-1.5">
             <input
               v-if="isRenaming"
+              ref="titleInputEl"
               v-model="titleInput"
               type="text"
               class="min-w-[150px] border-b-2 border-cyan-500 bg-transparent px-1 py-0 text-sm font-semibold text-slate-800 focus:outline-none dark:text-slate-100 md:min-w-[240px]"
@@ -371,7 +380,7 @@ onUnmounted(() => document.removeEventListener('click', closeMenus, true))
               v-else
               class="max-w-[180px] cursor-text truncate rounded px-1 py-0 text-sm font-semibold text-slate-800 hover:bg-slate-50 dark:text-slate-100 dark:hover:bg-slate-800/60 md:max-w-[280px]"
               :title="t('header.clickToRename')"
-              @click="isRenaming = true"
+              @click="void startRenaming()"
             >
               {{ props.title }}
             </h1>
