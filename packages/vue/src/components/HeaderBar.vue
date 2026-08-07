@@ -90,6 +90,19 @@ const handleExport = (format: 'markdown' | 'html' | 'html-zip' | 'txt' | 'docx' 
 const currentUserInitials = computed(() => getInitials(props.userName) || '?')
 const avatarError = ref(false)
 
+// Platform detection — used to show OS-appropriate shortcut hints (⌘ on Mac, Ctrl+ elsewhere).
+const isMac = typeof navigator !== 'undefined' && /mac/i.test(navigator.platform)
+
+/**
+ * Returns a platform-appropriate modifier shortcut hint.
+ * Pass the key portion after the modifier, e.g. `'Z'`, `'⇧V'`.
+ * On Mac:     `⌘Z`, `⌘⇧V`
+ * On Windows/Linux: `Ctrl+Z`, `Ctrl+Shift+V`
+ */
+function modKey(key: string): string {
+  return isMac ? `⌘${key}` : `Ctrl+${key.replace('⇧', 'Shift+')}`
+}
+
 // Menu structure
 interface MenuItem {
   label: string
@@ -148,18 +161,18 @@ const menus = computed<Record<string, { label: string; items: MenuItem[] }>>(() 
   Edit: {
     label: t('header.edit'),
     items: [
-      { label: t('header.undo'), action: 'undo', shortcut: '⌘Z' },
-      { label: t('header.redo'), action: 'redo', shortcut: '⌘Y' },
+      { label: t('header.undo'), action: 'undo', shortcut: modKey('Z') },
+      { label: t('header.redo'), action: 'redo', shortcut: modKey('Y') },
       { label: 'divider', divider: true },
-      { label: t('header.cut'), action: 'cut', shortcut: '⌘X' },
-      { label: t('header.copy'), action: 'copy', shortcut: '⌘C' },
-      { label: t('header.paste'), action: 'paste', shortcut: '⌘V' },
-      { label: t('header.pasteWithoutFormatting'), action: 'paste-without-formatting', shortcut: '⌘⇧V' },
+      { label: t('header.cut'), action: 'cut', shortcut: modKey('X') },
+      { label: t('header.copy'), action: 'copy', shortcut: modKey('C') },
+      { label: t('header.paste'), action: 'paste', shortcut: modKey('V') },
+      { label: t('header.pasteWithoutFormatting'), action: 'paste-without-formatting', shortcut: modKey('⇧V') },
       { label: 'divider', divider: true },
-      { label: t('header.selectAll'), action: 'select-all', shortcut: '⌘A' },
+      { label: t('header.selectAll'), action: 'select-all', shortcut: modKey('A') },
       { label: t('header.delete'), action: 'delete' },
       { label: 'divider', divider: true },
-      { label: t('header.findAndReplace'), action: 'find-replace', shortcut: '⌘⇧H' },
+      { label: t('header.findAndReplace'), action: 'find-replace', shortcut: modKey('⇧H') },
     ],
   },
   View: {
@@ -181,7 +194,7 @@ const menus = computed<Record<string, { label: string; items: MenuItem[] }>>(() 
       { label: t('header.table'), action: 'insert-table' },
       { label: t('header.codeBlock'), action: 'insert-code' },
       { label: 'divider', divider: true },
-      { label: t('header.link'), action: 'insert-link', shortcut: '⌘K' },
+      { label: t('header.link'), action: 'insert-link', shortcut: modKey('K') },
       { label: 'divider', divider: true },
       { label: t('header.header'), action: 'insert-header' },
       { label: t('header.footer'), action: 'insert-footer' },
