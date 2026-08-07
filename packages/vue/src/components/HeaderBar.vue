@@ -58,6 +58,12 @@ const isRenaming = ref(false)
 const titleInput = ref(props.title)
 const titleInputEl = ref<HTMLInputElement | null>(null)
 const activeMenu = ref<string | null>(null)
+// Menu-bar navigation mode: once the user opens a top-level menu (via click),
+// subsequent `mouseenter` events on neighboring menus switch the active menu
+// without requiring a second click. Mirrors Google Docs / Word Web behavior.
+// Exit conditions: clicking the active menu again, clicking outside the menu
+// bar, pressing Escape, or dispatching the chosen menu action.
+const menuNavActive = ref(false)
 
 watch(() => props.title, (next) => {
   titleInput.value = next
@@ -282,8 +288,10 @@ const menuKeys = computed(() => Object.keys(menus.value))
 const hoveredSub = ref<string | null>(null)
 
 const toggleMenu = (key: string) => {
-  activeMenu.value = activeMenu.value === key ? null : key
+  const opening = activeMenu.value !== key
+  activeMenu.value = opening ? key : null
   hoveredSub.value = null
+  menuNavActive.value = opening
 }
 
 // Overflow ('More') menu for secondary actions on small screens.
@@ -326,6 +334,7 @@ const handleMenuAction = (action: string) => {
     emit('menu-click', action)
   }
   hoveredSub.value = null
+  menuNavActive.value = false
 }
 
 const closeMenus = (e: MouseEvent) => {
@@ -333,6 +342,7 @@ const closeMenus = (e: MouseEvent) => {
   if (!target.closest('.header-menu-container')) {
     activeMenu.value = null
     hoveredSub.value = null
+    menuNavActive.value = false
   }
   if (!target.closest('.header-more-container')) {
     moreOpen.value = false
@@ -342,8 +352,30 @@ const closeMenus = (e: MouseEvent) => {
   }
 }
 
-onMounted(() => document.addEventListener('click', closeMenus, true))
-onUnmounted(() => document.removeEventListener('click', closeMenus, true))
+function onMenuBarMouseEnter(key: string) {
+  if (!menuNavActive.value) return
+  if (activeMenu.value === key) return
+  activeMenu.value = key
+  hoveredSub.value = null
+}
+
+function handleMenuKeydown(e: KeyboardEvent) {
+  if (!activeMenu.value) return
+  if (e.key === 'Escape') {
+    activeMenu.value = null
+    hoveredSub.value = null
+    menuNavActive.value = false
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('click', closeMenus, true)
+  document.addEventListener('keydown', handleMenuKeydown)
+})
+onUnmounted(() => {
+  document.removeEventListener('click', closeMenus, true)
+  document.removeEventListener('keydown', handleMenuKeydown)
+})
 </script>
 
 <template>
@@ -409,6 +441,7 @@ onUnmounted(() => document.removeEventListener('click', closeMenus, true))
                   ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
                   : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800'"
                 @click.stop="toggleMenu(key)"
+                @mouseenter="onMenuBarMouseEnter(key)"
               >
                 {{ menus[key].label }}
               </button>
