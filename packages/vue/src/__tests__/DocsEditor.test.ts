@@ -381,6 +381,41 @@ describe('DocsEditor', () => {
     wrapper.unmount()
   })
 
+  it('clamps Page Setup margins to the supported range only on Apply', async () => {
+    const wrapper = mount(DocsEditor, {
+      props: { plugins: defaultPlugins },
+    })
+    await new Promise((resolve) => setTimeout(resolve, 50))
+
+    const vm = wrapper.vm as unknown as {
+      margins: { top: number; bottom: number; left: number; right: number }
+      pageSetupMargins: { top: number; bottom: number; left: number; right: number }
+      showPageSetupModal: boolean
+      openPageSetupModal: () => void
+      applyPageSetup: () => void
+    }
+
+    vm.openPageSetupModal()
+    await wrapper.vm.$nextTick()
+    expect(vm.showPageSetupModal).toBe(true)
+
+    vm.pageSetupMargins.top = -20
+    vm.pageSetupMargins.bottom = 250
+    vm.pageSetupMargins.left = Number.NaN
+    vm.pageSetupMargins.right = Number.POSITIVE_INFINITY
+
+    expect(vm.margins).toEqual({ top: 72, bottom: 72, left: 90, right: 90 })
+
+    vm.applyPageSetup()
+    await wrapper.vm.$nextTick()
+
+    expect(vm.margins).toEqual({ top: 0, bottom: 100, left: 0, right: 0 })
+    expect(vm.showPageSetupModal).toBe(false)
+    expect(vm.pageSetupMargins).toEqual({ top: 0, bottom: 100, left: 0, right: 0 })
+
+    wrapper.unmount()
+  })
+
   it('supports Page Number modal settings with draft states (position, start at, show on first page)', async () => {
     const wrapper = mount(DocsEditor, {
       props: { plugins: defaultPlugins },
