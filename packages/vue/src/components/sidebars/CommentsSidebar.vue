@@ -43,7 +43,6 @@ function handleSubmitComment() {
     props.selectedTextSnippet,
     props.selectedTextIndex,
   )
-  commentInput.value = ''
 }
 
 function handleSubmitReply(commentId: string) {
