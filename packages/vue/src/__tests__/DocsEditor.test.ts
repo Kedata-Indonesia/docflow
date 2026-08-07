@@ -94,6 +94,39 @@ describe('DocsEditor', () => {
     wrapper.unmount()
   })
 
+  it('anchors the bubble menu to the active selection endpoint', async () => {
+    const wrapper = mount(DocsEditor, {
+      props: { plugins: defaultPlugins },
+    })
+    await new Promise((resolve) => setTimeout(resolve, 50))
+
+    const vm = wrapper.vm as unknown as {
+      editor?: {
+        commands: {
+          setContent: (content: object) => boolean
+          setTextSelection: (selection: { from: number; to: number }) => boolean
+        }
+        view: { coordsAtPos: (pos: number) => { top: number; left: number; right: number } }
+      }
+      computeBubblePosition: () => { top: number; left: number } | null
+    }
+
+    expect(vm.editor).toBeDefined()
+    vm.editor!.commands.setContent({
+      type: 'doc',
+      content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Selection test content' }] }],
+    })
+    vm.editor!.commands.setTextSelection({ from: 2, to: 8 })
+    vm.editor!.view.coordsAtPos = (pos) => ({ top: 100, left: pos * 10, right: pos * 10 + 4 })
+
+    const position = vm.computeBubblePosition()
+
+    // Coordinates are clamped to keep the toolbar visible in the viewport;
+    // the near-left coordinate is raised to the minimum safe center point.
+    expect(position).toEqual({ top: 52, left: 192 })
+    wrapper.unmount()
+  })
+
   it('renders page view with real content text', async () => {
     const wrapper = mount(DocsEditor, {
       props: { plugins: defaultPlugins },
