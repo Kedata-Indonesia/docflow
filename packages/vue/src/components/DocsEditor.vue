@@ -151,6 +151,8 @@ watch(currentLocale, (next) => {
 // ─── Page Size ────────────────────────────────────────────────────────────────
 
 const margins = ref({ top: 72, bottom: 72, left: 90, right: 90 })
+const PAGE_MARGIN_MIN = 0
+const PAGE_MARGIN_MAX = 100
 const orientation = ref<'portrait' | 'landscape'>('portrait')
 
 const pageSizeId = ref(props.pageSize ?? 'a4')
@@ -1050,8 +1052,20 @@ const openPageSetupModal = () => {
 }
 
 const applyPageSetup = () => {
+  const clampMargin = (value: unknown) => {
+    const numericValue = typeof value === 'number' ? value : Number(value)
+    if (!Number.isFinite(numericValue)) return PAGE_MARGIN_MIN
+    return Math.min(PAGE_MARGIN_MAX, Math.max(PAGE_MARGIN_MIN, numericValue))
+  }
+
   pageSizeId.value = pageSetupSize.value
   orientation.value = pageSetupOrientation.value
+  pageSetupMargins.value = {
+    top: clampMargin(pageSetupMargins.value.top),
+    bottom: clampMargin(pageSetupMargins.value.bottom),
+    left: clampMargin(pageSetupMargins.value.left),
+    right: clampMargin(pageSetupMargins.value.right),
+  }
   margins.value = { ...pageSetupMargins.value }
   emit('update:pageSize', pageSizeId.value)
   showPageSetupModal.value = false
@@ -2183,19 +2197,19 @@ v-if="!focusMode"
           <div class="grid grid-cols-2 gap-3">
             <div>
               <label class="text-[11px] text-slate-500 dark:text-slate-400 block mb-1">{{ t('editor.pageSetup.top') }}</label>
-              <input v-model.number="pageSetupMargins.top" type="number" min="0" class="w-full rounded-md border border-slate-200 bg-transparent px-3 py-1.5 text-xs focus:outline-none dark:border-slate-700">
+              <input v-model.number="pageSetupMargins.top" type="number" :min="PAGE_MARGIN_MIN" :max="PAGE_MARGIN_MAX" class="w-full rounded-md border border-slate-200 bg-transparent px-3 py-1.5 text-xs focus:outline-none dark:border-slate-700">
             </div>
             <div>
               <label class="text-[11px] text-slate-500 dark:text-slate-400 block mb-1">{{ t('editor.pageSetup.bottom') }}</label>
-              <input v-model.number="pageSetupMargins.bottom" type="number" min="0" class="w-full rounded-md border border-slate-200 bg-transparent px-3 py-1.5 text-xs focus:outline-none dark:border-slate-700">
+              <input v-model.number="pageSetupMargins.bottom" type="number" :min="PAGE_MARGIN_MIN" :max="PAGE_MARGIN_MAX" class="w-full rounded-md border border-slate-200 bg-transparent px-3 py-1.5 text-xs focus:outline-none dark:border-slate-700">
             </div>
             <div>
               <label class="text-[11px] text-slate-500 dark:text-slate-400 block mb-1">{{ t('editor.pageSetup.left') }}</label>
-              <input v-model.number="pageSetupMargins.left" type="number" min="0" class="w-full rounded-md border border-slate-200 bg-transparent px-3 py-1.5 text-xs focus:outline-none dark:border-slate-700">
+              <input v-model.number="pageSetupMargins.left" type="number" :min="PAGE_MARGIN_MIN" :max="PAGE_MARGIN_MAX" class="w-full rounded-md border border-slate-200 bg-transparent px-3 py-1.5 text-xs focus:outline-none dark:border-slate-700">
             </div>
             <div>
               <label class="text-[11px] text-slate-500 dark:text-slate-400 block mb-1">{{ t('editor.pageSetup.right') }}</label>
-              <input v-model.number="pageSetupMargins.right" type="number" min="0" class="w-full rounded-md border border-slate-200 bg-transparent px-3 py-1.5 text-xs focus:outline-none dark:border-slate-700">
+              <input v-model.number="pageSetupMargins.right" type="number" :min="PAGE_MARGIN_MIN" :max="PAGE_MARGIN_MAX" class="w-full rounded-md border border-slate-200 bg-transparent px-3 py-1.5 text-xs focus:outline-none dark:border-slate-700">
             </div>
           </div>
         </div>
