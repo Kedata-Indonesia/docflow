@@ -462,11 +462,32 @@ const updateCounts = () => {
 
 const computeBubblePosition = (): { top: number; left: number } | null => {
   if (!editor.value) return null
-  const { from, to } = editor.value.state.selection
+  const { from, to, head } = editor.value.state.selection
   if (from === to) return null
-  const coords = editor.value.view.coordsAtPos(from)
+  const coords = editor.value.view.coordsAtPos(head)
   if (!coords) return null
-  return { top: coords.top - 48, left: coords.left + (coords.right - coords.left) / 2 }
+
+  const viewportMargin = 12
+  const estimatedMenuHalfWidth = 180
+  const top = coords.top - 48
+  const left = (coords.left + coords.right) / 2
+
+  if (typeof window === 'undefined') {
+    return { top: Math.max(viewportMargin, top), left }
+  }
+
+  const halfWidth = Math.min(
+    estimatedMenuHalfWidth,
+    Math.max(0, window.innerWidth / 2 - viewportMargin),
+  )
+  const minLeft = viewportMargin + halfWidth
+  const maxLeft = window.innerWidth - viewportMargin - halfWidth
+  const maxTop = Math.max(viewportMargin, window.innerHeight - 48)
+
+  return {
+    top: Math.min(maxTop, Math.max(viewportMargin, top)),
+    left: Math.min(maxLeft, Math.max(minLeft, left)),
+  }
 }
 
 const updateBubbleMenu = () => {
