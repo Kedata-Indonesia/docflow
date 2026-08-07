@@ -20,13 +20,21 @@ const emit = defineEmits<{
 const to = ref(props.defaultRecipient || '')
 const subject = ref('')
 const body = ref('')
+const subjectFocused = ref(false)
+const bodyFocused = ref(false)
 
-watch(() => props.documentTitle, (title) => {
-  subject.value = t('editor.email.defaultSubject', { title })
+const defaultSubject = computed(() => t('editor.email.defaultSubject', { title: props.documentTitle }))
+const defaultBody = computed(() => t('editor.email.defaultBody', { url: props.shareUrl }))
+
+const isDefaultSubject = computed(() => subject.value === defaultSubject.value)
+const isDefaultBody = computed(() => body.value === defaultBody.value)
+
+watch(() => props.documentTitle, () => {
+  subject.value = defaultSubject.value
 }, { immediate: true })
 
-watch(() => props.shareUrl, (url) => {
-  body.value = t('editor.email.defaultBody', { url })
+watch(() => props.shareUrl, () => {
+  body.value = defaultBody.value
 }, { immediate: true })
 
 const mailtoHref = computed(() => {
@@ -45,8 +53,10 @@ function handleCopyLink() {
 
 function reset() {
   to.value = props.defaultRecipient || ''
-  subject.value = t('editor.email.defaultSubject', { title: props.documentTitle })
-  body.value = t('editor.email.defaultBody', { url: props.shareUrl })
+  subject.value = defaultSubject.value
+  body.value = defaultBody.value
+  subjectFocused.value = false
+  bodyFocused.value = false
 }
 
 watch(() => props.isOpen, (open) => {
@@ -121,7 +131,14 @@ watch(() => props.isOpen, (open) => {
           <input
             v-model="subject"
             type="text"
-            class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-xs text-slate-700 focus:border-cyan-500 focus:outline-none dark:border-slate-600 dark:bg-slate-900 dark:text-slate-300"
+            :class="[
+              'w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-xs focus:border-cyan-500 focus:outline-none dark:border-slate-600 dark:bg-slate-900',
+              isDefaultSubject && !subjectFocused
+                ? 'text-slate-400 dark:text-slate-500'
+                : 'text-slate-700 dark:text-slate-300',
+            ]"
+            @focus="subjectFocused = true"
+            @blur="subjectFocused = false"
           />
         </div>
 
@@ -132,7 +149,14 @@ watch(() => props.isOpen, (open) => {
           <textarea
             v-model="body"
             rows="4"
-            class="w-full resize-none rounded-md border border-slate-300 bg-white px-3 py-2 text-xs text-slate-700 focus:border-cyan-500 focus:outline-none dark:border-slate-600 dark:bg-slate-900 dark:text-slate-300"
+            :class="[
+              'w-full resize-none rounded-md border border-slate-300 bg-white px-3 py-2 text-xs focus:border-cyan-500 focus:outline-none dark:border-slate-600 dark:bg-slate-900',
+              isDefaultBody && !bodyFocused
+                ? 'text-slate-400 dark:text-slate-500'
+                : 'text-slate-700 dark:text-slate-300',
+            ]"
+            @focus="bodyFocused = true"
+            @blur="bodyFocused = false"
           />
         </div>
       </div>
