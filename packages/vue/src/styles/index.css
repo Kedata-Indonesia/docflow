@@ -262,6 +262,7 @@
   flex: 0 0 1.25rem !important;
   margin: 0.25rem 0 0 !important;
   -webkit-user-select: none !important;
+  -webkit-user-select: none !important;
   user-select: none !important;
   display: flex !important;
   align-items: center !important;
@@ -927,33 +928,84 @@
 /* ── Pagination paper background (screen) ─────────────────────────── */
 .rm-with-pagination {
   background-color: #ffffff;
+  padding-top: var(--rm-margin-top);
+  padding-bottom: var(--rm-margin-bottom);
+  position: relative;
 }
 
 .dark .rm-with-pagination {
   background-color: #0a0f1e;
 }
 
-/* Header and Footer: ONLY margin-top for header (moves DOWN), ONLY margin-bottom for footer (moves UP) */
+/* Shared header typography (first-page + later-page). The pagination
+   extension does not set these, so plain class specificity is enough. */
 .rm-page-header {
-  position: relative !important;
-  width: 100% !important;
-  box-sizing: border-box !important;
-  padding-left: 0 !important;
-  padding-right: 0 !important;
-  margin-top: var(--rm-header-margin-top, 8px) !important;
   cursor: default !important;
   font-size: 14px !important;
   line-height: 1.5 !important;
   min-height: 24px !important;
 }
 
+/* Per-page (later-page) header lives in normal flow at the top of its page
+   sheet (right after the page-break gap). The extension's page spacers assume
+   the header element reserves the full top zone
+   (margin-top + content + content-margin-top), so the element height must NOT
+   change — otherwise the body text of the page moves with it. Instead, the
+   header TEXT is placed at the header margin inside that reserved zone:
+   padding-top = header margin, padding-bottom compensates the rest of the
+   body margin. The extension injects `.rm-with-pagination .rm-page-header {
+   padding-top: var(--rm-margin-top) !important }` (specificity 0-2-0,
+   appended to <head> at runtime); the `#pages` id selector (later-page
+   headers always live inside the extension's `#pages` wrapper) outranks it. */
+#pages .rm-page-header {
+  position: relative !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  padding-top: var(--rm-header-margin-top, 18.9px) !important;
+  padding-bottom: max(calc(var(--rm-margin-top) + var(--rm-content-margin-top) - var(--rm-header-margin-top, 18.9px)), 0px) !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  margin-top: 0 !important;
+  cursor: default !important;
+  font-size: 14px !important;
+  line-height: 1.5 !important;
+  min-height: 24px !important;
+}
+
+/* First-page header is positioned in the paper's top margin area so it
+   doesn't push the body text down. The paper's padding-top reserves the
+   body margin; the header margin is the offset from the paper edge.
+   NOTE: the extension injects `.rm-with-pagination .rm-page-header` rules
+   (specificity 0-2-0, appended to <head> at runtime — including
+   `padding-top: var(--rm-margin-top) !important`), and the first-page header
+   also carries the `rm-page-header` class. This selector must therefore be
+   MORE specific than 0-2-0, otherwise the body margin is added on top of the
+   header margin and the generated text lands far below the overlay. */
+.rm-with-pagination .rm-page-header.rm-first-page-header {
+  position: absolute !important;
+  top: var(--rm-header-margin-top, 18.9px) !important;
+  left: var(--rm-margin-left) !important;
+  right: var(--rm-margin-right) !important;
+  width: auto !important;
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  z-index: 1;
+}
+
+/* When the external editor overlay is active, the generated header keeps its
+   normal geometry unchanged; only its content is hidden (see the
+   `.rm-header-active` rules below) so no duplicate shows under the overlay. */
+
 .rm-page-footer {
   position: relative !important;
   width: 100% !important;
   box-sizing: border-box !important;
+  padding-bottom: 0 !important;
   padding-left: 0 !important;
   padding-right: 0 !important;
-  margin-bottom: var(--rm-footer-margin-bottom, 8px) !important;
+  margin-bottom: var(--rm-footer-margin-bottom, 18.9px) !important;
   cursor: default !important;
   font-size: 14px !important;
   line-height: 1.5 !important;
@@ -976,8 +1028,8 @@
   min-height: 24px !important;
   cursor: text !important;
   pointer-events: auto !important;
-  user-select: text !important;
   -webkit-user-select: text !important;
+  user-select: text !important;
 }
 
 /* Active Header Inline Editable Area */
@@ -990,35 +1042,42 @@
   min-width: 200px !important;
   cursor: text !important;
   pointer-events: auto !important;
-  user-select: text !important;
   -webkit-user-select: text !important;
+  user-select: text !important;
 }
 
-/* Active Header Separator Indicator (Google Docs style solid separator line) */
+/* Active state must not change the generated header geometry. The external
+   overlay is the editable surface; only the generated content is hidden. */
 .rm-page-header.rm-header-active {
-  position: relative !important;
   overflow: visible !important;
-  margin-bottom: 28px !important; /* Space below header for active options bar */
 }
 
-/* Active Header Bar (Google Docs style - Full Paper Page Sheet Width Edge to Edge) */
+.rm-page-header.rm-header-active .rm-page-header-content {
+  visibility: hidden !important;
+}
+
+/* Active Header Bar (Google Docs style - Full Paper Page Sheet Width Edge to Edge)
+   The bar only exists inside `.rm-header-edit-overlay`; its real geometry
+   (left/width/padding) comes from the measured `--rm-header-bar-*` variables
+   set by `positionHeaderEdit()`. The values here are inert defaults. */
 .rm-google-docs-header-bar {
   position: absolute !important;
   top: 100% !important; /* Sits right at the bottom edge of header, BELOW header text & caret */
-  left: calc(-1 * var(--rm-margin-left, 72px)) !important;
-  right: calc(-1 * var(--rm-margin-right, 72px)) !important;
-  width: calc(100% + var(--rm-margin-left, 72px) + var(--rm-margin-right, 72px)) !important;
+  left: 0 !important;
+  right: auto !important;
+  width: 100% !important;
   height: 28px !important;
   display: flex !important;
   align-items: center !important;
   justify-content: space-between !important;
-  padding-left: var(--rm-margin-left, 72px) !important;
-  padding-right: var(--rm-margin-right, 72px) !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
   background-color: #f8fafc !important;
   border-top: 1px solid #3b82f6 !important;
   font-family: inherit !important;
   font-size: 11px !important;
   color: #64748b !important;
+  -webkit-user-select: none !important;
   user-select: none !important;
   z-index: 20 !important;
   box-sizing: border-box !important;
@@ -1154,6 +1213,66 @@
 
 .dark .rm-options-dropdown button:hover {
   background-color: #334155 !important;
+}
+
+.rm-google-docs-header-bar .rm-options-dropdown {
+  pointer-events: auto !important;
+}
+
+/* Google Docs-style header editing is rendered outside the ProseMirror view.
+   The generated PaginationPlus header remains display-only, so typing here
+   cannot be parsed into the body document by ProseMirror's DOM observer. */
+.rm-header-edit-overlay {
+  position: fixed !important;
+  z-index: 1000 !important;
+  pointer-events: none !important;
+  box-sizing: border-box !important;
+}
+
+.rm-header-edit-input {
+  position: relative !important;
+  display: block !important;
+  width: 100% !important;
+  min-height: 24px !important;
+  box-sizing: border-box !important;
+  outline: none !important;
+  cursor: text !important;
+  pointer-events: auto !important;
+  -webkit-user-select: text !important;
+  user-select: text !important;
+  white-space: pre-wrap !important;
+  overflow-wrap: anywhere !important;
+  font-size: 14px !important;
+  line-height: 1.5 !important;
+  color: inherit !important;
+  background: transparent !important;
+}
+
+.rm-header-edit-input:empty::before {
+  content: attr(data-placeholder);
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+/* The bar is a child of the fixed overlay, not the generated header. Its
+   geometry is populated from the real paper/header rectangles in JS. */
+.rm-header-edit-overlay .rm-google-docs-header-bar {
+  left: var(--rm-header-bar-left, 0px) !important;
+  right: auto !important;
+  width: var(--rm-header-bar-width, 100%) !important;
+  padding-left: var(--rm-header-bar-padding-left, 0px) !important;
+  padding-right: var(--rm-header-bar-padding-right, 0px) !important;
+  pointer-events: auto !important;
+}
+
+.rm-header-edit-overlay .rm-google-docs-header-bar .rm-options-dropdown {
+  pointer-events: auto !important;
+}
+
+@media print {
+  .rm-header-edit-overlay {
+    display: none !important;
+  }
 }
 
 /* ── Responsive: full-width on mobile ────────────────────────────── */

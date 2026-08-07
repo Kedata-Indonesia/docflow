@@ -1,5 +1,5 @@
 import { mount } from '@vue/test-utils'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import type { DocsEditorPlugin } from '@kedata-indonesia/docflow-core'
 import type { Editor } from '@tiptap/core'
 import DocsEditor from '../components/DocsEditor.vue'
@@ -430,6 +430,190 @@ describe('DocsEditor', () => {
     wrapper.unmount()
   })
 
+  it('edits the header outside ProseMirror without changing document content', async () => {
+    const wrapper = mount(DocsEditor, {
+      props: { plugins: defaultPlugins },
+    })
+    await new Promise((resolve) => setTimeout(resolve, 80))
+
+    const vm = wrapper.vm as unknown as {
+      editor?: { getJSON: () => object }
+      startInlineHeaderEdit: () => void
+      finishHeaderEdit: (commit?: boolean) => void
+      userHeaderLeft: string
+    }
+    expect(vm.editor).toBeDefined()
+    const before = JSON.stringify(vm.editor?.getJSON() ?? {})
+
+    vm.startInlineHeaderEdit()
+    await wrapper.vm.$nextTick()
+
+    const overlay = document.querySelector('.rm-header-edit-overlay') as HTMLElement | null
+    const input = overlay?.querySelector('.rm-header-edit-input') as HTMLElement | null
+    const activeBar = overlay?.querySelector('.rm-google-docs-header-bar') as HTMLElement | null
+    expect(overlay).not.toBeNull()
+    expect(input?.contentEditable).toBe('true')
+    expect(input?.closest('.docs-editor__paper')).toBeNull()
+    expect(activeBar?.parentElement).toBe(overlay)
+    expect(activeBar).toBeTruthy()
+
+    input!.innerHTML = 'Safe header'
+    vm.finishHeaderEdit(true)
+
+    expect(vm.userHeaderLeft).toBe('Safe header')
+    expect(JSON.stringify(vm.editor?.getJSON() ?? {})).toBe(before)
+    expect(document.querySelector('.rm-header-edit-overlay')).toBeNull()
+    wrapper.unmount()
+  })
+
+  it('aligns the later-page edit overlay to the body margins and header content rect', async () => {
+    const wrapper = mount(DocsEditor, {
+      props: { plugins: defaultPlugins },
+    })
+    await new Promise((resolve) => setTimeout(resolve, 80))
+
+    const vm = wrapper.vm as unknown as {
+      editor?: { view: { dom: HTMLElement } }
+      startInlineHeaderEdit: (event?: { target: HTMLElement }) => void
+      finishHeaderEdit: (commit?: boolean) => void
+      userHeaderLeft: string
+    }
+    const root = vm.editor!.view.dom
+    root.style.setProperty('--rm-margin-left', '38px')
+    root.style.setProperty('--rm-margin-right', '76px')
+
+    // happy-dom does not resolve custom properties through getComputedStyle,
+    // so spy it for the paper root (real browsers return the inline values).
+    const originalGetComputedStyle = window.getComputedStyle.bind(window)
+    const getComputedStyleSpy = vi.spyOn(window, 'getComputedStyle').mockImplementation((el: Element, pseudoElt?: string | null) => {
+      const style = originalGetComputedStyle(el, pseudoElt)
+      if (el === root) {
+        const originalGetPropertyValue = style.getPropertyValue.bind(style)
+        style.getPropertyValue = (prop: string) => {
+          if (prop === '--rm-margin-left') return '38px'
+          if (prop === '--rm-margin-right') return '76px'
+          return originalGetPropertyValue(prop)
+        }
+      }
+      return style
+    })
+
+    // The trailing `.rm-page-break` header is the page-2 header slot. It is a
+    // full-bleed element whose content is inset by the body margins.
+    const header = root.querySelector('.rm-page-break .rm-page-header') as HTMLElement | null
+    expect(header).not.toBeNull()
+    const content = header!.querySelector('.rm-page-header-content') as HTMLElement
+    expect(content).not.toBeNull()
+
+    const rect = (r: { left: number; top: number; width: number; height: number }) =>
+      ({ ...r, x: r.left, y: r.top, right: r.left + r.width, bottom: r.top + r.height, toJSON: () => ({}) }) as DOMRect
+    root.getBoundingClientRect = () => rect({ left: 100, top: 50, width: 800, height: 1000 })
+    header!.getBoundingClientRect = () => rect({ left: 101, top: 500, width: 798, height: 118 })
+    content.getBoundingClientRect = () => rect({ left: 101, top: 519, width: 798, height: 24 })
+
+    vm.startInlineHeaderEdit({ target: header! })
+    await new Promise((resolve) => requestAnimationFrame(() => resolve(null)))
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    const overlays = document.querySelectorAll('.rm-header-edit-overlay')
+    expect(overlays).toHaveLength(1)
+    const overlay = overlays[0] as HTMLElement
+    expect(overlay.style.left).toBe('139px') // 101 + 38 body margin-left
+    expect(overlay.style.top).toBe('519px') // content top, not element top
+    expect(overlay.style.width).toBe('684px') // (899 - 76 margin-right) - 139
+
+    const activeBar = overlay.querySelector('.rm-google-docs-header-bar') as HTMLElement
+    expect(activeBar.parentElement).toBe(overlay)
+    expect(activeBar.style.getPropertyValue('--rm-header-bar-width')).toBe('800px')
+    expect(activeBar.style.getPropertyValue('--rm-header-bar-padding-left')).toBe('39px')
+    expect(activeBar.style.getPropertyValue('--rm-header-bar-padding-right')).toBe('77px')
+
+    const input = overlay.querySelector('.rm-header-edit-input') as HTMLElement
+    input.innerHTML = 'Later page header'
+    vm.finishHeaderEdit(true)
+    expect(vm.userHeaderLeft).toBe('Later page header')
+    expect(document.querySelector('.rm-header-edit-overlay')).toBeNull()
+    getComputedStyleSpy.mockRestore()
+    wrapper.unmount()
+  })
+
+  it('maps later-page headers to their own page slot, never page 1', async () => {
+    const wrapper = mount(DocsEditor, {
+      props: { plugins: defaultPlugins },
+    })
+    await new Promise((resolve) => setTimeout(resolve, 80))
+
+    const vm = wrapper.vm as unknown as {
+      editor?: { view: { dom: HTMLElement } }
+      startInlineHeaderEdit: (event?: { target: HTMLElement }) => void
+      finishHeaderEdit: (commit?: boolean) => void
+      isDifferentOddEven: boolean
+      userHeaderLeft: string
+      userFirstPageHeaderLeft: string
+      userEvenPageHeaderLeft: string
+    }
+    vm.isDifferentOddEven = true
+
+    // The first `.rm-page-break` header is the page-2 slot (even page).
+    const header = vm.editor!.view.dom.querySelector('.rm-page-break .rm-page-header') as HTMLElement | null
+    expect(header).not.toBeNull()
+
+    vm.startInlineHeaderEdit({ target: header! })
+    const input = document.querySelector('.rm-header-edit-input') as HTMLElement | null
+    expect(input).not.toBeNull()
+    input!.innerHTML = 'Even page header'
+    vm.finishHeaderEdit(true)
+
+    expect(vm.userEvenPageHeaderLeft).toBe('Even page header')
+    expect(vm.userHeaderLeft).toBe('')
+    expect(vm.userFirstPageHeaderLeft).toBe('')
+    wrapper.unmount()
+  })
+
+  it('normalizes header/footer cm values on Apply and applies them as px CSS variables', async () => {
+    const wrapper = mount(DocsEditor, {
+      props: { plugins: defaultPlugins, headerMarginCm: 1.3, footerMarginCm: 0.8 },
+    })
+    await new Promise((resolve) => setTimeout(resolve, 80))
+
+    const vm = wrapper.vm as unknown as {
+      editor?: { view: { dom: HTMLElement } }
+      headerMarginCm: number
+      footerMarginCm: number
+      draftHeaderMarginCm: number
+      draftFooterMarginCm: number
+      openHeaderFormatModal: () => void
+      applyHeaderFormat: () => void
+    }
+
+    // Dialog drafts initialize from the current persisted values, not 1.27.
+    vm.openHeaderFormatModal()
+    expect(vm.draftHeaderMarginCm).toBe(1.3)
+    expect(vm.draftFooterMarginCm).toBe(0.8)
+
+    // Out-of-range drafts are clamped on Apply.
+    vm.draftHeaderMarginCm = -1
+    vm.draftFooterMarginCm = 99
+    vm.applyHeaderFormat()
+    expect(wrapper.emitted('update:header-footer-margins')?.at(-1)).toEqual([{ headerMarginCm: 0, footerMarginCm: 5 }])
+
+    // Non-finite drafts fall back to the default.
+    vm.openHeaderFormatModal()
+    vm.draftHeaderMarginCm = Number.NaN
+    vm.applyHeaderFormat()
+    expect(vm.headerMarginCm).toBe(0.5)
+
+    // 0.5cm is converted to px only at the layout boundary (1cm = 37.795px).
+    vm.openHeaderFormatModal()
+    vm.draftHeaderMarginCm = 0.5
+    vm.applyHeaderFormat()
+    const cssValue = vm.editor!.view.dom.style.getPropertyValue('--rm-header-margin-top')
+    expect(parseFloat(cssValue)).toBeCloseTo(18.8975, 3)
+
+    wrapper.unmount()
+  })
+
+
   it('supports Header & Footer format modal margin customization with draft states', async () => {
     const wrapper = mount(DocsEditor, {
       props: { plugins: defaultPlugins },
@@ -450,18 +634,24 @@ describe('DocsEditor', () => {
     vm.openHeaderFormatModal()
     await wrapper.vm.$nextTick()
     expect(vm.showHeaderFormatModal).toBe(true)
+    const marginInputs = wrapper.findAll('input[type="number"]')
+    const headerInput = marginInputs[0]
+    const footerInput = marginInputs[1]
+    expect(headerInput.attributes('min')).toBe('0')
+    expect(headerInput.attributes('max')).toBe('5')
+    expect(headerInput.attributes('step')).toBe('0.1')
+    expect(footerInput.attributes('step')).toBe('0.1')
 
     // Set draft margins (does not touch active headerMarginCm until apply)
     vm.draftHeaderMarginCm = 2.0
     vm.draftFooterMarginCm = 2.0
-    expect(vm.headerMarginCm).toBe(1.27)
+    expect(vm.headerMarginCm).toBe(0.5)
 
     vm.applyHeaderFormat()
     await wrapper.vm.$nextTick()
 
     expect(vm.showHeaderFormatModal).toBe(false)
-    expect(vm.headerMarginCm).toBe(2.0)
-    expect(vm.footerMarginCm).toBe(2.0)
+    expect(wrapper.emitted('update:header-footer-margins')?.at(-1)).toEqual([{ headerMarginCm: 2.0, footerMarginCm: 2.0 }])
 
     wrapper.unmount()
   })
@@ -474,7 +664,7 @@ describe('DocsEditor', () => {
 
     const vm = wrapper.vm as unknown as {
       margins: { top: number; bottom: number; left: number; right: number }
-      pageSetupMargins: { top: number; bottom: number; left: number; right: number }
+      pageSetupMarginsCm: { top: number; bottom: number; left: number; right: number }
       showPageSetupModal: boolean
       openPageSetupModal: () => void
       applyPageSetup: () => void
@@ -484,19 +674,19 @@ describe('DocsEditor', () => {
     await wrapper.vm.$nextTick()
     expect(vm.showPageSetupModal).toBe(true)
 
-    vm.pageSetupMargins.top = -20
-    vm.pageSetupMargins.bottom = 250
-    vm.pageSetupMargins.left = Number.NaN
-    vm.pageSetupMargins.right = Number.POSITIVE_INFINITY
+    vm.pageSetupMarginsCm.top = -20
+    vm.pageSetupMarginsCm.bottom = 250
+    vm.pageSetupMarginsCm.left = Number.NaN
+    vm.pageSetupMarginsCm.right = Number.POSITIVE_INFINITY
 
-    expect(vm.margins).toEqual({ top: 72, bottom: 72, left: 90, right: 90 })
+    expect(vm.margins).toEqual({ top: 94, bottom: 94, left: 94, right: 94 })
 
     vm.applyPageSetup()
     await wrapper.vm.$nextTick()
 
-    expect(vm.margins).toEqual({ top: 0, bottom: 100, left: 0, right: 0 })
+    expect(vm.margins).toEqual({ top: 0, bottom: 189, left: 0, right: 0 })
     expect(vm.showPageSetupModal).toBe(false)
-    expect(vm.pageSetupMargins).toEqual({ top: 0, bottom: 100, left: 0, right: 0 })
+    expect(vm.pageSetupMarginsCm).toEqual({ top: 0, bottom: 5, left: 0, right: 0 })
 
     wrapper.unmount()
   })
