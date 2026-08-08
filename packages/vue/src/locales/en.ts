@@ -26,6 +26,8 @@ export default {
     file: 'File',
     new: 'New',
     newDocument: 'New document',
+    helpMeCreate: 'Help me create',
+    fromTemplate: 'From a template',
     open: 'Open',
     makeACopy: 'Make a copy',
     share: 'Share',

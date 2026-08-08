@@ -1774,6 +1774,8 @@ let menuClick = (action: string) => {
   } else if (action === 'toggle-focus-mode') {
     focusMode.value = !focusMode.value
     if (focusMode.value) activeSidebar.value = null
+  } else if (action === 'new-help-me-create') {
+    toggleSidebar('ai')
   } else if (action === 'insert-footnote') {
     // Use ProseMirror's transaction API directly — more reliable than chain()
     // because chain().focus() can fail when focus has left the editor via menu click.
