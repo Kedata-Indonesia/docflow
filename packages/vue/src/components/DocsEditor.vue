@@ -1724,7 +1724,7 @@ const editFormatMenuCommands: Record<string, () => void> = {
   'bullet-list': () => runMenuEditorCommand('toggleBulletList'),
   'numbered-list': () => runMenuEditorCommand('toggleOrderedList'),
   'task-list': () => runPluginMenuAction('toggleTaskList'),
-  // Format menu — extras
+  // Insert menu — horizontal line (StarterKit HorizontalRule extension)
   'horizontal-line': () => runMenuEditorCommand('setHorizontalRule'),
   'page-numbers-header': () => insertPageNumber('header'),
   'page-numbers-footer': () => insertPageNumber('footer'),
