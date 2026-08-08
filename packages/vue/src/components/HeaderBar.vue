@@ -211,6 +211,12 @@ const menus = computed<Record<string, { label: string; items: MenuItem[] }>>(() 
       { label: 'divider', divider: true },
       { label: t('header.link'), action: 'insert-link', shortcut: modKey('K') },
       { label: 'divider', divider: true },
+      {
+        label: t('header.break'), sub: [
+          { label: t('header.pageBreak'), action: 'insert-page-break', shortcut: t('header.pageBreakShortcut') },
+        ]
+      },
+      { label: 'divider', divider: true },
       { label: t('header.header'), action: 'insert-header' },
       { label: t('header.footer'), action: 'insert-footer' },
       { label: t('header.footnote'), action: 'insert-footnote' },
