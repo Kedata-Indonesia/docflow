@@ -351,6 +351,9 @@ export default {
       anchoredComment: 'Komentar terpaut',
       general: 'Komentar umum',
       post: 'Kirim',
+      orphaned: 'Teks dihapus',
+      delete: 'Hapus',
+      confirmDelete: 'Hapus thread komentar ini? Tindakan ini tidak dapat dibatalkan.',
     },
     history: {
       title: 'Riwayat',

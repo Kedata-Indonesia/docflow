@@ -6,6 +6,7 @@ import {
   Reply,
   Send,
   MessageCircle,
+  Trash2,
 } from 'lucide-vue-next'
 import type { CommentItem } from '../../types.js'
 import { useLocale } from '../../composables/useLocale.js'
@@ -14,12 +15,17 @@ const props = defineProps<{
   comments?: CommentItem[]
   selectedTextSnippet?: string
   selectedTextIndex?: number
+  /** Issue #133 — ids of anchored threads whose `comment` mark is no
+   *  longer in the document (the anchored text was deleted). The sidebar
+   *  renders those with a "text deleted" badge + a Delete action. */
+  orphanedIds?: string[]
 }>()
 
 const emit = defineEmits<{
   'add-comment': [content: string, anchorText?: string, anchorIndex?: number]
   'add-reply': [commentId: string, content: string]
   'resolve-comment': [commentId: string]
+  'delete-comment': [commentId: string]
 }>()
 
 const { t } = useLocale()
@@ -60,6 +66,19 @@ function getInitials(name: string) {
     .join('')
     .slice(0, 2)
     .toUpperCase()
+}
+
+function isOrphaned(comment: CommentItem): boolean {
+  return props.orphanedIds?.includes(comment.id) === true
+}
+
+function handleDeleteComment(commentId: string) {
+  // Confirm here rather than in the host — keeps the destructive action
+  // close to its trigger and avoids a host-level modal dependency.
+  if (typeof window !== 'undefined' && !window.confirm(t('sidebars.comments.confirmDelete'))) {
+    return
+  }
+  emit('delete-comment', commentId)
 }
 </script>
 
@@ -124,20 +143,41 @@ function getInitials(name: string) {
             </div>
           </div>
 
-          <button
-            v-if="!comment.resolved"
-            type="button"
-            class="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-green-500/10 hover:text-green-500"
-            :title="t('sidebars.comments.resolve')"
-            @click="emit('resolve-comment', comment.id)"
-          >
-            <CheckCircle class="h-4 w-4" />
-          </button>
+          <div class="flex items-center gap-1.5">
+            <button
+              v-if="!comment.resolved"
+              type="button"
+              class="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-green-500/10 hover:text-green-500"
+              :title="t('sidebars.comments.resolve')"
+              @click="emit('resolve-comment', comment.id)"
+            >
+              <CheckCircle class="h-4 w-4" />
+            </button>
+            <button
+              v-if="isOrphaned(comment)"
+              type="button"
+              class="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-red-500/10 hover:text-red-500"
+              :title="t('sidebars.comments.delete')"
+              @click="handleDeleteComment(comment.id)"
+            >
+              <Trash2 class="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+
+        <div
+          v-if="isOrphaned(comment)"
+          class="inline-flex items-center gap-1 rounded-full border border-amber-400/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:border-amber-500/30 dark:text-amber-400"
+        >
+          {{ t('sidebars.comments.orphaned') }}
         </div>
 
         <div
           v-if="comment.anchorText"
-          class="max-w-full truncate rounded-r-lg border-l-2 border-cyan-500/50 bg-slate-100 py-1 pl-2.5 text-[10px] italic text-slate-500 dark:border-cyan-500/40 dark:bg-white/5 dark:text-slate-400"
+          class="max-w-full truncate rounded-r-lg border-l-2 py-1 pl-2.5 text-[10px] italic text-slate-500 dark:text-slate-400"
+          :class="isOrphaned(comment)
+            ? 'border-amber-500/50 bg-amber-50/50 line-through opacity-70 dark:border-amber-500/40 dark:bg-amber-500/5'
+            : 'border-cyan-500/50 bg-slate-100 dark:border-cyan-500/40 dark:bg-white/5'"
         >
           {{ t('sidebars.comments.quote') }} "{{ comment.anchorText }}"
         </div>
