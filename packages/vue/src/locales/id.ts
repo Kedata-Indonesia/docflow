@@ -26,6 +26,8 @@ export default {
     file: 'Berkas',
     new: 'Baru',
     newDocument: 'Dokumen baru',
+    helpMeCreate: 'Bantu saya membuat',
+    fromTemplate: 'Dari templat',
     open: 'Buka',
     makeACopy: 'Buat salinan',
     share: 'Bagikan',

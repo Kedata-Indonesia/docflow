@@ -12,6 +12,7 @@ import {
   IndentIncrease, AlignLeft, AlignCenter, AlignRight, AlignJustify,
   ListOrdered, ListChecks, RemoveFormatting, SpellCheck, SlidersHorizontal,
   Puzzle, Keyboard, Bug, CircleHelp,
+  Sparkles, LayoutTemplate,
 } from 'lucide-vue-next'
 import type { Collaborator } from '../types.js'
 import ThemeToggle from './ThemeToggle.vue'
@@ -155,7 +156,13 @@ const menus = computed<Record<string, { label: string; items: MenuItem[] }>>(() 
   File: {
     label: t('header.file'),
     items: [
-      { label: t('header.new'), action: 'new-doc', icon: FilePlus2 },
+      {
+        label: t('header.new'), icon: FilePlus2, sub: [
+          { label: t('header.newDocument'), action: 'new-doc', icon: FilePlus2 },
+          { label: t('header.helpMeCreate'), action: 'new-help-me-create', icon: Sparkles },
+          { label: t('header.fromTemplate'), action: 'new-from-template', icon: LayoutTemplate },
+        ]
+      },
       { label: t('header.open'), action: 'open-doc', icon: FolderOpen },
       { label: t('header.makeACopy'), action: 'duplicate', icon: Copy },
       { label: 'divider', divider: true },
