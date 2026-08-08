@@ -351,6 +351,9 @@ export default {
       anchoredComment: 'Anchored comment',
       general: 'General comment',
       post: 'Post',
+      orphaned: 'Text deleted',
+      delete: 'Delete',
+      confirmDelete: 'Delete this comment thread? This cannot be undone.',
     },
     history: {
       title: 'History',

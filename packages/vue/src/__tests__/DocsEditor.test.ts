@@ -739,5 +739,194 @@ describe('DocsEditor', () => {
 
     wrapper.unmount()
   })
+
+  // ─── Issue #133 — orphaned comment thread detection ───────────────────────
+  // A thread is "orphaned" when it is anchored (anchorIndex != null) but
+  // its id no longer appears on any `comment` mark in the current
+  // document — i.e. the anchored text was deleted. The state is computed
+  // client-side (never persisted) and should not flash orphaned during
+  // collab load (the empty-doc guard).
+
+  it('flags a comment thread as orphaned when its anchored text is deleted', async () => {
+    const { commentPlugin } = await import('../../../plugins/src/comment')
+    const wrapper = mount(DocsEditor, {
+      props: {
+        plugins: [...defaultPlugins, commentPlugin],
+        comments: [
+          {
+            id: 'thread-1',
+            authorId: 'u1',
+            authorName: 'Alice',
+            authorColor: '#f00',
+            content: 'Check this',
+            anchorText: 'test 2',
+            anchorIndex: 6,
+            createdAt: Date.now(),
+            resolved: false,
+            replies: [],
+          },
+        ],
+      },
+    })
+    await new Promise((resolve) => setTimeout(resolve, 50))
+
+    const vm = wrapper.vm as unknown as {
+      editor?: {
+        commands: {
+          focus: () => void
+          setContent: (content: object) => boolean
+          setTextSelection: (sel: { from: number; to: number }) => boolean
+          setMark: (name: string, attrs: Record<string, unknown>) => boolean
+        }
+        view: { dispatch: (tr: unknown) => void }
+        state: { tr: unknown }
+      }
+    }
+
+    // Seed content + set a `comment` mark on "test 2" — the thread is
+    // anchored to that range.
+    vm.editor!.commands.setContent({
+      type: 'doc',
+      content: [{ type: 'paragraph', content: [{ type: 'text', text: 'test 1 test 2 test 3' }] }],
+    })
+    vm.editor!.commands.setTextSelection({ from: 7, to: 13 })
+    vm.editor!.commands.setMark('comment', { threadId: 'thread-1', pos: 7 })
+    await new Promise((resolve) => setTimeout(resolve, 100))
+
+    // Initially present → not orphaned.
+    const notOrphaned = (wrapper.vm as unknown as { orphanedCommentIds: string[] }).orphanedCommentIds
+    expect(notOrphaned).not.toContain('thread-1')
+
+    // Reproduce the issue: delete all the text (the mark goes with it).
+    // This mirrors the real user flow — selecting + deleting the anchored
+    // range is what strands the thread.
+    vm.editor!.commands.setContent({ type: 'doc', content: [{ type: 'paragraph' }] })
+    // setContent may not always surface to the `transaction` listener in
+    // the test harness — dispatch a bare tr to force the debounced rescan.
+    vm.editor!.view.dispatch(vm.editor!.state.tr)
+    await new Promise((resolve) => setTimeout(resolve, 500))
+
+    const orphaned = (wrapper.vm as unknown as { orphanedCommentIds: string[] }).orphanedCommentIds
+    expect(orphaned).toContain('thread-1')
+
+    wrapper.unmount()
+  })
+
+  it('does not flag a comment thread whose mark survives', async () => {
+    const { commentPlugin } = await import('../../../plugins/src/comment')
+    const wrapper = mount(DocsEditor, {
+      props: {
+        plugins: [...defaultPlugins, commentPlugin],
+        comments: [
+          {
+            id: 'thread-keep',
+            authorId: 'u1',
+            authorName: 'Alice',
+            authorColor: '#f00',
+            content: 'Still here',
+            anchorText: 'survives',
+            anchorIndex: 6,
+            createdAt: Date.now(),
+            resolved: false,
+            replies: [],
+          },
+        ],
+      },
+    })
+    await new Promise((resolve) => setTimeout(resolve, 50))
+
+    const vm = wrapper.vm as unknown as {
+      editor?: {
+        commands: {
+          focus: () => void
+          setContent: (content: object) => boolean
+          setTextSelection: (sel: { from: number; to: number }) => boolean
+          setMark: (name: string, attrs: Record<string, unknown>) => boolean
+        }
+      }
+    }
+
+    vm.editor!.commands.setContent({
+      type: 'doc',
+      content: [{ type: 'paragraph', content: [{ type: 'text', text: 'survives stays' }] }],
+    })
+    vm.editor!.commands.setTextSelection({ from: 1, to: 9 })
+    vm.editor!.commands.setMark('comment', { threadId: 'thread-keep', pos: 1 })
+    await new Promise((resolve) => setTimeout(resolve, 100))
+
+    const orphaned = (wrapper.vm as unknown as { orphanedCommentIds: string[] }).orphanedCommentIds
+    expect(orphaned).not.toContain('thread-keep')
+
+    wrapper.unmount()
+  })
+
+  it('never orphans a general comment thread (no anchor)', async () => {
+    const wrapper = mount(DocsEditor, {
+      props: {
+        plugins: defaultPlugins,
+        comments: [
+          {
+            id: 'general-1',
+            authorId: 'u1',
+            authorName: 'Alice',
+            authorColor: '#f00',
+            content: 'Doc-wide note',
+            // anchorIndex is undefined — a general comment is never
+            // anchored, so it can never be orphaned by definition.
+            createdAt: Date.now(),
+            resolved: false,
+            replies: [],
+          },
+        ],
+      },
+    })
+    await new Promise((resolve) => setTimeout(resolve, 50))
+
+    const orphaned = (wrapper.vm as unknown as { orphanedCommentIds: string[] }).orphanedCommentIds
+    expect(orphaned).not.toContain('general-1')
+
+    wrapper.unmount()
+  })
+
+  it('defers the first orphan scan until content is present (no collab flash)', async () => {
+    // With `collaboration` set, the empty-doc guard must hold the first
+    // scan until the Yjs provider has synced real content. We simulate
+    // the load window by mounting with the default empty doc, then
+    // injecting content after a delay.
+    const { commentPlugin } = await import('../../../plugins/src/comment')
+    const wrapper = mount(DocsEditor, {
+      props: {
+        plugins: [...defaultPlugins, commentPlugin],
+        collaboration: {
+          provider: 'webrtc',
+          room: 'room-1',
+          user: { name: 'Alice', color: '#f00' },
+        },
+        comments: [
+          {
+            id: 'thread-collab',
+            authorId: 'u1',
+            authorName: 'Alice',
+            authorColor: '#f00',
+            content: 'Anchored',
+            anchorText: 'loaded',
+            anchorIndex: 1,
+            createdAt: Date.now(),
+            resolved: false,
+            replies: [],
+          },
+        ],
+      },
+    })
+    // Wait long enough for the debounced scan timer to fire, but the doc
+    // is still empty (no Yjs provider is actually wired in the test
+    // harness) — the guard must keep orphanedCommentIds empty.
+    await new Promise((resolve) => setTimeout(resolve, 150))
+
+    const before = (wrapper.vm as unknown as { orphanedCommentIds: string[] }).orphanedCommentIds
+    expect(before).toEqual([])
+
+    wrapper.unmount()
+  })
 })
 
