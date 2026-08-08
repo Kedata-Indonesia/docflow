@@ -161,7 +161,12 @@ describe('awareness state — present flag + cursor gate (Phase 9 PR1+PR2)', () 
     a.destroy()
   })
 
-  it('toggles `present` to false when setLocalCursorEnabled(false) fires', () => {
+  it('toggles `emitCursor` to false (and clears cursor) when setLocalCursorEnabled(false) fires — but `present` stays true', () => {
+    // 2026-08 fix: `setLocalCursorEnabled(false)` is the cursor-publish
+    // perf gate (fires on `visibilitychange` when the user switches tabs).
+    // It must NOT flip `present` to false — that caused the "collaborator
+    // avatar flashes off" regression in the two-writer scenario. Only
+    // `destroy()` clears `present` (via `awareness.setLocalState(null)`).
     const onAwarenessChange = vi.fn()
     const a = createCollaboration({
       room: 'pr-room',
@@ -169,13 +174,23 @@ describe('awareness state — present flag + cursor gate (Phase 9 PR1+PR2)', () 
       onAwarenessChange,
     })
     a.setLocalCursorEnabled(false)
-    expect(a.awareness.getLocalState()?.present).toBe(false)
-    // onAwarenessChange fires again on toggle (peer-leave instant signal).
+    // present stays true — the user is still in the editor.
+    expect(a.awareness.getLocalState()?.present).toBe(true)
+    // emitCursor gate flipped, cursor cleared.
+    expect(a.awareness.getLocalState()?.emitCursor).toBe(false)
+    expect(a.awareness.getLocalState()?.cursor).toBeNull()
+    // onAwarenessChange fires on the toggle (one round-trip signal).
     expect(onAwarenessChange).toHaveBeenCalled()
     a.destroy()
   })
 
-  it('clears the cursor field when leaving the editor', () => {
+  it('clears the cursor field when leaving the editor (present stays true)', () => {
+    // 2026-08 fix: `setLocalCursorEnabled(false)` must NOT flip `present` to
+    // false. The visibilitychange handler in apps/web calls this whenever
+    // the user switches browser tabs (a cursor-publish perf gate), and the
+    // previous coupling caused the peer's top-bar avatar to flash off on
+    // every tab switch. `present` only goes false on `destroy()` (the
+    // editor-unmount → WS-close → server-side awareness cleanup path).
     const a = createCollaboration({
       room: 'pr-room',
       user: { name: 'Alice', color: '#ff0000' },
@@ -184,11 +199,12 @@ describe('awareness state — present flag + cursor gate (Phase 9 PR1+PR2)', () 
     expect(a.awareness.getLocalState()?.cursor).toEqual({ from: 1, to: 5 })
     a.setLocalCursorEnabled(false)
     expect(a.awareness.getLocalState()?.cursor).toBeNull()
-    expect(a.awareness.getLocalState()?.present).toBe(false)
+    // present stays true — only destroy() clears it.
+    expect(a.awareness.getLocalState()?.present).toBe(true)
     a.destroy()
   })
 
-  it('peers see Alice leave within one awareness round-trip (no REST lag)', () => {
+  it('peers see Alice leave on destroy (no REST lag)', () => {
     // Cross-peer propagation requires a real WebrtcProvider /
     // WebsocketProvider (the awareness `change` events are routed through
     // the provider's sync protocol). With no provider, the local
@@ -208,11 +224,12 @@ describe('awareness state — present flag + cursor gate (Phase 9 PR1+PR2)', () 
       onAwarenessChange: onBobAwareness,
     })
 
-    // Alice toggles off (e.g. user navigated away from the editor route).
+    // Alice toggles cursor emission off (perf gate, e.g. tab hidden).
     alice.setLocalCursorEnabled(false)
 
-    // Local mutation is correct.
-    expect(alice.awareness.getLocalState()?.present).toBe(false)
+    // Local mutation: present stayed true (only cursor cleared).
+    expect(alice.awareness.getLocalState()?.present).toBe(true)
+    expect(alice.awareness.getLocalState()?.cursor).toBeNull()
     // Bob hasn't seen Alice yet (no provider in unit test) — his
     // awareness state is still self-only.
     const bobSeesAlice = onBobAwareness.mock.calls
@@ -261,8 +278,8 @@ describe('awareness state — present flag + cursor gate (Phase 9 PR1+PR2)', () 
     // Force a legacy shape (no `present`) by manually clearing it.
     a.awareness.setLocalStateField('present', undefined as unknown as boolean)
     expect(a.awareness.getLocalState()?.present).toBeUndefined()
-    // isLocalCursorEnabled reads `present !== false` → undefined !== false
-    // → true (legacy safe).
+    // isLocalCursorEnabled reads the dedicated `emitCursor` field (not
+    // `present`) → undefined !== false → true (legacy safe).
     expect(isLocalCursorEnabled(a)).toBe(true)
     a.destroy()
   })
