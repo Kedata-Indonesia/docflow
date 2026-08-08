@@ -154,10 +154,9 @@ export function createCollaboration(options: CollaborationOptions): Collaboratio
 
   // Phase 9 PR2 — emitCursor gate. Local cursor is published only when
   // the host has set `emitCursor: true` (default). When toggled off via
-  // `setLocalCursorEnabled(false)`, we (a) clear `cursor` (no remote
-  // cursor paint), and (b) set `present: false` so peers can dim the
-  // avatar. The awareness `change` event fires on each toggle so peers
-  // see the leave/rejoin within one round-trip, no REST lag.
+  // `setLocalCursorEnabled(false)`, we clear `cursor` so peers don't paint a
+  // phantom one. The awareness `change` event fires on each toggle so peers
+  // stop receiving cursor updates within one round-trip.
   let emitCursor = options.emitCursor ?? true
   const setLocalCursorEnabled = (enabled: boolean) => {
     if (emitCursor === enabled) return
@@ -168,9 +167,27 @@ export function createCollaboration(options: CollaborationOptions): Collaboratio
     if (!enabled) {
       awareness.setLocalStateField('cursor', null)
     }
-    awareness.setLocalStateField('present', enabled)
+    // Publish the gate itself as its own awareness field so a host can read
+    // the current value via `isLocalCursorEnabled()` without keeping a
+    // parallel copy. We do NOT touch `present` here — the present flag stays
+    // true for the editor's lifetime and only flips to false on `destroy()`
+    // (which calls `awareness.setLocalState(null)`). Previously this also
+    // set `present = enabled`, which caused the peer's top-bar avatar to
+    // flash off whenever the local user switched browser tabs (the
+    // visibilitychange handler in EditorView calls
+    // `setLocalCursorEnabled(false)` as a cursor-publish perf gate). The
+    // flash was a regression in the two-writer scenario: writer B switches
+    // tabs to look at writer A's editor → B's own tab becomes hidden →
+    // B publishes `present=false` → A's `presentPeers` filter drops B's
+    // avatar → "the collaborator only shown in a flash then disappears."
+    // The real "user left the doc" signal is the editor unmount (route
+    // change) → `destroy()` → WS close → server-side awareness cleanup;
+    // that path already propagates the leave within one round-trip (no
+    // REST-heartbeat lag — the PR2 design goal).
+    awareness.setLocalStateField('emitCursor', enabled)
   }
-  awareness.setLocalStateField('present', emitCursor)
+  awareness.setLocalStateField('present', true)
+  awareness.setLocalStateField('emitCursor', emitCursor)
 
   let awarenessHandler: (() => void) | undefined
   if (options.onAwarenessChange) {
@@ -205,9 +222,12 @@ export function createCollaboration(options: CollaborationOptions): Collaboratio
  * calls when the user is out-of-editor.
  */
 export function isLocalCursorEnabled(setup: CollaborationSetup): boolean {
-  // Read the local state to keep the gate in a single place; the
-  // `present` field doubles as the gate (false = no cursor either).
-  return setup.awareness.getLocalState()?.present !== false
+  // Read the dedicated `emitCursor` field (the gate set by
+  // `setLocalCursorEnabled`). We deliberately do NOT use `present` here:
+  // `present` is lifetime-true until `destroy()` (it signals "is the user
+  // still in the doc"), while `emitCursor` flips on visibility/tab-switch
+  // (it signals "should we publish cursor updates right now").
+  return setup.awareness.getLocalState()?.emitCursor !== false
 }
 
 export function collaborationExtensions(
