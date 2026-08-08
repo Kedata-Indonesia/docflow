@@ -3,8 +3,10 @@ import type { Editor } from '@tiptap/core'
 import type { EditorState } from '@tiptap/pm/state'
 import { Plugin, PluginKey } from '@tiptap/pm/state'
 import { Decoration, DecorationSet } from '@tiptap/pm/view'
+import { Markdown } from 'tiptap-markdown'
 import { definePlugin } from '@kedata-indonesia/docflow-core'
 import type { AIAction, AIActionRequest, AIStreamFn } from '@kedata-indonesia/docflow-core'
+import { markdownToFragment } from './markdownInsert.js'
 
 /**
  * AI writing assistance (Phase 7B inline transforms + 7C generation at cursor).
@@ -259,8 +261,18 @@ export const AIExtension = Extension.create({
           if (preview.text.trim()) {
             // THE accept: a single doc-changing transaction → flows through Yjs.
             // Works for both modes: transform replaces [from,to), generate
-            // inserts at the collapsed position.
-            tr.replaceWith(preview.from, preview.to, state.schema.text(preview.text))
+            // inserts at the collapsed position. The preview is parsed as
+            // INLINE markdown (→ bold/italic/code/link render, the leading
+            // paragraph is unwrapped) via the `tiptap-markdown` Markdown
+            // extension registered on aiPlugin. Falls back to a single plain
+            // text node when the Markdown extension isn't available, so a
+            // stripped build keeps the 7B/7C behavior.
+            const fragment = markdownToFragment(editor, preview.text, { inline: true })
+            if (fragment) {
+              tr.replaceWith(preview.from, preview.to, fragment)
+            } else {
+              tr.replaceWith(preview.from, preview.to, state.schema.text(preview.text))
+            }
           }
           tr.setMeta(aiPluginKey, { type: 'clear' } satisfies AIMeta)
           dispatch(tr)
@@ -508,6 +520,14 @@ export const AIExtension = Extension.create({
 
 export const aiPlugin = definePlugin({
   id: 'ai',
-  tiptapExtensions: [AIExtension],
+  // The `tiptap-markdown` `Markdown` extension is registered alongside AI so
+  // that `editor.storage.markdown.parser` is available on every editor that
+  // can stream AI content. It adds a schema-aware markdown↔HTML bridge
+  // (markdown-it under the hood) used by the AI Insert/accept paths to turn
+  // streamed `| col | col |` tables / `# headings` / `**bold**` into real
+  // nodes instead of literal pipe/asterisk text. Its `insertContentAt` /
+  // `setContent` command overrides are intentionally NOT used by the AI
+  // paths (they force `inline:true`); see `markdownInsert.ts`.
+  tiptapExtensions: [AIExtension, Markdown.configure({ html: true, linkify: true, breaks: false })],
   slashCommands: [{ name: 'AI', description: 'Generate text with AI', command: 'aiGenerate' }],
 })
