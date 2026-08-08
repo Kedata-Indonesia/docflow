@@ -207,6 +207,7 @@ const menus = computed<Record<string, { label: string; items: MenuItem[] }>>(() 
       { label: t('header.image'), action: 'insert-image' },
       { label: t('header.table'), action: 'insert-table' },
       { label: t('header.codeBlock'), action: 'insert-code' },
+      { label: t('header.horizontalLine'), action: 'horizontal-line' },
       { label: 'divider', divider: true },
       { label: t('header.link'), action: 'insert-link', shortcut: modKey('K') },
       { label: 'divider', divider: true },
@@ -214,6 +215,13 @@ const menus = computed<Record<string, { label: string; items: MenuItem[] }>>(() 
       { label: t('header.footer'), action: 'insert-footer' },
       { label: t('header.footnote'), action: 'insert-footnote' },
       { label: t('header.tableOfContents'), action: 'insert-toc' },
+      { label: 'divider', divider: true },
+      {
+        label: t('header.pageNumbers'), sub: [
+          { label: t('header.pageNumberInHeader'), action: 'page-numbers-header' },
+          { label: t('header.pageNumberInFooter'), action: 'page-numbers-footer' },
+        ]
+      },
     ],
   },
   Format: {
@@ -240,14 +248,6 @@ const menus = computed<Record<string, { label: string; items: MenuItem[] }>>(() 
           { label: t('header.bulletList'), action: 'bullet-list' },
           { label: t('header.numberedList'), action: 'numbered-list' },
           { label: t('header.taskList'), action: 'task-list' },
-        ]
-      },
-      { label: 'divider', divider: true },
-      { label: t('header.horizontalLine'), action: 'horizontal-line' },
-      {
-        label: t('header.pageNumbers'), sub: [
-          { label: t('header.pageNumberInHeader'), action: 'page-numbers-header' },
-          { label: t('header.pageNumberInFooter'), action: 'page-numbers-footer' },
         ]
       },
       { label: 'divider', divider: true },
