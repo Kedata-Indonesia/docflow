@@ -34,7 +34,8 @@
     "@tiptap/extension-color": "^2.27.2",
     "@tiptap/extension-highlight": "^2.27.2",
     "@tiptap/pm": "^2.11.0",
-    "citeproc": "^2.4.63"
+    "citeproc": "^2.4.63",
+    "tiptap-markdown": "0.8.10"
   },
   "peerDependencies": {
     "@tiptap/core": "^2.11.0",
