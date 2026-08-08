@@ -63,7 +63,10 @@ export const pageBreakPlugin = definePlugin({
       editor
         .chain()
         .focus()
-        .insertContent({ type: 'pageBreak' })
+        .insertContent([
+          { type: 'pageBreak' },
+          { type: 'paragraph' },
+        ])
         .run(),
   },
 })

@@ -1740,6 +1740,7 @@ const editFormatMenuCommands: Record<string, () => void> = {
   'insert-image': () => runPluginMenuAction('insertImage'),
   'insert-table': () => runPluginMenuAction('insertTable', { rows: 3, cols: 3, withHeaderRow: true }),
   'insert-code': () => runPluginMenuAction('toggleCodeBlock'),
+  'insert-page-break': () => runPluginMenuAction('insertPageBreak'),
   'insert-toc': () => runPluginMenuAction('insertToc'),
 }
 

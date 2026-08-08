@@ -110,7 +110,19 @@
 .ProseMirror .docs-editor-page-break {
   position: relative;
   margin: 2rem 0 !important;
-  height: 0;
+  /* tiptap-pagination-plus computes page count from scrollHeight / pageContentAreaHeight.
+     A height:0 page-break node doesn't add enough height to trigger a new page.
+     Using min-height equal to one page's content area ensures the remaining
+     content is pushed past the current page boundary so the pagination library
+     creates a second page. The visual label/line stay absolutely positioned at
+     the top of this space so the user sees the break marker, not a giant gap. */
+  min-height: calc(
+    var(--rm-page-height, 1123px) -
+    var(--rm-margin-top, 0px) -
+    var(--rm-margin-bottom, 0px) -
+    var(--rm-content-margin-top, 0px) -
+    var(--rm-content-margin-bottom, 0px)
+  );
   user-select: none;
   pointer-events: none;
 }
