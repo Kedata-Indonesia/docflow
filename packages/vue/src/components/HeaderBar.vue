@@ -12,7 +12,7 @@ import {
   IndentIncrease, AlignLeft, AlignCenter, AlignRight, AlignJustify,
   ListOrdered, ListChecks, RemoveFormatting, SpellCheck, SlidersHorizontal,
   Puzzle, Keyboard, Bug, CircleHelp,
-  Sparkles, LayoutTemplate,
+  Sparkles, LayoutTemplate, Calendar, MapPin,
 } from 'lucide-vue-next'
 import type { Collaborator } from '../types.js'
 import ThemeToggle from './ThemeToggle.vue'
@@ -239,6 +239,16 @@ const menus = computed<Record<string, { label: string; items: MenuItem[] }>>(() 
       { label: t('header.horizontalLine'), action: 'horizontal-line', icon: Minus },
       { label: 'divider', divider: true },
       { label: t('header.link'), action: 'insert-link', shortcut: modKey('K'), icon: Link2 },
+      { label: 'divider', divider: true },
+      {
+        label: t('header.smartElements'), icon: Sparkles, sub: [
+          { label: t('header.dateChip'), action: 'insert-date-chip', icon: Calendar },
+          { label: t('header.peopleChip'), action: 'insert-people-chip', icon: Users },
+          { label: t('header.fileChip'), action: 'insert-file-chip', icon: FileText },
+          { label: t('header.dropdownChip'), action: 'insert-dropdown-chip', icon: ChevronDown },
+          { label: t('header.locationChip'), action: 'insert-location-chip', icon: MapPin },
+        ]
+      },
       { label: 'divider', divider: true },
       {
         label: t('header.break'), icon: SeparatorHorizontal, sub: [

@@ -17,6 +17,7 @@ export { highlightPlugin } from './highlight.js'
 export { citationPlugin, CitationNode, CitationEngineExtension, getCitationEngine, buildCitationNodes } from './citation.js'
 export { aiPlugin, AIExtension, getAIPreview, aiPluginKey, type AIPreviewState } from './ai.js'
 export { commentPlugin, CommentMarkExtension, type CommentMarkAttrs } from './comment.js'
+export { smartElementsPlugin, DateChipNode, PeopleChipNode, FileChipNode, DropdownChipNode, LocationChipNode } from './smartElements.js'
 export { BibliographyNode } from './bibliography.js'
 export { CiteEngine, nextCitationId, sanitizeCiteprocHtml, type CitationAttrs, type CitationMode, type CitationCluster, type CiteEngineOptions } from './citeEngine.js'
 export { CSL_STYLES, DEFAULT_CSL_STYLE, CSL_LOCALE_EN_US, type CslStyleInfo } from './csl/index.js'
@@ -41,6 +42,7 @@ import { highlightPlugin } from './highlight.js'
 import { citationPlugin } from './citation.js'
 import { aiPlugin } from './ai.js'
 import { commentPlugin } from './comment.js'
+import { smartElementsPlugin } from './smartElements.js'
 
 export const defaultPlugins = [
   formattingPlugin,
@@ -62,6 +64,7 @@ export const defaultPlugins = [
   citationPlugin,
   aiPlugin,
   commentPlugin,
+  smartElementsPlugin,
 ]
 
 export type { DocsEditorPlugin, ToolbarItem, SlashCommand } from '@kedata-indonesia/docflow-core'

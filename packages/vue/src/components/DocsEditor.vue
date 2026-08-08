@@ -1742,6 +1742,11 @@ const editFormatMenuCommands: Record<string, () => void> = {
   'insert-code': () => runPluginMenuAction('toggleCodeBlock'),
   'insert-page-break': () => runPluginMenuAction('insertPageBreak'),
   'insert-toc': () => runPluginMenuAction('insertToc'),
+  'insert-date-chip': () => runPluginMenuAction('insertDateChip'),
+  'insert-people-chip': () => runPluginMenuAction('insertPeopleChip'),
+  'insert-file-chip': () => runPluginMenuAction('insertFileChip'),
+  'insert-dropdown-chip': () => runPluginMenuAction('insertDropdownChip'),
+  'insert-location-chip': () => runPluginMenuAction('insertLocationChip'),
 }
 
 let menuClick = (action: string) => {
