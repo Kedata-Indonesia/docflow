@@ -14,3 +14,4 @@ playwright-report
 
 # Tenant AI config (issue #119) — holds LLM credentials, never commit
 apps/server/data/
+*.bak
