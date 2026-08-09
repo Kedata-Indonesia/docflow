@@ -1,4 +1,3 @@
-/// <reference path="./types/citeproc.d.ts" />
 import CSL from 'citeproc'
 import type { CslItemData } from '@kedata-indonesia/docflow-core'
 import { CSL_STYLES, CSL_LOCALE_EN_US, DEFAULT_CSL_STYLE } from './csl/index.js'

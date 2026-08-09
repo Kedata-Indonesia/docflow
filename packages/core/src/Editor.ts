@@ -331,8 +331,18 @@ function createTiptapEditor(
             const r = td.getBoundingClientRect()
             const parent = td.parentElement
             if (!parent) return
-            const colIdx = Array.from(parent.children).indexOf(td)
-            if (colIdx === -1) return
+            // Logical (colspan-aware) column index of the clicked cell. The DOM
+            // child index differs from the logical column index when the table has
+            // merged cells, which is common in tables pasted from Google Docs/Word
+            // (#55). Without this, widths get assigned to the wrong column.
+            const cellColSpan = (td as HTMLTableCellElement).colSpan || 1
+            let logicalStart = 0
+            let foundCell = false
+            for (const sibling of Array.from(parent.children)) {
+              if (sibling === td) { foundCell = true; break }
+              logicalStart += (sibling as HTMLTableCellElement).colSpan || 1
+            }
+            if (!foundCell) return
             const table = td.closest('table') as HTMLElement
             if (!table) return
 
@@ -341,9 +351,11 @@ function createTiptapEditor(
 
             let targetColIdx = -1
             if (distRight <= 16) {
-              targetColIdx = colIdx
-            } else if (distLeft <= 16 && colIdx > 0) {
-              targetColIdx = colIdx - 1
+              // Right edge of this (possibly merged) cell → its last logical column.
+              targetColIdx = logicalStart + cellColSpan - 1
+            } else if (distLeft <= 16 && logicalStart > 0) {
+              // Left edge → resize the logical column just before this cell.
+              targetColIdx = logicalStart - 1
             } else {
               return
             }
@@ -358,25 +370,32 @@ function createTiptapEditor(
               allColWidths[c] = w || initialWidth(table, c)
             }
             const isLastCol = targetColIdx === totalCols - 1
+            const neighborIdx = targetColIdx + 1
             const startX = event.clientX
             const startW = allColWidths[targetColIdx] || initialWidth(table, targetColIdx)
+            // The adjacent column that absorbs the delta in redistributive mode.
+            // For the last column there is no neighbor — its right border resizes
+            // the total table width instead.
+            const startNeighborW = !isLastCol
+              ? (allColWidths[neighborIdx] || initialWidth(table, neighborIdx))
+              : 0
 
-            // Compute maximum allowed width for target column so total table width
-            // does NOT exceed the page container width (prevents overpage overflow).
+            // Max container width — only used to clamp the last-column (total-width)
+            // resize so the table never overflows the page. Internal-border drags
+            // keep the total width constant, so they never need this clamp (#116).
             const maxContainerW = getMaxContainerWidth(table)
             let otherColsW = 0
             allColWidths.forEach((w, idx) => {
-              if (idx !== targetColIdx) {
-                otherColsW += w
-              }
+              if (idx !== targetColIdx) otherColsW += w
             })
-            const maxNw = Math.max(20, maxContainerW - otherColsW)
+            const maxNwLastCol = Math.max(20, maxContainerW - otherColsW)
 
-            // Helper to update DOM <col>, <td>, and <table> widths for ALL columns in sync
-            function updateDOMWidths(targetIdx: number, targetW: number) {
+            // Helper to update DOM <col>, <td>, and <table> widths for ALL columns
+            // from the authoritative `allColWidths` array (colgroup cols drive the
+            // layout under `table-layout: fixed`; the per-cell writes reinforce it).
+            function updateDOMWidths() {
               let totalWidth = 0
-              allColWidths.forEach((_, idx) => {
-                const w = idx === targetIdx ? targetW : allColWidths[idx]
+              allColWidths.forEach((w, idx) => {
                 const col = table.querySelector(`colgroup col:nth-child(${idx + 1})`) as HTMLElement
                 if (col) col.style.setProperty('width', w + 'px', 'important')
                 table.querySelectorAll('tr').forEach(function (row: Element) {
@@ -399,24 +418,35 @@ function createTiptapEditor(
             event.stopPropagation()
 
             let lastNw = startW
-            let moveCount = 0
             const onMove = function (e: MouseEvent) {
-              moveCount++
               if (!e.buttons) { onUp(e); return }
-              const diff = (e.clientX - startX)
-              const nw = Math.min(maxNw, Math.max(20, startW + diff))
-              lastNw = nw
+              const rawDiff = e.clientX - startX
 
-              // Live update cyan line at actual column border position during drag
-              let borderPos = table.getBoundingClientRect().left
-              for (let i = 0; i <= targetColIdx; i++) {
-                borderPos += (i === targetColIdx) ? nw : allColWidths[i]
+              if (isLastCol) {
+                // Total-width resize: only the dragged (last) column changes.
+                const nw = Math.min(maxNwLastCol, Math.max(20, startW + rawDiff))
+                allColWidths[targetColIdx] = nw
+                lastNw = nw
+              } else {
+                // Redistributive resize (#116): the dragged column grows by Δ and
+                // its right neighbor shrinks by Δ, keeping total width constant.
+                // Clamp Δ so neither column drops below the 20px minimum:
+                //   upper bound → neighbor stays ≥ 20 (rawDiff ≤ startNeighborW − 20)
+                //   lower bound → target stays ≥ 20   (rawDiff ≥ 20 − startW)
+                const delta = Math.max(20 - startW, Math.min(rawDiff, startNeighborW - 20))
+                allColWidths[targetColIdx] = startW + delta
+                allColWidths[neighborIdx] = startNeighborW - delta
+                lastNw = allColWidths[targetColIdx]
               }
+
+              // Live cyan line at the dragged border position during the drag.
+              let borderPos = table.getBoundingClientRect().left
+              for (let i = 0; i <= targetColIdx; i++) borderPos += allColWidths[i]
               showLine(table, borderPos)
 
-              // Pause ProseMirror's DOMObserver so it doesn't revert our changes
+              // Pause ProseMirror's DOMObserver so it doesn't revert our changes.
               pauseObserver()
-              updateDOMWidths(targetColIdx, nw)
+              updateDOMWidths()
               resumeObserver()
             }
 
@@ -428,8 +458,8 @@ function createTiptapEditor(
 
               if (lastNw === startW) return
 
-              allColWidths[targetColIdx] = lastNw
-              console.log('[Resize] onUp:', { lastNw, startW, isLastCol, targetColIdx, allColWidths })
+              // allColWidths[targetColIdx] (and the neighbor, for redistributive
+              // drags) is already up to date from onMove — persist via transaction.
 
               // Persist colwidth for ALL columns via ProseMirror transaction — this is the only
               // way to ensure complete table structure survives re-renders (typing, selection, etc.).
@@ -457,7 +487,6 @@ function createTiptapEditor(
                   const tableNode = doc.nodeAt(tablePos)
                   if (tableNode) {
                     const tr = state.tr
-                    let cellsUpdated = 0
                     // Walk rows → cells, update colwidth for ALL columns
                     tableNode.forEach((row, rowOffset) => {
                       let cellColIdx = 0
@@ -469,7 +498,6 @@ function createTiptapEditor(
                           cw[k] = allColWidths[cellColIdx + k] || 100
                         }
                         tr.setNodeMarkup(cellPos, null, { ...cell.attrs, colwidth: cw })
-                        cellsUpdated++
                         cellColIdx += colspan
                       })
                     })
@@ -478,7 +506,7 @@ function createTiptapEditor(
                     // Re-apply DOM inline styles to col, cell, and table after transaction
                     // so that Chrome's table-layout: fixed renderer keeps explicit widths for all columns.
                     pauseObserver()
-                    updateDOMWidths(targetColIdx, lastNw)
+                    updateDOMWidths()
                     resumeObserver()
                   }
                 } else {
@@ -488,7 +516,7 @@ function createTiptapEditor(
                 // Fallback: if transaction fails, at least set DOM styles directly
                 console.warn('[Resize] transaction failed, falling back to DOM:', err)
                 pauseObserver()
-                updateDOMWidths(targetColIdx, lastNw)
+                updateDOMWidths()
                 resumeObserver()
               }
             }
