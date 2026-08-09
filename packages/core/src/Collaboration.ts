@@ -231,10 +231,32 @@ export function createCollaboration(options: CollaborationOptions): Collaboratio
     )
   }
   if (provider && options.provider === 'websocket') {
-    const ws = provider as WebsocketProvider & { once: (event: string, cb: (isSynced: boolean) => void) => void }
+    const ws = provider as WebsocketProvider & {
+      once: (event: string, cb: (state: boolean) => void) => void
+      synced: boolean
+    }
     readyParts.push(
       new Promise<void>((resolve) => {
-        ws.once('sync', () => resolve())
+        // The y-websocket provider emits `sync` when its `synced` state
+        // transitions to true. The provider auto-connects on construction,
+        // so by the time the host awaits `whenReady` the first sync may
+        // have already completed — `once('sync')` would miss it. Check
+        // `synced` synchronously, listen for both `sync` and `synced`
+        // (some versions emit only one), and add a hard timeout so the
+        // editor never hangs forever on a wedged connection.
+        let settled = false
+        const done = () => {
+          if (settled) return
+          settled = true
+          resolve()
+        }
+        if (ws.synced) {
+          done()
+          return
+        }
+        ws.once('sync', done)
+        ws.once('synced', done)
+        setTimeout(done, 5000)
       }),
     )
   }
