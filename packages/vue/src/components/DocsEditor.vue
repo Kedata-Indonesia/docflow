@@ -458,7 +458,7 @@ interface CitationEngineLike {
 }
 
 const getCitationEngineLike = (): CitationEngineLike | null =>
-  (((editor.value?.storage as Record<string, unknown> | undefined)?.citation) as
+  (((editor.value?.storage as Record<string, unknown> | undefined)?.citationEngine) as
     | { engine?: CitationEngineLike | null }
     | undefined)?.engine ?? null
 
@@ -1870,14 +1870,21 @@ const updateFootnotes = () => {
 
     if (ref.hasAttribute('data-footnote-source-id')) {
       const citationId = ref.getAttribute('data-citation-id') ?? ''
-      const engine = (editor.value?.storage as Record<string, unknown> | undefined)?.citation as
+      const engine = (editor.value?.storage as Record<string, unknown> | undefined)?.citationEngine as
         { engine?: { renderCluster: (id: string) => string } | null } | undefined
       const html = engine?.engine?.renderCluster(citationId) ?? ''
       textDiv.classList.add('docs-footnote-item-text--citation')
       if (html) {
         textDiv.innerHTML = html
       } else {
-        textDiv.setAttribute('data-empty', 'true')
+        // Fall back to persisted content when the engine hasn't synced yet
+        // (e.g. immediately after document load).
+        const persisted = ref.getAttribute('data-footnote-content') ?? ''
+        if (persisted) {
+          textDiv.innerHTML = persisted
+        } else {
+          textDiv.setAttribute('data-empty', 'true')
+        }
       }
       return textDiv
     }
@@ -2078,7 +2085,7 @@ watch(isReady, (ready) => {
 
   // Citation-backed footnotes repaint when the engine emits change
   // (source edit, style switch, citation add/remove).
-  const citationStorage = (editor.value.storage as Record<string, unknown>).citation as
+  const citationStorage = (editor.value.storage as Record<string, unknown>).citationEngine as
     { engine?: { onChange: (cb: () => void) => () => void } | null } | undefined
   citationStorage?.engine?.onChange(() => { scheduleFootnotes(30) })
 
