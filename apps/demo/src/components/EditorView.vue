@@ -81,6 +81,10 @@ const editorInstance = ref<DocsEditorInstance | null>(null)
 
 function handleEditorReady(docsEditor: DocsEditorInstance) {
   editorInstance.value = docsEditor
+  // Expose the editor instance for Playwright e2e (apps/web does the same at
+  // EditorView.vue:1425). Lets specs drive the editor via commands instead of
+  // fragile toolbar-DN selectors. No-op for library consumers — demo only.
+  ;(window as unknown as { __docsEditor?: DocsEditorInstance['editor'] }).__docsEditor = docsEditor.editor
 }
 
 /** Live-engine citation renderer for the DOCX export (Phase 6D). */
