@@ -59,6 +59,16 @@ export interface CollaborationSetup {
    * use it as a seed source.
    */
   persistence?: IndexeddbPersistence
+  /**
+   * Issue #117 — resolves after BOTH the offline mirror (if `offline`) AND
+   * the provider's first sync (if `websocket`) have completed. Hosts MUST
+   * `await setup.whenReady` before binding the editor, otherwise the
+   * TipTap view can render against the IndexedDB cache before the
+   * authoritative server state arrives, briefly showing — and on a
+   * disconnected peer potentially re-broadcasting — nodes the server has
+   * since deleted. Resolves immediately when neither side applies.
+   */
+  whenReady: Promise<void>
   destroy: () => void
   /**
    * Phase 9 PR2 — toggle the local cursor emission + present flag.
@@ -199,6 +209,39 @@ export function createCollaboration(options: CollaborationOptions): Collaboratio
     notify()
   }
 
+  // Issue #117 — gate editor binding until both the offline mirror and the
+  // websocket provider have completed their first sync. We do not stall the
+  // Yjs setup itself; the doc, provider, and mirror remain constructed and
+  // may exchange updates freely. We only expose a `whenReady` promise that
+  // hosts must await before mounting the TipTap editor. Without this gate
+  // the editor binds to the Y.Doc the moment it exists, which on a
+  // disconnected-and-rejoining peer renders the IndexedDB cache before the
+  // server's authoritative state-vector arrives — a window during which
+  // deleted nodes appear, and any cached-but-not-yet-known state can be
+  // rebroadcast to peers on the next delta. The fix is structural: the
+  // mirror contributes offline edits via the normal Yjs merge on the WS
+  // sync; we just delay the editor's view until that exchange has settled.
+  const readyParts: Promise<void>[] = []
+  if (persistence) {
+    readyParts.push(
+      persistence.whenSynced.then(
+        () => undefined,
+        () => undefined,
+      ),
+    )
+  }
+  if (provider && options.provider === 'websocket') {
+    const ws = provider as WebsocketProvider & { once: (event: string, cb: (isSynced: boolean) => void) => void }
+    readyParts.push(
+      new Promise<void>((resolve) => {
+        ws.once('sync', () => resolve())
+      }),
+    )
+  }
+  const whenReady = readyParts.length === 0
+    ? Promise.resolve()
+    : Promise.all(readyParts).then(() => undefined)
+
   const destroy = () => {
     if (awarenessHandler) {
       awareness.off('change', awarenessHandler)
@@ -211,7 +254,7 @@ export function createCollaboration(options: CollaborationOptions): Collaboratio
     ydoc.destroy()
   }
 
-  return { ydoc, provider, awareness, persistence, destroy, setLocalCursorEnabled }
+  return { ydoc, provider, awareness, persistence, whenReady, destroy, setLocalCursorEnabled }
 }
 
 /**
