@@ -1046,6 +1046,9 @@ onUnmounted(() => {
   finishHeaderEdit(false)
   if (saveTimer.value) clearTimeout(saveTimer.value)
   if (scrollTimeout) clearTimeout(scrollTimeout)
+  if (resizeTimer) clearTimeout(resizeTimer)
+  if (updateFootnotesTimer) clearTimeout(updateFootnotesTimer)
+  window.removeEventListener('resize', onResize)
 })
 
 const showFooterModal = ref(false)
@@ -1845,8 +1848,11 @@ const saveFootnoteItemContent = (refEl: HTMLElement, newContent: string) => {
  * ─ Creates contenteditable footnote items that sync back to ProseMirror on blur.
  * ─ Skips rebuilding any page whose footnote area is currently focused.
  */
+let updateFootnotesTimer: ReturnType<typeof setTimeout> | null = null
+let resizeTimer: ReturnType<typeof setTimeout> | null = null
 const updateFootnotes = () => {
   if (!editor.value || !isReady.value) return
+
   const editorDom = editor.value.view.dom
 
   const paginationEl = editorDom.querySelector('[data-rm-pagination]')
@@ -2041,25 +2047,43 @@ watch(isReady, (ready) => {
   })
 })
 
-// Re-render footnotes after each editor update & lifecycle changes
+function scheduleFootnotes(delay: number) {
+  if (updateFootnotesTimer) clearTimeout(updateFootnotesTimer)
+  updateFootnotesTimer = setTimeout(() => {
+    updateFootnotesTimer = null
+    updateFootnotes()
+  }, delay)
+}
+
+const onResize = () => {
+  if (resizeTimer) clearTimeout(resizeTimer)
+  if (updateFootnotesTimer) {
+    clearTimeout(updateFootnotesTimer)
+    updateFootnotesTimer = null
+  }
+  resizeTimer = setTimeout(() => {
+    resizeTimer = null
+    updateFootnotes()
+  }, 150)
+}
+
 watch(isReady, (ready) => {
   if (!ready || !editor.value) return
 
-  // Run immediately
-  setTimeout(updateFootnotes, 150)
+  scheduleFootnotes(150)
 
   // Run on update & selection changes
-  editor.value.on('update', () => { setTimeout(updateFootnotes, 60) })
-  editor.value.on('selectionUpdate', () => { setTimeout(updateFootnotes, 100) })
+  editor.value.on('update', () => { scheduleFootnotes(60) })
+  editor.value.on('selectionUpdate', () => { scheduleFootnotes(100) })
 
   // Citation-backed footnotes repaint when the engine emits change
   // (source edit, style switch, citation add/remove).
   const citationStorage = (editor.value.storage as Record<string, unknown>).citation as
     { engine?: { onChange: (cb: () => void) => () => void } | null } | undefined
-  citationStorage?.engine?.onChange(() => { setTimeout(updateFootnotes, 30) })
+  citationStorage?.engine?.onChange(() => { scheduleFootnotes(30) })
 
   // Listen to window resize because pagination calculations layout can shift
-  window.addEventListener('resize', updateFootnotes)
+  window.addEventListener('resize', onResize)
 })
 </script>
 
