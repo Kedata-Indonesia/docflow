@@ -13,14 +13,14 @@ interface EditorContextStorage {
   citation?: CitationPort
 }
 
-/** editor.storage.citation — owned by CitationEngineExtension. */
+/** editor.storage.citationEngine — owned by CitationEngineExtension. */
 export interface CitationStorage {
   engine: CiteEngine | null
 }
 
 export function getCitationEngine(editor: Editor): CiteEngine | null {
-  return (editor.storage as Record<string, unknown>).citation as CitationStorage | undefined
-    ? ((editor.storage as unknown as { citation: CitationStorage }).citation.engine ?? null)
+  return (editor.storage as Record<string, unknown>).citationEngine as CitationStorage | undefined
+    ? ((editor.storage as unknown as { citationEngine: CitationStorage }).citationEngine.engine ?? null)
     : null
 }
 
@@ -30,7 +30,7 @@ export function getCitationEngine(editor: Editor): CiteEngine | null {
  * disposed on destroy — one instance per editor, never per node.
  */
 export const CitationEngineExtension = Extension.create({
-  name: 'citation',
+  name: 'citationEngine',
 
   addStorage() {
     return {
@@ -103,6 +103,34 @@ export const CitationEngineExtension = Extension.create({
     if (changed) {
       const port = (editor.storage as Record<string, unknown>).editorContext as EditorContextStorage | undefined
       port?.citation?.onSourcesChange?.(engine.getCitedSourceIds())
+    }
+
+    // Persist the engine's rendered text into citation-backed footnote `content`
+    // attrs so the text survives document reloads — same persistence model as
+    // typed footnotes. The engine can still re-render on style/source changes.
+    {
+      const updates: Array<{ pos: number; content: string }> = []
+      editor.state.doc.descendants((node, pos) => {
+        if (node.type.name === 'footnote' && node.attrs.sourceId) {
+          const id = node.attrs.citationId as string | null
+          if (!id) return true
+          const text = engine.renderCluster(id)
+          if (text && text !== (node.attrs.content as string)) {
+            updates.push({ pos, content: text })
+          }
+        }
+        return true
+      })
+      if (updates.length > 0) {
+        const tr = editor.state.tr
+        for (const { pos, content } of updates) {
+          const node = editor.state.doc.nodeAt(pos)
+          if (node) {
+            tr.setNodeMarkup(pos, undefined, { ...node.attrs, content })
+          }
+        }
+        editor.view.dispatch(tr)
+      }
     }
   },
 })
@@ -311,10 +339,10 @@ export const citationPlugin = definePlugin({
       if (!citation) return // inert without the injected port — like onImageUpload
       const sources = typeof citation.sources === 'function' ? citation.sources() : citation.sources
       const engine = new CiteEngine({ sources, style: citation.style })
-      ;(editor.storage as unknown as { citation: CitationStorage }).citation.engine = engine
+      ;(editor.storage as unknown as { citationEngine: CitationStorage }).citationEngine.engine = engine
     },
     onDestroy(editor) {
-      ;(editor.storage as unknown as { citation: CitationStorage }).citation.engine = null
+      ;(editor.storage as unknown as { citationEngine: CitationStorage }).citationEngine.engine = null
     },
   },
 })

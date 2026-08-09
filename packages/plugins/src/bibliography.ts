@@ -7,7 +7,7 @@ interface CitationStorageLike {
 }
 
 function getEngine(editor: Editor): CiteEngine | null {
-  const storage = (editor.storage as Record<string, unknown>).citation as CitationStorageLike | undefined
+  const storage = (editor.storage as Record<string, unknown>).citationEngine as CitationStorageLike | undefined
   return storage?.engine ?? null
 }
 

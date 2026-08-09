@@ -86,7 +86,7 @@ function handleEditorReady(docsEditor: DocsEditorInstance) {
 /** Live-engine citation renderer for the DOCX export (Phase 6D). */
 function getCitationExportPort(): { renderCitation: (citationId: string) => string; getBibliography: () => string[] } | undefined {
   const storage = editorInstance.value?.editor.storage as Record<string, unknown> | undefined
-  const engine = (storage?.citation as
+  const engine = (storage?.citationEngine as
     | { engine?: { renderCluster: (id: string) => string; getBibliography: () => string[] } | null }
     | undefined)?.engine
   if (!engine) return undefined
