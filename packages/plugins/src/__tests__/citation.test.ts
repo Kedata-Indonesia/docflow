@@ -115,8 +115,10 @@ describe('citation plugin (T2)', () => {
     expect(raw).toContain('"type":"footnote"')
     expect(raw).toContain('"sourceId":"doe-2020"')
     expect(raw).toContain('"locator":"12"')
-    // Free-text path stays empty — body is derived by the engine.
-    expect(raw).toContain('"content":""')
+    // Citation-backed footnotes persist the engine's rendered text so they
+    // survive document reloads — same persistence model as typed footnotes.
+    expect(raw).toContain('Doe')
+    expect(raw).not.toContain('"content":""')
   })
 
   it('round-trips citation/bibliography attrs through getJSON + setContent', async () => {
