@@ -5,7 +5,6 @@ export interface UseEditorOptions extends Omit<EditorOptions, 'target' | 'onUpda
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   content?: any
   onUpdate?: (json: object) => void
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   collaboration?: any
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   paginationOptions?: any
