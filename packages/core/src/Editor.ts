@@ -112,7 +112,7 @@ export interface EditorOptions {
   plugins?: DocsEditorPlugin[]
   editable?: boolean
   onUpdate?: (json: object) => void
-  collaboration?: CollaborationOptions
+  collaboration?: CollaborationOptions | CollaborationSetup
   getPageMap?: () => Map<number, { page: number; blockIndex: number }>
   paginationOptions?: PaginationPlusOptions
   /** Host-injected image upload port (see docs/LIBRARY_CONTRACT.md). */
@@ -189,9 +189,12 @@ export function createEditor(options: EditorOptions = {}): DocsEditor {
     content: options.content ? (migrateContent(options.content) as string | object | undefined) : options.content
   }
   const plugins = migratedOptions.plugins ?? []
-  const collaborationSetup = migratedOptions.collaboration
-    ? createCollaboration(migratedOptions.collaboration)
-    : undefined
+  const collaborationSetup: CollaborationSetup | undefined =
+    !migratedOptions.collaboration
+      ? undefined
+      : 'ydoc' in migratedOptions.collaboration
+        ? migratedOptions.collaboration
+        : createCollaboration(migratedOptions.collaboration)
 
   // Debug overlay: opt-in via `debug: true`. Lives and dies with the editor.
   const performanceMonitor = migratedOptions.debug
