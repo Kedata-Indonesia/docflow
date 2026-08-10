@@ -83,7 +83,7 @@ layout-engine (pagination measurement) ─────────────�
 
 ### Deployment
 
-Docker configs live in `docker/` (compose, nginx, entrypoints, all `docker/Dockerfile.*`). The root `Dockerfile.{server,web,demo}` files exist as **legacy Dokploy targets** — the Dokploy deployment references them by root path; keep in sync with the `docker/` versions until Dokploy is migrated (A1 follow-up). Compose is the canonical self-host path and points exclusively at `docker/Dockerfile.*`. Two modes: **same-domain** (nginx proxies `/api/*` to server, serves web/demo statically) and **separate-domain** (frontend and API on different hosts, requiring cross-domain OAuth/cookie config).
+Dockerfiles and compose live at the repo **root**: `Dockerfile.{server,web,demo}` (canonical, used by both Dokploy and compose) and `docker-compose.yml` / `docker-compose.dev.yml` / `docker-compose.deploy.yml`. Supporting infra files (nginx configs, entrypoints, `.npmrc`, env examples, `mongo-init.js`) live in `docker/`. Two modes: **same-domain** (nginx proxies `/api/*` to server, serves web/demo statically) and **separate-domain** (frontend and API on different hosts, requiring cross-domain OAuth/cookie config).
 
 **Live reference deploy:** `https://dev-docflow.kedata.cloud/` runs the same-domain stack on Dokploy (web + server containers behind a host nginx), using **managed MongoDB Atlas**, **external S3-compatible storage**, and the **cloud AI provider** (`AI_PROVIDER=openai-compatible` → DeepSeek). The compose-managed path (Mongo + MinIO + local LLM container) lives in the *pure on-prem* backlog — not exercised by the current prod profile.
 

@@ -476,7 +476,7 @@ Per-AGENTS.md gate order after any non-trivial change: **lint → typecheck → 
 | Cursor / selection plumbing | `apps/web/src/components/EditorView.vue` (`captureSelection`, `selectedTextSnippet`, `selectedTextIndex`) + `packages/vue/src/components/DocsEditor.vue` |
 | Heartbeat presence (REST, 15s) | `apps/server/src/routes/collab.ts` (`POST /heartbeat`, `GET /online/:room`) |
 | Awareness presence (Yjs, realtime) | `packages/core/src/Collaboration.ts` + `apps/web/src/components/EditorView.vue` (`onAwarenessChange`) |
-| Infra / prod env | `docker/nginx.conf`, `docker/Dockerfile.{web,server,demo}`, `docs/DEPLOYMENT.md`, `.env.docker.example` |
+| Infra / prod env | `docker/nginx.conf`, `Dockerfile.{web,server,demo}`, `docs/DEPLOYMENT.md`, `.env.docker.example` |
 | Deploy triggers | Dokploy UI — manual redeploy on `server` service after a code change to `apps/server` (web triggers automatically on `apps/web` change) |
 | Tests for a new feature | Add unit tests next to the code (`apps/server/src/__tests__/` / `packages/*/src/__tests__/`); E2E only for UI/layout behavior |
 
@@ -521,7 +521,7 @@ pnpm dev:web           # apps/web on :5174 (Vite proxies /api/* → :3001)
 pnpm build             # tsup + vite for all 7 packages/apps
 
 # Self-host (single host)
-docker compose -f docker/docker-compose.yml up -d --build
+docker compose -f docker-compose.yml up -d --build
 # → web (nginx → :80) + server (:3001) + mongo + minio
 
 # Managed prod (Dokploy, current stack)

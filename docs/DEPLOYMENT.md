@@ -82,7 +82,7 @@ $EDITOR .env.docker
 #   - Google/Microsoft/GitHub OAuth credentials (optional)
 
 # 3. Build + start
-docker compose -f docker/docker-compose.yml up -d --build
+docker compose -f docker-compose.yml up -d --build
 
 # 4. Verify
 curl http://localhost:8080/api/health
@@ -247,7 +247,7 @@ service with `docker/mongo-init.js` mounted for first-boot schema setup (see §1
 
 - **Cloud-managed (current prod):** set `STORAGE_BACKEND=s3`, point `S3_ENDPOINT` at your
   managed MinIO or S3-compatible endpoint, fill the credentials.
-- **Self-hosted MinIO:** uncomment the `minio` service in `docker/docker-compose.yml`,
+- **Self-hosted MinIO:** uncomment the `minio` service in `docker-compose.yml`,
   set `S3_ENDPOINT=http://minio:9000`, and provision the bucket via the `minio-mc` init
   container (or via the MinIO console at `:9001`).
 - **No S3 (single-container):** leave `STORAGE_BACKEND=gridfs` (the default) — images go
@@ -292,17 +292,17 @@ content leaves the network.
 
 ```bash
 # Build (same-domain — leave VITE_* empty for proxying)
-docker build -f docker/Dockerfile.server -t docflow-server:latest .
-docker build -f docker/Dockerfile.web    -t docflow-web:latest    .
+docker build -f Dockerfile.server -t docflow-server:latest .
+docker build -f Dockerfile.web    -t docflow-web:latest    .
 
 # Optional library showcase (backend-free demo image)
-docker build -f docker/Dockerfile.demo -t docflow-demo:latest .
+docker build -f Dockerfile.demo -t docflow-demo:latest .
 
 # Build for separate-domain (the SPA must bake the API URL at build time)
 docker build \
   --build-arg VITE_API_BASE_URL=https://api.example.com \
   --build-arg VITE_COLLAB_WEBSOCKET_URL=wss://api.example.com/collab \
-  -f docker/Dockerfile.web -t docflow-web:latest .
+  -f Dockerfile.web -t docflow-web:latest .
 
 # Tag + push
 docker tag docflow-server:latest registry.yourcompany.com/docflow-server:v1.0.0
@@ -311,11 +311,9 @@ docker push registry.yourcompany.com/docflow-server:v1.0.0
 docker push registry.yourcompany.com/docflow-web:v1.0.0
 ```
 
-> **Note on Dockerfile variants:** the canonical self-host path lives under `docker/`
-> (`docker/Dockerfile.server`, `docker/Dockerfile.web`, `docker/Dockerfile.demo`) — the
-> compose file references these exclusively. The root-level `Dockerfile.{server,web,demo}`
-> files are kept in sync because the Dokploy deployment references them by root path;
-> delete them once Dokploy is migrated to the `docker/` variants (tracked as A1 follow-up).
+> **Dockerfiles:** the canonical `Dockerfile.{server,web,demo}` live at the repo **root** and
+> are referenced by both the compose files and the Dokploy deployment. Supporting infra files
+> (nginx configs, entrypoints, env templates, `mongo-init.js`) live under `docker/`.
 
 ---
 
@@ -323,17 +321,17 @@ docker push registry.yourcompany.com/docflow-web:v1.0.0
 
 ```bash
 # Self-host (same-domain)
-docker compose -f docker/docker-compose.yml up -d --build
+docker compose -f docker-compose.yml up -d --build
 
 # Self-host (separate-domain — same compose, different env)
 VITE_API_BASE_URL=https://api.example.com \
 VITE_COLLAB_WEBSOCKET_URL=wss://api.example.com/collab \
 BACKEND_URL= \
-docker compose -f docker/docker-compose.yml config   # validate
-docker compose -f docker/docker-compose.yml up -d --build
+docker compose -f docker-compose.yml config   # validate
+docker compose -f docker-compose.yml up -d --build
 
 # Optional library showcase (backend-free)
-docker compose --profile showcase -f docker/docker-compose.yml up -d
+docker compose --profile showcase -f docker-compose.yml up -d
 
 # Health
 docker ps
@@ -342,7 +340,7 @@ curl http://localhost:8080/api/health
 # → {"status":"ok","db":"connected","uptime":3600,"timestamp":"..."}
 
 # Stop
-docker compose -f docker/docker-compose.yml down
+docker compose -f docker-compose.yml down
 ```
 
 ---
@@ -403,15 +401,15 @@ docker push registry.yourcompany.com/docflow-server:v1.1.0
 docker push registry.yourcompany.com/docflow-web:v1.1.0
 
 # Recreate the running stack (named volumes are preserved)
-docker compose -f docker/docker-compose.yml pull
-docker compose -f docker/docker-compose.yml up -d
+docker compose -f docker-compose.yml pull
+docker compose -f docker-compose.yml up -d
 
 # CAVEAT: Docker Compose does NOT run database migrations. Read the release
 # notes for any breaking env / schema changes (e.g. Phase 9 roles will
 # change `Document.collaborators` from string[] to {userId, role}[]).
 ```
 
-**Rollback:** `docker compose -f docker/docker-compose.yml down` (without `-v` —
+**Rollback:** `docker compose -f docker-compose.yml down` (without `-v` —
 **never** use `-v`, it removes the named volumes), then re-pull the previous image
 tag and `up -d` again. If you backed up Mongo + MinIO before the upgrade, restore
 from those backups instead.
