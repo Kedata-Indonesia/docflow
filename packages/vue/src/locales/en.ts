@@ -21,6 +21,9 @@ export default {
     deleteForever: 'Delete forever',
     back: 'Back',
     confirmPermanentDelete: 'Permanently delete this document? This cannot be undone.',
+    confirmPermanentDeleteBulk: 'Permanently delete {count} documents? This cannot be undone.',
+    selectAll: 'Select all',
+    clearSelection: 'Clear selection',
   },
   header: {
     file: 'File',
@@ -507,6 +510,8 @@ export default {
     trashEmptyDescription: 'Deleted documents will appear here.',
     trashedAt: 'Trashed',
     movedToTrash: 'Moved to trash:',
+    selectedCount: '{count} selected',
+    documentDeleteError: 'Could not delete one or more documents. Please try again.',
   },
   auth: {
     signInTitle: 'Sign in to create and edit documents',
