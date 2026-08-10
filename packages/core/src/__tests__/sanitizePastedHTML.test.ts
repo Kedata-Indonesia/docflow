@@ -48,7 +48,9 @@ describe('sanitizePastedHTML', () => {
         '<span style="background-color: #ffff00; color: #ff0000;">hi</span>',
       )
       expect(out).toMatch(/^<mark [^>]*background[^>]*>/)
-      expect(out).toContain('<span style="color: #ff0000;">hi</span>')
+      // DOM pipeline emits `color: #ff0000` (no trailing ';'); the regex
+      // parent test emitted `;`. The span carrying the text color is inner.
+      expect(out).toMatch(/<span style="color: #ff0000;?">hi<\/span>/)
       // text color must not leak onto the mark (it would hide the highlight)
       expect(out).not.toMatch(/<mark [^>]*(?<!background-)color:/)
     })
@@ -63,8 +65,10 @@ describe('sanitizePastedHTML', () => {
     })
 
     it('does not touch spans without a background style', () => {
-      const html = '<span style="color: #ff0000;">hi</span>'
-      expect(sanitizePastedHTML(html)).toBe(html)
+      // The DOM pipeline keeps the color span but normalizes the style
+      // attribute (drops the trailing ';' the regex parent expected).
+      const out = sanitizePastedHTML('<span style="color: #ff0000;">hi</span>')
+      expect(out).toMatch(/^<span style="color: #ff0000;?">hi<\/span>$/)
     })
   })
 
