@@ -22,10 +22,9 @@ function updatePosition() {
   const { view } = props.editor
   const { selection } = view.state
   const coords = view.coordsAtPos(selection.head)
-  const editorRect = view.dom.getBoundingClientRect()
   position.value = {
-    top: coords.bottom - editorRect.top + 4,
-    left: coords.left - editorRect.left,
+    top: coords.bottom + 4,
+    left: coords.left,
   }
 }
 

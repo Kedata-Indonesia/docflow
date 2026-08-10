@@ -1,6 +1,8 @@
 # Phase 8 — On-prem Deployment Packaging · Task-Level Implementation Plan
 
-**Roadmap ref:** [ENHANCEMENT_ROADMAP.md](../ENHANCEMENT_ROADMAP.md) Phase 8 · **Priority:** P1 · **Depends on:** Phases 1, 3, 4, 7 · **Last updated:** 2026-07-17
+**Roadmap ref:** [ENHANCEMENT_ROADMAP.md](../ENHANCEMENT_ROADMAP.md) Phase 8 · **Priority:** P1 · **Depends on:** Phases 1, 3, 4, 7 · **Last updated:** 2026-07-26
+
+> **Sprint execution plan:** see [`sprint-9-10-execution-plan.md`](sprint-9-10-execution-plan.md) for current-vs-target state per task and the recommended order (this doc is the task spec; the sprint plan is the work-breakdown).
 
 > **Goal:** a customer can stand up the **whole product** (web + server + Mongo + MinIO,
 > optionally a local LLM) on their own hardware with `docker compose up`, following the

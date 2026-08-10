@@ -1,6 +1,8 @@
 # Phase 9 — Google-Docs Feature Parity · Task-Level Implementation Plan
 
-**Roadmap ref:** [ENHANCEMENT_ROADMAP.md](../ENHANCEMENT_ROADMAP.md) Phase 9 · **Priority:** P2 (candidate scope) · **Last updated:** 2026-07-17
+**Roadmap ref:** [ENHANCEMENT_ROADMAP.md](../ENHANCEMENT_ROADMAP.md) Phase 9 · **Priority:** P2 (candidate scope) · **Last updated:** 2026-07-26
+
+> **Sprint execution plan:** see [`sprint-9-10-execution-plan.md`](sprint-9-10-execution-plan.md) for current-vs-target state per task and the recommended order (this doc is the task spec; the sprint plan is the work-breakdown).
 
 > **Goal:** close the gap to a Docs-class experience — version history, comments &
 > suggestions, live TOC, presence polish, templates, offline editing, and permission roles.
@@ -35,10 +37,10 @@ A host app must import and wire each sidebar itself, supplying all data via prop
 
 ### Feature-by-feature reality
 
-- **Version history — 0% backend.** `DocumentSnapshot` is a client-side type with
-  `content: string` ([types.ts:33-39](../../packages/vue/src/types.ts)); there is **no server
-  model, no route, no capture path.** The "Save Named Snapshot" / "Restore" buttons emit events
-  into the void.
+- **Version history — shipped (V1+V2+V3).** `DocumentVersion` model (Yjs update blob per §3) +
+  `services/versionService.ts` + `routes/versions.ts` capture from the live room;
+  `HistorySidebar` is mounted and wired end-to-end; restore is client-driven via
+  `GET /versions/:versionId/content` + `setContent` (rides the Yjs sync path).
 - **Comments — 0% backend, fragile anchor model.** `CommentItem` is client-only
   ([types.ts:18-31](../../packages/vue/src/types.ts)) and anchors to text via
   `anchorText: string` / `anchorIndex: number` — **plain strings, not ProseMirror positions or
@@ -58,11 +60,13 @@ A host app must import and wire each sidebar itself, supplying all data via prop
   `POST /api/collab/heartbeat`, `GET /api/collab/online/:roomId`
   ([collab.ts:15-84](../../apps/server/src/routes/collab.ts)). No consolidated avatar stack,
   follow-cursor, or selection highlighting in the UI.
-- **Templates — nonexistent.** No template model, gallery, or "new from template" flow (the
-  only `template` hits in the tree are Vue `<template>` tags).
-- **Offline — nonexistent.** No `y-indexeddb`; the only `offline` token is a `SavingStatus`
-  string in the status bar ([StatusBar.vue:80](../../packages/vue/src/components/StatusBar.vue)).
-  Closing the tab offline loses unsynced edits.
+- **Templates — shipped (TP1).** `DocumentTemplate` model + `routes/templates.ts` + boot-seeded
+  system templates; dashboard gallery is API-driven; "new from template" clones via the existing
+  `POST /api/documents` + seed-on-open; doc-card menu has "Save as template".
+- **Offline — shipped (OF1).** `packages/core/Collaboration.ts` attaches `IndexeddbPersistence`
+  (`docflow-<room>`) via an opt-in `offline` option; the host enables it in both provider
+  branches; `connection-state` is driven by the real provider status. Offline edits persist
+  across reload and merge on reconnect (verified: no loss, no duplication).
 
 ### The permission model is flat, and the WS grant is binary
 

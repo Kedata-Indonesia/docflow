@@ -1,6 +1,7 @@
 {
   "name": "@kedata-indonesia/docflow-layout-engine",
-  "version": "0.0.1",
+  "license": "UNLICENSED",
+  "version": "0.0.43",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -15,7 +16,9 @@
   "publishConfig": {
     "registry": "https://npm.pkg.github.com"
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsup src/index.ts --format esm,cjs --dts",
     "typecheck": "tsc --noEmit",

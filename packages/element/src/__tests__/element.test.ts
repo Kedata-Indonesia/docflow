@@ -11,8 +11,36 @@ describe('DocsEditorElement', () => {
 
   it('observes required attributes', () => {
     expect(DocsEditorElement.observedAttributes).toEqual(
-      expect.arrayContaining(['room', 'theme', 'editable', 'content', 'websocket-url']),
+      expect.arrayContaining(['room', 'theme', 'editable', 'content', 'websocket-url', 'debug']),
     )
+  })
+
+  it('parses the debug attribute as a boolean into props', () => {
+    // A custom element constructor can only be registered once per registry,
+    // so use a fresh subclass for this test tag.
+    class DocsEditorDebugElement extends DocsEditorElement {}
+    customElements.define('docs-editor-debug-test', DocsEditorDebugElement)
+
+    const buildProps = (el: DocsEditorDebugElement) =>
+      (el as unknown as { _buildProps: () => Record<string, unknown> })._buildProps()
+
+    // Present (boolean semantics) → true
+    const enabled = document.createElement('docs-editor-debug-test') as DocsEditorDebugElement
+    enabled.setAttribute('debug', '')
+    expect(buildProps(enabled).debug).toBe(true)
+
+    // Explicit "true" → true
+    const explicit = document.createElement('docs-editor-debug-test') as DocsEditorDebugElement
+    explicit.setAttribute('debug', 'true')
+    expect(buildProps(explicit).debug).toBe(true)
+
+    // "false" or missing → false
+    const disabled = document.createElement('docs-editor-debug-test') as DocsEditorDebugElement
+    disabled.setAttribute('debug', 'false')
+    expect(buildProps(disabled).debug).toBe(false)
+
+    const missing = document.createElement('docs-editor-debug-test') as DocsEditorDebugElement
+    expect(buildProps(missing).debug).toBe(false)
   })
 
   it('registerDocsEditor defines the element in a mock registry', () => {

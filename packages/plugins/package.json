@@ -1,6 +1,7 @@
 {
   "name": "@kedata-indonesia/docflow-plugins",
-  "version": "0.0.4",
+  "license": "UNLICENSED",
+  "version": "0.0.46",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -24,7 +25,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsup src/index.ts src/citations.ts --format esm,cjs --dts",
+    "build": "tsup src/index.ts src/citations.ts --format esm,cjs --dts --no-splitting",
     "typecheck": "tsc --noEmit",
     "test:unit": "vitest run"
   },
@@ -33,7 +34,8 @@
     "@tiptap/extension-color": "^2.27.2",
     "@tiptap/extension-highlight": "^2.27.2",
     "@tiptap/pm": "^2.11.0",
-    "citeproc": "^2.4.63"
+    "citeproc": "^2.4.63",
+    "tiptap-markdown": "0.8.10"
   },
   "peerDependencies": {
     "@tiptap/core": "^2.11.0",
@@ -100,6 +102,7 @@
     "happy-dom": "^20.10.6",
     "tsup": "^8.3.0",
     "typescript": "^5.6.3",
-    "vitest": "^2.1.3"
+    "vitest": "^2.1.3",
+    "yjs": "^13.6.20"
   }
 }

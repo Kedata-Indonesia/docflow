@@ -13,3 +13,6 @@ allowBuilds:
 
 overrides:
   prosemirror-model: 1.25.11
+
+patchedDependencies:
+  tiptap-pagination-plus@3.1.0: patches/tiptap-pagination-plus@3.1.0.patch

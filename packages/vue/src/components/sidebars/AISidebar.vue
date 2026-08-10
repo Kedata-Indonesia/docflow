@@ -5,7 +5,7 @@ import { Sparkles, Send, Copy, Check, ArrowDownToLine, AlignLeft, BadgeCheck, Wa
 import type { Editor } from '@tiptap/core'
 import { Slice, Fragment } from 'prosemirror-model'
 import type { AIActionRequest, AIStreamFn, AIDraftCitation, AIDraftEvent, AIDraftFn } from '@kedata-indonesia/docflow-core'
-import { getCitationEngine } from '@kedata-indonesia/docflow-plugins'
+import { getCitationEngine, insertMarkdownBlock } from '@kedata-indonesia/docflow-plugins'
 import { useLocale } from '../../composables/useLocale.js'
 import { buildContentArray, stripMarkers } from './markerGrammar.js'
 
@@ -26,6 +26,12 @@ import { buildContentArray, stripMarkers } from './markerGrammar.js'
  * NOT become N transactions / N Yjs history entries). The model output is
  * untrusted — only markers that resolve through the server-owned table become
  * citations; unresolved markers are stripped from the inserted text.
+ *
+ * Boundary: `aiStream` / `aiDraft` are declared library ports on
+ * `EditorOptions` — see docs/LIBRARY_CONTRACT.md §2.1 and
+ * docs/plans/PLUGGABLE_AI_PROVIDER.md. The library never names an AI endpoint;
+ * hosts inject transports (`toAIStreamFn(openaiCompatibleProvider({...}))` or
+ * a custom function).
  */
 
 interface ChatTurn {
@@ -354,8 +360,13 @@ function handleInsert(turn: ChatTurn, index: number) {
   const { from, to } = state.selection
 
   if (!turn.citations || turn.citations.length === 0) {
-    // Plain-text path — preserves 7D behavior for chat turns + 0-results drafts.
-    view.dispatch(state.tr.insertText(turn.text, from, to))
+    // Markdown-aware path: parse the streamed text as BLOCK markdown (tables,
+    // lists, headings, bold, code…) and insert it as real nodes via a direct
+    // `view.dispatch` (NOT `editor.commands` — the Markdown extension's
+    // `insertContentAt` override forces `inline:true`, which would drop the
+    // leading paragraph and mangle a table). Falls back to `insertText` when
+    // the Markdown extension isn't registered (preserves 7D plain-text Insert).
+    insertMarkdownBlock(ed, view, from, to, turn.text)
     view.focus()
     markInserted(index)
     return
@@ -363,9 +374,10 @@ function handleInsert(turn: ChatTurn, index: number) {
 
   const engine = getCitationEngine(ed)
   if (!engine) {
-    // No citation engine — strip markers + insert plain text (no leak, no
-    // literal `[9]` reaching the document). Falls back to the plain-text path.
-    view.dispatch(state.tr.insertText(stripMarkers(turn.text), from, to))
+    // No citation engine — strip markers, then insert as block markdown so a
+    // draft with `[n]` markers but no engine still renders headings/lists/
+    // tables rather than leaking literal `##` / `|` characters.
+    insertMarkdownBlock(ed, view, from, to, stripMarkers(turn.text))
     view.focus()
     markInserted(index)
     return

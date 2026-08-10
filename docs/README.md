@@ -17,7 +17,7 @@ pnpm dev               # Start demo app (port 5173)
 pnpm dev:server        # Start backend (port 3001)
 
 # Docker
-docker compose -f docker/docker-compose.yml up -d
+docker compose -f docker-compose.yml up -d
 
 # Tests
 pnpm test:unit         # Unit tests (vitest)

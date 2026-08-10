@@ -1,0 +1,44 @@
+DocFlow — Proprietary EULA Reference
+
+Copyright © 2026 PT Kedata Indonesia (the "Licensor"). All rights reserved.
+
+────────────────────────────────────────────────────────────────────────
+THIS IS A TEMPLATE / SCAFFOLD FILE.
+────────────────────────────────────────────────────────────────────────
+This document is a placeholder summarising the licensing model. The
+binding text is the **DocFlow End-User License Agreement (EULA)** to
+be supplied separately to each customer, paired with a signed Order
+Form (per-deal price + tier + connection cap + server-instance cap).
+Until the EULA is reviewed by counsel and published, you may treat
+this file as the canonical statement that:
+
+  1. The DocFlow software is proprietary and NOT open-source.
+  2. No rights are granted by viewing the source code unless the
+     customer has accepted the EULA in writing.
+  3. The bundled third-party components listed in `NOTICE` keep
+     their original open-source licenses (mostly MIT).
+
+The "MIT" placeholder in `README.md` (carried over from before the
+proprietary decision) is **incorrect** and is updated by PR #90
+(replace "MIT" → "Proprietary — see LICENSE + NOTICE").
+────────────────────────────────────────────────────────────────────────
+
+Licensing model (per PRD §5 — proprietary EULA + separate MSA):
+
+  • DocFlow EULA (End-User License Agreement) — perpetual,
+    non-exclusive, non-transferable, metered per simultaneous
+    connection per server instance. Standard tiers: Community (free,
+    no warranty), Professional, Enterprise, Government. Hosting
+    DocFlow as a third-party SaaS is **prohibited** without a
+    separate OEM/SaaS agreement.
+  • Maintenance & Support Agreement (MSA) — annual, separate from
+    the EULA. Required for Professional / Enterprise / Government
+    for SLA-backed support; optional for Community.
+  • Source-code escrow (Government tier) — source code is deposited
+    with an escrow agent; released to the licensee if the Licensor
+    ceases to operate or fails the maintenance SLA.
+
+Governing law: Republic of Indonesia (UU Hak Cipta No. 28/2014).
+Dispute venue: District Court of Central Jakarta.
+
+For licensing questions: legal@kedata.co

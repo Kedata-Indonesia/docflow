@@ -167,9 +167,9 @@
 
 | Order | Issue | Rationale |
 |-------|-------|-----------|
-| 12 | #30 Pageless Format | Format menu feature. No dependencies. |
-| 13 | #39 Phase 6: Citations | Needs Phase 2, 3, 5. |
-| 14 | #40 Phase 7: AI Assistance | Needs Phase 2, 6. |
+| 12 | #30 Pageless Format ✅ **Done** | Format menu feature. No dependencies. |
+| 13 | #39 Phase 6: Citations ✅ **Done** | Needs Phase 2, 3, 5. |
+| 14 | #40 Phase 7: AI Assistance ✅ **Done** | Needs Phase 2, 6. |
 
 **Deliverable:** Pageless format, Citations, AI Assistance.
 
@@ -178,6 +178,8 @@
 ### Sprint 9-10 (Weeks 9-10): Deployment + Collaboration
 
 **Goal:** Deploy production and add collaboration features.
+
+> **Implementation plan:** see [`sprint-9-10-execution-plan.md`](sprint-9-10-execution-plan.md) for the full task-level breakdown (current state, dependencies, recommended order, acceptance gates).
 
 | Order | Issue | Rationale |
 |-------|-------|-----------|

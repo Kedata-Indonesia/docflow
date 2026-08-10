@@ -1,0 +1,153 @@
+DocFlow — Third-Party Notices (NOTICE / THIRD-PARTY-NOTICES)
+
+DocFlow bundles third-party software components. Each is governed by
+its own license (the "Upstream License"); nothing in this NOTICE
+modifies the Upstream License, nor grants you any rights beyond
+those granted by the Upstream License.
+
+DocFlow itself is **proprietary software** (see `LICENSE`); this
+file only enumerates the open-source components redistributed in the
+binary / distribution.
+
+The full machine-readable dependency list is `pnpm-lock.yaml` at the
+repo root; the curated list below covers the meaningful editor /
+collab / rendering dependencies (not the entire transitive set).
+
+──────────────────────────────────────────────────────────────────────
+MIT-licensed components
+──────────────────────────────────────────────────────────────────────
+
+The following components are made available under the terms of the
+MIT License (see <https://opensource.org/licenses/MIT>) and may be
+copied, modified, and distributed under the terms of the MIT
+License; the copyright notices and permission notices below are
+preserved in full.
+
+  TipTap (this package includes: @tiptap/core, @tiptap/pm,
+  @tiptap/starter-kit, @tiptap/extension-collaboration,
+  @tiptap/extension-collaboration-cursor,
+  @tiptap/extension-text-style, prosemirror-model,
+  prosemirror-markdown, prosemirror-state, prosemirror-transform,
+  prosemirror-view)
+    Copyright (c) 2014-present, [webfoli](https://webfoli.com)
+                            / Tiptap contributors
+    License: MIT <https://github.com/ueberdosis/tiptap/blob/main/LICENSE.md>
+
+  Yjs (and y-protocols, y-prosemirror, y-indexeddb — all by the same
+  authors, distributed under MIT)
+    Copyright © 2016-present Kevin Jahns <kevin.jahns@protonmail.com>
+    License: MIT <https://github.com/yjs/yjs/blob/main/LICENSE>
+
+  Hocuspocus (Yjs websocket / extensions backend)
+    Copyright (c) 2021-present, [Tiptap](https://tiptap.dev)
+    License: MIT <https://github.com/ueberdosis/hocuspocus/blob/main/LICENSE>
+
+  Vue.js (3.x core + vue-tsc)
+    Copyright (c) 2014-present, Evan You <evan@vuejs.org>
+    License: MIT <https://github.com/vuejs/core/blob/main/LICENSE>
+
+  Element Plus (when bundled into the element package)
+    Copyright (c) 2020-present Element Plus
+    License: MIT <https://github.com/element-plus/element-plus/blob/dev/LICENSE>
+
+  Express.js (server-side HTTP framework)
+    Copyright (c) 2009-2011 TJ Holowaychuk <tj@vision-media.ca>
+                            2013-present Roman Shtokalov <shtokalov@gmail.com>
+    License: MIT <https://github.com/express/express/blob/master/LICENSE>
+
+  Mongoose (MongoDB ODM)
+    Copyright (c) 2010 LearnBoost <dev@learnboost.com>
+    License: MIT <https://github.com/Automattic/mongoose/blob/master/LICENSE.md>
+
+  Pino (structured logger used by the server)
+    Copyright (c) 2016 Matteo Collina & David Mark Clements
+    License: MIT <https://github.com/pinojs/pino/blob/main/LICENSE>
+
+  Better Auth (auth library used by the server)
+    Copyright (c) 2024 Better Auth
+    License: MIT <https://github.com/better-auth/better-auth/blob/main/LICENSE>
+
+  citeproc-js (citation engine)
+    Copyright (c) 2009 Frank Bennett (and contributors)
+    License: AGPL-3.0-or-later (NOT MIT — listed below in §AGPL)
+
+──────────────────────────────────────────────────────────────────────
+BSD-3-Clause / Apache-2.0 components
+──────────────────────────────────────────────────────────────────────
+
+None included as direct (non-transitive) dependencies at the time of
+writing. The full transitive set is enumerated in `pnpm-lock.yaml`;
+this file only documents the meaningful editor / framework stack
+that the customer is likely to audit.
+
+──────────────────────────────────────────────────────────────────────
+AGPL-3.0-or-later components (copyleft — read carefully)
+──────────────────────────────────────────────────────────────────────
+
+  citeproc-js
+    Copyright (c) 2009 Frank Bennett
+    License: AGPL-3.0-or-later
+    URL: <https://github.com/Juris-M/citeproc-js/blob/master/LICENSE>
+
+  IMPORTANT: This is a copyleft license. Embedding an unmodified /
+  unmodified-recompiled citeproc-js into a larger proprietary work
+  (DocFlow) is permitted: the resulting "Larger Work" is governed by
+  DocFlow's proprietary EULA, and the citeproc-js portion remains
+  governed by AGPL. **However**, distributing a modified version of
+  citeproc-js, OR providing network access to a service whose purpose
+  is to run modified citeproc-js to users outside your organization,
+  triggers AGPL §13 — i.e. you must make the corresponding source
+  modifications available under AGPL.
+
+  DocFlow ships the unmodified upstream citeproc-js as a dependency;
+  it does NOT modify citeproc-js. Customers who **modify** the
+  citeproc-js integration themselves bear the AGPL §13 obligation.
+
+──────────────────────────────────────────────────────────────────────
+SSPL-1.0 components (server-side public license — for self-host only)
+──────────────────────────────────────────────────────────────────────
+
+  MongoDB Community Server (the SSPL-1.0 component the Docker
+  compose service uses, if a customer runs Mongo locally instead of
+  MongoDB Atlas).
+    License: SSPL-1.0
+    URL: <https://www.mongodb.com/licensing/server-side-public-license>
+    Important: SSPL-1.0 specifically targets the SaaS-as-a-service
+    pathway; if you run MongoDB Community Server yourself (on-prem,
+    behind your own edge), and you are NOT providing the resulting
+    document service to third parties on a SaaS basis, SSPL §1
+    applies as a regular source-disclosure obligation on your
+    downstream service, not on you directly. Read SSPL §13 carefully
+    if you are an OEM/telco/ISV.
+    DocFlow itself does NOT bundle MongoDB Community Server — the
+    Docker image is an OPTIONAL service. Default is managed MongoDB
+    Atlas (proprietary license from MongoDB Inc.).
+
+──────────────────────────────────────────────────────────────────────
+AGPL-3.0 components (copyleft — for optional MinIO)
+──────────────────────────────────────────────────────────────────────
+
+  MinIO (the optional self-host object store in
+  `docker/docker-compose.yml`).
+    License: AGPL-3.0
+    URL: <https://github.com/minio/minio/blob/master/LICENSE>
+    IMPORTANT: same shape as SSPL — running MinIO yourself for your
+    own internal use does NOT trigger AGPL §13. Offering it as a
+    hosted service to third parties DOES.
+    DocFlow itself does NOT bundle MinIO. The customer who runs the
+    MinIO container assumes its AGPL obligations.
+
+──────────────────────────────────────────────────────────────────────
+DocFlow's own code
+──────────────────────────────────────────────────────────────────────
+
+All original code in the `packages/` and `apps/` directories is the
+intellectual property of PT Kedata Indonesia and is licensed under
+the DocFlow EULA (see `LICENSE`). The directories also contain
+modified versions of some upstream components (notably the y-websocket
+backend in `apps/server/src/y-websocket/`); the modifications are
+governed by the original components' Upstream License (MIT for
+y-websocket) ONLY to the extent that the upstream copyright holder's
+permission is required — i.e. you may treat them as part of DocFlow
+under the EULA, but you may not redistribute the modifications under
+a different license unless the upstream license permits it.
