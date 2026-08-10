@@ -319,6 +319,11 @@
   display: table !important;
 }
 
+/* PaginationPlus convergence is guarded by the pnpm patch on
+   tiptap-pagination-plus (patches/, see docs/plans/clipboard-paste-pipeline-plan.md).
+   Do NOT cap tbody height here: max-height/overflow don't apply reliably to
+   table-row-group boxes (cap is a no-op) and switching tbody to display:table
+   breaks ManualColumnResize hit-testing. The patch is the defense. */
 .rm-with-pagination table tbody,
 .ProseMirror table tbody {
   display: table-row-group !important;

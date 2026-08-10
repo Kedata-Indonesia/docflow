@@ -1,0 +1,23 @@
+diff --git a/dist/PaginationPlus.js b/dist/PaginationPlus.js
+index 186b6759ba503bbc707e3d8efa98e8b6e396b026..7605e32f970ba88527d2a0925e0defedf16633d4 100644
+--- a/dist/PaginationPlus.js
++++ b/dist/PaginationPlus.js
+@@ -541,6 +541,18 @@ const calculatePageCount = (view, pageOptions, headerHeight = 0, footerHeight =
+                 lastPageBreakRect.bottom;
+             if (lastPageGap > 0) {
+                 const addPage = Math.ceil(lastPageGap / pageContentAreaHeight);
++                // docflow convergence guard (see docs/plans/clipboard-paste-pipeline-plan.md):
++                // a single node taller than the page content area is unsplittable —
++                // adding pages can never close the gap, so stop growing instead of
++                // looping until the tab freezes (observed: 28k page-breaks from one table).
++                if (lastElementRect.height > pageContentAreaHeight) {
++                    return currentPageCount;
++                }
++                // circuit breaker: unbounded growth is always a bug; degrade gracefully.
++                const MAX_PAGES = 1000;
++                if (currentPageCount + addPage > MAX_PAGES) {
++                    return currentPageCount;
++                }
+                 return currentPageCount + addPage;
+             }
+             else {
