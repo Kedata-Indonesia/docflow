@@ -1,4 +1,5 @@
 export { createEditor, sanitizePastedHTML, type EditorOptions, type DocsEditor } from './Editor.js'
+export { normalizeClipboardHTML, detectClipboardSource, type ClipboardSource } from './pasteNormalization.js'
 export {
   PerformanceMonitor,
   createPerformanceMonitor,

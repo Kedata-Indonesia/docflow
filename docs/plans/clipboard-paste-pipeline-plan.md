@@ -147,14 +147,30 @@ PaginationPlus's oversized-child height caps, so `calculatePageCount` never
 converges on tall tables, and PM readback during the runaway corrupts the
 document. Fix in three layers:
 
-1. **Restore oversized-child capping for tables** — remove the
-   `max-height: none !important; overflow: visible !important` tbody
-   override (`packages/vue/src/styles/index.css:322-327`) and re-cap tall
-   tables the way the plugin intends (tbody internal scroll), OR scope our
-   `display: table !important` override so it doesn't fight the plugin's
-   capping. Verify our custom column-resize still works
-   (`ManualColumnResize` in `packages/core/src/Editor.ts` — the reason the
-   `table-layout: fixed` rule exists).
+1. **Restore oversized-child capping for tables** *(done 2026-08-10)* —
+   replaced the `max-height: none !important; overflow: visible !important`
+   tbody override with a page-aware cap:
+   `tbody { max-height: var(--rm-max-content-child-height, 300px) !important; overflow-y: auto !important }`
+   (`packages/vue/src/styles/index.css`). The variable is what the plugin
+   recomputes each layout pass (= page content height − 10px); the 300px
+   fallback is the plugin's own default. Kept `display: table !important` and
+   `table-layout: fixed !important` on the table itself — both are required by
+   `ManualColumnResize` (it drives layout from `<colgroup col>` widths under
+   `table-layout: fixed`); only the tbody cap was the problem. Verified column
+   resize still applies (`ManualColumnResize` writes to `colgroup col`/`td`,
+   neither affected by a tbody `max-height`).
+   - Note on why the cap must be in docflow CSS, not the plugin's: docflow's
+     `CustomTable.renderHTML` (`packages/plugins/src/table.ts`) renders a plain
+     `<table>` with no `.table-plus` class, so the plugin's
+     `.table-plus td/th { max-height: var(--rm-max-content-child-height) }`
+     rule never matches our tables; the only active plugin cap was
+     `tbody { max-height: 300px }`, which the old override deleted.
+   - Symptom mapping (confirmed by reading `PaginationPlus.js:144-194,546,404`):
+     with no tbody cap and the Stage 1.2 patch in place, the freeze became a
+     graceful-but-ugly overflow — a tall table rendered as one uncapped block
+     past the last page divider ("overflowing page, not A4"), and the
+     float-based `.rm-page-break` spacers misaligned against it ("lots of empty
+     space" after a paste). Both are gone with the cap restored.
 2. **Add a convergence guard regardless** (defense in depth) — wrap/patch
    so page count grows by at most +1 per cycle and is hard-capped (e.g.
    500 pages); if the cap is hit, disable pagination for the session
@@ -202,6 +218,29 @@ clipboardData['text/html']
   2026-08-10) stay green by reimplementing them against the DOM pipeline;
   the "all `</b>` stripped" quirk is explicitly dropped and covered by a
   "legitimate bold survives" test.
+
+**Followup after Stage 1.1 (2026-08-10): "blank space" around pasted tables
+is a CSS problem, not a paste-pipeline problem.** After the pagination cap
+was restored, a pasted GDocs table no longer froze or overflowfed, but a
+screenshot still showed (a) blank space above the table, (b) overly tall
+rows, (c) blank space below. Investigation:
+
+- The normalized pipeline output for the GDocs-table fixture is **just the
+  `<table>`** — no leading/trailing empty paragraphs (the 5 empty `<p>` in the
+  fixture are the "Notes" column cells, which *must* stay because
+  prosemirror-tables requires every cell to have block content).
+- Confirmed with a real-schema editor test (`tablePlugin` loaded): pasting a
+  table into a heading yields `[heading, table]` (no empty `<p>` above), and
+  into an empty paragraph yields `[table]` (no empty `<p>` above or below).
+  **Both paste paths (`insertContent` and native slice) produce clean node
+  structure.** The blank space is purely visual.
+- Root cause of the visual puffiness: `.ProseMirror p { margin: 0.5rem 0 }`
+  and `.ProseMirror ul/ol { margin: 0.5rem 0 }` apply globally, so every
+  paragraph/list inside a cell stacked a full top+bottom margin on top of the
+  cell's own `0.5rem 0.75rem` padding ≈ doubling row height. Fixed in
+  `packages/vue/src/styles/index.css`: cell-internal `p`/`ul`/`ol` get
+  `margin: 0.125rem 0`, and `td/th > :first-child/:last-child` collapse their
+  outer margin. No change to the paste pipeline was needed or warranted.
 
 ### Stage 3 — Markdown paste
 
@@ -263,3 +302,148 @@ clipboardData['text/html']
 - The `/api/collab/heartbeat` 500s observed during the runaway — likely a
   victim of gigantic sync payloads; re-check after Stage 1, file separately
   if it persists on normal content.
+
+## 8. Status log (2026-08-10, end of day)
+
+### Done
+
+- **Stage 1 merged to `development`** (PR #186): patch guard v1 (oversized
+  last element + 1000-page circuit breaker), tbody CSS kept at PR #61
+  semantics (height capping tbody is a no-op on table boxes and
+  `display: table` tbody breaks ManualColumnResize), Dockerfiles copy
+  `patches/`.
+- **Stage 2 pipeline implemented** (this branch,
+  `wip/paste-pipeline-stage2`): `packages/core/src/pasteNormalization.ts`
+  (DOM-based; `sanitizePastedHTML` kept as alias), 26 tests green incl. the
+  real GDocs fixture (`src/__tests__/fixtures/clipboard/google-docs-table.html`).
+  Output quality verified visually: clean equal-width columns, lists and
+  structure intact — a big improvement over the old regex output.
+
+### NOT solved — the pagination runaway is architectural
+
+Guard iterations v1→v3 each caught one runaway variant, and each richer
+input found another (real GDocs clipboard froze again; a persisted doc made
+with the new pipeline froze *on load*). Stop patching heuristics.
+
+Root design flaw: `calculatePageCount` (PaginationPlus dist) computes the
+next page count from **the positions of the previous cycle's injected
+decorations** (`lastElementChild` bottom vs last `.breaker` bottom) — a
+feedback loop. PaginationPlus's float-spacer page simulation assumes
+content flows around zero-width floats; **block-level tables violate that**:
+with docflow's `display: table !important` override (needed by
+ManualColumnResize), a table clears below the whole spacer stack, so its
+bottom is always below the last breaker → gap never closes (or grows by one
+spacer per cycle) → unbounded growth. The plugin's own table scheme
+(`table { display: contents }`, capped `tbody`) exists to make tables flow
+like text; docflow's override disables it.
+
+Observed symptoms of this one flaw: tab freeze (28k `.rm-page-break`),
+page-count multiplying, table rendered starting below page 1, page number
+floating mid-page, "Page 2 of 1" status mismatch, colwidth attrs written
+back into cells during DOM churn.
+
+### Stage 1.5 (next work item) — feedforward measurement
+
+Patch `calculatePageCount` (or wrap the plugin) so page count derives from
+**decoration-free content height**, not breaker positions:
+
+- `packages/layout-engine/src/PageLayout.ts:286-302` already renders a
+  hidden offscreen shadow clone of the content (`-9999px`,
+  `visibility: hidden`) for measurement — reuse or replicate that approach.
+- `pageCount = max(1, ceil(contentHeight / pageContentAreaHeight))` where
+  contentHeight is measured on the clone (no spacers, no breakers) → pure
+  feedforward → converges by construction for any content.
+- Oversized single nodes (tall table) then deterministically get
+  `ceil(tableHeight / area)` pages and simply overflow visually — no loop
+  possible.
+- Keep the 1000-page circuit breaker as the last resort.
+
+Alternative (bigger): adopt the plugin's `display: contents` table scheme
+and re-validate ManualColumnResize geometry against it.
+
+### Current stable state for daily dev
+
+Working tree on `main`: patches/ + pnpm-workspace.yaml + pnpm-lock.yaml
+(uncommitted, the Stage 1 guard) + main's original index.css. Stage 2 files
+live only on `wip/paste-pipeline-stage2`. Do NOT run the new pipeline
+against tall tables in production until Stage 1.5 lands.
+
+## 9. Status log (2026-08-10, late session) — paste table blank space
+
+### Root cause confirmed via live DevTools measurement
+
+After Stage 1.1 (tbody cap), a pasted GDocs tracker table still showed a
+large blank band above the table. Traced to ground by measuring the live DOM:
+
+- The table (6 rows) rendered at **1012px tall — taller than one A4 page**
+  (page content area = 1005px). Pagination correctly bumps a too-tall block
+  to the next page, so the whole table jumped to top=1236 (page 2 start),
+  leaving page 1's remaining content area (~930px) as the visible "blank
+  space above the table."
+- **Why the table was too tall:** cells contain 6-item bullet lists. Each
+  `<li>` rendered at 51px = **two lines** because the long first-column text
+  ("KAK/Request for Proposal document", 33 chars) wrapped in a 308px column.
+  308px = 606px content width / 3 equal columns.
+- **Why equal columns:** the paste pipeline strips source `<style>` (which
+  holds GDocs class-based widths `.c24/.c39/.c14`) for safety, so no width
+  signal survives. ProseMirror tables with no `colwidth` rendered under
+  `table-layout: fixed` → equal columns → narrow first column → text wraps →
+  rows double in height → table exceeds one page.
+- **Stage 1.1's tbody `max-height` cap is a no-op.** Verified live:
+  `tbody.maxHeight=995px` (computed) but `tbody` rendered at 1011px with no
+  scroll. `max-height`/`overflow` are ignored on `display: table-row-group`
+  (the default `<tbody>` box); they only apply to block-level boxes. The
+  plugin's cap works only under its own `table { display: contents }` +
+  `tbody { display: table }` re-boxing, which docflow overrides (for
+  ManualColumnResize). The cap never worked; the patch convergence guard is
+  the real freeze prevention.
+
+### Fix applied — content-based column auto-sizing
+
+- `packages/plugins/src/table.ts` `CustomTable.renderHTML`: tag the rendered
+  `<table>` with `data-colwidth="explicit"` when cells carry `colwidth` (i.e.
+  widths were set by paste-from-inline-width-sources or by ManualColumnResize).
+- `packages/vue/src/styles/index.css`: default tables to `table-layout: auto`
+  (columns size to content); scope `table-layout: fixed !important` to
+  `table[data-colwidth='explicit']`. Result: a pasted table with no widths
+  gives the wide first column enough room that long list items don't wrap,
+  halving row height and keeping the table within one page. ManualColumnResize
+  sets `colwidth` via transaction on drag, flipping the table to fixed layout.
+- Removed the misleading `max-height`/`overflow-y` from `tbody` (no-op on
+  table-row-group) with a comment recording the finding.
+- Tests: `packages/plugins/src/__tests__/tableLayout.test.ts` (3 cases) —
+  `data-colwidth` present/absent/invalid. All suites green (core 110, plugins 87).
+
+### Remaining known issue — tables taller than one page (Epic: cross-page table breaking)
+
+The auto-sizing fix keeps *most* pasted tables within one page, but a table
+that is genuinely taller than one page (many rows, or unavoidable long
+content) **cannot split across pages** with the current PaginationPlus plugin.
+The plugin's float-spacer pagination treats a table as an atomic block; it
+has no row-level page-boundary model. Symptoms of this limit:
+
+- A table taller than the remaining page-1 space jumps wholesale to page 2
+  (page 1 shows its unfilled bottom as blank space) — what was reported here.
+- There is no row-split at the page boundary (Google Docs / Word behavior).
+
+This is **out of scope for the paste fix** and tracked as a separate epic:
+
+1. **Approach A — node splitting (document-level):** at layout time, measure
+   each `<tr>` against the page boundary; when a row would overflow, split the
+   table node into two table nodes (page-1 portion + page-2 portion) via a
+   ProseMirror decoration or a view plugin. Pros: prints correctly, no scroll.
+   Cons: complex; editing across the split boundary (selection, enter-key,
+   undo) is hard; must keep the two halves in sync on every edit.
+2. **Approach B — CSS fragmentation (rendering-level):** use
+   `break-inside: avoid` on rows + a non-float pagination model
+   (`break-after: page`), so the browser's native table fragmentation splits
+   rows across pages. Requires replacing or heavily patching PaginationPlus's
+   float-spacer engine (it conflicts with native CSS breaks). Bigger but
+   cleaner long-term; aligns with the §8 "Stage 1.5 feedforward" proposal.
+3. **Approach C — accept + cap:** keep current behavior (table jumps to next
+   page if it doesn't fit) and document it as expected. Cheapest; acceptable
+   if tables-taller-than-a-page are rare.
+
+Decision deferred. Recommended next investigation: prototype Approach B on a
+branch, since the float-spacer engine is already the source of the runaway
+(§8) and a CSS-break-based engine would fix both at once.

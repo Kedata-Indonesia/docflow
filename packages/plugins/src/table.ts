@@ -53,6 +53,13 @@ const CustomTable = Table.extend({
     if (hasExplicitWidths && totalWidth > 0) {
       const existingStyle = tableAttrs.style || ''
       tableAttrs.style = existingStyle ? `${existingStyle}; width: ${totalWidth}px !important` : `width: ${totalWidth}px !important`
+      // Mark the table as having explicit column widths so CSS uses
+      // table-layout: fixed (required by ManualColumnResize, which drives
+      // layout from <colgroup col> widths). Tables WITHOUT explicit widths
+      // fall back to table-layout: auto so columns size to content (long
+      // text columns get wider instead of wrapping and inflating row height
+      // — see docs/plans/clipboard-paste-pipeline-plan.md, paste table fix).
+      tableAttrs['data-colwidth'] = 'explicit'
     }
 
     return [
