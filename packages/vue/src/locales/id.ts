@@ -21,6 +21,9 @@ export default {
     deleteForever: 'Hapus permanen',
     back: 'Kembali',
     confirmPermanentDelete: 'Hapus dokumen ini secara permanen? Tindakan ini tidak dapat dibatalkan.',
+    confirmPermanentDeleteBulk: 'Hapus {count} dokumen secara permanen? Tindakan ini tidak dapat dibatalkan.',
+    selectAll: 'Pilih semua',
+    clearSelection: 'Hapus pilihan',
   },
   header: {
     file: 'Berkas',
@@ -507,6 +510,8 @@ export default {
     trashEmptyDescription: 'Dokumen yang dihapus akan muncul di sini.',
     trashedAt: 'Dihapus',
     movedToTrash: 'Dipindahkan ke sampah:',
+    selectedCount: '{count} dipilih',
+    documentDeleteError: 'Tidak dapat menghapus satu atau lebih dokumen. Silakan coba lagi.',
   },
   auth: {
     signInTitle: 'Masuk untuk membuat dan menyunting dokumen',
