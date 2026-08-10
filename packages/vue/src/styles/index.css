@@ -110,7 +110,19 @@
 .ProseMirror .docs-editor-page-break {
   position: relative;
   margin: 2rem 0 !important;
-  height: 0;
+  /* tiptap-pagination-plus computes page count from scrollHeight / pageContentAreaHeight.
+     A height:0 page-break node doesn't add enough height to trigger a new page.
+     Using min-height equal to one page's content area ensures the remaining
+     content is pushed past the current page boundary so the pagination library
+     creates a second page. The visual label/line stay absolutely positioned at
+     the top of this space so the user sees the break marker, not a giant gap. */
+  min-height: calc(
+    var(--rm-page-height, 1123px) -
+    var(--rm-margin-top, 0px) -
+    var(--rm-margin-bottom, 0px) -
+    var(--rm-content-margin-top, 0px) -
+    var(--rm-content-margin-bottom, 0px)
+  );
   user-select: none;
   pointer-events: none;
 }
@@ -248,36 +260,51 @@
 .ProseMirror ul[data-type='taskList'] {
   list-style: none !important;
   padding: 0 !important;
+  margin: 0.5rem 0 !important;
 }
 
-.ProseMirror li[data-type='taskItem'] {
+.ProseMirror ul[data-type='taskList'] > li {
   display: flex !important;
   align-items: flex-start !important;
   gap: 0.5rem !important;
   margin: 0.25rem 0 !important;
 }
 
-.ProseMirror li[data-type='taskItem'] > label {
-  margin-top: 0.25rem !important;
+.ProseMirror ul[data-type='taskList'] > li > label {
+  flex: 0 0 1.25rem !important;
+  margin: 0.25rem 0 0 !important;
+  -webkit-user-select: none !important;
+  -webkit-user-select: none !important;
   user-select: none !important;
   display: flex !important;
   align-items: center !important;
+  justify-content: center !important;
 }
 
-.ProseMirror li[data-type='taskItem'] > label input[type='checkbox'] {
+.ProseMirror ul[data-type='taskList'] > li > label input[type='checkbox'] {
   accent-color: #22d3ee !important;
   cursor: pointer !important;
   width: 14px !important;
   height: 14px !important;
 }
 
-.ProseMirror li[data-type='taskItem'] > div {
-  flex: 1 !important;
+.ProseMirror ul[data-type='taskList'] > li > div {
+  flex: 1 1 0% !important;
+  min-width: 0 !important;
 }
 
-.ProseMirror li[data-type='taskItem'][data-checked='true'] > div {
+.ProseMirror ul[data-type='taskList'] > li > div > p {
+  margin: 0 !important;
+}
+
+.ProseMirror ul[data-type='taskList'] > li[data-checked='true'] > div {
   text-decoration: line-through !important;
   color: #64748b !important;
+}
+
+.ProseMirror ul[data-type='taskList'] > li > div > ul[data-type='taskList'],
+.ProseMirror ul[data-type='taskList'] > li > div > ol {
+  margin: 0.25rem 0 !important;
 }
 
 /* ── Tables ─────────────────────────────────────────────────────────── */
@@ -292,6 +319,11 @@
   display: table !important;
 }
 
+/* PaginationPlus convergence is guarded by the pnpm patch on
+   tiptap-pagination-plus (patches/, see docs/plans/clipboard-paste-pipeline-plan.md).
+   Do NOT cap tbody height here: max-height/overflow don't apply reliably to
+   table-row-group boxes (cap is a no-op) and switching tbody to display:table
+   breaks ManualColumnResize hit-testing. The patch is the defense. */
 .rm-with-pagination table tbody,
 .ProseMirror table tbody {
   display: table-row-group !important;
@@ -333,28 +365,12 @@
   z-index: 2;
 }
 
-.ProseMirror td.col-resize-active,
-.ProseMirror th.col-resize-active {
-  position: relative !important;
-}
-
-.ProseMirror td.col-resize-active::after,
-.ProseMirror th.col-resize-active::after {
-  content: '' !important;
-  position: absolute !important;
-  top: 0 !important;
-  right: -2px !important;
-  bottom: 0 !important;
-  width: 4px !important;
-  background-color: #06b6d4 !important;
-  box-shadow: 0 0 8px rgba(6, 182, 212, 0.9) !important;
-  z-index: 100 !important;
-  pointer-events: none !important;
-}
-
-.ProseMirror.resize-cursor {
-  cursor: col-resize;
-}
+/* Note: native prosemirror-tables column resizing is disabled (resizable: false
+   in packages/plugins/src/table.ts). The `.col-resize-active` / `.resize-cursor`
+   hooks it relied on are never applied, so they are intentionally absent here.
+   Column resizing is handled by the custom ManualColumnResize extension in
+   packages/core/src/Editor.ts, which draws `.docflow-active-border-line` and
+   pairs with the ::after/::before cursor zones below. */
 
 .ProseMirror a {
   color: #2563eb; /* blue-600 */
@@ -794,6 +810,115 @@
   color: #64748b;
 }
 
+/* ── Table of contents block (Insert → Table of contents) ─────────────── */
+.docs-toc {
+  margin: 1em 0;
+  padding: 0.75em 1em;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.docs-toc__chrome {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5em;
+}
+
+.docs-toc__caption {
+  font-size: 0.7em;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #64748b;
+  user-select: none;
+}
+
+.docs-toc__refresh {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.9em;
+  line-height: 1;
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: #64748b;
+  transition: background 0.1s, color 0.1s;
+}
+
+.docs-toc__refresh:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.docs-toc__entry {
+  margin: 0;
+  line-height: 1.6;
+  cursor: pointer;
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.docs-toc__entry:hover {
+  color: #2563eb;
+  text-decoration: underline;
+}
+
+/* GDocs-style dotted leader between entry text and page number. Only when a
+   page number is present; flex order puts it before the (order: 1) number. */
+.docs-toc__entry:has(.docs-toc__page)::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px dotted #cbd5e1;
+  transform: translateY(-4px);
+}
+
+.docs-toc__page {
+  order: 1;
+  color: #64748b;
+  font-variant-numeric: tabular-nums;
+}
+
+.docs-toc__entry[data-level='2'] {
+  padding-left: 1.25rem;
+}
+
+.docs-toc__entry[data-level='3'] {
+  padding-left: 2.5rem;
+}
+
+.dark .docs-toc {
+  border-color: #334155;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.dark .docs-toc__caption {
+  color: #94a3b8;
+}
+
+.dark .docs-toc__refresh {
+  color: #94a3b8;
+}
+
+.dark .docs-toc__refresh:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #f1f5f9;
+}
+
+.dark .docs-toc__entry:hover {
+  color: #60a5fa;
+}
+
+.dark .docs-toc__entry:has(.docs-toc__page)::after {
+  border-bottom-color: #475569;
+}
+
+.dark .docs-toc__page {
+  color: #94a3b8;
+}
+
 /* Print page setup — standard document margins */
 @page {
   margin: 20mm;
@@ -804,10 +929,351 @@
 /* ── Pagination paper background (screen) ─────────────────────────── */
 .rm-with-pagination {
   background-color: #ffffff;
+  padding-top: var(--rm-margin-top);
+  padding-bottom: var(--rm-margin-bottom);
+  position: relative;
 }
 
 .dark .rm-with-pagination {
   background-color: #0a0f1e;
+}
+
+/* Shared header typography (first-page + later-page). The pagination
+   extension does not set these, so plain class specificity is enough. */
+.rm-page-header {
+  cursor: default !important;
+  font-size: 14px !important;
+  line-height: 1.5 !important;
+  min-height: 24px !important;
+}
+
+/* Per-page (later-page) header lives in normal flow at the top of its page
+   sheet (right after the page-break gap). The extension's page spacers assume
+   the header element reserves the full top zone
+   (margin-top + content + content-margin-top), so the element height must NOT
+   change — otherwise the body text of the page moves with it. Instead, the
+   header TEXT is placed at the header margin inside that reserved zone:
+   padding-top = header margin, padding-bottom compensates the rest of the
+   body margin. The extension injects `.rm-with-pagination .rm-page-header {
+   padding-top: var(--rm-margin-top) !important }` (specificity 0-2-0,
+   appended to <head> at runtime); the `#pages` id selector (later-page
+   headers always live inside the extension's `#pages` wrapper) outranks it. */
+#pages .rm-page-header {
+  position: relative !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  padding-top: var(--rm-header-margin-top, 18.9px) !important;
+  padding-bottom: max(calc(var(--rm-margin-top) + var(--rm-content-margin-top) - var(--rm-header-margin-top, 18.9px)), 0px) !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  margin-top: 0 !important;
+  cursor: default !important;
+  font-size: 14px !important;
+  line-height: 1.5 !important;
+  min-height: 24px !important;
+}
+
+/* First-page header is positioned in the paper's top margin area so it
+   doesn't push the body text down. The paper's padding-top reserves the
+   body margin; the header margin is the offset from the paper edge.
+   NOTE: the extension injects `.rm-with-pagination .rm-page-header` rules
+   (specificity 0-2-0, appended to <head> at runtime — including
+   `padding-top: var(--rm-margin-top) !important`), and the first-page header
+   also carries the `rm-page-header` class. This selector must therefore be
+   MORE specific than 0-2-0, otherwise the body margin is added on top of the
+   header margin and the generated text lands far below the overlay. */
+.rm-with-pagination .rm-page-header.rm-first-page-header {
+  position: absolute !important;
+  top: var(--rm-header-margin-top, 18.9px) !important;
+  left: var(--rm-margin-left) !important;
+  right: var(--rm-margin-right) !important;
+  width: auto !important;
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  z-index: 1;
+}
+
+/* When the external editor overlay is active, the generated header keeps its
+   normal geometry unchanged; only its content is hidden (see the
+   `.rm-header-active` rules below) so no duplicate shows under the overlay. */
+
+.rm-page-footer {
+  position: relative !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  padding-bottom: 0 !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  margin-bottom: var(--rm-footer-margin-bottom, 18.9px) !important;
+  cursor: default !important;
+  font-size: 14px !important;
+  line-height: 1.5 !important;
+  min-height: 24px !important;
+}
+
+.rm-page-header-left,
+.rm-page-header-right,
+.rm-page-footer-left,
+.rm-page-footer-right {
+  font-size: 14px !important;
+  line-height: 1.5 !important;
+  min-height: 24px !important;
+  pointer-events: auto !important;
+}
+
+.rm-page-header-left {
+  display: inline-block !important;
+  min-width: 200px !important;
+  min-height: 24px !important;
+  cursor: text !important;
+  pointer-events: auto !important;
+  -webkit-user-select: text !important;
+  user-select: text !important;
+}
+
+/* Active Header Inline Editable Area */
+.rm-page-header [contenteditable='true'] {
+  outline: none !important;
+  min-height: 24px !important;
+  font-size: 14px !important;
+  line-height: 1.5 !important;
+  display: inline-block !important;
+  min-width: 200px !important;
+  cursor: text !important;
+  pointer-events: auto !important;
+  -webkit-user-select: text !important;
+  user-select: text !important;
+}
+
+/* Active state must not change the generated header geometry. The external
+   overlay is the editable surface; only the generated content is hidden. */
+.rm-page-header.rm-header-active {
+  overflow: visible !important;
+}
+
+.rm-page-header.rm-header-active .rm-page-header-content {
+  visibility: hidden !important;
+}
+
+/* Active Header Bar (Google Docs style - Full Paper Page Sheet Width Edge to Edge)
+   The bar only exists inside `.rm-header-edit-overlay`; its real geometry
+   (left/width/padding) comes from the measured `--rm-header-bar-*` variables
+   set by `positionHeaderEdit()`. The values here are inert defaults. */
+.rm-google-docs-header-bar {
+  position: absolute !important;
+  top: 100% !important; /* Sits right at the bottom edge of header, BELOW header text & caret */
+  left: 0 !important;
+  right: auto !important;
+  width: 100% !important;
+  height: 28px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  background-color: #f8fafc !important;
+  border-top: 1px solid #3b82f6 !important;
+  font-family: inherit !important;
+  font-size: 11px !important;
+  color: #64748b !important;
+  -webkit-user-select: none !important;
+  user-select: none !important;
+  z-index: 20 !important;
+  box-sizing: border-box !important;
+}
+
+.dark .rm-google-docs-header-bar {
+  background-color: #0f172a !important;
+  border-top: 1px solid #3b82f6 !important;
+  color: #94a3b8 !important;
+}
+
+.rm-google-docs-header-bar .rm-header-label {
+  font-weight: 400 !important;
+  color: #94a3b8 !important;
+}
+
+.rm-google-docs-header-bar .rm-header-right-tools {
+  display: flex !important;
+  align-items: center !important;
+  gap: 16px !important;
+}
+
+.rm-google-docs-header-bar .rm-diff-label {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  cursor: pointer !important;
+  color: #475569 !important;
+  font-size: 11px !important;
+  transition: color 0.15s ease !important;
+}
+
+.dark .rm-google-docs-header-bar .rm-diff-label {
+  color: #cbd5e1 !important;
+}
+
+.rm-google-docs-header-bar .rm-diff-label:hover {
+  color: #0f172a !important;
+}
+
+.dark .rm-google-docs-header-bar .rm-diff-label:hover {
+  color: #ffffff !important;
+}
+
+.rm-google-docs-header-bar .rm-diff-cb {
+  width: 13px !important;
+  height: 13px !important;
+  border-radius: 2px !important;
+  border: 1px solid #94a3b8 !important;
+  accent-color: #2563eb !important;
+  cursor: pointer !important;
+}
+
+.rm-google-docs-header-bar .rm-options-wrapper {
+  position: relative !important;
+}
+
+.rm-google-docs-header-bar .rm-options-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  color: #1d4ed8 !important;
+  font-weight: 600 !important;
+  font-size: 11px !important;
+  background-color: #dbeafe !important;
+  border: none !important;
+  cursor: pointer !important;
+  padding: 3px 12px !important;
+  border-radius: 9999px !important;
+  transition: all 0.15s ease !important;
+}
+
+.dark .rm-google-docs-header-bar .rm-options-btn {
+  background-color: #1e3a8a !important;
+  color: #93c5fd !important;
+}
+
+.rm-google-docs-header-bar .rm-options-btn:hover {
+  background-color: #bfdbfe !important;
+}
+
+.dark .rm-google-docs-header-bar .rm-options-btn:hover {
+  background-color: #1d4ed8 !important;
+}
+
+/* Options Floating Dropdown Card (Google Docs style) */
+.rm-options-dropdown {
+  position: absolute !important;
+  top: calc(100% + 6px) !important;
+  right: 12px !important;
+  width: 170px !important;
+  background-color: #edf2fa !important;
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 12px !important;
+  padding: 6px 0 !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
+  z-index: 100 !important;
+  display: none !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+}
+
+.rm-options-dropdown.is-open {
+  display: flex !important;
+}
+
+.dark .rm-options-dropdown {
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+}
+
+.rm-options-dropdown button {
+  display: block !important;
+  width: 100% !important;
+  text-align: left !important;
+  padding: 9px 16px !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  color: #1e293b !important;
+  background: none !important;
+  border: none !important;
+  cursor: pointer !important;
+  transition: background-color 0.15s ease !important;
+}
+
+.dark .rm-options-dropdown button {
+  color: #f1f5f9 !important;
+}
+
+.rm-options-dropdown button:hover {
+  background-color: #dbeafe !important;
+}
+
+.dark .rm-options-dropdown button:hover {
+  background-color: #334155 !important;
+}
+
+.rm-google-docs-header-bar .rm-options-dropdown {
+  pointer-events: auto !important;
+}
+
+/* Google Docs-style header editing is rendered outside the ProseMirror view.
+   The generated PaginationPlus header remains display-only, so typing here
+   cannot be parsed into the body document by ProseMirror's DOM observer. */
+.rm-header-edit-overlay {
+  position: fixed !important;
+  z-index: 1000 !important;
+  pointer-events: none !important;
+  box-sizing: border-box !important;
+}
+
+.rm-header-edit-input {
+  position: relative !important;
+  display: block !important;
+  width: 100% !important;
+  min-height: 24px !important;
+  box-sizing: border-box !important;
+  outline: none !important;
+  cursor: text !important;
+  pointer-events: auto !important;
+  -webkit-user-select: text !important;
+  user-select: text !important;
+  white-space: pre-wrap !important;
+  overflow-wrap: anywhere !important;
+  font-size: 14px !important;
+  line-height: 1.5 !important;
+  color: inherit !important;
+  background: transparent !important;
+}
+
+.rm-header-edit-input:empty::before {
+  content: attr(data-placeholder);
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+/* The bar is a child of the fixed overlay, not the generated header. Its
+   geometry is populated from the real paper/header rectangles in JS. */
+.rm-header-edit-overlay .rm-google-docs-header-bar {
+  left: var(--rm-header-bar-left, 0px) !important;
+  right: auto !important;
+  width: var(--rm-header-bar-width, 100%) !important;
+  padding-left: var(--rm-header-bar-padding-left, 0px) !important;
+  padding-right: var(--rm-header-bar-padding-right, 0px) !important;
+  pointer-events: auto !important;
+}
+
+.rm-header-edit-overlay .rm-google-docs-header-bar .rm-options-dropdown {
+  pointer-events: auto !important;
+}
+
+@media print {
+  .rm-header-edit-overlay {
+    display: none !important;
+  }
 }
 
 /* ── Responsive: full-width on mobile ────────────────────────────── */
@@ -1175,4 +1641,132 @@
 .dark .ProseMirror .find-match-active {
   background-color: rgba(234, 179, 8, 0.55);
   outline-color: #facc15;
+}
+
+/* ── Smart Elements chips ── Google-Docs-style inline interactive pills ─── */
+
+.ProseMirror .docs-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 8px;
+  border-radius: 9999px;
+  font-size: 0.88em;
+  line-height: 1.45;
+  vertical-align: baseline;
+  white-space: nowrap;
+  cursor: default;
+  user-select: none;
+  border: 1px solid transparent;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+
+.ProseMirror .docs-chip:hover {
+  border-color: rgba(100, 116, 139, 0.35);
+}
+
+.ProseMirror-selectednode > .docs-chip,
+.ProseMirror .ProseMirror-selectednode .docs-chip {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.35);
+}
+
+.docs-chip-label { display: inline; }
+.docs-chip-icon { display: inline-flex; font-size: 0.9em; line-height: 1; }
+
+.docs-chip-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #2563eb;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+/* ── Date chip ───────────────────────────────────────────────────────── */
+.ProseMirror .docs-chip--date {
+  background: rgba(168, 85, 247, 0.1);
+  color: #7c3aed;
+}
+.dark .ProseMirror .docs-chip--date {
+  background: rgba(192, 132, 252, 0.15);
+  color: #d8b4fe;
+}
+.docs-chip-date-input {
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  font: inherit;
+  color: inherit;
+  padding: 0 2px;
+  outline: none;
+}
+.dark .docs-chip-date-input {
+  border-color: #475569;
+  background: #1e293b;
+}
+
+/* ── People chip ─────────────────────────────────────────────────────── */
+.ProseMirror .docs-chip--people {
+  background: rgba(34, 197, 94, 0.1);
+  color: #15803d;
+}
+.ProseMirror .docs-chip--people .docs-chip-avatar {
+  background: #16a34a;
+}
+.dark .ProseMirror .docs-chip--people {
+  background: rgba(74, 222, 128, 0.15);
+  color: #86efac;
+}
+.dark .ProseMirror .docs-chip--people .docs-chip-avatar {
+  background: #22c55e;
+}
+
+/* ── File chip ───────────────────────────────────────────────────────── */
+.ProseMirror .docs-chip--file {
+  background: rgba(59, 130, 246, 0.1);
+  color: #1d4ed8;
+}
+.dark .ProseMirror .docs-chip--file {
+  background: rgba(96, 165, 250, 0.15);
+  color: #93c5fd;
+}
+
+/* ── Dropdown chip ───────────────────────────────────────────────────── */
+.ProseMirror .docs-chip--dropdown {
+  background: rgba(234, 179, 8, 0.12);
+  color: #a16207;
+  padding: 1px 4px 1px 8px;
+}
+.dark .ProseMirror .docs-chip--dropdown {
+  background: rgba(250, 204, 21, 0.15);
+  color: #fde047;
+}
+.docs-chip-select {
+  border: none;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  padding: 0 2px;
+  outline: none;
+  appearance: auto;
+}
+.docs-chip-select:focus {
+  outline: 1px solid currentColor;
+  border-radius: 4px;
+}
+
+/* ── Location chip ───────────────────────────────────────────────────── */
+.ProseMirror .docs-chip--location {
+  background: rgba(236, 72, 153, 0.1);
+  color: #be185d;
+}
+.dark .ProseMirror .docs-chip--location {
+  background: rgba(244, 114, 182, 0.15);
+  color: #f9a8d4;
 }

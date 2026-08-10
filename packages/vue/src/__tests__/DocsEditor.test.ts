@@ -1,8 +1,14 @@
 import { mount } from '@vue/test-utils'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import type { DocsEditorPlugin } from '@kedata-indonesia/docflow-core'
 import type { Editor } from '@tiptap/core'
 import DocsEditor from '../components/DocsEditor.vue'
+import HeaderBar from '../components/HeaderBar.vue'
+import EditorToolbar from '../components/EditorToolbar.vue'
+import StatusBar from '../components/StatusBar.vue'
+import RulerBar from '../components/RulerBar.vue'
+import VerticalRuler from '../components/VerticalRuler.vue'
+import TOCSidebar from '../components/sidebars/TOCSidebar.vue'
 
 const defaultPlugins: DocsEditorPlugin[] = [
   {
@@ -88,6 +94,39 @@ describe('DocsEditor', () => {
     wrapper.unmount()
   })
 
+  it('anchors the bubble menu to the active selection endpoint', async () => {
+    const wrapper = mount(DocsEditor, {
+      props: { plugins: defaultPlugins },
+    })
+    await new Promise((resolve) => setTimeout(resolve, 50))
+
+    const vm = wrapper.vm as unknown as {
+      editor?: {
+        commands: {
+          setContent: (content: object) => boolean
+          setTextSelection: (selection: { from: number; to: number }) => boolean
+        }
+        view: { coordsAtPos: (pos: number) => { top: number; left: number; right: number } }
+      }
+      computeBubblePosition: () => { top: number; left: number } | null
+    }
+
+    expect(vm.editor).toBeDefined()
+    vm.editor!.commands.setContent({
+      type: 'doc',
+      content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Selection test content' }] }],
+    })
+    vm.editor!.commands.setTextSelection({ from: 2, to: 8 })
+    vm.editor!.view.coordsAtPos = (pos) => ({ top: 100, left: pos * 10, right: pos * 10 + 4 })
+
+    const position = vm.computeBubblePosition()
+
+    // Coordinates are clamped to keep the toolbar visible in the viewport;
+    // the near-left coordinate is raised to the minimum safe center point.
+    expect(position).toEqual({ top: 52, left: 192 })
+    wrapper.unmount()
+  })
+
   it('renders page view with real content text', async () => {
     const wrapper = mount(DocsEditor, {
       props: { plugins: defaultPlugins },
@@ -131,6 +170,58 @@ describe('DocsEditor', () => {
     expect(json).not.toContain('"type":"pageBreak"')
     // The paper div (single contenteditable host) always exists
     expect(wrapper.findAll('.docs-editor__paper').length).toBeGreaterThanOrEqual(1)
+    wrapper.unmount()
+  })
+
+  it('renders task list content with an inline checkbox and text column', async () => {
+    const { listsPlugin } = await import('../../../plugins/src/lists')
+    const wrapper = mount(DocsEditor, {
+      props: {
+        plugins: [listsPlugin],
+        modelValue: {
+          type: 'doc',
+          content: [{
+            type: 'taskList',
+            content: [{
+              type: 'taskItem',
+              attrs: { checked: false },
+              content: [{
+                type: 'paragraph',
+                content: [{ type: 'text', text: 'Task item' }],
+              }],
+            }],
+          }],
+        },
+      },
+    })
+    await new Promise((resolve) => setTimeout(resolve, 50))
+
+    const vm = wrapper.vm as unknown as {
+      editor?: { commands: { setContent: (content: object) => void } }
+    }
+    vm.editor?.commands.setContent({
+      type: 'doc',
+      content: [{
+        type: 'taskList',
+        content: [{
+          type: 'taskItem',
+          attrs: { checked: false },
+          content: [{
+            type: 'paragraph',
+            content: [{ type: 'text', text: 'Task item' }],
+          }],
+        }],
+      }],
+    })
+    await wrapper.vm.$nextTick()
+    const taskItem = wrapper.element.querySelector('ul[data-type="taskList"] > li')
+    expect(taskItem).not.toBeNull()
+    const label = taskItem?.querySelector('label')
+    const content = taskItem?.querySelector(':scope > div')
+
+    expect(label?.querySelector('input[type="checkbox"]')).not.toBeNull()
+    expect(content?.querySelector(':scope > p')?.textContent).toBe('Task item')
+
     wrapper.unmount()
   })
 
@@ -195,6 +286,645 @@ describe('DocsEditor', () => {
     expect(wrapper.emitted('update:pageless')?.[1]).toEqual([false])
     expect(vm.editor?.storage.PaginationPlus?.enabled).toBe(true)
     expect(JSON.stringify(vm.editor?.getJSON() ?? {})).toBe(contentBefore)
+
+    wrapper.unmount()
+  })
+
+  it('toggles the outline sidebar via menuClick(\'toggle-left-sidebar\')', async () => {
+    const wrapper = mount(DocsEditor, {
+      props: { plugins: defaultPlugins },
+    })
+    await new Promise((resolve) => setTimeout(resolve, 50))
+
+    const vm = wrapper.vm as unknown as {
+      menuClick: (id: string) => void
+      activeSidebar: string | null
+    }
+
+    expect(wrapper.findComponent(TOCSidebar).exists()).toBe(false)
+
+    vm.menuClick('toggle-left-sidebar')
+    await wrapper.vm.$nextTick()
+    expect(vm.activeSidebar).toBe('toc')
+    expect(wrapper.findComponent(TOCSidebar).exists()).toBe(true)
+
+    vm.menuClick('toggle-left-sidebar')
+    await wrapper.vm.$nextTick()
+    expect(vm.activeSidebar).toBeNull()
+    expect(wrapper.findComponent(TOCSidebar).exists()).toBe(false)
+
+    wrapper.unmount()
+  })
+
+  it('toggles ruler visibility via menuClick(\'toggle-ruler\')', async () => {
+    localStorage.removeItem('docflow:view:showRuler')
+    const wrapper = mount(DocsEditor, {
+      props: { plugins: defaultPlugins },
+    })
+    await new Promise((resolve) => setTimeout(resolve, 50))
+
+    const vm = wrapper.vm as unknown as { menuClick: (id: string) => void }
+
+    expect(wrapper.findComponent(RulerBar).exists()).toBe(true)
+    expect(wrapper.findComponent(VerticalRuler).exists()).toBe(true)
+
+    vm.menuClick('toggle-ruler')
+    await wrapper.vm.$nextTick()
+    expect(wrapper.findComponent(RulerBar).exists()).toBe(false)
+    expect(wrapper.findComponent(VerticalRuler).exists()).toBe(false)
+    expect(localStorage.getItem('docflow:view:showRuler')).toBe('false')
+
+    vm.menuClick('toggle-ruler')
+    await wrapper.vm.$nextTick()
+    expect(wrapper.findComponent(RulerBar).exists()).toBe(true)
+    expect(wrapper.findComponent(VerticalRuler).exists()).toBe(true)
+    expect(localStorage.getItem('docflow:view:showRuler')).toBe('true')
+
+    wrapper.unmount()
+  })
+
+  it('toggles focus mode via menuClick(\'toggle-focus-mode\') and exits on Escape', async () => {
+    const wrapper = mount(DocsEditor, {
+      props: { plugins: defaultPlugins },
+    })
+    await new Promise((resolve) => setTimeout(resolve, 50))
+
+    const vm = wrapper.vm as unknown as { menuClick: (id: string) => void }
+
+    expect(wrapper.findComponent(HeaderBar).exists()).toBe(true)
+    expect(wrapper.findComponent(EditorToolbar).exists()).toBe(true)
+    expect(wrapper.findComponent(StatusBar).exists()).toBe(true)
+
+    vm.menuClick('toggle-focus-mode')
+    await wrapper.vm.$nextTick()
+    expect(wrapper.findComponent(HeaderBar).exists()).toBe(false)
+    expect(wrapper.findComponent(EditorToolbar).exists()).toBe(false)
+    expect(wrapper.findComponent(StatusBar).exists()).toBe(false)
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    await wrapper.vm.$nextTick()
+    expect(wrapper.findComponent(HeaderBar).exists()).toBe(true)
+    expect(wrapper.findComponent(EditorToolbar).exists()).toBe(true)
+    expect(wrapper.findComponent(StatusBar).exists()).toBe(true)
+
+    wrapper.unmount()
+  })
+
+  it('opens footer modal with left/right inputs on double click (detail: 2)', async () => {
+    const wrapper = mount(DocsEditor, {
+      props: { plugins: defaultPlugins },
+    })
+    await new Promise((resolve) => setTimeout(resolve, 50))
+
+    const vm = wrapper.vm as unknown as {
+      paginationOptions: {
+        onHeaderClick: (params: { event: { detail: number } }) => void
+        onFooterClick: (params: { event: { detail: number } }) => void
+      }
+      showFooterModal: boolean
+      footerLeftInput: string
+      footerRightInput: string
+    }
+
+    // Single click: detail = 1 -> modal does not open
+    vm.paginationOptions.onFooterClick({ event: { detail: 1 } })
+    await wrapper.vm.$nextTick()
+    expect(vm.showFooterModal).toBe(false)
+
+    // Double click footer: detail = 2 -> opens footer modal
+    vm.paginationOptions.onFooterClick({ event: { detail: 2 } })
+    await wrapper.vm.$nextTick()
+    expect(vm.showFooterModal).toBe(true)
+
+    // Verify modal has left and right input fields
+    expect(wrapper.find('input[placeholder*="Confidential"], input[placeholder*="Rahasia"]').exists()).toBe(true)
+
+    wrapper.unmount()
+  })
+
+  it('supports Different First Page and Different Odd/Even optional header settings', async () => {
+    const wrapper = mount(DocsEditor, {
+      props: { plugins: defaultPlugins },
+    })
+    await new Promise((resolve) => setTimeout(resolve, 50))
+
+    const vm = wrapper.vm as unknown as {
+      isDifferentFirstPage: boolean
+      isDifferentOddEven: boolean
+      applyHeaderFooter: () => void
+    }
+
+    expect(vm.isDifferentFirstPage).toBe(false)
+    expect(vm.isDifferentOddEven).toBe(false)
+
+    // Toggle different first page
+    vm.isDifferentFirstPage = true
+    await wrapper.vm.$nextTick()
+    expect(vm.isDifferentFirstPage).toBe(true)
+
+    // Toggle different odd/even
+    vm.isDifferentOddEven = true
+    await wrapper.vm.$nextTick()
+    expect(vm.isDifferentOddEven).toBe(true)
+
+    wrapper.unmount()
+  })
+
+  it('edits the header outside ProseMirror without changing document content', async () => {
+    const wrapper = mount(DocsEditor, {
+      props: { plugins: defaultPlugins },
+    })
+    await new Promise((resolve) => setTimeout(resolve, 80))
+
+    const vm = wrapper.vm as unknown as {
+      editor?: { getJSON: () => object }
+      startInlineHeaderEdit: () => void
+      finishHeaderEdit: (commit?: boolean) => void
+      userHeaderLeft: string
+    }
+    expect(vm.editor).toBeDefined()
+    const before = JSON.stringify(vm.editor?.getJSON() ?? {})
+
+    vm.startInlineHeaderEdit()
+    await wrapper.vm.$nextTick()
+
+    const overlay = document.querySelector('.rm-header-edit-overlay') as HTMLElement | null
+    const input = overlay?.querySelector('.rm-header-edit-input') as HTMLElement | null
+    const activeBar = overlay?.querySelector('.rm-google-docs-header-bar') as HTMLElement | null
+    expect(overlay).not.toBeNull()
+    expect(input?.contentEditable).toBe('true')
+    expect(input?.closest('.docs-editor__paper')).toBeNull()
+    expect(activeBar?.parentElement).toBe(overlay)
+    expect(activeBar).toBeTruthy()
+
+    input!.innerHTML = 'Safe header'
+    vm.finishHeaderEdit(true)
+
+    expect(vm.userHeaderLeft).toBe('Safe header')
+    expect(JSON.stringify(vm.editor?.getJSON() ?? {})).toBe(before)
+    expect(document.querySelector('.rm-header-edit-overlay')).toBeNull()
+    wrapper.unmount()
+  })
+
+  it('aligns the later-page edit overlay to the body margins and header content rect', async () => {
+    const wrapper = mount(DocsEditor, {
+      props: { plugins: defaultPlugins },
+    })
+    await new Promise((resolve) => setTimeout(resolve, 80))
+
+    const vm = wrapper.vm as unknown as {
+      editor?: { view: { dom: HTMLElement } }
+      startInlineHeaderEdit: (event?: { target: HTMLElement }) => void
+      finishHeaderEdit: (commit?: boolean) => void
+      userHeaderLeft: string
+    }
+    const root = vm.editor!.view.dom
+    root.style.setProperty('--rm-margin-left', '38px')
+    root.style.setProperty('--rm-margin-right', '76px')
+
+    // happy-dom does not resolve custom properties through getComputedStyle,
+    // so spy it for the paper root (real browsers return the inline values).
+    const originalGetComputedStyle = window.getComputedStyle.bind(window)
+    const getComputedStyleSpy = vi.spyOn(window, 'getComputedStyle').mockImplementation((el: Element, pseudoElt?: string | null) => {
+      const style = originalGetComputedStyle(el, pseudoElt)
+      if (el === root) {
+        const originalGetPropertyValue = style.getPropertyValue.bind(style)
+        style.getPropertyValue = (prop: string) => {
+          if (prop === '--rm-margin-left') return '38px'
+          if (prop === '--rm-margin-right') return '76px'
+          return originalGetPropertyValue(prop)
+        }
+      }
+      return style
+    })
+
+    // The trailing `.rm-page-break` header is the page-2 header slot. It is a
+    // full-bleed element whose content is inset by the body margins.
+    const header = root.querySelector('.rm-page-break .rm-page-header') as HTMLElement | null
+    expect(header).not.toBeNull()
+    const content = header!.querySelector('.rm-page-header-content') as HTMLElement
+    expect(content).not.toBeNull()
+
+    const rect = (r: { left: number; top: number; width: number; height: number }) =>
+      ({ ...r, x: r.left, y: r.top, right: r.left + r.width, bottom: r.top + r.height, toJSON: () => ({}) }) as DOMRect
+    root.getBoundingClientRect = () => rect({ left: 100, top: 50, width: 800, height: 1000 })
+    header!.getBoundingClientRect = () => rect({ left: 101, top: 500, width: 798, height: 118 })
+    content.getBoundingClientRect = () => rect({ left: 101, top: 519, width: 798, height: 24 })
+
+    vm.startInlineHeaderEdit({ target: header! })
+    await new Promise((resolve) => requestAnimationFrame(() => resolve(null)))
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    const overlays = document.querySelectorAll('.rm-header-edit-overlay')
+    expect(overlays).toHaveLength(1)
+    const overlay = overlays[0] as HTMLElement
+    expect(overlay.style.left).toBe('139px') // 101 + 38 body margin-left
+    expect(overlay.style.top).toBe('519px') // content top, not element top
+    expect(overlay.style.width).toBe('684px') // (899 - 76 margin-right) - 139
+
+    const activeBar = overlay.querySelector('.rm-google-docs-header-bar') as HTMLElement
+    expect(activeBar.parentElement).toBe(overlay)
+    expect(activeBar.style.getPropertyValue('--rm-header-bar-width')).toBe('800px')
+    expect(activeBar.style.getPropertyValue('--rm-header-bar-padding-left')).toBe('39px')
+    expect(activeBar.style.getPropertyValue('--rm-header-bar-padding-right')).toBe('77px')
+
+    const input = overlay.querySelector('.rm-header-edit-input') as HTMLElement
+    input.innerHTML = 'Later page header'
+    vm.finishHeaderEdit(true)
+    expect(vm.userHeaderLeft).toBe('Later page header')
+    expect(document.querySelector('.rm-header-edit-overlay')).toBeNull()
+    getComputedStyleSpy.mockRestore()
+    wrapper.unmount()
+  })
+
+  it('maps later-page headers to their own page slot, never page 1', async () => {
+    const wrapper = mount(DocsEditor, {
+      props: { plugins: defaultPlugins },
+    })
+    await new Promise((resolve) => setTimeout(resolve, 80))
+
+    const vm = wrapper.vm as unknown as {
+      editor?: { view: { dom: HTMLElement } }
+      startInlineHeaderEdit: (event?: { target: HTMLElement }) => void
+      finishHeaderEdit: (commit?: boolean) => void
+      isDifferentOddEven: boolean
+      userHeaderLeft: string
+      userFirstPageHeaderLeft: string
+      userEvenPageHeaderLeft: string
+    }
+    vm.isDifferentOddEven = true
+
+    // The first `.rm-page-break` header is the page-2 slot (even page).
+    const header = vm.editor!.view.dom.querySelector('.rm-page-break .rm-page-header') as HTMLElement | null
+    expect(header).not.toBeNull()
+
+    vm.startInlineHeaderEdit({ target: header! })
+    const input = document.querySelector('.rm-header-edit-input') as HTMLElement | null
+    expect(input).not.toBeNull()
+    input!.innerHTML = 'Even page header'
+    vm.finishHeaderEdit(true)
+
+    expect(vm.userEvenPageHeaderLeft).toBe('Even page header')
+    expect(vm.userHeaderLeft).toBe('')
+    expect(vm.userFirstPageHeaderLeft).toBe('')
+    wrapper.unmount()
+  })
+
+  it('normalizes header/footer cm values on Apply and applies them as px CSS variables', async () => {
+    const wrapper = mount(DocsEditor, {
+      props: { plugins: defaultPlugins, headerMarginCm: 1.3, footerMarginCm: 0.8 },
+    })
+    await new Promise((resolve) => setTimeout(resolve, 80))
+
+    const vm = wrapper.vm as unknown as {
+      editor?: { view: { dom: HTMLElement } }
+      headerMarginCm: number
+      footerMarginCm: number
+      draftHeaderMarginCm: number
+      draftFooterMarginCm: number
+      openHeaderFormatModal: () => void
+      applyHeaderFormat: () => void
+    }
+
+    // Dialog drafts initialize from the current persisted values, not 1.27.
+    vm.openHeaderFormatModal()
+    expect(vm.draftHeaderMarginCm).toBe(1.3)
+    expect(vm.draftFooterMarginCm).toBe(0.8)
+
+    // Out-of-range drafts are clamped on Apply.
+    vm.draftHeaderMarginCm = -1
+    vm.draftFooterMarginCm = 99
+    vm.applyHeaderFormat()
+    expect(wrapper.emitted('update:header-footer-margins')?.at(-1)).toEqual([{ headerMarginCm: 0, footerMarginCm: 5 }])
+
+    // Non-finite drafts fall back to the default.
+    vm.openHeaderFormatModal()
+    vm.draftHeaderMarginCm = Number.NaN
+    vm.applyHeaderFormat()
+    expect(vm.headerMarginCm).toBe(0.5)
+
+    // 0.5cm is converted to px only at the layout boundary (1cm = 37.795px).
+    vm.openHeaderFormatModal()
+    vm.draftHeaderMarginCm = 0.5
+    vm.applyHeaderFormat()
+    const cssValue = vm.editor!.view.dom.style.getPropertyValue('--rm-header-margin-top')
+    expect(parseFloat(cssValue)).toBeCloseTo(18.8975, 3)
+
+    wrapper.unmount()
+  })
+
+
+  it('supports Header & Footer format modal margin customization with draft states', async () => {
+    const wrapper = mount(DocsEditor, {
+      props: { plugins: defaultPlugins },
+    })
+    await new Promise((resolve) => setTimeout(resolve, 50))
+
+    const vm = wrapper.vm as unknown as {
+      showHeaderFormatModal: boolean
+      headerMarginCm: number
+      footerMarginCm: number
+      draftHeaderMarginCm: number
+      draftFooterMarginCm: number
+      openHeaderFormatModal: () => void
+      applyHeaderFormat: () => void
+    }
+
+    expect(vm.showHeaderFormatModal).toBe(false)
+    vm.openHeaderFormatModal()
+    await wrapper.vm.$nextTick()
+    expect(vm.showHeaderFormatModal).toBe(true)
+    const marginInputs = wrapper.findAll('input[type="number"]')
+    const headerInput = marginInputs[0]
+    const footerInput = marginInputs[1]
+    expect(headerInput.attributes('min')).toBe('0')
+    expect(headerInput.attributes('max')).toBe('5')
+    expect(headerInput.attributes('step')).toBe('0.1')
+    expect(footerInput.attributes('step')).toBe('0.1')
+
+    // Set draft margins (does not touch active headerMarginCm until apply)
+    vm.draftHeaderMarginCm = 2.0
+    vm.draftFooterMarginCm = 2.0
+    expect(vm.headerMarginCm).toBe(0.5)
+
+    vm.applyHeaderFormat()
+    await wrapper.vm.$nextTick()
+
+    expect(vm.showHeaderFormatModal).toBe(false)
+    expect(wrapper.emitted('update:header-footer-margins')?.at(-1)).toEqual([{ headerMarginCm: 2.0, footerMarginCm: 2.0 }])
+
+    wrapper.unmount()
+  })
+
+  it('clamps Page Setup margins to the supported range only on Apply', async () => {
+    const wrapper = mount(DocsEditor, {
+      props: { plugins: defaultPlugins },
+    })
+    await new Promise((resolve) => setTimeout(resolve, 50))
+
+    const vm = wrapper.vm as unknown as {
+      margins: { top: number; bottom: number; left: number; right: number }
+      pageSetupMarginsCm: { top: number; bottom: number; left: number; right: number }
+      showPageSetupModal: boolean
+      openPageSetupModal: () => void
+      applyPageSetup: () => void
+    }
+
+    vm.openPageSetupModal()
+    await wrapper.vm.$nextTick()
+    expect(vm.showPageSetupModal).toBe(true)
+
+    vm.pageSetupMarginsCm.top = -20
+    vm.pageSetupMarginsCm.bottom = 250
+    vm.pageSetupMarginsCm.left = Number.NaN
+    vm.pageSetupMarginsCm.right = Number.POSITIVE_INFINITY
+
+    expect(vm.margins).toEqual({ top: 94, bottom: 94, left: 94, right: 94 })
+
+    vm.applyPageSetup()
+    await wrapper.vm.$nextTick()
+
+    expect(vm.margins).toEqual({ top: 0, bottom: 189, left: 0, right: 0 })
+    expect(vm.showPageSetupModal).toBe(false)
+    expect(vm.pageSetupMarginsCm).toEqual({ top: 0, bottom: 5, left: 0, right: 0 })
+
+    wrapper.unmount()
+  })
+
+  it('supports Page Number modal settings with draft states (position, start at, show on first page)', async () => {
+    const wrapper = mount(DocsEditor, {
+      props: { plugins: defaultPlugins },
+    })
+    await new Promise((resolve) => setTimeout(resolve, 50))
+
+    const vm = wrapper.vm as unknown as {
+      showPageNumberModal: boolean
+      pageNumberPosition: 'header' | 'footer'
+      showPageNumberOnFirstPage: boolean
+      pageNumberStartAt: number
+      draftPageNumberPosition: 'header' | 'footer'
+      draftShowPageNumberOnFirstPage: boolean
+      draftPageNumberStartAt: number
+      userHeaderRight: string
+      userFooterRight: string
+      openPageNumberModal: () => void
+      applyPageNumberSettings: () => void
+    }
+
+    expect(vm.showPageNumberModal).toBe(false)
+    vm.openPageNumberModal()
+    await wrapper.vm.$nextTick()
+    expect(vm.showPageNumberModal).toBe(true)
+
+    // Configure page number settings to header first
+    vm.draftPageNumberPosition = 'header'
+    vm.applyPageNumberSettings()
+    await wrapper.vm.$nextTick()
+    expect(vm.userHeaderRight).toBe('{page}')
+
+    // Open modal again and set draft position to footer -> clears header page token only on apply
+    vm.openPageNumberModal()
+    vm.draftPageNumberPosition = 'footer'
+    vm.draftShowPageNumberOnFirstPage = false
+    vm.draftPageNumberStartAt = 5
+    vm.applyPageNumberSettings()
+    await wrapper.vm.$nextTick()
+
+    expect(vm.showPageNumberModal).toBe(false)
+    expect(vm.pageNumberPosition).toBe('footer')
+    expect(vm.userHeaderRight).toBe('')
+    expect(vm.userFooterRight).toBe('{page}')
+    expect(vm.showPageNumberOnFirstPage).toBe(false)
+    expect(vm.pageNumberStartAt).toBe(5)
+
+    wrapper.unmount()
+  })
+
+  // ─── Issue #133 — orphaned comment thread detection ───────────────────────
+  // A thread is "orphaned" when it is anchored (anchorIndex != null) but
+  // its id no longer appears on any `comment` mark in the current
+  // document — i.e. the anchored text was deleted. The state is computed
+  // client-side (never persisted) and should not flash orphaned during
+  // collab load (the empty-doc guard).
+
+  it('flags a comment thread as orphaned when its anchored text is deleted', async () => {
+    const { commentPlugin } = await import('../../../plugins/src/comment')
+    const wrapper = mount(DocsEditor, {
+      props: {
+        plugins: [...defaultPlugins, commentPlugin],
+        comments: [
+          {
+            id: 'thread-1',
+            authorId: 'u1',
+            authorName: 'Alice',
+            authorColor: '#f00',
+            content: 'Check this',
+            anchorText: 'test 2',
+            anchorIndex: 6,
+            createdAt: Date.now(),
+            resolved: false,
+            replies: [],
+          },
+        ],
+      },
+    })
+    await new Promise((resolve) => setTimeout(resolve, 50))
+
+    const vm = wrapper.vm as unknown as {
+      editor?: {
+        commands: {
+          focus: () => void
+          setContent: (content: object) => boolean
+          setTextSelection: (sel: { from: number; to: number }) => boolean
+          setMark: (name: string, attrs: Record<string, unknown>) => boolean
+        }
+        view: { dispatch: (tr: unknown) => void }
+        state: { tr: unknown }
+      }
+    }
+
+    // Seed content + set a `comment` mark on "test 2" — the thread is
+    // anchored to that range.
+    vm.editor!.commands.setContent({
+      type: 'doc',
+      content: [{ type: 'paragraph', content: [{ type: 'text', text: 'test 1 test 2 test 3' }] }],
+    })
+    vm.editor!.commands.setTextSelection({ from: 7, to: 13 })
+    vm.editor!.commands.setMark('comment', { threadId: 'thread-1', pos: 7 })
+    await new Promise((resolve) => setTimeout(resolve, 100))
+
+    // Initially present → not orphaned.
+    const notOrphaned = (wrapper.vm as unknown as { orphanedCommentIds: string[] }).orphanedCommentIds
+    expect(notOrphaned).not.toContain('thread-1')
+
+    // Reproduce the issue: delete all the text (the mark goes with it).
+    // This mirrors the real user flow — selecting + deleting the anchored
+    // range is what strands the thread.
+    vm.editor!.commands.setContent({ type: 'doc', content: [{ type: 'paragraph' }] })
+    // setContent may not always surface to the `transaction` listener in
+    // the test harness — dispatch a bare tr to force the debounced rescan.
+    vm.editor!.view.dispatch(vm.editor!.state.tr)
+    await new Promise((resolve) => setTimeout(resolve, 500))
+
+    const orphaned = (wrapper.vm as unknown as { orphanedCommentIds: string[] }).orphanedCommentIds
+    expect(orphaned).toContain('thread-1')
+
+    wrapper.unmount()
+  })
+
+  it('does not flag a comment thread whose mark survives', async () => {
+    const { commentPlugin } = await import('../../../plugins/src/comment')
+    const wrapper = mount(DocsEditor, {
+      props: {
+        plugins: [...defaultPlugins, commentPlugin],
+        comments: [
+          {
+            id: 'thread-keep',
+            authorId: 'u1',
+            authorName: 'Alice',
+            authorColor: '#f00',
+            content: 'Still here',
+            anchorText: 'survives',
+            anchorIndex: 6,
+            createdAt: Date.now(),
+            resolved: false,
+            replies: [],
+          },
+        ],
+      },
+    })
+    await new Promise((resolve) => setTimeout(resolve, 50))
+
+    const vm = wrapper.vm as unknown as {
+      editor?: {
+        commands: {
+          focus: () => void
+          setContent: (content: object) => boolean
+          setTextSelection: (sel: { from: number; to: number }) => boolean
+          setMark: (name: string, attrs: Record<string, unknown>) => boolean
+        }
+      }
+    }
+
+    vm.editor!.commands.setContent({
+      type: 'doc',
+      content: [{ type: 'paragraph', content: [{ type: 'text', text: 'survives stays' }] }],
+    })
+    vm.editor!.commands.setTextSelection({ from: 1, to: 9 })
+    vm.editor!.commands.setMark('comment', { threadId: 'thread-keep', pos: 1 })
+    await new Promise((resolve) => setTimeout(resolve, 100))
+
+    const orphaned = (wrapper.vm as unknown as { orphanedCommentIds: string[] }).orphanedCommentIds
+    expect(orphaned).not.toContain('thread-keep')
+
+    wrapper.unmount()
+  })
+
+  it('never orphans a general comment thread (no anchor)', async () => {
+    const wrapper = mount(DocsEditor, {
+      props: {
+        plugins: defaultPlugins,
+        comments: [
+          {
+            id: 'general-1',
+            authorId: 'u1',
+            authorName: 'Alice',
+            authorColor: '#f00',
+            content: 'Doc-wide note',
+            // anchorIndex is undefined — a general comment is never
+            // anchored, so it can never be orphaned by definition.
+            createdAt: Date.now(),
+            resolved: false,
+            replies: [],
+          },
+        ],
+      },
+    })
+    await new Promise((resolve) => setTimeout(resolve, 50))
+
+    const orphaned = (wrapper.vm as unknown as { orphanedCommentIds: string[] }).orphanedCommentIds
+    expect(orphaned).not.toContain('general-1')
+
+    wrapper.unmount()
+  })
+
+  it('defers the first orphan scan until content is present (no collab flash)', async () => {
+    // With `collaboration` set, the empty-doc guard must hold the first
+    // scan until the Yjs provider has synced real content. We simulate
+    // the load window by mounting with the default empty doc, then
+    // injecting content after a delay.
+    const { commentPlugin } = await import('../../../plugins/src/comment')
+    const wrapper = mount(DocsEditor, {
+      props: {
+        plugins: [...defaultPlugins, commentPlugin],
+        collaboration: {
+          provider: 'webrtc',
+          room: 'room-1',
+          user: { name: 'Alice', color: '#f00' },
+        },
+        comments: [
+          {
+            id: 'thread-collab',
+            authorId: 'u1',
+            authorName: 'Alice',
+            authorColor: '#f00',
+            content: 'Anchored',
+            anchorText: 'loaded',
+            anchorIndex: 1,
+            createdAt: Date.now(),
+            resolved: false,
+            replies: [],
+          },
+        ],
+      },
+    })
+    // Wait long enough for the debounced scan timer to fire, but the doc
+    // is still empty (no Yjs provider is actually wired in the test
+    // harness) — the guard must keep orphanedCommentIds empty.
+    await new Promise((resolve) => setTimeout(resolve, 150))
+
+    const before = (wrapper.vm as unknown as { orphanedCommentIds: string[] }).orphanedCommentIds
+    expect(before).toEqual([])
 
     wrapper.unmount()
   })

@@ -81,12 +81,16 @@ const editorInstance = ref<DocsEditorInstance | null>(null)
 
 function handleEditorReady(docsEditor: DocsEditorInstance) {
   editorInstance.value = docsEditor
+  // Expose the editor instance for Playwright e2e (apps/web does the same at
+  // EditorView.vue:1425). Lets specs drive the editor via commands instead of
+  // fragile toolbar-DN selectors. No-op for library consumers — demo only.
+  ;(window as unknown as { __docsEditor?: DocsEditorInstance['editor'] }).__docsEditor = docsEditor.editor
 }
 
 /** Live-engine citation renderer for the DOCX export (Phase 6D). */
 function getCitationExportPort(): { renderCitation: (citationId: string) => string; getBibliography: () => string[] } | undefined {
   const storage = editorInstance.value?.editor.storage as Record<string, unknown> | undefined
-  const engine = (storage?.citation as
+  const engine = (storage?.citationEngine as
     | { engine?: { renderCluster: (id: string) => string; getBibliography: () => string[] } | null }
     | undefined)?.engine
   if (!engine) return undefined

@@ -1,10 +1,20 @@
 /**
- * Shared AI action types (Phase 7).
+ * Shared AI action types (Phase 7; pluggable AI provider — issue #119).
  *
  * The library (aiPlugin) is provider-agnostic: it never names a URL or holds a
- * key. The app implements `AIStreamFn` (apps/web/src/ai/aiStream.ts) and injects
- * it; the server owns provider selection via env config.
+ * key. The host injects `aiStream` / `aiDraft` via `EditorOptions` — either a
+ * hand-written function or `toAIStreamFn(openaiCompatibleProvider({...}))`
+ * (see ./provider.ts, ./openaiCompatibleProvider.ts).
  */
+import type { AIProvider } from './provider.js'
+
+/**
+ * Factory shape for hosts that hand the library a provider object rather than
+ * a plain function (plan §4.2). `toAIStreamFn` adapts an `AIProvider` to the
+ * `AIStreamFn` port, so both shapes are accepted at the boundary.
+ */
+export type AIProviderFactory = (config: { signal?: AbortSignal }) => AIProvider
+
 
 export type AIAction =
   | 'rewrite'

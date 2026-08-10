@@ -2,6 +2,7 @@ import type { AnyExtension } from '@tiptap/core'
 import { Collaboration } from '@tiptap/extension-collaboration'
 import { CollaborationCursor } from '@tiptap/extension-collaboration-cursor'
 import { Awareness } from 'y-protocols/awareness'
+import { IndexeddbPersistence } from 'y-indexeddb'
 import { WebrtcProvider } from 'y-webrtc'
 import { WebsocketProvider } from 'y-websocket'
 import * as Y from 'yjs'
@@ -10,6 +11,15 @@ export interface AwarenessState {
   clientId: number
   user: { name: string; color: string }
   cursor?: { from: number; to: number } | null
+  /**
+   * Phase 9 PR2 — *present* flag. False when the local user has navigated
+   * away from the editor route (the Yjs provider is still alive but the
+   * host has gated cursor emission off, per the §6 *\"TOC sidebar orphan
+   * wiring\"* / REST-heartbeat scope notes). Peers see this instantly
+   * via the awareness `change` event — far faster than the 15s REST
+   * heartbeat fallback. Defaults to true when the user is in the editor.
+   */
+  present: boolean
 }
 
 export interface CollaborationOptions {
@@ -20,13 +30,53 @@ export interface CollaborationOptions {
   user: { name: string; color: string }
   onAwarenessChange?: (states: AwarenessState[]) => void
   initialStorageState?: Uint8Array
+  /**
+   * Phase 9 PR2 — when false, the local user is treated as
+   * out-of-editor: their cursor field is nulled and `present` is false.
+   * Default is true (in editor). Toggle at runtime via
+   * `setLocalCursorEnabled()` returned from `createCollaboration`.
+   */
+  emitCursor?: boolean
+  /**
+   * Phase 9 OF1 — when true, mirror the room's Y.Doc into IndexedDB
+   * (`docflow-<room>`) via y-indexeddb so edits survive offline and reload.
+   * Reconcile-on-reconnect is plain Yjs merge — no conflict resolution
+   * needed. The IndexedDB mirror is NEVER a seed source: the server (or the
+   * legacy-JSON seed path) still owns initial state; the mirror only
+   * contributes local offline edits via the normal Yjs update exchange.
+   */
+  offline?: boolean
 }
 
 export interface CollaborationSetup {
   ydoc: Y.Doc
   provider: WebrtcProvider | WebsocketProvider | null
   awareness: Awareness
+  /**
+   * Phase 9 OF1 — y-indexeddb persistence instance, present only when
+   * `options.offline` is true. Exposed so hosts/tests can `await
+   * persistence.whenSynced` before asserting the mirror contents. Do not
+   * use it as a seed source.
+   */
+  persistence?: IndexeddbPersistence
+  /**
+   * Issue #117 — resolves after BOTH the offline mirror (if `offline`) AND
+   * the provider's first sync (if `websocket`) have completed. Hosts MUST
+   * `await setup.whenReady` before binding the editor, otherwise the
+   * TipTap view can render against the IndexedDB cache before the
+   * authoritative server state arrives, briefly showing — and on a
+   * disconnected peer potentially re-broadcasting — nodes the server has
+   * since deleted. Resolves immediately when neither side applies.
+   */
+  whenReady: Promise<void>
   destroy: () => void
+  /**
+   * Phase 9 PR2 — toggle the local cursor emission + present flag.
+   * Pass `false` when the editor route unmounts, `true` when it remounts.
+   * Triggers an awareness `change` event so peers see the leave/rejoin
+   * instantly (no REST-heartbeat lag).
+   */
+  setLocalCursorEnabled: (enabled: boolean) => void
 }
 
 /** Local-only signaling default. Public signaling servers were removed in
@@ -58,7 +108,12 @@ export function resolveSignalingUrls(signaling?: string[]): string[] {
 interface AwarenessRawState {
   user?: { name: string; color: string }
   cursor?: { from: number; to: number } | null
+  /** Phase 9 PR2 — see AwarenessState.present. Defaults to true when not
+   *  explicitly set (legacy states that only carry `user` + `cursor`). */
+  present?: boolean
 }
+
+const LOCAL_PRESENT_DEFAULT = true
 
 function createAwarenessStates(awareness: Awareness): AwarenessState[] {
   const states: AwarenessState[] = []
@@ -68,6 +123,10 @@ function createAwarenessStates(awareness: Awareness): AwarenessState[] {
       clientId,
       user: raw.user ?? { name: '', color: '' },
       cursor: raw.cursor ?? null,
+      // `present` defaults to true for backwards compat (legacy states
+      // don't set it) and for the local user (always considered present
+      // until PR2 toggles it off).
+      present: raw.present ?? LOCAL_PRESENT_DEFAULT,
     })
   })
   return states
@@ -77,6 +136,15 @@ export function createCollaboration(options: CollaborationOptions): Collaboratio
   const ydoc = new Y.Doc()
   if (options.initialStorageState) {
     Y.applyUpdate(ydoc, options.initialStorageState)
+  }
+  // Phase 9 OF1 — opt-in offline mirror. y-indexeddb loads any previously
+  // persisted state into the doc and writes every local update back to
+  // IndexedDB (`docflow-<room>`). It never seeds: the server still owns
+  // initial state; the mirror only carries local offline edits into the
+  // normal Yjs merge on reconnect.
+  let persistence: IndexeddbPersistence | undefined
+  if (options.offline) {
+    persistence = new IndexeddbPersistence(`docflow-${options.room}`, ydoc)
   }
   let provider: WebrtcProvider | WebsocketProvider | null = null
 
@@ -94,6 +162,43 @@ export function createCollaboration(options: CollaborationOptions): Collaboratio
   const awareness = provider?.awareness ?? new Awareness(ydoc)
   awareness.setLocalStateField('user', options.user)
 
+  // Phase 9 PR2 — emitCursor gate. Local cursor is published only when
+  // the host has set `emitCursor: true` (default). When toggled off via
+  // `setLocalCursorEnabled(false)`, we clear `cursor` so peers don't paint a
+  // phantom one. The awareness `change` event fires on each toggle so peers
+  // stop receiving cursor updates within one round-trip.
+  let emitCursor = options.emitCursor ?? true
+  const setLocalCursorEnabled = (enabled: boolean) => {
+    if (emitCursor === enabled) return
+    emitCursor = enabled
+    // When leaving: clear the cursor so peers don't paint a phantom one.
+    // When returning: leave the cursor field alone — the CollaborationCursor
+    // extension will repopulate it on the next selection change.
+    if (!enabled) {
+      awareness.setLocalStateField('cursor', null)
+    }
+    // Publish the gate itself as its own awareness field so a host can read
+    // the current value via `isLocalCursorEnabled()` without keeping a
+    // parallel copy. We do NOT touch `present` here — the present flag stays
+    // true for the editor's lifetime and only flips to false on `destroy()`
+    // (which calls `awareness.setLocalState(null)`). Previously this also
+    // set `present = enabled`, which caused the peer's top-bar avatar to
+    // flash off whenever the local user switched browser tabs (the
+    // visibilitychange handler in EditorView calls
+    // `setLocalCursorEnabled(false)` as a cursor-publish perf gate). The
+    // flash was a regression in the two-writer scenario: writer B switches
+    // tabs to look at writer A's editor → B's own tab becomes hidden →
+    // B publishes `present=false` → A's `presentPeers` filter drops B's
+    // avatar → "the collaborator only shown in a flash then disappears."
+    // The real "user left the doc" signal is the editor unmount (route
+    // change) → `destroy()` → WS close → server-side awareness cleanup;
+    // that path already propagates the leave within one round-trip (no
+    // REST-heartbeat lag — the PR2 design goal).
+    awareness.setLocalStateField('emitCursor', enabled)
+  }
+  awareness.setLocalStateField('present', true)
+  awareness.setLocalStateField('emitCursor', emitCursor)
+
   let awarenessHandler: (() => void) | undefined
   if (options.onAwarenessChange) {
     const notify = () => {
@@ -104,6 +209,61 @@ export function createCollaboration(options: CollaborationOptions): Collaboratio
     notify()
   }
 
+  // Issue #117 — gate editor binding until both the offline mirror and the
+  // websocket provider have completed their first sync. We do not stall the
+  // Yjs setup itself; the doc, provider, and mirror remain constructed and
+  // may exchange updates freely. We only expose a `whenReady` promise that
+  // hosts must await before mounting the TipTap editor. Without this gate
+  // the editor binds to the Y.Doc the moment it exists, which on a
+  // disconnected-and-rejoining peer renders the IndexedDB cache before the
+  // server's authoritative state-vector arrives — a window during which
+  // deleted nodes appear, and any cached-but-not-yet-known state can be
+  // rebroadcast to peers on the next delta. The fix is structural: the
+  // mirror contributes offline edits via the normal Yjs merge on the WS
+  // sync; we just delay the editor's view until that exchange has settled.
+  const readyParts: Promise<void>[] = []
+  if (persistence) {
+    readyParts.push(
+      persistence.whenSynced.then(
+        () => undefined,
+        () => undefined,
+      ),
+    )
+  }
+  if (provider && options.provider === 'websocket') {
+    const ws = provider as WebsocketProvider & {
+      once: (event: string, cb: (state: boolean) => void) => void
+      synced: boolean
+    }
+    readyParts.push(
+      new Promise<void>((resolve) => {
+        // The y-websocket provider emits `sync` when its `synced` state
+        // transitions to true. The provider auto-connects on construction,
+        // so by the time the host awaits `whenReady` the first sync may
+        // have already completed — `once('sync')` would miss it. Check
+        // `synced` synchronously, listen for both `sync` and `synced`
+        // (some versions emit only one), and add a hard timeout so the
+        // editor never hangs forever on a wedged connection.
+        let settled = false
+        const done = () => {
+          if (settled) return
+          settled = true
+          resolve()
+        }
+        if (ws.synced) {
+          done()
+          return
+        }
+        ws.once('sync', done)
+        ws.once('synced', done)
+        setTimeout(done, 5000)
+      }),
+    )
+  }
+  const whenReady = readyParts.length === 0
+    ? Promise.resolve()
+    : Promise.all(readyParts).then(() => undefined)
+
   const destroy = () => {
     if (awarenessHandler) {
       awareness.off('change', awarenessHandler)
@@ -111,10 +271,28 @@ export function createCollaboration(options: CollaborationOptions): Collaboratio
     awareness.setLocalState(null)
     ;(provider as { destroy?: () => void } | null)?.destroy?.()
     ;(awareness as { destroy?: () => void }).destroy?.()
+    // Destroy the offline mirror before the doc so pending writes settle.
+    void persistence?.destroy()
     ydoc.destroy()
   }
 
-  return { ydoc, provider, awareness, destroy }
+  return { ydoc, provider, awareness, persistence, whenReady, destroy, setLocalCursorEnabled }
+}
+
+/**
+ * Phase 9 PR2 — read the current emit-cursor gate. The host's editor
+ * extension (or the CollaborationCursor ext itself) calls this to
+ * decide whether to publish cursor updates. Default true. Used by the
+ * host to short-circuit expensive `awareness.setLocalStateField('cursor', ...)`
+ * calls when the user is out-of-editor.
+ */
+export function isLocalCursorEnabled(setup: CollaborationSetup): boolean {
+  // Read the dedicated `emitCursor` field (the gate set by
+  // `setLocalCursorEnabled`). We deliberately do NOT use `present` here:
+  // `present` is lifetime-true until `destroy()` (it signals "is the user
+  // still in the doc"), while `emitCursor` flips on visibility/tab-switch
+  // (it signals "should we publish cursor updates right now").
+  return setup.awareness.getLocalState()?.emitCursor !== false
 }
 
 export function collaborationExtensions(

@@ -1,3 +1,8 @@
+// The triple-slash reference is required so consumers that compile this
+// source via path aliases (e.g. apps/web vue-tsc) pick up the ambient
+// `declare module 'citeproc'` in ./types/citeproc.d.ts. The plugins package's
+// own tsconfig include also covers it, but cross-package typecheck does not.
+// eslint-disable-next-line @typescript-eslint/triple-slash-reference
 /// <reference path="./types/citeproc.d.ts" />
 import CSL from 'citeproc'
 import type { CslItemData } from '@kedata-indonesia/docflow-core'

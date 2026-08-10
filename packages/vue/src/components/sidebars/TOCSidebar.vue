@@ -33,6 +33,25 @@ const headings = ref<HeadingItem[]>([])
 const searchQuery = ref('')
 const activeHeadingId = ref<string | null>(null)
 
+/**
+ * The doc-tree descent runs on every doc mutation. Headings lists are
+ * typically small (<100) but descent is O(n) over the whole doc; a 30k-word
+ * doc with hundreds of paragraphs would re-traverse the tree on every
+ * keystroke without a debounce. 60ms is the slowest perceptibly-noticeable
+ * delay for outline updates; co-editor ops (paste / reflow) trigger many
+ * `update` events in a row, so the debounce collapses them into one.
+ */
+const HEADING_REFRESH_DEBOUNCE_MS = 60
+let refreshTimer: ReturnType<typeof setTimeout> | null = null
+
+function scheduleRefresh() {
+  if (refreshTimer !== null) clearTimeout(refreshTimer)
+  refreshTimer = setTimeout(() => {
+    refreshTimer = null
+    refreshHeadings()
+  }, HEADING_REFRESH_DEBOUNCE_MS)
+}
+
 function refreshHeadings() {
   if (!props.editor) return
   const items: HeadingItem[] = []
@@ -54,20 +73,65 @@ function refreshHeadings() {
   headings.value = items
 }
 
-// Keep the outline live while it's open.
+/**
+ * The active heading is whichever heading the selection is currently
+ * inside. Walk backward from `from` (or `to` — same thing for a collapsed
+ * caret) until we hit a heading node; that's the section the user is in.
+ *
+ * Falls back to "no active heading" when the cursor is in the doc's
+ * title / pre-heading region — that's normal for a fresh doc.
+ */
+function updateActiveHeading() {
+  const ed = props.editor
+  if (!ed) return
+  const { from } = ed.state.selection
+  // $-1 because `nodeAt` resolves the *node containing* the position; -1
+  // lands us in the position-1 node which is correct for collapsed carets.
+  const $pos = ed.state.doc.resolve(Math.max(0, from - 1))
+  // `.depth` is 0 at the doc root. Walk back up until we hit a heading.
+  for (let d = $pos.depth; d > 0; d--) {
+    const node = $pos.node(d)
+    if (node && node.type.name === 'heading') {
+      activeHeadingId.value = `heading-${$pos.before(d + 1) - 1}`
+      return
+    }
+  }
+  // No heading above — clear the highlight (cursor is in the title or a
+  // pre-heading block).
+  activeHeadingId.value = null
+}
+
+// Wire up while the sidebar is open. TipTap fires `update` on every doc
+// mutation (incl. collaboration sync) and `selectionUpdate` whenever the
+// selection moves — that's what we need for the active-heading highlight
+// to follow the cursor.
 onMounted(() => {
   refreshHeadings()
-  props.editor?.on('update', refreshHeadings)
+  updateActiveHeading()
+  props.editor?.on('update', scheduleRefresh)
+  props.editor?.on('selectionUpdate', updateActiveHeading)
 })
 onUnmounted(() => {
-  props.editor?.off('update', refreshHeadings)
+  props.editor?.off('update', scheduleRefresh)
+  props.editor?.off('selectionUpdate', updateActiveHeading)
+  if (refreshTimer !== null) {
+    clearTimeout(refreshTimer)
+    refreshTimer = null
+  }
 })
 watch(
   () => props.editor,
   (ed, old) => {
-    old?.off('update', refreshHeadings)
+    old?.off('update', scheduleRefresh)
+    old?.off('selectionUpdate', updateActiveHeading)
+    if (refreshTimer !== null) {
+      clearTimeout(refreshTimer)
+      refreshTimer = null
+    }
     refreshHeadings()
-    ed?.on('update', refreshHeadings)
+    updateActiveHeading()
+    ed?.on('update', scheduleRefresh)
+    ed?.on('selectionUpdate', updateActiveHeading)
   },
 )
 
