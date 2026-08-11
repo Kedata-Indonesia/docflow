@@ -78,19 +78,33 @@ $EDITOR .env.docker
 #   - MONGODB_URI             (Atlas SRV or self-hosted)
 #   - BETTER_AUTH_SECRET      (openssl rand -base64 32)
 #   - S3_ENDPOINT / S3 keys   (your managed MinIO; STORAGE_BACKEND=gridfs to skip)
-#   - AI_API_KEY              (or AI_BASE_URL for openai-compatible)
+#   - AI embeddings / RAG vars (AI_EMBED_*; optional — see §7)
 #   - Google/Microsoft/GitHub OAuth credentials (optional)
 
-# 3. Build + start
-docker compose -f docker-compose.yml up -d --build
+# 3. Build + start (dev — uses the overlay for MinIO + direct API on :3001)
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 
 # 4. Verify
-curl http://localhost:8080/api/health
+curl http://localhost:3001/api/health
 # → {"status":"ok","db":"connected","uptime":3600,"timestamp":"..."}
 ```
 
+The dev overlay (`docker-compose.dev.yml`) adds MinIO and exposes the server API on host port
+`:3001` for direct debugging. The web container's nginx proxies `/api`, `/auth`, and `/collab`
+to the server automatically — http://localhost:8082.
+
+**Production (no overlay)** — the base `docker-compose.yml` bundles MongoDB and the web
+container's nginx; used for same-domain deploy:
+
+```bash
+docker compose -f docker-compose.yml up --build
+
+# Web app  → http://localhost:8082
+# API (via proxy) → http://localhost:8082/api/health
+```
+
 For a Dokploy / production deploy, build images, push to a registry, and point the host
-reverse proxy at the `web` container (port 8080) — see §6 below.
+reverse proxy at the `web` container (port 8082) — see §6 below.
 
 ---
 
@@ -247,9 +261,10 @@ service with `docker/mongo-init.js` mounted for first-boot schema setup (see §1
 
 - **Cloud-managed (current prod):** set `STORAGE_BACKEND=s3`, point `S3_ENDPOINT` at your
   managed MinIO or S3-compatible endpoint, fill the credentials.
-- **Self-hosted MinIO:** uncomment the `minio` service in `docker-compose.yml`,
-  set `S3_ENDPOINT=http://minio:9000`, and provision the bucket via the `minio-mc` init
-  container (or via the MinIO console at `:9001`).
+- **Self-hosted MinIO:** local dev — add the dev overlay (`-f docker-compose.dev.yml`), which
+  starts MinIO at `http://minio:9000`; set `S3_ENDPOINT=http://minio:9000`. For on-prem without
+  the overlay, uncomment the `minio` service in `docker-compose.yml` and provision the bucket
+  via the MinIO console at `:9001`.
 - **No S3 (single-container):** leave `STORAGE_BACKEND=gridfs` (the default) — images go
   into Mongo's GridFS. No external service needed.
 
@@ -320,7 +335,10 @@ docker push registry.yourcompany.com/docflow-web:v1.0.0
 ## 9. Run
 
 ```bash
-# Self-host (same-domain)
+# Development (MinIO + direct API on :3001)
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+
+# Self-host (same-domain — no overlay)
 docker compose -f docker-compose.yml up -d --build
 
 # Self-host (separate-domain — same compose, different env)
@@ -336,7 +354,7 @@ docker compose --profile showcase -f docker-compose.yml up -d
 # Health
 docker ps
 docker logs docflow-server -f
-curl http://localhost:8080/api/health
+curl http://localhost:3001/api/health
 # → {"status":"ok","db":"connected","uptime":3600,"timestamp":"..."}
 
 # Stop
