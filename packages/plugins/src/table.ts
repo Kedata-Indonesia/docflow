@@ -6,6 +6,20 @@ import TableCell from '@tiptap/extension-table-cell'
 import TableHeader from '@tiptap/extension-table-header'
 
 const CustomTable = Table.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      // Marker used by the experimental `tablePageSplitPlugin` to tag the
+      // head of a split pair. Backwards-compatible (default null) so docs
+      // without this attr round-trip cleanly. See
+      // packages/plugins/src/tablePageSplit.ts.
+      tablePageSplit: {
+        default: null,
+        parseHTML: () => null,
+        renderHTML: () => ({}),
+      },
+    }
+  },
   renderHTML({ node, HTMLAttributes }) {
     let colCount = 0
     const firstRow = node.firstChild
@@ -50,6 +64,16 @@ const CustomTable = Table.extend({
     }
 
     const tableAttrs = mergeAttributes(HTMLAttributes)
+    // Mark every rendered table with data-tps-splittable so the
+    // patched PaginationPlus convergence guard lets the page count grow
+    // past tables (see patches/tiptap-pagination-plus@3.1.0.patch and
+    // packages/plugins/src/tablePageSplit.ts). Only the tail of a
+    // tablePageSplitPlugin pair is the case where this attribute *should*
+    // unblock pagination; for the head and for ordinary tables it is a
+    // harmless signal because the head sits on an earlier page and the
+    // guard fires only on the *last* editor element. The attribute is
+    // always rendered to keep the docflow CSS/JS contract simple.
+    tableAttrs['data-tps-splittable'] = ''
     if (hasExplicitWidths && totalWidth > 0) {
       const existingStyle = tableAttrs.style || ''
       tableAttrs.style = existingStyle ? `${existingStyle}; width: ${totalWidth}px !important` : `width: ${totalWidth}px !important`
