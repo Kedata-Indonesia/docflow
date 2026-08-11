@@ -323,6 +323,43 @@ pnpm lint             # ESLint
 pnpm test:e2e         # Playwright
 ```
 
+### Docker
+
+Prerequisites: Docker (or Podman) + Docker Compose (Compose V2).
+
+```bash
+# Development — full stack: server + web app + MongoDB + MinIO
+cp .env.docker.example .env.docker   # fill the secrets (see below)
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+```
+
+| Service | URL |
+|---------|-----|
+| Web app | http://localhost:8082 |
+| Server API (direct) | http://localhost:3001/api/health |
+| MongoDB | localhost:27017 |
+| MinIO console | http://localhost:9001 |
+
+The dev overlay (`docker-compose.dev.yml`) adds MinIO and exposes the server API on host port
+`:3001` for direct debugging. The web container's nginx proxies `/api`, `/auth`, and `/collab`
+to the server automatically.
+
+**Env setup:** the repo's `docker-compose.yml` bundles a Mongo container. For a quick local
+run, set the following in `.env.docker` (the `.env.docker.example` template already ships
+these values):
+
+```bash
+MONGODB_URI=mongodb://mongo:27017/docs-editor
+STORAGE_BACKEND=gridfs
+GOOGLE_ENABLED=false
+CLIENT_ORIGIN=http://localhost:8082
+BETTER_AUTH_URL=http://localhost:8082
+```
+
+> `CLIENT_ORIGIN` / `BETTER_AUTH_URL` must match the browser-facing origin — port **8082**
+> (the `web` container maps `8082:80`). See [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md) for
+> production setup (SSL, separate-domain, OAuth, AI config).
+
 ### Project Structure
 
 ```
