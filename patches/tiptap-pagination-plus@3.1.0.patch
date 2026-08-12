@@ -1,8 +1,6 @@
-diff --git a/dist/PaginationPlus.js b/dist/PaginationPlus.js
-index 186b6759ba503bbc707e3d8efa98e8b6e396b026..532197de8655a54823d22a4fbcc4398a3237dce2 100644
 --- a/dist/PaginationPlus.js
 +++ b/dist/PaginationPlus.js
-@@ -523,6 +523,9 @@ const getExistingPageCount = (view) => {
+@@ -523,6 +523,9 @@
      }
      return 0;
  };
@@ -12,7 +10,7 @@ index 186b6759ba503bbc707e3d8efa98e8b6e396b026..532197de8655a54823d22a4fbcc4398a
  const calculatePageCount = (view, pageOptions, headerHeight = 0, footerHeight = 0) => {
      var _a;
      const editorDom = view.dom;
-@@ -541,9 +544,43 @@ const calculatePageCount = (view, pageOptions, headerHeight = 0, footerHeight =
+@@ -541,9 +544,64 @@
                  lastPageBreakRect.bottom;
              if (lastPageGap > 0) {
                  const addPage = Math.ceil(lastPageGap / pageContentAreaHeight);
@@ -44,6 +42,27 @@ index 186b6759ba503bbc707e3d8efa98e8b6e396b026..532197de8655a54823d22a4fbcc4398a
 +                    return currentPageCount;
 +                }
 +                pageGapTracker.set(editorDom, { gap: lastPageGap, pages: currentPageCount });
++                // docflow fix #191: cap the page count by the total editor content
++                // height. The convergence detector alone fires too late when the
++                // splitter removes only one row per cycle (a tall table whose rows
++                // are ~1 page tall): the gap shrinks by ~1 row each cycle but
++                // never closes within 2 px, so we keep growing until the tab is
++                // full of empty frames (observed: 36 page-breaks for a 30-row
++                // table that fits in ~8). Sum the heights of all top-level editor
++                // children that aren't pagination decorations and cap at
++                // ceil(total / pageContentAreaHeight) + 1.
++                let totalEditorContentHeight = 0;
++                for (const child of editorDom.children) {
++                    if (!(child instanceof HTMLElement)) continue;
++                    if (child.hasAttribute('data-rm-pagination')) continue;
++                    if (child.classList.contains('rm-page-break')) continue;
++                    totalEditorContentHeight += child.getBoundingClientRect().height;
++                }
++                const maxPagesByContent = Math.ceil(totalEditorContentHeight / pageContentAreaHeight);
++                const contentCap = Math.max(currentPageCount, maxPagesByContent + 1);
++                if (currentPageCount + addPage > contentCap) {
++                    return contentCap;
++                }
 +                // circuit breaker: unbounded growth is always a bug; degrade gracefully.
 +                const MAX_PAGES = 1000;
 +                if (currentPageCount + addPage > MAX_PAGES) {
