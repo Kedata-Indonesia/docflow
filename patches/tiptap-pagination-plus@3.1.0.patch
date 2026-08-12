@@ -1,6 +1,18 @@
 --- a/dist/PaginationPlus.js
 +++ b/dist/PaginationPlus.js
-@@ -523,6 +523,9 @@
+@@ -170,11 +170,6 @@
+         border-collapse: collapse;
+         width: 100%;
+         display: contents;
+-      }
+-      .rm-with-pagination table tbody{
+-        display: table;
+-        max-height: 300px;
+-        overflow-y: auto;
+       }
+       .rm-with-pagination table tbody > tr{
+         display: table-row !important;
+@@ -523,6 +518,9 @@
      }
      return 0;
  };
@@ -10,7 +22,7 @@
  const calculatePageCount = (view, pageOptions, headerHeight = 0, footerHeight = 0) => {
      var _a;
      const editorDom = view.dom;
-@@ -541,9 +544,64 @@
+@@ -541,9 +539,64 @@
                  lastPageBreakRect.bottom;
              if (lastPageGap > 0) {
                  const addPage = Math.ceil(lastPageGap / pageContentAreaHeight);
