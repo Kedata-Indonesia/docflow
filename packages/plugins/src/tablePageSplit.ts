@@ -13,28 +13,27 @@ import type { Node as PMNode, NodeType, Schema } from '@tiptap/pm/model'
  * See docs/plans/clipboard-paste-pipeline-plan.md §9 "Remaining known issue"
  * for the underlying PaginationPlus limitation this addresses.
  *
- * Mechanism (single-transaction multi-split; fixes #192):
- *  - `appendTransaction` fires after every dispatch. We skip:
- *      * transactions carrying PaginationPlus's `PAGE_COUNT_META_KEY`
- *        (those are layout syncs, not edits);
- *      * transactions whose doc is structurally unchanged (no edit to react to);
- *      * transactions whose only effect was our own previous split.
- *  - On a real user edit, find the FIRST unsplit table, measure its rows
- *    against the page-content area, and split it into head + tail.
- *  - If the tail itself overflows the page, recursively split the tail again —
- *    in the SAME transaction. We predict the tail's row heights from the
- *    existing measurements (the row Nodes are shared across the split), so we
- *    never need a follow-up dispatch and never race with PaginationPlus's
- *    page-count churn mid-cycle.
- *  - The depth of the recursion is bounded by `MAX_SPLIT_DEPTH` (default 16 —
- *    enough for a 200-row pasted table with one row per chunk).
- *  - Every produced table head is marked `tablePageSplit: 'head'`; the final
- *    tail keeps `null` so a subsequent user edit can re-evaluate.
- *  - Requires the patched `tiptap-pagination-plus` in
- *    `patches/tiptap-pagination-plus@3.1.0.patch` to honor
- *    `data-tps-splittable` (tables marked by the plugin opt out of the
- *    convergence guard and PaginationPlus will grow the page count to fit
- *    them across pages).
+ * Mechanism (deferred multi-split; fixes #192 + the multi-table paste skip):
+ *  - `appendTransaction` runs DURING `EditorView.dispatch`, BEFORE the view's
+ *    DOM has been updated to reflect the dispatched doc change. Trying to
+ *    read `<tr>` heights at that point returns nothing for newly added
+ *    content — only nodes that already existed in the OLD DOM can be measured
+ *    via `view.nodeDOM(pos)`. For a paste that adds multiple tables, only the
+ *    first (or none) would be measurable, leaving later tables with the
+ *    blank-space-above-table symptom.
+ *  - We sidestep the stale-DOM problem by deferring the full measurement +
+ *    multi-table split to `queueMicrotask`. By the time the microtask runs,
+ *    the view has called `updateState(newState)` and the DOM matches the doc,
+ *    so every newly added table is measurable.
+ *  - We coalesce multiple `appendTransaction` cycles into a single
+ *    microtask via a `pendingRun` flag so a paste that dispatches several
+ *    intermediate trs still produces one split pass — not one per tr.
+ *  - When the split pass dispatches its own tr back through the editor, the
+ *    resulting `appendTransaction` cycle is detected via `PLUGIN_KEY` meta
+ *    and skipped, avoiding recursion.
+ *  - Each table's recursion predicts the tail's row heights from the
+ *    existing measurements (the row Nodes are shared across the split),
+ *    so each individual split converges in O(log n) within one tr.
  */
 
 const PLUGIN_KEY = new PluginKey('docflow/table-page-split')
@@ -42,6 +41,12 @@ const SPLIT_MARK = 'head'
 const MAX_SPLIT_DEPTH = 16
 
 function readPageContentHeightPx(view: EditorView, editor: { storage?: { PaginationPlus?: any } } | null): number | null {
+  // Primary source: editor.storage.PaginationPlus.pageHeight minus margins.
+  // This matches the page-content area the editor renders against, regardless
+  // of which page (first vs later) the table ends up on — both pages use the
+  // same `_pageHeight` calculation (the difference is whether the header is
+  // *inside* the page or floating above it; either way the table fits in
+  // `_pageHeight`).
   const storage = editor?.storage?.PaginationPlus
   if (storage && typeof storage.pageHeight === 'number') {
     const h1 = storage.headerHeight?.get?.(1) ?? 0
@@ -54,10 +59,14 @@ function readPageContentHeightPx(view: EditorView, editor: { storage?: { Paginat
       - h1 - f1
     if (Number.isFinite(contentPx) && contentPx > 0) return contentPx
   }
+  // Fallback: the CSS variable PaginationPlus exposes. Useful in tests where
+  // storage hasn't been populated yet but the variable is set manually.
   const raw = view.dom.style.getPropertyValue('--rm-max-content-child-height')
-  if (!raw) return null
-  const px = parseFloat(raw)
-  return Number.isFinite(px) && px > 0 ? px : null
+  if (raw) {
+    const px = parseFloat(raw)
+    if (Number.isFinite(px) && px > 0) return px
+  }
+  return null
 }
 
 function measureElementPx(el: Element | null): number {
@@ -105,11 +114,6 @@ function findSplitRow(measurements: RowMeasurement[], pageContentPx: number): nu
   return best
 }
 
-/**
- * Build a row-position index (offset + nodeSize) for the split boundary.
- * Returns the content offset immediately AFTER row `splitRow`, or 0 if the
- * table has no rows. Result is always at a row boundary.
- */
 function rowBoundaryOffset(tableNode: PMNode, splitRow: number): number {
   if (splitRow < 0 || tableNode.childCount === 0) return 0
   let boundary = 0
@@ -119,11 +123,6 @@ function rowBoundaryOffset(tableNode: PMNode, splitRow: number): number {
   return boundary
 }
 
-/**
- * Slice the existing measurements into a tail-relative measurements array.
- * `measurements[i]` for i > splitRow becomes the tail's measurements with
- * cumulativePx reset to height-from-tail-start.
- */
 function tailMeasurements(
   measurements: RowMeasurement[],
   splitRow: number,
@@ -137,11 +136,6 @@ function tailMeasurements(
   return tail
 }
 
-/**
- * Recursively split a table into a chain of `[head, separator, head, separator, ..., tail]`.
- * Halts when the tail fits the page or `MAX_SPLIT_DEPTH` is reached.
- * Returns `[tableNode]` (length 1) when no split is needed.
- */
 function buildSplitChain(
   tableNode: PMNode,
   measurements: RowMeasurement[],
@@ -187,82 +181,112 @@ function buildSplitChain(
   return [leftTable, separator, ...tailChain]
 }
 
+/**
+ * Run a complete multi-table split pass against the live view state. Caller
+ * is responsible for ensuring this runs at a point where the DOM matches the
+ * current doc — `appendTransaction` cannot do this directly because the
+ * DOM update happens after `applyTransaction` returns.
+ */
+function runSplitPass(view: EditorView, editor: { storage?: { PaginationPlus?: any } } | null): void {
+  if (!view || view.isDestroyed) return
+  const v = view
+  const state = v.state
+  const { schema } = state
+  const tableType = schema.nodes.table
+  if (!tableType) return
+
+  const pageContentPx = readPageContentHeightPx(v, editor)
+  if (pageContentPx == null) return
+
+  interface Pending {
+    pos: number
+    node: PMNode
+    chain: PMNode[]
+  }
+  const pending: Pending[] = []
+  state.doc.descendants((node: PMNode, pos: number) => {
+    if (node.type !== tableType) return true
+    if (node.attrs.tablePageSplit === SPLIT_MARK) return true
+
+    const domAt = v.nodeDOM(pos)
+    if (!(domAt instanceof HTMLElement)) return true
+
+    const measurements = measureRows(node, domAt)
+    if (!measurements) return true
+
+    const chain = buildSplitChain(
+      node,
+      measurements,
+      pageContentPx,
+      schema,
+      tableType,
+      0,
+    )
+    if (chain.length > 1) pending.push({ pos, node, chain })
+    return true
+  })
+
+  if (pending.length === 0) return
+
+  // Apply replacements in descending position order so earlier positions
+  // remain valid after each replaceWith.
+  const tr = state.tr
+  pending.sort((a, b) => b.pos - a.pos)
+  for (const { pos, node, chain } of pending) {
+    tr.replaceWith(pos, pos + node.nodeSize, chain)
+  }
+  tr.setMeta(PLUGIN_KEY, { splitAtRow: -1 })
+  v.dispatch(tr)
+}
+
 const TablePageSplitExtension = Extension.create({
   name: 'tablePageSplit',
 
   addProseMirrorPlugins() {
-    let view: EditorView | null = null
+    let viewRef: EditorView | null = null
+    let pendingRun = false
     const ext = this as unknown as { editor?: { storage: { PaginationPlus?: any } } }
-    const editorRef = ext.editor ?? null
+    const editorRef: { storage: { PaginationPlus?: any } } | null = ext.editor ?? null
 
     return [
       new Plugin({
         key: PLUGIN_KEY,
 
         view(_editorView) {
-          view = _editorView
+          viewRef = _editorView
           return {
             destroy() {
-              view = null
+              viewRef = null
             },
           }
         },
 
-        appendTransaction(transactions, _oldState, newState) {
+        appendTransaction(transactions, _oldState, _newState) {
           // Skip pagination's own layout syncs.
           if (transactions.some(t => t.getMeta('PAGE_COUNT_META_KEY') !== undefined)) {
             return null
           }
-          // Skip our own split trs (already split; nothing to do this cycle).
+          // Skip our own split trs — the deferred microtask handles them.
           if (transactions.some(t => {
             const m = t.getMeta(PLUGIN_KEY) as { splitAtRow?: number } | undefined
             return m !== undefined && m.splitAtRow !== undefined
           })) return null
+          if (!viewRef || viewRef.isDestroyed) return null
 
-          if (!view) return null
+          // Coalesce: if a pass is already queued, don't queue another. The
+          // queued pass walks the *latest* state, so multiple dispatches in
+          // one user action (e.g. paste may internally dispatch several)
+          // produce one split run, not one per dispatch.
+          if (pendingRun) return null
+          pendingRun = true
 
-          const { schema } = newState
-          const tableType = schema.nodes.table
-          if (!tableType) return null
-
-          const pageContentPx = readPageContentHeightPx(view, editorRef)
-          if (pageContentPx == null) return null
-
-          let tablePos = -1
-          const found: { node: PMNode | null } = { node: null }
-          newState.doc.descendants((node: PMNode, pos: number) => {
-            if (tablePos >= 0) return false
-            if (node.type === tableType && node.attrs.tablePageSplit !== SPLIT_MARK) {
-              tablePos = pos
-              found.node = node
-              return false
-            }
-            return true
+          queueMicrotask(() => {
+            pendingRun = false
+            if (!viewRef || viewRef.isDestroyed) return
+            runSplitPass(viewRef, editorRef)
           })
 
-          const tableNode = found.node
-          if (tablePos < 0 || !tableNode) return null
-
-          const domAt = view.nodeDOM(tablePos)
-          if (!(domAt instanceof HTMLElement)) return null
-
-          const measurements = measureRows(tableNode, domAt)
-          if (!measurements) return null
-
-          const chain = buildSplitChain(
-            tableNode,
-            measurements,
-            pageContentPx,
-            schema,
-            tableType,
-            0,
-          )
-          if (chain.length <= 1) return null
-
-          const tr = newState.tr
-          tr.replaceWith(tablePos, tablePos + tableNode.nodeSize, chain)
-          tr.setMeta(PLUGIN_KEY, { splitAtRow: -1 })
-          return tr
+          return null
         },
       }),
     ]
