@@ -45,6 +45,7 @@ import { citationPlugin } from './citation.js'
 import { aiPlugin } from './ai.js'
 import { commentPlugin } from './comment.js'
 import { smartElementsPlugin } from './smartElements.js'
+import { tablePageSplitPlugin } from './tablePageSplit.js'
 
 export const defaultPlugins = [
   formattingPlugin,
@@ -54,6 +55,7 @@ export const defaultPlugins = [
   linkPlugin,
   imagePlugin,
   tablePlugin,
+  tablePageSplitPlugin,
   blockquotePlugin,
   codeBlockPlugin,
   placeholderPlugin,
