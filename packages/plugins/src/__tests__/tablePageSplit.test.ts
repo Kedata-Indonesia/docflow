@@ -151,13 +151,18 @@ describe('tablePageSplitPlugin', () => {
     // Total row count is preserved (the bug from #192 was 2× duplication).
     const totalRows = tableNodes.reduce((acc: number, t: any) => acc + t.content.length, 0)
     expect(totalRows).toBe(20)
-    // Paragraph separators between chunks
-    const separators = blockNodes.filter((n: any, i: number) =>
+    // Paragraph separators between chunks — kept here as a guard against
+    // accidentally re-introducing them. Empty paragraphs in the middle of a
+    // chain were ~38 px each at default `.ProseMirror p` styling and pushed
+    // the last chunk onto a fresh page (issue #193 "empty space above 2nd
+    // table"). Adjacent tables render flush; the page-break decoration
+    // provides visual separation when it matters.
+    const separatorsBetweenTables = blockNodes.filter((n: any, i: number) =>
       n.type === 'paragraph' &&
-      i > 0 && tableNodes.includes(blockNodes[i - 1]) &&
-      i < blockNodes.length - 1 && tableNodes.includes(blockNodes[i + 1]),
+      i > 0 && blockNodes[i - 1].type === 'table' &&
+      i < blockNodes.length - 1 && blockNodes[i + 1].type === 'table',
     )
-    expect(separators.length).toBe(3)
+    expect(separatorsBetweenTables.length).toBe(0)
   })
 
   it('is a no-op when the page-content CSS variable is absent', () => {
