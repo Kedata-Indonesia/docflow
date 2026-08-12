@@ -56,8 +56,9 @@ function setup(content: object, opts: { split?: boolean; pageContentPx?: number 
   if (opts.split !== false) plugins.push(tablePageSplitPlugin)
 
   // Drive PaginationPlus page height so the unit-test "page-content area" is
-  // a small fixed value. The plugin reads editor.storage.PaginationPlus
-  // directly, so this is the right knob to turn.
+  // a small fixed value. The plugin reads `--rm-max-content-child-height`
+  // from view.dom.style (set by PaginationPlus in production); in the test
+  // we set it manually because happy-dom doesn't run the full layout pass.
   const paginationOptions = opts.pageContentPx != null
     ? {
         pageHeight: opts.pageContentPx + 40,
@@ -73,6 +74,10 @@ function setup(content: object, opts: { split?: boolean; pageContentPx?: number 
 
   const inst = createEditor({ target, content, plugins, paginationOptions } as any)
 
+  if (opts.pageContentPx != null) {
+    inst.editor.view.dom.style.setProperty('--rm-max-content-child-height', `${opts.pageContentPx}px`)
+  }
+
   // Mock heights on the rendered DOM. Tables get 600px total spread across
   // their rows; default row height is 30px so a 20-row table is 600px tall.
   const tables = inst.editor.view.dom.querySelectorAll('table')
@@ -87,10 +92,31 @@ function setup(content: object, opts: { split?: boolean; pageContentPx?: number 
     return { x: 0, y: 0, top: 0, left: 0, right: 0, bottom: 0, width: 0, height: 0, toJSON: () => ({}) } as DOMRect
   })
 
+  /**
+   * Wait for the deferred table-split microtask to run. The plugin schedules
+   * its work via `queueMicrotask` (after `view.updateState`) so the DOM is
+   * current by the time measurement happens — see tablePageSplit.ts header.
+   * Tests that exercise a real split must await this helper before asserting
+   * on `editor.getJSON()`.
+   */
+  const awaitSplit = async () => {
+    // Two ticks: the queued microtask dispatches a follow-up tr which itself
+    // schedules another microtask. We yield until no further doc mutation
+    // happens (or the timeout fires).
+    let prev = ''
+    for (let i = 0; i < 20; i++) {
+      await new Promise(r => setTimeout(r, 0))
+      const cur = JSON.stringify(inst.editor.getJSON())
+      if (cur === prev) return
+      prev = cur
+    }
+  }
+
   return {
     target,
     inst,
     tables,
+    awaitSplit,
     destroy() {
       vi.mocked(HTMLElement.prototype.getBoundingClientRect).mockRestore()
       inst.destroy()
@@ -103,17 +129,20 @@ describe('tablePageSplitPlugin', () => {
   let s: ReturnType<typeof setup>
   afterEach(() => s?.destroy())
 
-  it('splits a 20-row table into 4 chunks when rendered height (600px) exceeds page content (200px)', () => {
+  it('splits a 20-row table into 4 chunks when rendered height (600px) exceeds page content (200px)', async () => {
     s = setup(makeBigTableDoc(20), { pageContentPx: 200 })
 
     // Force a measurement pass: dispatch an empty transaction so appendTransaction runs.
     s.inst.editor.view.dispatch(s.inst.editor.state.tr)
+    await s.awaitSplit()
 
     const json = s.inst.editor.getJSON()
     const blockNodes = (json as any).content
     const tableNodes = blockNodes.filter((n: any) => n.type === 'table')
-    // Single-transaction multi-split (#192 fix): all chunks produced in one
-    // dispatch — 600 px / 180 px-per-chunk = 4 chunks of 6,6,6,2 rows.
+    // Deferred multi-split (#192 + multi-table): the queueMicrotask runs
+    // AFTER view.updateState so the DOM is current, then dispatches a single
+    // tr that produces all chunks. 600 px / 180 px-per-chunk = 4 chunks of
+    // 6,6,6,2 rows.
     expect(tableNodes.length).toBe(4)
     expect(tableNodes[0].content.length).toBe(6)
     expect(tableNodes[1].content.length).toBe(6)
@@ -154,12 +183,14 @@ describe('tablePageSplitPlugin', () => {
     expect(tableNodes[0].content.length).toBe(5)
   })
 
-  it('produces all splits in a single dispatch (#192 single-transaction multi-split)', async () => {
+  it('produces all splits via the deferred microtask (#192 single-transaction multi-split)', async () => {
     s = setup(makeBigTableDoc(20), { pageContentPx: 200 })
 
-    // One empty dispatch triggers the full single-transaction multi-split
-    // (the old setTimeout follow-up chain is gone — see #192 fix).
+    // One empty dispatch schedules the deferred split pass via queueMicrotask.
+    // awaitSplit yields until the queueMicrotask fires AND the dispatched
+    // split tr lands.
     s.inst.editor.view.dispatch(s.inst.editor.state.tr)
+    await s.awaitSplit()
 
     const tables = (s.inst.editor.getJSON() as any).content.filter((n: any) => n.type === 'table')
     // 20 rows × 30 px = 600 px total; each chunk must fit in 200 px → max 6 rows.
@@ -186,13 +217,14 @@ describe('tablePageSplitPlugin', () => {
     expect(tableNodes[0].content.length).toBe(20)
   })
 
-  it('preserves total row count across splits (issue #192 regression guard)', () => {
+  it('preserves total row count across splits (issue #192 regression guard)', async () => {
     // Issue #192: 30-row pasted table was rendered as 20 tables × 3 rows = 60 rows.
-    // With single-transaction multi-split, total rows must equal input row count.
+    // The deferred microtask approach must preserve total rows across inputs.
     for (const rowCount of [10, 30, 60, 100]) {
       s = setup(makeBigTableDoc(rowCount), { pageContentPx: 200 })
 
       s.inst.editor.view.dispatch(s.inst.editor.state.tr)
+      await s.awaitSplit()
 
       const tables = (s.inst.editor.getJSON() as any).content.filter(
         (n: any) => n.type === 'table',
@@ -203,5 +235,45 @@ describe('tablePageSplitPlugin', () => {
       )
       expect(totalRows).toBe(rowCount)
     }
+  })
+
+  it('splits every over-tall table in a multi-table paste (deferred pass scans the full DOM-updated doc)', async () => {
+    // Regression for the Jam `a3238e4d-…` report: pasting a Google Doc with
+    // two tracker tables separated by paragraphs. Earlier sync-pass fixes
+    // only split the first table because the DOM was stale during the first
+    // appendTransaction; the deferred queueMicrotask runs AFTER view.updateState
+    // so every newly added table is measurable.
+    s = setup({
+      type: 'doc',
+      content: [
+        { type: 'paragraph', content: [{ type: 'text', text: 'before' }] },
+        ...makeBigTableDoc(20).content.slice(1, 2),
+        { type: 'paragraph', content: [{ type: 'text', text: 'gap' }] },
+        ...makeBigTableDoc(20).content.slice(1, 2),
+        { type: 'paragraph', content: [{ type: 'text', text: 'after' }] },
+      ],
+    }, { pageContentPx: 200 })
+
+    s.inst.editor.view.dispatch(s.inst.editor.state.tr)
+    await s.awaitSplit()
+
+    const blocks = (s.inst.editor.getJSON() as any).content
+    const tableNodes = blocks.filter((n: any) => n.type === 'table')
+    // Two source tables × 4 chunks per source = 8 tables total.
+    expect(tableNodes.length).toBe(8)
+    // Total row count is preserved per source (20 + 20 = 40 rows).
+    const totalRows = tableNodes.reduce(
+      (acc: number, t: any) => acc + t.content.length,
+      0,
+    )
+    expect(totalRows).toBe(40)
+    // Both source tables produced a head/split/split/tail sequence — the
+    // second table's chunks must NOT be the un-split original (would be 1
+    // table of 20 rows, not 4 tables of 6,6,6,2).
+    const tailSizes = [
+      tableNodes[3].content.length,
+      tableNodes[7].content.length,
+    ]
+    expect(tailSizes).toEqual([2, 2])
   })
 })
