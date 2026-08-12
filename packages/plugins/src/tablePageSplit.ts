@@ -171,14 +171,20 @@ function buildSplitChain(
     )
   }
 
-  const separator = schema.nodes.paragraph.create()
+  // Adjacent tables: no separator paragraph. An empty paragraph between two
+  // tables inherits `.ProseMirror p { margin: 0.5rem 0 !important; line-height:
+  // 1.6 !important; }` — roughly 38 px per separator. For a chain of N chunks
+  // that's (N-1)*38 px of vertical overhead pushing the LAST chunk onto the next
+  // page. Adjacent tables render flush (the table's own margin-bottom +
+  // next table's margin-top collapse to a few px) and the page-break
+  // decoration provides visual separation when needed.
   const tail = tailMeasurements(measurements, splitRow)
   const tailChain = buildSplitChain(rightTable, tail, pageContentPx, schema, tableType, depth + 1)
 
   if (tailChain.length === 1) {
-    return [leftTable, separator, rightTable]
+    return [leftTable, rightTable]
   }
-  return [leftTable, separator, ...tailChain]
+  return [leftTable, ...tailChain]
 }
 
 /**
