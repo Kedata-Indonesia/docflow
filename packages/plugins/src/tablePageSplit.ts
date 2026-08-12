@@ -2,7 +2,7 @@ import { definePlugin } from '@kedata-indonesia/docflow-core'
 import { Extension } from '@tiptap/core'
 import { Plugin, PluginKey } from '@tiptap/pm/state'
 import type { EditorView } from '@tiptap/pm/view'
-import type { Node as PMNode } from '@tiptap/pm/model'
+import type { Node as PMNode, NodeType, Schema } from '@tiptap/pm/model'
 
 /**
  * Experimental plugin — splits a table node into multiple sibling tables at
@@ -13,22 +13,23 @@ import type { Node as PMNode } from '@tiptap/pm/model'
  * See docs/plans/clipboard-paste-pipeline-plan.md §9 "Remaining known issue"
  * for the underlying PaginationPlus limitation this addresses.
  *
- * Mechanism:
+ * Mechanism (single-transaction multi-split; fixes #192):
  *  - `appendTransaction` fires after every dispatch. We skip:
  *      * transactions carrying PaginationPlus's `PAGE_COUNT_META_KEY`
  *        (those are layout syncs, not edits);
- *      * transactions whose doc is identical to the input (no structural
- *        change);
- *      * transactions whose only effect was our own previous split (to
- *        avoid immediately re-splitting the same table).
- *  - When a real user edit (paste, typing, etc.) lands, we find the FIRST
- *    unsplit table, measure its rows against the page-content area, and
- *    split it into head + tail. We schedule ONE follow-up dispatch via
- *    `queueMicrotask` carrying `tpsFollowUp: true` so the tail can be
- *    re-measured and split again. We bound the recursion by tracking how
- *    many follow-ups we have dispatched in the last user-edit burst and
- *    stopping after `MAX_RECURSIVE_SPLITS` (default 16 — enough to handle
- *    a 200-row pasted table).
+ *      * transactions whose doc is structurally unchanged (no edit to react to);
+ *      * transactions whose only effect was our own previous split.
+ *  - On a real user edit, find the FIRST unsplit table, measure its rows
+ *    against the page-content area, and split it into head + tail.
+ *  - If the tail itself overflows the page, recursively split the tail again —
+ *    in the SAME transaction. We predict the tail's row heights from the
+ *    existing measurements (the row Nodes are shared across the split), so we
+ *    never need a follow-up dispatch and never race with PaginationPlus's
+ *    page-count churn mid-cycle.
+ *  - The depth of the recursion is bounded by `MAX_SPLIT_DEPTH` (default 16 —
+ *    enough for a 200-row pasted table with one row per chunk).
+ *  - Every produced table head is marked `tablePageSplit: 'head'`; the final
+ *    tail keeps `null` so a subsequent user edit can re-evaluate.
  *  - Requires the patched `tiptap-pagination-plus` in
  *    `patches/tiptap-pagination-plus@3.1.0.patch` to honor
  *    `data-tps-splittable` (tables marked by the plugin opt out of the
@@ -38,8 +39,7 @@ import type { Node as PMNode } from '@tiptap/pm/model'
 
 const PLUGIN_KEY = new PluginKey('docflow/table-page-split')
 const SPLIT_MARK = 'head'
-const MAX_RECURSIVE_SPLITS = 16
-const RECURSIVE_BUDGET_RESET_MS = 100
+const MAX_SPLIT_DEPTH = 16
 
 function readPageContentHeightPx(view: EditorView, editor: { storage?: { PaginationPlus?: any } } | null): number | null {
   const storage = editor?.storage?.PaginationPlus
@@ -105,6 +105,88 @@ function findSplitRow(measurements: RowMeasurement[], pageContentPx: number): nu
   return best
 }
 
+/**
+ * Build a row-position index (offset + nodeSize) for the split boundary.
+ * Returns the content offset immediately AFTER row `splitRow`, or 0 if the
+ * table has no rows. Result is always at a row boundary.
+ */
+function rowBoundaryOffset(tableNode: PMNode, splitRow: number): number {
+  if (splitRow < 0 || tableNode.childCount === 0) return 0
+  let boundary = 0
+  tableNode.forEach((row, offset, index) => {
+    if (index <= splitRow) boundary = offset + row.nodeSize
+  })
+  return boundary
+}
+
+/**
+ * Slice the existing measurements into a tail-relative measurements array.
+ * `measurements[i]` for i > splitRow becomes the tail's measurements with
+ * cumulativePx reset to height-from-tail-start.
+ */
+function tailMeasurements(
+  measurements: RowMeasurement[],
+  splitRow: number,
+): RowMeasurement[] {
+  const tail: RowMeasurement[] = []
+  let cumulative = 0
+  for (let i = splitRow + 1; i < measurements.length; i++) {
+    cumulative += measurements[i].heightPx
+    tail.push({ rowIndex: i, heightPx: measurements[i].heightPx, cumulativePx: cumulative })
+  }
+  return tail
+}
+
+/**
+ * Recursively split a table into a chain of `[head, separator, head, separator, ..., tail]`.
+ * Halts when the tail fits the page or `MAX_SPLIT_DEPTH` is reached.
+ * Returns `[tableNode]` (length 1) when no split is needed.
+ */
+function buildSplitChain(
+  tableNode: PMNode,
+  measurements: RowMeasurement[],
+  pageContentPx: number,
+  schema: Schema,
+  tableType: NodeType,
+  depth: number,
+): PMNode[] {
+  const splitRow = findSplitRow(measurements, pageContentPx)
+  if (splitRow < 0) return [tableNode]
+  if (depth >= MAX_SPLIT_DEPTH) return [tableNode]
+
+  const splitPos = rowBoundaryOffset(tableNode, splitRow)
+  const content = tableNode.content
+  const leftContent = content.cut(0, splitPos)
+  const rightContent = content.cut(splitPos)
+
+  const leftAttrs = { ...tableNode.attrs, tablePageSplit: SPLIT_MARK }
+  const rightAttrs = { ...tableNode.attrs, tablePageSplit: null }
+  const leftTable = tableType.create(leftAttrs, leftContent, tableNode.marks)
+  const rightTable = tableType.create(rightAttrs, rightContent, tableNode.marks)
+
+  // Row-count invariant (defensive): the split must be a permutation of the
+  // original rows. If Fragment.cut ever shared rows across halves we would
+  // see leftCount + rightCount !== expected. Throw loudly rather than
+  // silently duplicate content into the document.
+  const expectedRows = tableNode.childCount
+  const leftRows = leftTable.childCount
+  const rightRows = rightTable.childCount
+  if (leftRows + rightRows !== expectedRows) {
+    throw new Error(
+      `[tablePageSplitPlugin] row-count invariant violated: expected ${expectedRows}, got ${leftRows} + ${rightRows} = ${leftRows + rightRows}`,
+    )
+  }
+
+  const separator = schema.nodes.paragraph.create()
+  const tail = tailMeasurements(measurements, splitRow)
+  const tailChain = buildSplitChain(rightTable, tail, pageContentPx, schema, tableType, depth + 1)
+
+  if (tailChain.length === 1) {
+    return [leftTable, separator, rightTable]
+  }
+  return [leftTable, separator, ...tailChain]
+}
+
 const TablePageSplitExtension = Extension.create({
   name: 'tablePageSplit',
 
@@ -112,8 +194,6 @@ const TablePageSplitExtension = Extension.create({
     let view: EditorView | null = null
     const ext = this as unknown as { editor?: { storage: { PaginationPlus?: any } } }
     const editorRef = ext.editor ?? null
-    let lastBurstAt = 0
-    let burstSplits = 0
 
     return [
       new Plugin({
@@ -138,19 +218,8 @@ const TablePageSplitExtension = Extension.create({
             const m = t.getMeta(PLUGIN_KEY) as { splitAtRow?: number } | undefined
             return m !== undefined && m.splitAtRow !== undefined
           })) return null
-          // `tpsFollowUp` trs are dispatched by our companion plugin to
-          // continue a split burst — let them through so we re-measure.
 
           if (!view) return null
-
-          // Bound the recursion: each user-edit burst may split at most
-          // MAX_RECURSIVE_SPLITS times before we go quiescent.
-          const now = Date.now()
-          if (now - lastBurstAt > RECURSIVE_BUDGET_RESET_MS) {
-            burstSplits = 0
-          }
-          lastBurstAt = now
-          if (burstSplits >= MAX_RECURSIVE_SPLITS) return null
 
           const { schema } = newState
           const tableType = schema.nodes.table
@@ -180,59 +249,20 @@ const TablePageSplitExtension = Extension.create({
           const measurements = measureRows(tableNode, domAt)
           if (!measurements) return null
 
-          const splitRow = findSplitRow(measurements, pageContentPx)
-          if (splitRow < 0) return null
-
-          const content = tableNode.content
-          let splitPos = 0
-          tableNode.forEach((row, offset, index) => {
-            if (index <= splitRow) splitPos = offset + row.nodeSize
-          })
-          const leftContent = content.cut(0, splitPos)
-          const rightContent = content.cut(splitPos)
-
-          const leftAttrs = { ...tableNode.attrs, tablePageSplit: SPLIT_MARK }
-          const rightAttrs = { ...tableNode.attrs, tablePageSplit: null }
-
-          const leftTable = tableType.create(leftAttrs, leftContent, tableNode.marks)
-          const rightTable = tableType.create(rightAttrs, rightContent, tableNode.marks)
-          const separator = schema.nodes.paragraph.create()
+          const chain = buildSplitChain(
+            tableNode,
+            measurements,
+            pageContentPx,
+            schema,
+            tableType,
+            0,
+          )
+          if (chain.length <= 1) return null
 
           const tr = newState.tr
-          tr.replaceWith(tablePos, tablePos + tableNode.nodeSize, [leftTable, separator, rightTable])
-          tr.setMeta(PLUGIN_KEY, { splitAtRow: splitRow })
-
-          burstSplits += 1
+          tr.replaceWith(tablePos, tablePos + tableNode.nodeSize, chain)
+          tr.setMeta(PLUGIN_KEY, { splitAtRow: -1 })
           return tr
-        },
-
-        // After every dispatch that applies our tr, schedule ONE follow-up
-        // so the next cycle re-measures the new tail.
-        appendTransactionFromMetaHook: undefined as never,
-      }),
-
-      // Companion plugin: after each dispatch that carried our split meta,
-      // fire a follow-up tr (asynchronously, outside the current cycle) so
-      // the next cycle re-measures the new tail. We bind the burst size
-      // in the main plugin's `burstSplits` counter.
-      new Plugin({
-        key: new PluginKey('docflow/table-page-split-followup'),
-        appendTransaction(transactions, _oldState, _newState) {
-          const hadSplit = transactions.some(t => {
-            const m = t.getMeta(PLUGIN_KEY) as { splitAtRow?: number } | undefined
-            return m !== undefined && m.splitAtRow !== undefined
-          })
-          if (!hadSplit) return null
-          // Schedule the follow-up for *after* the current commit lands.
-          // Doing it inline inside appendTransaction risks re-entrancy.
-          const v = view
-          setTimeout(() => {
-            if (!v) return
-            if (v.isDestroyed) return
-            const t = v.state.tr.setMeta('tpsFollowUp', true)
-            v.dispatch(t)
-          }, 0)
-          return null
         },
       }),
     ]

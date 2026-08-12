@@ -103,7 +103,7 @@ describe('tablePageSplitPlugin', () => {
   let s: ReturnType<typeof setup>
   afterEach(() => s?.destroy())
 
-  it('splits a 20-row table into two when rendered height (600px) exceeds page content (200px)', () => {
+  it('splits a 20-row table into 4 chunks when rendered height (600px) exceeds page content (200px)', () => {
     s = setup(makeBigTableDoc(20), { pageContentPx: 200 })
 
     // Force a measurement pass: dispatch an empty transaction so appendTransaction runs.
@@ -112,13 +112,23 @@ describe('tablePageSplitPlugin', () => {
     const json = s.inst.editor.getJSON()
     const blockNodes = (json as any).content
     const tableNodes = blockNodes.filter((n: any) => n.type === 'table')
-    expect(tableNodes.length).toBe(2)
-    // 200 / 30 = 6 rows fit on page 1 (cumulative 180), row 7 (cumulative 210) > 200
+    // Single-transaction multi-split (#192 fix): all chunks produced in one
+    // dispatch — 600 px / 180 px-per-chunk = 4 chunks of 6,6,6,2 rows.
+    expect(tableNodes.length).toBe(4)
     expect(tableNodes[0].content.length).toBe(6)
-    expect(tableNodes[1].content.length).toBe(14)
-    // The paragraph between the two halves is preserved by the split
-    const separator = blockNodes.find((n: any, i: number) => n.type === 'paragraph' && i > blockNodes.indexOf(tableNodes[0]) && i < blockNodes.indexOf(tableNodes[1]))
-    expect(separator).toBeTruthy()
+    expect(tableNodes[1].content.length).toBe(6)
+    expect(tableNodes[2].content.length).toBe(6)
+    expect(tableNodes[3].content.length).toBe(2)
+    // Total row count is preserved (the bug from #192 was 2× duplication).
+    const totalRows = tableNodes.reduce((acc: number, t: any) => acc + t.content.length, 0)
+    expect(totalRows).toBe(20)
+    // Paragraph separators between chunks
+    const separators = blockNodes.filter((n: any, i: number) =>
+      n.type === 'paragraph' &&
+      i > 0 && tableNodes.includes(blockNodes[i - 1]) &&
+      i < blockNodes.length - 1 && tableNodes.includes(blockNodes[i + 1]),
+    )
+    expect(separators.length).toBe(3)
   })
 
   it('is a no-op when the page-content CSS variable is absent', () => {
@@ -144,23 +154,18 @@ describe('tablePageSplitPlugin', () => {
     expect(tableNodes[0].content.length).toBe(5)
   })
 
-  it('dispatches a follow-up split on the next dispatch; tail gets re-split until it fits', async () => {
+  it('produces all splits in a single dispatch (#192 single-transaction multi-split)', async () => {
     s = setup(makeBigTableDoc(20), { pageContentPx: 200 })
 
-    const view = s.inst.editor.view
-    view.dispatch(view.state.tr)
-    // Let the queueMicrotask follow-up dispatch run.
-    await new Promise(r => setTimeout(r, 50))
-    view.dispatch(view.state.tr)
-    await new Promise(r => setTimeout(r, 50))
-    view.dispatch(view.state.tr)
-    await new Promise(r => setTimeout(r, 50))
+    // One empty dispatch triggers the full single-transaction multi-split
+    // (the old setTimeout follow-up chain is gone — see #192 fix).
+    s.inst.editor.view.dispatch(s.inst.editor.state.tr)
 
     const tables = (s.inst.editor.getJSON() as any).content.filter((n: any) => n.type === 'table')
     // 20 rows × 30 px = 600 px total; each chunk must fit in 200 px → max 6 rows.
-    // Result: head(6) + split(6) + split(6) + tail(2) = 4 tables of 6,6,6,2 rows.
-    expect(tables.length).toBeGreaterThanOrEqual(4)
-    // Total rows preserved.
+    // Result: 4 tables of 6,6,6,2 rows.
+    expect(tables.length).toBe(4)
+    // Total rows preserved (the bug from #192 was 2× duplication).
     const totalRows = tables.reduce((acc: number, t: any) => acc + t.content.length, 0)
     expect(totalRows).toBe(20)
     // Every chunk except possibly the last one should fit in the page-content area
@@ -179,5 +184,24 @@ describe('tablePageSplitPlugin', () => {
     const tableNodes = (json as any).content.filter((n: any) => n.type === 'table')
     expect(tableNodes.length).toBe(1)
     expect(tableNodes[0].content.length).toBe(20)
+  })
+
+  it('preserves total row count across splits (issue #192 regression guard)', () => {
+    // Issue #192: 30-row pasted table was rendered as 20 tables × 3 rows = 60 rows.
+    // With single-transaction multi-split, total rows must equal input row count.
+    for (const rowCount of [10, 30, 60, 100]) {
+      s = setup(makeBigTableDoc(rowCount), { pageContentPx: 200 })
+
+      s.inst.editor.view.dispatch(s.inst.editor.state.tr)
+
+      const tables = (s.inst.editor.getJSON() as any).content.filter(
+        (n: any) => n.type === 'table',
+      )
+      const totalRows = tables.reduce(
+        (acc: number, t: any) => acc + t.content.length,
+        0,
+      )
+      expect(totalRows).toBe(rowCount)
+    }
   })
 })
