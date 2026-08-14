@@ -33,10 +33,10 @@ export function tableToDocxTable(node: PmNode): Table | null {
         children: [cellToParagraph(cellNode)],
         shading: isHeader ? { fill: 'E5E7EB' } : undefined,
         borders: {
-          top: { style: BorderStyle.SINGLE, size: 1, color: 'D1D5DB' },
-          bottom: { style: BorderStyle.SINGLE, size: 1, color: 'D1D5DB' },
-          left: { style: BorderStyle.SINGLE, size: 1, color: 'D1D5DB' },
-          right: { style: BorderStyle.SINGLE, size: 1, color: 'D1D5DB' },
+          top: { style: BorderStyle.SINGLE, size: 6, color: '000000' },
+          bottom: { style: BorderStyle.SINGLE, size: 6, color: '000000' },
+          left: { style: BorderStyle.SINGLE, size: 6, color: '000000' },
+          right: { style: BorderStyle.SINGLE, size: 6, color: '000000' },
         },
       }))
     }
@@ -46,6 +46,6 @@ export function tableToDocxTable(node: PmNode): Table | null {
   if (rows.length === 0) return null
   return new Table({
     rows,
-    width: { size: 100, type: WidthType.PERCENTAGE },
+    width: { size: 5000, type: WidthType.DXA }, // DXA units for full page width
   })
 }
