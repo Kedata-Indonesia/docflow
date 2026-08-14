@@ -1,0 +1,89 @@
+--- a/dist/PaginationPlus.js
++++ b/dist/PaginationPlus.js
+@@ -170,11 +170,6 @@
+         border-collapse: collapse;
+         width: 100%;
+         display: contents;
+-      }
+-      .rm-with-pagination table tbody{
+-        display: table;
+-        max-height: 300px;
+-        overflow-y: auto;
+       }
+       .rm-with-pagination table tbody > tr{
+         display: table-row !important;
+@@ -523,6 +518,9 @@
+     }
+     return 0;
+ };
++// docflow: per-editor gap tracker for the non-convergence detector in
++// calculatePageCount (see docs/plans/clipboard-paste-pipeline-plan.md).
++const pageGapTracker = new WeakMap();
+ const calculatePageCount = (view, pageOptions, headerHeight = 0, footerHeight = 0) => {
+     var _a;
+     const editorDom = view.dom;
+@@ -541,9 +539,64 @@
+                 lastPageBreakRect.bottom;
+             if (lastPageGap > 0) {
+                 const addPage = Math.ceil(lastPageGap / pageContentAreaHeight);
++                // docflow convergence guard (see docs/plans/clipboard-paste-pipeline-plan.md):
++                // a single node taller than the page content area is unsplittable —
++                // adding pages can never close the gap, so stop growing instead of
++                // looping until the tab freezes (observed: 28k page-breaks from one table).
++                if (lastElementRect.height > pageContentAreaHeight) {
++                    // docflow table-page-split opt-out: when the last editor
++                    // element is a <table> marked by the tablePageSplitPlugin
++                    // as `data-tps-splittable`, the plugin has split it into
++                    // chunks that all fit on a single page, so trust it and
++                    // continue paginating instead of bailing out.
++                    const isSplittableTable =
++                        (lastElementOfEditor === null || lastElementOfEditor === void 0 ? void 0 : lastElementOfEditor.tagName) === 'TABLE' &&
++                        lastElementOfEditor.hasAttribute('data-tps-splittable');
++                    if (!isSplittableTable) {
++                        return currentPageCount;
++                    }
++                }
++                // non-convergence detector: if the previous cycle grew the page
++                // count but the gap did not shrink, more pages will never close
++                // it (e.g. a table clears the float spacers and always ends below
++                // the last breaker; the gap even grows by one spacer per cycle).
++                // Stop growing; let content overflow its page frame instead of
++                // multiplying pages until the tab freezes.
++                const prev = pageGapTracker.get(editorDom);
++                if (prev && prev.pages < currentPageCount && lastPageGap > prev.gap - 2) {
++                    return currentPageCount;
++                }
++                pageGapTracker.set(editorDom, { gap: lastPageGap, pages: currentPageCount });
++                // docflow fix #191: cap the page count by the total editor content
++                // height. The convergence detector alone fires too late when the
++                // splitter removes only one row per cycle (a tall table whose rows
++                // are ~1 page tall): the gap shrinks by ~1 row each cycle but
++                // never closes within 2 px, so we keep growing until the tab is
++                // full of empty frames (observed: 36 page-breaks for a 30-row
++                // table that fits in ~8). Sum the heights of all top-level editor
++                // children that aren't pagination decorations and cap at
++                // ceil(total / pageContentAreaHeight) + 1.
++                let totalEditorContentHeight = 0;
++                for (const child of editorDom.children) {
++                    if (!(child instanceof HTMLElement)) continue;
++                    if (child.hasAttribute('data-rm-pagination')) continue;
++                    if (child.classList.contains('rm-page-break')) continue;
++                    totalEditorContentHeight += child.getBoundingClientRect().height;
++                }
++                const maxPagesByContent = Math.ceil(totalEditorContentHeight / pageContentAreaHeight);
++                const contentCap = Math.max(currentPageCount, maxPagesByContent + 1);
++                if (currentPageCount + addPage > contentCap) {
++                    return contentCap;
++                }
++                // circuit breaker: unbounded growth is always a bug; degrade gracefully.
++                const MAX_PAGES = 1000;
++                if (currentPageCount + addPage > MAX_PAGES) {
++                    return currentPageCount;
++                }
+                 return currentPageCount + addPage;
+             }
+             else {
++                pageGapTracker.delete(editorDom);
+                 const allBreaksAfterLastElement = Array.from(paginationElement.querySelectorAll(".breaker"));
+                 const allBreaksAfterLastElementRect = allBreaksAfterLastElement.filter(element => element.getBoundingClientRect().top > lastElementRect.bottom);
+                 const removePage = allBreaksAfterLastElementRect.length;

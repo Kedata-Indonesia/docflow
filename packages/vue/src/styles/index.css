@@ -257,6 +257,23 @@
   margin-bottom: 0.375rem !important;
 }
 
+/*
+ * Tighten the gap when a heading is immediately followed by a table. Tables
+ * use `display: table`, which does not participate in margin collapsing, so a
+ * heading's bottom margin stacks on top of the table's top margin instead of
+ * collapsing with it — leaving a visibly larger gap than between the heading
+ * and a normal paragraph. Drop the heading's bottom margin to near-zero when a
+ * table follows; the table's own 2px top margin keeps them visually adjacent.
+ */
+.ProseMirror h1:has(+ table),
+.ProseMirror h2:has(+ table),
+.ProseMirror h3:has(+ table),
+.ProseMirror h4:has(+ table),
+.ProseMirror h5:has(+ table),
+.ProseMirror h6:has(+ table) {
+  margin-bottom: 2px !important;
+}
+
 .ProseMirror ul[data-type='taskList'] {
   list-style: none !important;
   padding: 0 !important;
@@ -309,21 +326,59 @@
 
 /* ── Tables ─────────────────────────────────────────────────────────── */
 
+/*
+ * Table layout: columns auto-size to content by default, so a pasted table
+ * whose source widths were stripped (GDocs/Word embed widths in <style>,
+ * which the paste pipeline removes for safety) doesn't collapse to equal
+ * columns and wrap long text — wrapping doubled row height and pushed tables
+ * taller than a page (see docs/plans/clipboard-paste-pipeline-plan.md, paste
+ * table fix). Tables with explicit colwidths (set by ManualColumnResize or by
+ * paste from a source that carries inline widths) get table-layout: fixed,
+ * which is required for ManualColumnResize to drive layout from <colgroup col>.
+ */
 .rm-with-pagination table,
 .ProseMirror table {
   border-collapse: collapse !important;
-  margin: 0.5rem 0 !important;
+  /*
+   * Top margin is smaller than bottom: `display: table` does not participate
+   * in margin collapsing, so the table's top margin stacks on top of the
+   * preceding block's bottom margin rather than collapsing with it. A full
+   * 0.5rem top + 0.5rem preceding-bottom leaves a visible gap between a text
+   * paragraph and the table; 2px keeps them visually adjacent while the 0.5rem
+   * bottom preserves clear separation from the block that follows the table.
+   */
+  margin: 2px 0 0.5rem !important;
   overflow: visible;
-  table-layout: fixed !important;
+  table-layout: auto;
   width: 100%;
   display: table !important;
 }
 
+.rm-with-pagination table[data-colwidth='explicit'],
+.ProseMirror table[data-colwidth='explicit'] {
+  table-layout: fixed !important;
+}
+
+/*
+ * Table body display. The old `max-height: none; overflow: visible` override
+ * (pre-Stage 1.1) disabled the pagination convergence cap. An attempted fix
+ * put `max-height: var(--rm-max-content-child-height); overflow-y: auto` here,
+ * but `max-height` and `overflow` are IGNORED on `display: table-row-group`
+ * (the default <tbody> display) — CSS only applies them to block-level boxes.
+ * Verified live: tbody.maxHeight=995px but tbody rendered at 1011px with no
+ * scroll. The cap never worked. The convergence guard in the pnpm patch
+ * (patches/tiptap-pagination-plus@3.1.0.patch) is what actually prevents the
+ * freeze; true table-height limiting needs cross-page row breaking, which is
+ * a separate epic (see docs/plans/clipboard-paste-pipeline-plan.md §8).
+ *
+ * We keep `display: table-row-group` (the plugin's `display: table` re-boxing
+ * is what let max-height work, but it conflicts with ManualColumnResize) and
+ * do not pretend to cap here. Column auto-sizing (above) is what keeps most
+ * pasted tables short enough to fit one page.
+ */
 .rm-with-pagination table tbody,
 .ProseMirror table tbody {
   display: table-row-group !important;
-  max-height: none !important;
-  overflow: visible !important;
 }
 
 .ProseMirror td,
@@ -349,6 +404,32 @@
 .dark .ProseMirror td,
 .dark .ProseMirror th {
   border-color: #475569;
+}
+
+/*
+ * Tighten block margins inside table cells. Body paragraphs (`.ProseMirror p`,
+ * 0.5rem 0) and lists (`.ProseMirror ul/ol`, 0.5rem 0) apply globally, so
+ * without this override every cell paragraph stacks a full top+bottom margin
+ * on top of the cell's own 0.5rem 0.75rem padding — making rows ~2× taller
+ * than their text (visible after the Stage 1.1 pagination fix as "lots of
+ * empty space inside pasted table cells"). First/last children collapse their
+ * outer margin so the cell padding alone defines the inner gap.
+ */
+.ProseMirror td > :first-child,
+.ProseMirror th > :first-child {
+  margin-top: 0 !important;
+}
+.ProseMirror td > :last-child,
+.ProseMirror th > :last-child {
+  margin-bottom: 0 !important;
+}
+.ProseMirror td p,
+.ProseMirror th p,
+.ProseMirror td ul,
+.ProseMirror th ul,
+.ProseMirror td ol,
+.ProseMirror th ol {
+  margin: 0.125rem 0 !important;
 }
 
 .ProseMirror .selectedCell::after {
