@@ -272,13 +272,16 @@ describe('tablePageSplitPlugin', () => {
       0,
     )
     expect(totalRows).toBe(40)
-    // Both source tables produced a head/split/split/tail sequence — the
-    // second table's chunks must NOT be the un-split original (would be 1
-    // table of 20 rows, not 4 tables of 6,6,6,2).
+    // Both source tables split, but NOT identically: table 1 starts at the
+    // top of a fresh page (full 200px budget) → 6,6,6,2. Table 2 starts
+    // mid-page after table 1's last chunk (60px consumed, 140px left) →
+    // 4,6,6,4. The old broken behavior measured table 2 against stale DOM
+    // and produced [2,2]; the fix tracks a running cursor so table 2 gets
+    // the correct reduced head budget.
     const tailSizes = [
       tableNodes[3].content.length,
       tableNodes[7].content.length,
     ]
-    expect(tailSizes).toEqual([2, 2])
+    expect(tailSizes).toEqual([2, 4])
   })
 })
