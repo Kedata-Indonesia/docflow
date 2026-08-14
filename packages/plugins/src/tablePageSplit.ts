@@ -74,6 +74,43 @@ function measureElementPx(el: Element | null): number {
   return el.getBoundingClientRect().height
 }
 
+/**
+ * Return the vertical space still available on the page at the given PM
+ * position, in pixels, using the live (pre-split) DOM.
+ *
+ * IMPORTANT: this reads `.breaker` positions from the CURRENT DOM, which
+ * only reflects splits that have already been dispatched — not splits still
+ * pending in this same `runSplitPass` call. Do not call this for a table
+ * that comes after another table in document order within the same pass;
+ * use `availablePxFromCursor` instead, which accounts for the pending
+ * chain output of everything before it. This is only correct for the
+ * FIRST table processed in a pass (nothing pending ahead of it yet).
+ */
+function availablePxAt(
+  view: EditorView,
+  pos: number,
+  defaultPageContentPx: number,
+): number | null {
+  try {
+    const tableCoords = view.coordsAtPos(pos + 1)
+    const tableTop = tableCoords.top
+    const paginationWrapper = view.dom.querySelector('[data-rm-pagination]')
+    if (!paginationWrapper) return defaultPageContentPx
+    const breakers = paginationWrapper.querySelectorAll('.rm-page-break .breaker')
+    for (let i = 0; i < breakers.length; i++) {
+      const br = breakers[i]
+      if (!(br instanceof HTMLElement)) continue
+      const breakTop = br.getBoundingClientRect().top
+      if (breakTop > tableTop) {
+        return Math.max(1, Math.floor(breakTop - tableTop))
+      }
+    }
+    return defaultPageContentPx
+  } catch {
+    return null
+  }
+}
+
 interface RowMeasurement {
   rowIndex: number
   heightPx: number
@@ -139,12 +176,18 @@ function tailMeasurements(
 function buildSplitChain(
   tableNode: PMNode,
   measurements: RowMeasurement[],
+  headBudgetPx: number,
   pageContentPx: number,
   schema: Schema,
   tableType: NodeType,
   depth: number,
 ): PMNode[] {
-  const splitRow = findSplitRow(measurements, pageContentPx)
+  // Only the FIRST cut in this chain uses the caller-supplied head budget
+  // (which may be a reduced mid-page budget for tables after the first in
+  // a paste). Every cut after that starts a fresh page, so it always gets
+  // the full `pageContentPx` — never the (possibly reduced) head budget.
+  const budget = depth === 0 ? headBudgetPx : pageContentPx
+  const splitRow = findSplitRow(measurements, budget)
   if (splitRow < 0) return [tableNode]
   if (depth >= MAX_SPLIT_DEPTH) return [tableNode]
 
@@ -179,7 +222,7 @@ function buildSplitChain(
   // next table's margin-top collapse to a few px) and the page-break
   // decoration provides visual separation when needed.
   const tail = tailMeasurements(measurements, splitRow)
-  const tailChain = buildSplitChain(rightTable, tail, pageContentPx, schema, tableType, depth + 1)
+  const tailChain = buildSplitChain(rightTable, tail, headBudgetPx, pageContentPx, schema, tableType, depth + 1)
 
   if (tailChain.length === 1) {
     return [leftTable, rightTable]
@@ -188,10 +231,59 @@ function buildSplitChain(
 }
 
 /**
+ * Height (px) of the LAST chunk `buildSplitChain` would produce for this
+ * table, given the same head/page budgets it actually uses. Walks the same
+ * split-row sequence as `buildSplitChain` (head cut uses `headBudgetPx`,
+ * every cut after that uses `pageContentPx`) directly over `RowMeasurement`s
+ * — no PMNodes needed — so it can never disagree with what buildSplitChain
+ * actually produces. Used only to advance the cursor for whatever table
+ * comes after this one in the pass.
+ *
+ * Returns `null` if the table doesn't split at all (whole table height is
+ * the "last chunk" and the caller should treat it as staying on the same
+ * page as headBudgetPx, not a fresh one).
+ */
+function lastChunkHeightPx(
+  measurements: RowMeasurement[],
+  headBudgetPx: number,
+  pageContentPx: number,
+): number | null {
+  let current = measurements
+  let budget = headBudgetPx
+  let splitCount = 0
+  for (let depth = 0; depth < MAX_SPLIT_DEPTH; depth++) {
+    const splitRow = findSplitRow(current, budget)
+    if (splitRow < 0) {
+      return splitCount === 0 ? null : (current[current.length - 1]?.cumulativePx ?? 0)
+    }
+    splitCount++
+    current = tailMeasurements(current, splitRow)
+    budget = pageContentPx
+  }
+  return current[current.length - 1]?.cumulativePx ?? 0
+}
+
+/**
  * Run a complete multi-table split pass against the live view state. Caller
  * is responsible for ensuring this runs at a point where the DOM matches the
  * current doc — `appendTransaction` cannot do this directly because the
  * DOM update happens after `applyTransaction` returns.
+ *
+ * Tables are processed in document order with a running page-budget
+ * cursor, NOT independently against a single fixed pageContentPx. Reason:
+ * `state.doc.descendants()` walks the doc BEFORE any of this pass's splits
+ * are dispatched, so live-DOM reads (`availablePxAt`) for the 2nd+ table
+ * reflect a layout that's about to change once the 1st table's chain is
+ * applied — the .breaker the 2nd table sees is positioned for "table 1
+ * whole", not "table 1 split". That mismatch is why a smarter per-position
+ * formula alone doesn't fix the 2nd-table gap: the input for table 2 is
+ * already stale before the formula runs.
+ *
+ * Fix: only the FIRST table in the pass uses the live-DOM budget (nothing
+ * ahead of it has changed). Every table after that uses a budget derived
+ * from the previous table's own chain output — specifically, how much of
+ * the page its last chunk consumed — rather than re-reading DOM that
+ * doesn't yet reflect the pending split.
  */
 function runSplitPass(view: EditorView, editor: { storage?: { PaginationPlus?: any } } | null): void {
   if (!view || view.isDestroyed) return
@@ -204,12 +296,12 @@ function runSplitPass(view: EditorView, editor: { storage?: { PaginationPlus?: a
   const pageContentPx = readPageContentHeightPx(v, editor)
   if (pageContentPx == null) return
 
-  interface Pending {
+  interface TableEntry {
     pos: number
     node: PMNode
-    chain: PMNode[]
+    measurements: RowMeasurement[]
   }
-  const pending: Pending[] = []
+  const tables: TableEntry[] = []
   state.doc.descendants((node: PMNode, pos: number) => {
     if (node.type !== tableType) return true
     if (node.attrs.tablePageSplit === SPLIT_MARK) return true
@@ -220,17 +312,51 @@ function runSplitPass(view: EditorView, editor: { storage?: { PaginationPlus?: a
     const measurements = measureRows(node, domAt)
     if (!measurements) return true
 
-    const chain = buildSplitChain(
-      node,
-      measurements,
-      pageContentPx,
-      schema,
-      tableType,
-      0,
-    )
-    if (chain.length > 1) pending.push({ pos, node, chain })
+    tables.push({ pos, node, measurements })
     return true
   })
+
+  if (tables.length === 0) return
+
+  interface Pending {
+    pos: number
+    node: PMNode
+    chain: PMNode[]
+  }
+  const pending: Pending[] = []
+
+  // Cursor budget for the NEXT table to be processed. `null` means "use a
+  // live-DOM read" (only valid for the first table); once we've committed
+  // to analytical tracking, every subsequent table uses the cursor value.
+  let cursorAvailablePx: number | null = null
+
+  for (let i = 0; i < tables.length; i++) {
+    const { pos, node, measurements } = tables[i]
+
+    const availablePx = i === 0
+      ? (availablePxAt(v, pos, pageContentPx) ?? pageContentPx)
+      : (cursorAvailablePx ?? pageContentPx)
+
+    const chain = buildSplitChain(node, measurements, availablePx, pageContentPx, schema, tableType, 0)
+    if (chain.length > 1) pending.push({ pos, node, chain })
+
+    // Advance the cursor for the NEXT table based on where this table's
+    // last chunk leaves off. If this table didn't split at all, its whole
+    // height was consumed from `availablePx`; the remainder is what's left
+    // on the same page for whatever comes next. If it DID split, the last
+    // chunk is a tail that started fresh at the top of a new page
+    // (buildSplitChain's recursion), so the next table's budget is a fresh
+    // full page minus that tail's actual height.
+    const lastChunkPx = lastChunkHeightPx(measurements, availablePx, pageContentPx)
+    if (lastChunkPx === null) {
+      // No split — whole table consumed part of the current page.
+      const totalPx = measurements[measurements.length - 1]?.cumulativePx ?? 0
+      cursorAvailablePx = Math.max(0, availablePx - totalPx)
+    } else {
+      // Split — last chunk landed on a fresh page; carry forward what's left.
+      cursorAvailablePx = Math.max(0, pageContentPx - lastChunkPx)
+    }
+  }
 
   if (pending.length === 0) return
 
