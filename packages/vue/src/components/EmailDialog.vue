@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { X, Mail, Link2, Check } from 'lucide-vue-next'
+import { X, Mail, Link2 } from 'lucide-vue-next'
 import { useLocale } from '../composables/useLocale.js'
 
 const { t } = useLocale()
@@ -22,7 +22,6 @@ const subject = ref('')
 const body = ref('')
 const subjectFocused = ref(false)
 const bodyFocused = ref(false)
-const copied = ref(false)
 
 const defaultSubject = computed(() => t('editor.email.defaultSubject', { title: props.documentTitle }))
 const defaultBody = computed(() => t('editor.email.defaultBody', { url: props.shareUrl }))
@@ -48,18 +47,7 @@ const mailtoHref = computed(() => {
   return href
 })
 
-async function handleCopyLink() {
-  if (props.shareUrl && typeof navigator !== 'undefined' && navigator.clipboard) {
-    try {
-      await navigator.clipboard.writeText(props.shareUrl)
-      copied.value = true
-      setTimeout(() => {
-        copied.value = false
-      }, 2000)
-    } catch {
-      // ignore
-    }
-  }
+function handleCopyLink() {
   emit('copy-link')
 }
 
@@ -69,7 +57,6 @@ function reset() {
   body.value = defaultBody.value
   subjectFocused.value = false
   bodyFocused.value = false
-  copied.value = false
 }
 
 watch(() => props.isOpen, (open) => {
@@ -103,14 +90,9 @@ watch(() => props.isOpen, (open) => {
       </div>
 
       <div class="mb-4 rounded-md border border-slate-200 bg-slate-50 p-3 dark:border-slate-700/50 dark:bg-white/5">
-        <div class="mb-1 flex items-center justify-between">
-          <label class="block text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-            {{ t('editor.email.shareableLink') }}
-          </label>
-          <span v-if="copied" class="text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
-            Tersalin!
-          </span>
-        </div>
+        <label class="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+          {{ t('editor.email.shareableLink') }}
+        </label>
         <div class="flex items-center gap-2">
           <input
             type="text"
@@ -120,13 +102,11 @@ watch(() => props.isOpen, (open) => {
           />
           <button
             type="button"
-            class="flex h-7 w-7 items-center justify-center rounded-md border border-slate-300 transition dark:border-slate-600"
-            :class="copied ? 'border-emerald-500 bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400' : 'text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-700'"
+            class="flex h-7 w-7 items-center justify-center rounded-md border border-slate-300 text-slate-500 transition hover:bg-slate-100 dark:border-slate-600 dark:text-slate-400 dark:hover:bg-slate-700"
             :title="t('editor.email.copyLink')"
             @click="handleCopyLink"
           >
-            <Check v-if="copied" class="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
-            <Link2 v-else class="h-3.5 w-3.5" />
+            <Link2 class="h-3.5 w-3.5" />
           </button>
         </div>
       </div>
