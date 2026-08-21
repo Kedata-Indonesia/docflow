@@ -2092,6 +2092,40 @@ watch(isReady, (ready) => {
   // Listen to window resize because pagination calculations layout can shift
   window.addEventListener('resize', onResize)
 })
+
+function handleHeaderShare(): void {
+  showEmailModal.value = true
+  emit('share')
+}
+
+function openShareModal(): void {
+  showEmailModal.value = true
+}
+
+function closeShareModal(): void {
+  showEmailModal.value = false
+}
+
+function openDetailsModal(): void {
+  showDetailsModal.value = true
+}
+
+function closeDetailsModal(): void {
+  showDetailsModal.value = false
+}
+
+defineExpose({
+  openShareModal,
+  closeShareModal,
+  openEmailModal: openShareModal,
+  closeEmailModal: closeShareModal,
+  openDetailsModal,
+  closeDetailsModal,
+  openPageSetupModal,
+  openFindReplace: () => { showFindReplace.value = true },
+  openLinkDialog,
+  editor,
+})
 </script>
 
 <template>
@@ -2101,7 +2135,7 @@ v-if="!focusMode"
 :title="title" :editable="editable" :collaborators="collaborators" :starred="starred" :user-name="userName" :user-avatar="userAvatar"
       :pageless="isPageless" :outline-open="activeSidebar === 'toc'" :show-ruler="showRuler" :focus-mode="focusMode"
       @menu-click="menuClick" @back="$emit('back')" @update:title="$emit('update:title', $event)" @toggle-star="$emit('toggle-star')"
-      @export="$emit('export', $event)" @share="$emit('share')"><template #actions><slot name="header-actions" /></template><template #overflow-actions="slotProps"><slot name="overflow-actions" v-bind="slotProps" /></template><template #user-menu="slotProps"><slot name="user-menu" v-bind="slotProps" /></template></HeaderBar>
+      @export="$emit('export', $event)" @share="handleHeaderShare"><template #actions><slot name="header-actions" /></template><template #overflow-actions="slotProps"><slot name="overflow-actions" v-bind="slotProps" /></template><template #user-menu="slotProps"><slot name="user-menu" v-bind="slotProps" /></template></HeaderBar>
     <EditorToolbar
 v-if="!focusMode"
 :actions="pluginActions" :plugins="plugins" :editor="editor" :active-sidebar="activeSidebar"
