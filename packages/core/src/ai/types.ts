@@ -48,6 +48,18 @@ export interface AIContextLocation {
   section?: string
 }
 
+/**
+ * Payload for the host's AI-chat hook (issue #219). Carries the selected text
+ * (if any) plus the cursor/selection location so a host with its OWN chat panel
+ * can pre-fill the prompt with context — without re-reading editor state.
+ */
+export interface AiChatRequestContext {
+  /** Selected text, when the selection is not empty. */
+  selection?: string
+  /** Location of the selection/cursor (page, paragraph, line, section…). */
+  context: AIContextLocation
+}
+
 export interface AIActionRequest {
   action: AIAction
   /** Selected text (7B). */

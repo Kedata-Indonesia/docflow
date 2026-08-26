@@ -3,6 +3,7 @@ export type {
   AIAction,
   AIActionRequest,
   AIContextLocation,
+  AiChatRequestContext,
   AIDraftCitation,
   AIDraftEvent,
   AIDraftFn,

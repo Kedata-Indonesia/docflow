@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { type DocsEditor, type DocsEditorPlugin, type EditorOptions, type ImageUploadHandler, type CitationPort, type CslItemData, type AIStreamFn, type AIDraftFn } from '@kedata-indonesia/docflow-core'
+import { type DocsEditor, type DocsEditorPlugin, type EditorOptions, type ImageUploadHandler, type CitationPort, type CslItemData, type AIStreamFn, type AIDraftFn, type AIContextLocation, type AiChatRequestContext } from '@kedata-indonesia/docflow-core'
 import { PAGE_SIZES, getPageSize } from '@kedata-indonesia/docflow-layout-engine'
 import { useVirtualPages } from '../composables/useVirtualPages.js'
 import VirtualPageOverlay from './VirtualPageOverlay.vue'
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, toRaw, watch } from 'vue'
 import { useEditor } from '../composables/useEditor.js'
+import { collectSelectionContext } from '../utils/selectionContext.js'
 import SlashMenuVue from './SlashMenu.vue'
 import type { Collaborator, CommentItem, ConnectionState, DocumentMeta, DocumentSnapshot, SavingStatus, SidebarKey } from '../types.js'
 import HeaderBar from './HeaderBar.vue'
@@ -61,8 +62,13 @@ const props = withDefaults(
      * button, ⌘L/Ctrl+L, "Help me create" action). A host with its OWN chat
      * panel binds `:on-ai-chat="openChatPanel"`; without it the editor falls
      * back to its built-in AI sidebar. (Same pattern as `onImageUpload`.)
+     *
+     * The handler receives the payload the host needs to pre-fill its prompt:
+     * the selected text (if any) plus the cursor/selection location
+     * (page/paragraph/line/section) — the same context the built-in AI
+     * sidebar uses, so a host chat panel can offer identical grounding.
      */
-    onAiChat?: () => void
+    onAiChat?: (context: AiChatRequestContext) => void
     /**
      * Enable the debug overlay (CPU + RAM monitor) pinned to the bottom-right
      * corner of the viewport. Pure debug view — never touches document state.
@@ -1852,10 +1858,31 @@ let toggleSidebar = (key: SidebarKey) => { activeSidebar.value = activeSidebar.v
 // the built-in AI sidebar so the library stays self-contained.
 function requestAiChat() {
   if (typeof props.onAiChat === 'function') {
-    props.onAiChat()
+    props.onAiChat(collectAiChatRequest())
     return
   }
   toggleSidebar('ai')
+}
+
+/**
+ * Build the host payload: selected text (when the selection is not empty) plus
+ * the cursor/selection location — the same context `AISidebar` uses, so a host
+ * chat panel can pre-fill its prompt with identical grounding. Best-effort:
+ * any failure degrades to an empty context object.
+ */
+function collectAiChatRequest(): AiChatRequestContext {
+  const ed = toRaw(editor.value)
+  const payload: AiChatRequestContext = { context: {} }
+  if (!ed) return payload
+  const { from, to, empty } = ed.state.selection
+  if (!empty) payload.selection = ed.state.doc.textBetween(from, to, '\n', ' ')
+  try {
+    const location: AIContextLocation = collectSelectionContext(ed)
+    payload.context = location
+  } catch {
+    payload.context = {}
+  }
+  return payload
 }
 let handlePrint = () => window.print()
 

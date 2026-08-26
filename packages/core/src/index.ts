@@ -50,6 +50,7 @@ export type {
   AIAction,
   AIActionRequest,
   AIContextLocation,
+  AiChatRequestContext,
   AIStreamFn,
   AIDraftFn,
   AIDraftEvent,
