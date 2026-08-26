@@ -281,6 +281,7 @@ export default {
       formatHeader: 'Header format',
       pageNumber: 'Page numbers',
       removeHeader: 'Remove header',
+      removeFooter: 'Remove footer',
       headerFooterFormatTitle: 'Header & footer',
       marginSection: 'Margin',
       headerTopMargin: 'Header (centimeters from top)',
