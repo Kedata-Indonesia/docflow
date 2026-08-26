@@ -256,8 +256,13 @@ const paginationOptions = computed(() => ({
     startInlineHeaderEdit(params?.event)
   },
   onFooterClick: (params?: { event?: MouseEvent; pageNumber?: number }) => {
-    if (params?.event && params.event.detail !== 2) return
-    openFooterModal()
+    // Single click → inline edit footer (Google Docs style); double click →
+    // modal footer lama (kompatibilitas dipertahankan).
+    if (params?.event && params.event.detail === 2) {
+      openFooterModal()
+      return
+    }
+    startInlineFooterEdit(params?.event)
   },
 }))
 
@@ -1036,6 +1041,10 @@ watch(isReady, (ready) => {
       userFooterRight.value = editor.value.storage.PaginationPlus?.appliedConfig?.footerRight || ''
     }
 
+    // Issue #133 (0.0.68): selaraskan posisi nomor halaman dengan lokasi token
+    // `{page}` yang dimuat (mis. FE default footerRight '{page}' → 'footer').
+    syncPageNumberPositionFromToken()
+
     // Apply header & footer with correct page stats
     applyHeaderFooter()
 
@@ -1101,8 +1110,8 @@ watch(isReady, (ready) => {
       const target = e.target as HTMLElement | null
       if (!target) return
 
-      // Ignore clicks on options dropdown, active bar tools, or active editable header
-      if (target.closest('.rm-google-docs-header-bar, .rm-options-dropdown, [contenteditable="true"]')) return
+      // Ignore clicks on options dropdown, active bar tools, or active editable header/footer
+      if (target.closest('.rm-google-docs-header-bar, .rm-google-docs-footer-bar, .rm-options-dropdown, [contenteditable="true"]')) return
 
       // Direct click on header or its children
       const headerEl = target.closest<HTMLElement>('.rm-page-header, .rm-first-page-header')
@@ -1111,7 +1120,14 @@ watch(isReady, (ready) => {
         return
       }
 
-      // Click on top margin boundary area of editor or page
+      // Direct click on footer or its children → inline edit footer
+      const footerEl = target.closest<HTMLElement>('.rm-page-footer')
+      if (footerEl) {
+        startInlineFooterEdit(e)
+        return
+      }
+
+      // Click on top/bottom margin boundary area of editor or page
       const pageWrap = target.closest<HTMLElement>('.rm-with-pagination, .rm-page-break, .page, .docs-editor-page')
       if (pageWrap) {
         const rect = pageWrap.getBoundingClientRect()
@@ -1127,6 +1143,21 @@ watch(isReady, (ready) => {
           }
           if (targetHeader) {
             startInlineHeaderEdit(e)
+          }
+          return
+        }
+        const relativeBottom = rect.bottom - e.clientY
+        const bottomMarginPx = footerMarginCm.value * 37.795
+        if (relativeBottom >= 0 && relativeBottom <= Math.max(bottomMarginPx, 40) + 15) {
+          let targetFooter: HTMLElement | null = null
+          if (pageWrap.classList.contains('rm-page-break')) {
+            targetFooter = pageWrap.querySelector<HTMLElement>('.rm-page-footer')
+          }
+          if (!targetFooter) {
+            targetFooter = document.querySelector<HTMLElement>('.rm-page-footer')
+          }
+          if (targetFooter) {
+            startInlineFooterEdit(e)
           }
         }
       }
@@ -1326,6 +1357,27 @@ interface HeaderEditSession {
 
 const headerEditSession: { value: HeaderEditSession | null } = { value: null }
 
+/** Sesi edit inline footer (mirror header). Footer bersifat global: semua
+ *  halaman berbagi satu konten (`userFooterLeft`), tanpa varian halaman
+ *  pertama / ganjil-genap. */
+const isFooterActive = ref(false)
+
+interface FooterEditSession {
+  targetFooter: HTMLElement
+  overlay: HTMLElement
+  input: HTMLElement
+  activeBar: HTMLElement
+  generatedContent: HTMLElement | null
+  pageIndex: number
+  onOutsideMouseDown: (event: MouseEvent) => void
+  onInputBlur: () => void
+  onResize: () => void
+  onScroll: () => void
+  onWindowScroll: () => void
+}
+
+const footerEditSession: { value: FooterEditSession | null } = { value: null }
+
 const openHeaderFormatModal = () => {
   draftHeaderMarginCm.value = headerMarginCm.value
   draftFooterMarginCm.value = footerMarginCm.value
@@ -1351,12 +1403,35 @@ const applyHeaderFormat = () => {
 }
 
 const openPageNumberModal = () => {
+  // Issue #133 (0.0.68): radio posisi mengikuti lokasi token `{page}` yang
+  // sebenarnya, bukan state lama yang bisa basi (default `'header'`).
+  // Tanpa ini, dokumen yang nomornya ada di footer akan terbaca "header" dan
+  // menekan Terapkan tanpa mengubah apa pun memindahkan nomor ke header.
+  syncPageNumberPositionFromToken()
   draftPageNumberPosition.value = pageNumberPosition.value
   draftHiddenPageNumbers.value = [...hiddenPageNumbers.value]
   draftHiddenPageList.value = serializePageList(draftHiddenPageNumbers.value)
   draftPageNumberMode.value = pageNumberMode.value
   draftPageNumberStartAt.value = pageNumberStartAt.value
   showPageNumberModal.value = true
+}
+
+/**
+ * Sinkronkan `pageNumberPosition` dengan lokasi token `{page}` yang nyata
+ * di konten header/footer. Token di footer → `'footer'`; token di header
+ * (atau tidak ada di mana pun) → `'header'`. Dipanggil saat modal dibuka
+ * dan saat dokumen dimuat, supaya radio modal & logika pemindahan token
+ * (applyPageNumberSettings) tidak bergeser tanpa disengaja.
+ */
+const syncPageNumberPositionFromToken = () => {
+  const token = '{page}'
+  const headerHasToken = [userHeaderLeft.value, userHeaderRight.value].some(v => v.includes(token))
+  const footerHasToken = [userFooterLeft.value, userFooterRight.value].some(v => v.includes(token))
+  if (footerHasToken && !headerHasToken) {
+    pageNumberPosition.value = 'footer'
+  } else {
+    pageNumberPosition.value = 'header'
+  }
 }
 
 const applyPageNumberSettings = () => {
@@ -1394,6 +1469,16 @@ const clearHeaderContent = () => {
   isHeaderActive.value = false
 }
 
+const clearFooterContent = () => {
+  userFooterLeft.value = ''
+  userFooterRight.value = ''
+  applyHeaderFooter()
+  persistCurrentDoc()
+  isFooterActive.value = false
+}
+
+const getFooterEditValue = (): string => userFooterLeft.value
+
 const getHeaderEditValue = (pageNumber: number): string => {
   const isFirstPage = pageNumber === 1
   const isEvenPage = pageNumber % 2 === 0
@@ -1426,6 +1511,29 @@ const finishHeaderEdit = (commit = true) => {
   } else {
     userHeaderLeft.value = value
   }
+
+  applyHeaderFooter()
+  persistCurrentDoc()
+}
+
+const finishFooterEdit = (commit = true) => {
+  const session = footerEditSession.value
+  if (!session) return
+
+  const value = session.input.innerHTML.trim()
+  document.removeEventListener('mousedown', session.onOutsideMouseDown)
+  window.removeEventListener('resize', session.onResize)
+  window.removeEventListener('scroll', session.onWindowScroll)
+  scrollContainerRef.value?.removeEventListener('scroll', session.onScroll)
+  session.overlay.remove()
+  if (session.generatedContent) session.generatedContent.style.visibility = ''
+  session.targetFooter.classList.remove('rm-footer-active')
+  footerEditSession.value = null
+  isFooterActive.value = false
+
+  if (!commit) return
+
+  userFooterLeft.value = value
 
   applyHeaderFooter()
   persistCurrentDoc()
@@ -1467,7 +1575,48 @@ const positionHeaderEdit = (session: HeaderEditSession) => {
   session.activeBar.style.setProperty('--rm-header-bar-padding-right', `${rightInset}px`)
 }
 
+const positionFooterEdit = (session: FooterEditSession) => {
+  if (!session.targetFooter.parentNode || !editor.value) return
+
+  const root = editor.value.view.dom
+  const footerRect = session.targetFooter.getBoundingClientRect()
+  const paperRect = root.getBoundingClientRect()
+
+  // Footers always live inside the full-bleed page breaker, so the element
+  // rectangle spans the paper edge-to-edge while the footer content is inset
+  // by the body margins (`.rm-page-footer-left/right` float margins). The
+  // overlay aligns to the CONTENT rectangle, and the toolbar bar sits ABOVE
+  // the footer (bottom: 100%) so it never covers the footer text.
+  const paperStyle = getComputedStyle(root)
+  const bodyMarginLeft = parseFloat(paperStyle.getPropertyValue('--rm-margin-left')) || 0
+  const bodyMarginRight = parseFloat(paperStyle.getPropertyValue('--rm-margin-right')) || 0
+  const contentEl = session.targetFooter.querySelector('.rm-page-footer-content')
+  const contentRect = contentEl?.getBoundingClientRect() ?? footerRect
+  const contentLeft = footerRect.left + bodyMarginLeft
+  const contentRight = footerRect.right - bodyMarginRight
+
+  const leftInset = Math.max(0, contentLeft - paperRect.left)
+  const rightInset = Math.max(0, paperRect.right - contentRight)
+
+  session.overlay.style.left = `${contentLeft}px`
+  session.overlay.style.top = `${contentRect.top}px`
+  session.overlay.style.width = `${Math.max(contentRight - contentLeft, 1)}px`
+  session.overlay.style.height = `${Math.max(contentRect.height, 24)}px`
+  session.activeBar.style.setProperty('--rm-footer-bar-left', `${-leftInset}px`)
+  session.activeBar.style.setProperty('--rm-footer-bar-width', `${paperRect.width}px`)
+  session.activeBar.style.setProperty('--rm-footer-bar-padding-left', `${leftInset}px`)
+  session.activeBar.style.setProperty('--rm-footer-bar-padding-right', `${rightInset}px`)
+}
+
 const startInlineHeaderEdit = (event?: MouseEvent) => {
+  // Cross-type: mulai edit header menutup sesi edit footer yang sedang aktif
+  // (commit) — kecuali klik terjadi di dalam overlay footer.
+  const existingFooter = footerEditSession.value
+  if (existingFooter) {
+    const target = event?.target
+    if (target instanceof Node && existingFooter.overlay.contains(target)) return
+    finishFooterEdit(true)
+  }
   const existing = headerEditSession.value
   if (existing) {
     const target = event?.target
@@ -1654,8 +1803,168 @@ const startInlineHeaderEdit = (event?: MouseEvent) => {
   selection?.addRange(range)
 }
 
+const startInlineFooterEdit = (event?: MouseEvent) => {
+  // Cross-type: mulai edit footer menutup sesi edit header yang sedang aktif
+  // (commit) — kecuali klik terjadi di dalam overlay header.
+  const existingHeader = headerEditSession.value
+  if (existingHeader) {
+    const target = event?.target
+    if (target instanceof Node && existingHeader.overlay.contains(target)) return
+    finishHeaderEdit(true)
+  }
+  const existing = footerEditSession.value
+  if (existing) {
+    const target = event?.target
+    if (!target || target instanceof Node && existing.targetFooter.contains(target)) return
+    finishFooterEdit(false)
+  }
+
+  let footerEl: HTMLElement | null = null
+  if (event) {
+    const target = event.target as HTMLElement | null
+    footerEl = target?.closest('.rm-page-footer') as HTMLElement | null
+  }
+  if (!footerEl) {
+    footerEl = editor.value?.view.dom.querySelector('.rm-page-footer') as HTMLElement | null
+  }
+  if (!footerEl || !editor.value) return
+
+  const root = editor.value.view.dom
+  // Page mapping: each `.rm-page-break .rm-page-footer` is the footer of the
+  // page at `index + 1` (the first break contains the first-page footer).
+  const breakFooters = Array.from(root.querySelectorAll<HTMLElement>('.rm-page-break .rm-page-footer'))
+  const pageNumber = breakFooters.indexOf(footerEl) + 1
+  const generatedContent = footerEl.querySelector('.rm-page-footer-content') as HTMLElement | null
+  if (generatedContent) generatedContent.style.visibility = 'hidden'
+  const input = document.createElement('div')
+  input.className = 'rm-footer-edit-input'
+  input.contentEditable = 'true'
+  input.setAttribute('role', 'textbox')
+  input.setAttribute('aria-label', t('editor.headerFooter.footer') || 'Footer')
+  input.dataset.placeholder = t('editor.headerFooter.footerPlaceholder') || 'Footer'
+  input.innerHTML = getFooterEditValue()
+
+  const overlay = document.createElement('div')
+  overlay.className = 'rm-footer-edit-overlay'
+  overlay.appendChild(input)
+
+  const activeBar = document.createElement('div')
+  activeBar.className = 'rm-google-docs-footer-bar'
+  activeBar.innerHTML = `
+    <span class="rm-footer-label">${t('editor.headerFooter.footer') || 'Footer'}</span>
+    <div class="rm-footer-right-tools">
+      <div class="rm-options-wrapper">
+        <button type="button" class="rm-options-btn">
+          <span>${t('editor.headerFooter.options') || 'Options'}</span>
+          <span class="rm-arrow-icon" style="font-size: 8px;">▼</span>
+        </button>
+        <div class="rm-options-dropdown">
+          <button type="button" class="rm-opt-page-num">${t('editor.headerFooter.pageNumber') || 'Page numbers'}</button>
+          <button type="button" class="rm-opt-remove">${t('editor.headerFooter.removeFooter') || 'Remove footer'}</button>
+        </div>
+      </div>
+    </div>
+  `
+  overlay.appendChild(activeBar)
+  document.body.appendChild(overlay)
+
+  footerEl.classList.add('rm-footer-active')
+
+  const onResize = () => {
+    const current = footerEditSession.value
+    if (current) positionFooterEdit(current)
+  }
+  const onScroll = onResize
+  const onWindowScroll = onResize
+  const onOutsideMouseDown = (mouseEvent: MouseEvent) => {
+    const target = mouseEvent.target
+    if (target instanceof Node && overlay.contains(target)) return
+    if (target instanceof Element && target.closest('.fixed.z-50')) return
+    finishFooterEdit(true)
+  }
+  const onInputBlur = () => {
+    requestAnimationFrame(() => {
+      const current = footerEditSession.value
+      if (current && !current.overlay.contains(document.activeElement)) finishFooterEdit(true)
+    })
+  }
+
+  const session: FooterEditSession = {
+    targetFooter: footerEl,
+    overlay,
+    input,
+    activeBar,
+    generatedContent,
+    pageIndex: pageNumber,
+    onOutsideMouseDown,
+    onInputBlur,
+    onResize,
+    onScroll,
+    onWindowScroll,
+  }
+  footerEditSession.value = session
+  isFooterActive.value = true
+
+  const optionsButton = activeBar.querySelector('.rm-options-btn') as HTMLButtonElement | null
+  const dropdown = activeBar.querySelector('.rm-options-dropdown') as HTMLElement | null
+  const arrow = activeBar.querySelector('.rm-arrow-icon') as HTMLElement | null
+  optionsButton?.addEventListener('mousedown', (mouseEvent) => {
+    mouseEvent.stopPropagation()
+    mouseEvent.preventDefault()
+  })
+  optionsButton?.addEventListener('click', (clickEvent) => {
+    clickEvent.stopPropagation()
+    clickEvent.preventDefault()
+    const open = dropdown?.classList.toggle('is-open') ?? false
+    if (arrow) arrow.textContent = open ? '▲' : '▼'
+  })
+
+  const pageNumberButton = activeBar.querySelector('.rm-opt-page-num') as HTMLButtonElement | null
+  pageNumberButton?.addEventListener('mousedown', (mouseEvent) => {
+    mouseEvent.stopPropagation()
+    mouseEvent.preventDefault()
+  })
+  pageNumberButton?.addEventListener('click', (clickEvent) => {
+    clickEvent.stopPropagation()
+    finishFooterEdit(true)
+    openPageNumberModal()
+  })
+
+  const removeButton = activeBar.querySelector('.rm-opt-remove') as HTMLButtonElement | null
+  removeButton?.addEventListener('mousedown', (mouseEvent) => {
+    mouseEvent.stopPropagation()
+    mouseEvent.preventDefault()
+  })
+  removeButton?.addEventListener('click', (clickEvent) => {
+    clickEvent.stopPropagation()
+    finishFooterEdit(false)
+    clearFooterContent()
+  })
+
+  input.addEventListener('blur', onInputBlur)
+  document.addEventListener('mousedown', onOutsideMouseDown)
+  window.addEventListener('resize', onResize)
+  window.addEventListener('scroll', onWindowScroll)
+  scrollContainerRef.value?.addEventListener('scroll', onScroll)
+  // Position once the DOM/layout has settled (PaginationPlus may still be
+  // rebuilding its generated widgets when the edit session starts).
+  requestAnimationFrame(() => {
+    if (footerEditSession.value === session) positionFooterEdit(session)
+  })
+  input.focus()
+
+  const selection = window.getSelection()
+  const range = document.createRange()
+  range.selectNodeContents(input)
+  range.collapse(false)
+  selection?.removeAllRanges()
+  selection?.addRange(range)
+}
+
 const openFooterModal = () => {
   if (!editor.value) return
+  // Komit konten inline footer yang sedang diedit sebelum membuka modal
+  finishFooterEdit(true)
   footerLeftInput.value = userFooterLeft.value || editor.value.storage.PaginationPlus?.appliedConfig?.footerLeft || ''
   footerRightInput.value = userFooterRight.value || editor.value.storage.PaginationPlus?.appliedConfig?.footerRight || ''
   showFooterModal.value = true

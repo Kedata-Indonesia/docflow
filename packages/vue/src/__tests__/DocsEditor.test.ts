@@ -517,6 +517,95 @@ describe('DocsEditor', () => {
     wrapper.unmount()
   })
 
+  it('edits the footer inline (Google Docs style) without changing document content', async () => {
+    const wrapper = mount(DocsEditor, {
+      props: { plugins: defaultPlugins },
+    })
+    await new Promise((resolve) => setTimeout(resolve, 80))
+
+    const vm = wrapper.vm as unknown as {
+      editor?: { getJSON: () => object }
+      startInlineFooterEdit: () => void
+      finishFooterEdit: (commit?: boolean) => void
+      clearFooterContent: () => void
+      userFooterLeft: string
+      userFooterRight: string
+    }
+    expect(vm.editor).toBeDefined()
+    const before = JSON.stringify(vm.editor?.getJSON() ?? {})
+
+    vm.startInlineFooterEdit()
+    await wrapper.vm.$nextTick()
+
+    const overlay = document.querySelector('.rm-footer-edit-overlay') as HTMLElement | null
+    const input = overlay?.querySelector('.rm-footer-edit-input') as HTMLElement | null
+    const activeBar = overlay?.querySelector('.rm-google-docs-footer-bar') as HTMLElement | null
+    expect(overlay).not.toBeNull()
+    expect(input?.contentEditable).toBe('true')
+    expect(input?.closest('.docs-editor__paper')).toBeNull()
+    expect(activeBar?.parentElement).toBe(overlay)
+    expect(activeBar).toBeTruthy()
+
+    // Footer toolbar offers page-number access + remove footer
+    const dropdown = activeBar?.querySelector('.rm-options-dropdown')
+    expect(dropdown?.querySelector('.rm-opt-page-num')).toBeTruthy()
+    expect(dropdown?.querySelector('.rm-opt-remove')).toBeTruthy()
+
+    input!.innerHTML = 'Safe footer'
+    vm.finishFooterEdit(true)
+
+    expect(vm.userFooterLeft).toBe('Safe footer')
+    expect(JSON.stringify(vm.editor?.getJSON() ?? {})).toBe(before)
+    expect(document.querySelector('.rm-footer-edit-overlay')).toBeNull()
+
+    // Remove footer clears both slots and persists
+    vm.clearFooterContent()
+    expect(vm.userFooterLeft).toBe('')
+    expect(vm.userFooterRight).toBe('')
+    wrapper.unmount()
+  })
+
+  it('syncs the page number modal position radio from the actual {page} token location', async () => {
+    const wrapper = mount(DocsEditor, {
+      props: { plugins: defaultPlugins },
+    })
+    await new Promise((resolve) => setTimeout(resolve, 50))
+
+    const vm = wrapper.vm as unknown as {
+      userHeaderRight: string
+      userFooterRight: string
+      pageNumberPosition: 'header' | 'footer'
+      draftPageNumberPosition: 'header' | 'footer'
+      showPageNumberModal: boolean
+      openPageNumberModal: () => void
+      applyPageNumberSettings: () => void
+    }
+
+    // Token di footer (default FE) → radio "Footer", bukan state usang 'header'
+    vm.userFooterRight = '{page}'
+    vm.userHeaderRight = ''
+    vm.openPageNumberModal()
+    await wrapper.vm.$nextTick()
+    expect(vm.showPageNumberModal).toBe(true)
+    expect(vm.draftPageNumberPosition).toBe('footer')
+    expect(vm.pageNumberPosition).toBe('footer')
+
+    // "Terapkan" tanpa mengubah posisi TIDAK memindahkan token ke header
+    vm.applyPageNumberSettings()
+    await wrapper.vm.$nextTick()
+    expect(vm.userFooterRight).toBe('{page}')
+    expect(vm.userHeaderRight).toBe('')
+
+    // Token di header → radio "Header"
+    vm.userFooterRight = ''
+    vm.userHeaderRight = '{page}'
+    vm.openPageNumberModal()
+    expect(vm.draftPageNumberPosition).toBe('header')
+    expect(vm.pageNumberPosition).toBe('header')
+
+    wrapper.unmount()
+  })
+
   it('aligns the later-page edit overlay to the body margins and header content rect', async () => {
     const wrapper = mount(DocsEditor, {
       props: { plugins: defaultPlugins },

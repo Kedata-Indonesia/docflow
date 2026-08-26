@@ -281,6 +281,7 @@ export default {
       formatHeader: 'Format header',
       pageNumber: 'Nomor halaman',
       removeHeader: 'Hapus header',
+      removeFooter: 'Hapus footer',
       headerFooterFormatTitle: 'Header & footer',
       marginSection: 'Margin',
       headerTopMargin: 'Header (sentimeter dari atas)',
