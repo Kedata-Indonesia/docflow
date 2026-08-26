@@ -349,6 +349,11 @@ export default {
       citations: 'Citations',
       emptyResponse: 'The AI returned an empty response.',
       aiError: 'AI request failed',
+      contextLabel: 'Attached context',
+      pageShort: 'p.',
+      paragraphShort: 'Para.',
+      lineShort: 'Line',
+      selectionContext: 'Selected text',
     },
     comments: {
       title: 'Discussion Panel',

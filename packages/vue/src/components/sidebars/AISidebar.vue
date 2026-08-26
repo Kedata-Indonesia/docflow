@@ -1,13 +1,14 @@
 <script setup lang="ts">
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { ref, computed, watch, onUnmounted, nextTick, toRaw } from 'vue'
-import { Sparkles, Send, Copy, Check, ArrowDownToLine, AlignLeft, BadgeCheck, Wand2, Globe, X, User, PencilLine, Quote } from 'lucide-vue-next'
+import { ref, computed, watch, onMounted, onUnmounted, nextTick, toRaw } from 'vue'
+import { Sparkles, Send, Copy, Check, ArrowDownToLine, AlignLeft, BadgeCheck, Wand2, Globe, X, User, PencilLine, Quote, FileText } from 'lucide-vue-next'
 import type { Editor } from '@tiptap/core'
 import { Slice, Fragment } from 'prosemirror-model'
-import type { AIActionRequest, AIStreamFn, AIDraftCitation, AIDraftEvent, AIDraftFn } from '@kedata-indonesia/docflow-core'
+import type { AIActionRequest, AIStreamFn, AIDraftCitation, AIDraftEvent, AIDraftFn, AIContextLocation } from '@kedata-indonesia/docflow-core'
 import { getCitationEngine, insertMarkdownBlock } from '@kedata-indonesia/docflow-plugins'
 import { useLocale } from '../../composables/useLocale.js'
 import { buildContentArray, stripMarkers } from './markerGrammar.js'
+import { collectSelectionContext } from '../../utils/selectionContext.js'
 
 /**
  * Doc-aware AI chat sidebar (Phase 7D) + cited-drafting (Phase 7E-4).
@@ -115,6 +116,47 @@ const currentSelection = computed(() => {
   return { from, to, text: state.doc.textBetween(from, to, '\n', ' ') }
 })
 
+// ─── Location context (issue #219) — page/paragraph/line/section ─────────────
+
+/** Best-effort location of the cursor/selection, recomputed on transactions. */
+const locationContext = computed<AIContextLocation>(() => {
+  void selectionTick.value
+  const ed = pmEditor()
+  if (!ed) return {}
+  try {
+    return collectSelectionContext(ed)
+  } catch {
+    return {}
+  }
+})
+
+/** Compact chip text: "Hal. 3/12 · Alinea 2 · Baris 5 · BAB II …". */
+const contextChipText = computed(() => {
+  const loc = locationContext.value
+  const parts: string[] = []
+  if (loc.page && loc.pageCount && loc.pageCount > 1) {
+    parts.push(`${t('sidebars.ai.pageShort')} ${loc.page}/${loc.pageCount}`)
+  }
+  if (loc.paragraphIndex && loc.paragraphIndex > 1) {
+    parts.push(`${t('sidebars.ai.paragraphShort')} ${loc.paragraphIndex}`)
+  }
+  if (loc.line && loc.line > 1) {
+    parts.push(`${t('sidebars.ai.lineShort')} ${loc.line}`)
+  }
+  if (loc.section) {
+    parts.push(loc.section.length > 40 ? `${loc.section.slice(0, 40)}…` : loc.section)
+  }
+  return parts.join(' · ')
+})
+
+/** Truncated quoted snippet of the current selection, if any. */
+const selectionSnippet = computed(() => {
+  const sel = currentSelection.value
+  if (!sel || !sel.text.trim()) return ''
+  const s = sel.text.trim().replace(/\s+/g, ' ')
+  return s.length > 60 ? `“${s.slice(0, 60)}…”` : `“${s}”`
+})
+
 /** Bounded context around the selection (or cursor) — never the whole doc. */
 function boundedContext(): { before: string; after: string } | undefined {
   const state = pmEditor()?.state
@@ -125,6 +167,12 @@ function boundedContext(): { before: string; after: string } | undefined {
     before: state.doc.textBetween(Math.max(0, from - CAP), from, '\n', ' '),
     after: state.doc.textBetween(to, Math.min(state.doc.content.size, to + CAP), '\n', ' '),
   }
+}
+
+/** Bounded surrounding text + location context (page/paragraph/line/section). */
+function fullContext(): { before: string; after: string } & AIContextLocation {
+  const b = boundedContext()
+  return { before: b?.before ?? '', after: b?.after ?? '', ...locationContext.value }
 }
 
 // ─── Streaming ────────────────────────────────────────────────────────────────
@@ -177,7 +225,7 @@ function handleSubmit() {
   promptInput.value = ''
   if (draftMode.value) {
     // 7E-4: draft → /api/ai/draft (no selection/action; §3.4 wire is leaner).
-    sendDraft({ prompt, context: boundedContext() }, prompt)
+    sendDraft({ prompt, context: fullContext() }, prompt)
     return
   }
   const selection = currentSelection.value
@@ -186,7 +234,7 @@ function handleSubmit() {
       action: 'chat',
       prompt,
       ...(selection ? { selection: selection.text } : {}),
-      context: boundedContext(),
+      context: fullContext(),
     },
     prompt,
   )
@@ -273,7 +321,7 @@ function runMacro(macro: {
       action: macro.action,
       ...(selection ? { selection: selection.text } : {}),
       ...(macro.prompt ? { prompt: macro.prompt } : {}),
-      context: boundedContext(),
+      context: fullContext(),
     },
     macro.prompt ?? macro.label,
   )
@@ -398,6 +446,14 @@ function handleInsert(turn: ChatTurn, index: number) {
   view.focus()
   markInserted(index)
 }
+
+onMounted(() => {
+  // Issue #219: focus the prompt when the chat opens (bubble "Chat" button /
+  // ⌘L flow) so the user can type immediately with the selection context on.
+  nextTick(() => {
+    document.querySelector<HTMLTextAreaElement>('.ai-sidebar textarea')?.focus()
+  })
+})
 
 function handleClose() {
   abort?.abort()
@@ -526,6 +582,27 @@ onUnmounted(() => {
       </div>
 
       <div class="border-t border-slate-200 bg-slate-50 p-4 dark:border-white/5 dark:bg-[#0a0f1e]/80">
+        <!-- Issue #219: attached-context chip — page/paragraph/line/section + selection snippet -->
+        <div v-if="contextChipText || selectionSnippet" class="mb-2 space-y-1">
+          <span class="block font-mono text-[9px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">
+            {{ t('sidebars.ai.contextLabel') }}
+          </span>
+          <div class="flex flex-wrap gap-1">
+            <span
+              v-if="contextChipText"
+              class="inline-flex items-center gap-1 rounded-full border border-cyan-500/30 bg-cyan-500/5 px-2 py-0.5 text-[10px] font-semibold text-cyan-700 dark:border-cyan-400/30 dark:bg-cyan-500/10 dark:text-cyan-300"
+            >
+              <FileText class="h-2.5 w-2.5" />{{ contextChipText }}
+            </span>
+            <span
+              v-if="selectionSnippet"
+              class="inline-flex max-w-full items-center gap-1 truncate rounded-full border border-violet-500/30 bg-violet-500/5 px-2 py-0.5 text-[10px] font-semibold text-violet-700 dark:border-violet-400/30 dark:bg-violet-500/10 dark:text-violet-300"
+              :title="currentSelection?.text"
+            >
+              <span class="truncate">{{ selectionSnippet }}</span>
+            </span>
+          </div>
+        </div>
         <form class="space-y-2" @submit.prevent="handleSubmit">
           <textarea
             v-model="promptInput"
