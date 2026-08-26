@@ -1,7 +1,7 @@
 {
   "name": "@kedata-indonesia/docflow-layout-engine",
   "license": "UNLICENSED",
-  "version": "0.0.62",
+  "version": "0.0.63",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
