@@ -742,7 +742,7 @@ describe('DocsEditor', () => {
     wrapper.unmount()
   })
 
-  it('supports Page Number modal settings with draft states (position, start at, show on first page)', async () => {
+  it('supports Page Number modal settings with draft states (position, start at, hidden pages)', async () => {
     const wrapper = mount(DocsEditor, {
       props: { plugins: defaultPlugins },
     })
@@ -751,10 +751,10 @@ describe('DocsEditor', () => {
     const vm = wrapper.vm as unknown as {
       showPageNumberModal: boolean
       pageNumberPosition: 'header' | 'footer'
-      showPageNumberOnFirstPage: boolean
+      hiddenPageNumbers: number[]
       pageNumberStartAt: number
       draftPageNumberPosition: 'header' | 'footer'
-      draftShowPageNumberOnFirstPage: boolean
+      draftHiddenPageList: string
       draftPageNumberStartAt: number
       userHeaderRight: string
       userFooterRight: string
@@ -776,7 +776,7 @@ describe('DocsEditor', () => {
     // Open modal again and set draft position to footer -> clears header page token only on apply
     vm.openPageNumberModal()
     vm.draftPageNumberPosition = 'footer'
-    vm.draftShowPageNumberOnFirstPage = false
+    vm.draftHiddenPageList = '1, 3-5'
     vm.draftPageNumberStartAt = 5
     vm.applyPageNumberSettings()
     await wrapper.vm.$nextTick()
@@ -785,7 +785,7 @@ describe('DocsEditor', () => {
     expect(vm.pageNumberPosition).toBe('footer')
     expect(vm.userHeaderRight).toBe('')
     expect(vm.userFooterRight).toBe('{page}')
-    expect(vm.showPageNumberOnFirstPage).toBe(false)
+    expect(vm.hiddenPageNumbers).toEqual([1, 3, 4, 5])
     expect(vm.pageNumberStartAt).toBe(5)
 
     wrapper.unmount()

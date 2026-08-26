@@ -272,12 +272,29 @@ interface TabbedDoc {
   headerRight?: string
   footerLeft?: string
   footerRight?: string
+  /**
+   * Daftar halaman yang nomor halamannya disembunyikan (1-based, sudah
+   * di-parse dari rentang, mis. `1, 3-5` → `[1,3,4,5]`). Netral = `[]`
+   * (semua halaman bernomor), konvensi naskah akademik = `[1]` (cover/judul
+   * tidak bernomor). Menggantikan flag boolean `showPageNumberOnFirstPage`.
+   */
+  hiddenPageNumbers?: number[]
 }
 
 const parseModelValue = (val: unknown): TabbedDoc => {
   const obj = val as Record<string, unknown> | null
   if (obj && typeof obj === 'object' && obj.type === 'tabbed-doc' && Array.isArray(obj.tabs)) return obj as unknown as TabbedDoc
   return { type: 'tabbed-doc', activeTabId: 'tab-1', tabs: [{ id: 'tab-1', label: 'Tab 1', content: val || { type: 'doc', content: [{ type: 'paragraph' }] } }] }
+}
+
+/** Sanitasi nilai `hiddenPageNumbers` dari model host: hanya array angka ≥ 1, unik & terurut. */
+const sanitizeHiddenPages = (v: unknown): number[] => {
+  if (!Array.isArray(v)) return []
+  const set = new Set<number>()
+  for (const n of v) {
+    if (typeof n === 'number' && Number.isFinite(n) && n >= 1) set.add(Math.floor(n))
+  }
+  return [...set].sort((a, b) => a - b)
 }
 
 const initialDoc = parseModelValue(props.modelValue)
@@ -395,6 +412,7 @@ const persistCurrentDoc = () => {
     headerRight: userHeaderRight.value,
     footerLeft: userFooterLeft.value,
     footerRight: userFooterRight.value,
+    hiddenPageNumbers: hiddenPageNumbers.value,
   }
   emit('update:modelValue', fullDoc)
   savingStatus.value = 'saving'
@@ -795,18 +813,82 @@ const draftDifferentOddEven = ref(false)
 
 const showPageNumberModal = ref(false)
 const pageNumberPosition = ref<'header' | 'footer'>('header')
-const showPageNumberOnFirstPage = ref(true)
+/**
+ * Halaman yang nomor halamannya disembunyikan (1-based). Default `[]` =
+ * netral (semua bernomor); host produk memakai `[1]` untuk konvensi cover.
+ * Menggantikan flag boolean `showPageNumberOnFirstPage` (hide = `[1]`).
+ */
+const hiddenPageNumbers = ref<number[]>(sanitizeHiddenPages(initialDoc.hiddenPageNumbers))
 const pageNumberMode = ref<'startAt' | 'continue'>('startAt')
 const pageNumberStartAt = ref(1)
 
 const draftPageNumberPosition = ref<'header' | 'footer'>('header')
-const draftShowPageNumberOnFirstPage = ref(true)
+/** Draft modal — dua kontrol (checkbox halaman pertama & input daftar) berbagi sumber ini. */
+const draftHiddenPageNumbers = ref<number[]>([])
+/** Raw text input "Sembunyikan di halaman" — dipertahankan apa adanya saat user mengetik. */
+const draftHiddenPageList = ref('')
 const draftPageNumberMode = ref<'startAt' | 'continue'>('startAt')
 const draftPageNumberStartAt = ref(1)
 
+/** Checkbox "Tampilkan di halaman pertama" ↔ angka `1` dalam daftar hidden. */
+const draftShowOnFirstPage = computed(() => !draftHiddenPageNumbers.value.includes(1))
+const onDraftShowOnFirstPageChange = (event: Event) => {
+  const show = (event.target as HTMLInputElement).checked
+  let list = draftHiddenPageNumbers.value
+  if (show) {
+    list = list.filter(n => n !== 1)
+  } else if (!list.includes(1)) {
+    list = [...list, 1].sort((a, b) => a - b)
+  }
+  draftHiddenPageNumbers.value = list
+  draftHiddenPageList.value = serializePageList(list)
+}
+watch(draftHiddenPageList, (raw) => {
+  draftHiddenPageNumbers.value = parsePageList(raw)
+})
+
+/** Parse input user "1, 3-5" → [1,3,4,5]; token tak valid diabaikan; unik & terurut. */
+const parsePageList = (input: string): number[] => {
+  const set = new Set<number>()
+  for (const part of String(input || '').split(',')) {
+    const token = part.trim()
+    if (!token) continue
+    const range = token.match(/^(\d+)\s*-\s*(\d+)$/)
+    if (range) {
+      const a = Math.max(1, Number(range[1]))
+      const b = Math.max(a, Number(range[2]))
+      for (let n = a; n <= b; n++) set.add(n)
+    } else if (/^\d+$/.test(token)) {
+      set.add(Math.max(1, Number(token)))
+    }
+  }
+  return [...set].sort((a, b) => a - b)
+}
+
+/** Kebalikan parsePageList: [1,3,4,5] → "1, 3-5". */
+const serializePageList = (pages: number[]): string => {
+  const sorted = [...pages].filter(n => Number.isFinite(n) && n >= 1).sort((a, b) => a - b)
+  if (sorted.length === 0) return ''
+  const parts: string[] = []
+  let start = sorted[0]
+  let prev = sorted[0]
+  for (let i = 1; i <= sorted.length; i++) {
+    const cur = sorted[i]
+    if (cur === prev + 1) {
+      prev = cur
+      continue
+    }
+    parts.push(start === prev ? String(start) : `${start}-${prev}`)
+    start = cur
+    prev = cur
+  }
+  return parts.join(', ')
+}
+
 const getResolvedPageNumber = (pageIndex: number) => {
-  if (!showPageNumberOnFirstPage.value && pageIndex === 0) return ''
-  let num = pageIndex + 1
+  const pageNum = pageIndex + 1
+  if (hiddenPageNumbers.value.includes(pageNum)) return ''
+  let num = pageNum
   if (pageNumberMode.value === 'startAt') {
     num = pageIndex + pageNumberStartAt.value
   }
@@ -886,7 +968,7 @@ watch(isDifferentFirstPage, () => {
   applyHeaderFooter()
 })
 
-watch([isDifferentOddEven, headerMarginCm, footerMarginCm, pageNumberPosition, showPageNumberOnFirstPage, pageNumberMode, pageNumberStartAt], () => {
+watch([isDifferentOddEven, headerMarginCm, footerMarginCm, pageNumberPosition, hiddenPageNumbers, pageNumberMode, pageNumberStartAt], () => {
   applyHeaderFooter()
 })
 
@@ -1270,7 +1352,8 @@ const applyHeaderFormat = () => {
 
 const openPageNumberModal = () => {
   draftPageNumberPosition.value = pageNumberPosition.value
-  draftShowPageNumberOnFirstPage.value = showPageNumberOnFirstPage.value
+  draftHiddenPageNumbers.value = [...hiddenPageNumbers.value]
+  draftHiddenPageList.value = serializePageList(draftHiddenPageNumbers.value)
   draftPageNumberMode.value = pageNumberMode.value
   draftPageNumberStartAt.value = pageNumberStartAt.value
   showPageNumberModal.value = true
@@ -1278,7 +1361,7 @@ const openPageNumberModal = () => {
 
 const applyPageNumberSettings = () => {
   pageNumberPosition.value = draftPageNumberPosition.value
-  showPageNumberOnFirstPage.value = draftShowPageNumberOnFirstPage.value
+  hiddenPageNumbers.value = parsePageList(draftHiddenPageList.value)
   pageNumberMode.value = draftPageNumberMode.value
   pageNumberStartAt.value = draftPageNumberStartAt.value
   showPageNumberModal.value = false
@@ -2406,7 +2489,7 @@ v-if="!focusMode"
               <span>{{ t('editor.headerFooter.positionFooter') }}</span>
             </label>
             <label class="flex items-center gap-3 cursor-pointer text-xs font-medium text-slate-700 dark:text-slate-300 select-none pt-1">
-              <input v-model="draftShowPageNumberOnFirstPage" type="checkbox" class="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
+              <input :checked="draftShowOnFirstPage" type="checkbox" class="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" @change="onDraftShowOnFirstPageChange" />
               <span>{{ t('editor.headerFooter.showOnFirstPage') }}</span>
             </label>
           </div>
@@ -2427,6 +2510,11 @@ v-if="!focusMode"
               <input v-model="draftPageNumberMode" type="radio" value="continue" class="w-4 h-4 text-blue-600 focus:ring-blue-500" />
               <span>{{ t('editor.headerFooter.continueFromPrevious') }}</span>
             </label>
+            <div class="pt-2">
+              <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">{{ t('editor.headerFooter.hideOnPages') }}</label>
+              <input v-model="draftHiddenPageList" type="text" :placeholder="t('editor.headerFooter.hideOnPagesPlaceholder')" class="w-full rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a2332] px-2.5 py-1.5 text-xs text-slate-800 dark:text-slate-100 focus:border-blue-600 focus:outline-none" />
+              <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-1">{{ t('editor.headerFooter.hideOnPagesHint') }}</p>
+            </div>
           </div>
         </div>
 
