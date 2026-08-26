@@ -102,7 +102,13 @@ describe('DocsEditor', () => {
     })
     await new Promise((resolve) => setTimeout(resolve, 50))
 
-    const editor = (wrapper.vm as unknown as { editor?: { commands: { focus: () => void; selectAll: () => void } } }).editor
+    const editor = (wrapper.vm as unknown as {
+      editor?: { commands: { setContent: (c: object) => boolean; focus: () => void; selectAll: () => void } }
+    }).editor
+    editor?.commands.setContent({
+      type: 'doc',
+      content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Selected sentence' }] }],
+    })
     editor?.commands.focus()
     editor?.commands.selectAll()
     await wrapper.vm.$nextTick()
@@ -110,9 +116,12 @@ describe('DocsEditor', () => {
     expect(wrapper.find('[data-testid="bubble-chat"]').exists()).toBe(true)
     await wrapper.find('[data-testid="bubble-chat"]').trigger('click')
 
-    // The host owns the chat panel → onAiChat fires and the built-in AI
-    // sidebar is NOT opened as a fallback.
+    // The host owns the chat panel → onAiChat fires with the selection +
+    // location payload, and the built-in AI sidebar is NOT opened as fallback.
     expect(onAiChat).toHaveBeenCalledTimes(1)
+    const payload = onAiChat.mock.calls[0][0] as { selection?: string; context: object }
+    expect(payload.selection).toContain('Selected sentence')
+    expect(payload.context).toEqual(expect.any(Object))
     expect(wrapper.find('.ai-sidebar').exists()).toBe(false)
     wrapper.unmount()
   })
