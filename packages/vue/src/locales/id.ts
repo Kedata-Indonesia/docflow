@@ -349,6 +349,11 @@ export default {
       citations: 'Sitasi',
       emptyResponse: 'AI mengembalikan respons kosong.',
       aiError: 'Permintaan AI gagal',
+      contextLabel: 'Konteks yang dilampirkan',
+      pageShort: 'Hal.',
+      paragraphShort: 'Alinea',
+      lineShort: 'Baris',
+      selectionContext: 'Teks terpilih',
     },
     comments: {
       title: 'Panel Diskusi',

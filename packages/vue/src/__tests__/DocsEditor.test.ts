@@ -1,6 +1,6 @@
 import { mount } from '@vue/test-utils'
 import { describe, expect, it, vi } from 'vitest'
-import type { DocsEditorPlugin } from '@kedata-indonesia/docflow-core'
+import type { DocsEditorPlugin, AIStreamFn } from '@kedata-indonesia/docflow-core'
 import type { Editor } from '@tiptap/core'
 import DocsEditor from '../components/DocsEditor.vue'
 import HeaderBar from '../components/HeaderBar.vue'
@@ -91,6 +91,48 @@ describe('DocsEditor', () => {
     await wrapper.vm.$nextTick()
 
     expect(wrapper.find('[data-testid="bubble-menu"]').exists()).toBe(true)
+    wrapper.unmount()
+  })
+
+  it('emits ai-chat from the bubble Chat button when the host subscribes (issue #219)', async () => {
+    const onAiChat = vi.fn()
+    const aiStream = (async function* () { yield '' }) as AIStreamFn
+    const wrapper = mount(DocsEditor, {
+      props: { plugins: defaultPlugins, aiStream, onAiChat },
+    })
+    await new Promise((resolve) => setTimeout(resolve, 50))
+
+    const editor = (wrapper.vm as unknown as { editor?: { commands: { focus: () => void; selectAll: () => void } } }).editor
+    editor?.commands.focus()
+    editor?.commands.selectAll()
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="bubble-chat"]').exists()).toBe(true)
+    await wrapper.find('[data-testid="bubble-chat"]').trigger('click')
+
+    // The host owns the chat panel → onAiChat fires and the built-in AI
+    // sidebar is NOT opened as a fallback.
+    expect(onAiChat).toHaveBeenCalledTimes(1)
+    expect(wrapper.find('.ai-sidebar').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('falls back to the built-in AI sidebar when no host subscribes to ai-chat (issue #219)', async () => {
+    const aiStream = (async function* () { yield '' }) as AIStreamFn
+    const wrapper = mount(DocsEditor, {
+      props: { plugins: defaultPlugins, aiStream },
+    })
+    await new Promise((resolve) => setTimeout(resolve, 50))
+
+    const editor = (wrapper.vm as unknown as { editor?: { commands: { focus: () => void; selectAll: () => void } } }).editor
+    editor?.commands.focus()
+    editor?.commands.selectAll()
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-testid="bubble-chat"]').trigger('click')
+
+    // No onAiChat handler on the host → the built-in AI sidebar opens.
+    expect(wrapper.find('.ai-sidebar').exists()).toBe(true)
     wrapper.unmount()
   })
 

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { computed, ref, watch, onUnmounted } from 'vue'
-import { Bold, Italic, Underline, Link as LinkIcon, Sparkles, Check, X, Loader2, AlertCircle } from 'lucide-vue-next'
+import { Bold, Italic, Underline, Link as LinkIcon, Sparkles, Check, X, Loader2, AlertCircle, MessageSquareText } from 'lucide-vue-next'
 import type { Editor } from '@tiptap/core'
 import type { AIAction } from '@kedata-indonesia/docflow-core'
 
@@ -21,6 +21,12 @@ const props = defineProps<{
   actions: Record<string, (...args: unknown[]) => boolean>
   position?: BubbleMenuPosition | null
   editor?: Editor | null
+}>()
+
+// Issue #219: bubble-menu "Chat" → host opens the AI chat sidebar with the
+// current selection attached.
+const emit = defineEmits<{
+  chat: []
 }>()
 
 const selectionTick = ref(0)
@@ -249,6 +255,22 @@ function runAction(action: string) {
           </button>
         </div>
       </div>
+
+      <!-- Issue #219: open the AI chat sidebar with the selection attached -->
+      <button
+        v-if="aiAvailable"
+        type="button"
+        title="Chat (⌘L / Ctrl+L)"
+        :class="[
+          'docs-editor-bubble-menu__button flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-all',
+          'text-violet-600 hover:bg-violet-50 dark:text-violet-400 dark:hover:bg-violet-500/10',
+        ]"
+        data-testid="bubble-chat"
+        @click="showAISubmenu = false; emit('chat')"
+      >
+        <MessageSquareText class="h-3.5 w-3.5" />
+        <span>Chat</span>
+      </button>
     </template>
   </div>
 </template>

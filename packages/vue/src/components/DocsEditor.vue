@@ -57,6 +57,13 @@ const props = withDefaults(
     aiStream?: AIStreamFn
     aiDraft?: AIDraftFn
     /**
+     * Issue #219 — handler for "Chat with AI" triggers (bubble-menu Chat
+     * button, ⌘L/Ctrl+L, "Help me create" action). A host with its OWN chat
+     * panel binds `:on-ai-chat="openChatPanel"`; without it the editor falls
+     * back to its built-in AI sidebar. (Same pattern as `onImageUpload`.)
+     */
+    onAiChat?: () => void
+    /**
      * Enable the debug overlay (CPU + RAM monitor) pinned to the bottom-right
      * corner of the viewport. Pure debug view — never touches document state.
      * Defaults to `false`, so production consumers are unaffected.
@@ -102,6 +109,7 @@ const props = withDefaults(
     citation: undefined,
     aiStream: undefined,
     aiDraft: undefined,
+    onAiChat: undefined,
     debug: false,
     comments: () => [],
     selectedTextSnippet: '',
@@ -281,6 +289,10 @@ const activeTabContent = computed(() => tabContents.value[activeTabId.value])
 const showBubbleMenu = ref(false)
 const bubblePosition = ref<{ top: number; left: number } | null>(null)
 const activeSidebar = ref<SidebarKey | null>(null)
+// Issue #219 — ⌘L handler ref: the editor may rebuild (collab room change),
+// and re-registering on the same DOM would stack a duplicate that toggles the
+// sidebar twice (net no-op). We remove the previous handler before adding.
+let aiChatKeydown: ((e: KeyboardEvent) => void) | null = null
 // View menu toggles — ruler visibility persists across sessions, focus mode does not.
 const showRuler = ref(localStorage.getItem('docflow:view:showRuler') !== 'false')
 const focusMode = ref(false)
@@ -980,6 +992,21 @@ watch(isReady, (ready) => {
         openLinkDialog()
       }
     })
+
+    // Issue #219: ⌘L / Ctrl+L opens the AI chat (built-in sidebar, or the
+    // host's own panel via the `onAiChat` prop). `preventDefault` also
+    // swallows the browser default (address-bar focus) while the editor has
+    // focus.
+    if (aiChatKeydown) {
+      editor.value.view.dom.removeEventListener('keydown', aiChatKeydown)
+    }
+    aiChatKeydown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'l') {
+        e.preventDefault()
+        requestAiChat()
+      }
+    }
+    editor.value.view.dom.addEventListener('keydown', aiChatKeydown)
 
     // Handle clicks on top margin / page header area to activate header inline editing
     editor.value.view.dom.addEventListener('click', (e: MouseEvent) => {
@@ -1783,7 +1810,7 @@ let menuClick = (action: string) => {
     focusMode.value = !focusMode.value
     if (focusMode.value) activeSidebar.value = null
   } else if (action === 'new-help-me-create') {
-    toggleSidebar('ai')
+    requestAiChat()
   } else if (action === 'insert-footnote') {
     // Use ProseMirror's transaction API directly — more reliable than chain()
     // because chain().focus() can fail when focus has left the editor via menu click.
@@ -1818,6 +1845,18 @@ let menuClick = (action: string) => {
   }
 }
 let toggleSidebar = (key: SidebarKey) => { activeSidebar.value = activeSidebar.value === key ? null : key }
+
+// Issue #219 — "Chat" trigger shared by the bubble-menu button, ⌘L/Ctrl+L and
+// the "Help me create" action. A host that provides its OWN chat panel binds
+// `:on-ai-chat` (same pattern as `onImageUpload`); without it we fall back to
+// the built-in AI sidebar so the library stays self-contained.
+function requestAiChat() {
+  if (typeof props.onAiChat === 'function') {
+    props.onAiChat()
+    return
+  }
+  toggleSidebar('ai')
+}
 let handlePrint = () => window.print()
 
 // ─── Footnote (Catatan Kaki) ──────────────────────────────────────────────────
@@ -2118,7 +2157,13 @@ v-if="!focusMode"
     >
       <Minimize2 class="h-5 w-5" />
     </button>
-    <BubbleMenu :visible="showBubbleMenu" :actions="pluginActions" :position="bubblePosition" :editor="editor" />
+    <BubbleMenu
+      :visible="showBubbleMenu"
+      :actions="pluginActions"
+      :position="bubblePosition"
+      :editor="editor"
+      @chat="requestAiChat"
+    />
     <SlashMenuVue :editor="editor" :commands="slashCommands" />
     <div class="docs-editor__body relative flex flex-1 overflow-hidden">
       <!-- Find & replace floating panel (Edit menu / ⌘⇧H) -->
