@@ -269,6 +269,11 @@ const paginationOptions = computed(() => ({
 // ─── Editor ───────────────────────────────────────────────────────────────────
 
 interface TabItem { id: string; label: string; content: object }
+/** Peletakkan horizontal konten header/footer: `undefined` = tata letak
+ *  default (teks di kiri, nomor halaman di kanan); eksplisit = seluruh konten
+ *  (teks + nomor halaman) dikelompokkan sesuai nilai. */
+type HeaderFooterAlign = 'left' | 'center' | 'right'
+
 interface TabbedDoc {
   type: 'tabbed-doc'
   activeTabId: string
@@ -277,6 +282,9 @@ interface TabbedDoc {
   headerRight?: string
   footerLeft?: string
   footerRight?: string
+  /** Peletakkan konten header/footer (kiri/tengah/kanan). Absen = default. */
+  headerAlign?: HeaderFooterAlign
+  footerAlign?: HeaderFooterAlign
   /**
    * Daftar halaman yang nomor halamannya disembunyikan (1-based, sudah
    * di-parse dari rentang, mis. `1, 3-5` → `[1,3,4,5]`). Netral = `[]`
@@ -307,6 +315,8 @@ const userHeaderLeft = ref(initialDoc.headerLeft || '')
 const userHeaderRight = ref(initialDoc.headerRight || '')
 const userFooterLeft = ref(initialDoc.footerLeft || '')
 const userFooterRight = ref(initialDoc.footerRight || '')
+const userHeaderAlign = ref<HeaderFooterAlign | undefined>(initialDoc.headerAlign)
+const userFooterAlign = ref<HeaderFooterAlign | undefined>(initialDoc.footerAlign)
 
 const tabs = ref<Array<{ id: string; label: string; active: boolean }>>(initialDoc.tabs.map(t => ({ id: t.id, label: t.label, active: t.id === initialDoc.activeTabId })))
 const tabContents = ref<Record<string, object>>({})
@@ -417,6 +427,8 @@ const persistCurrentDoc = () => {
     headerRight: userHeaderRight.value,
     footerLeft: userFooterLeft.value,
     footerRight: userFooterRight.value,
+    headerAlign: userHeaderAlign.value,
+    footerAlign: userFooterAlign.value,
     hiddenPageNumbers: hiddenPageNumbers.value,
   }
   emit('update:modelValue', fullDoc)
@@ -904,6 +916,23 @@ const applyHeaderFooter = () => {
   if (!editor.value || !isReady.value) return
   const totalStr = String(pageCount.value)
   const root = editor.value.view.dom
+
+  // Peletakkan header/footer: class pada root editor (bertahan dari rebuild
+  // widget PaginationPlus). `undefined` = tanpa class (tata letak default:
+  // teks kiri, nomor kanan).
+  const setHfAlignClasses = () => {
+    const set = (section: 'header' | 'footer', align: HeaderFooterAlign | undefined) => {
+      root.classList.remove(
+        `rm-hf-${section}-align-left`,
+        `rm-hf-${section}-align-center`,
+        `rm-hf-${section}-align-right`,
+      )
+      if (align) root.classList.add(`rm-hf-${section}-align-${align}`)
+    }
+    set('header', userHeaderAlign.value)
+    set('footer', userFooterAlign.value)
+  }
+  setHfAlignClasses()
 
   const defaultHLeft = userHeaderLeft.value.replace(/{total}/g, totalStr)
   const defaultHRight = userHeaderRight.value.replace(/{total}/g, totalStr)
@@ -1659,9 +1688,23 @@ const startInlineHeaderEdit = (event?: MouseEvent) => {
 
   const activeBar = document.createElement('div')
   activeBar.className = 'rm-google-docs-header-bar'
+  const headerAlignSvg = (align: HeaderFooterAlign) => ({
+    left: '<path d="M21 5H3"/><path d="M15 12H3"/><path d="M17 19H3"/>',
+    center: '<path d="M21 5H3"/><path d="M17 12H7"/><path d="M19 19H5"/>',
+    right: '<path d="M21 5H3"/><path d="M21 12H9"/><path d="M21 19H7"/>',
+  }[align])
+  const headerAlignBtn = (align: HeaderFooterAlign) => `
+    <button type="button" class="rm-align-btn ${userHeaderAlign.value === align ? 'is-active' : ''}" data-align="${align}" title="${t(`editor.headerFooter.align${align === 'left' ? 'Left' : align === 'center' ? 'Center' : 'Right'}`) || ''}">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${headerAlignSvg(align)}</svg>
+    </button>`
   activeBar.innerHTML = `
     <span class="rm-header-label">${t('editor.headerFooter.header') || 'Header'}</span>
     <div class="rm-header-right-tools">
+      <div class="rm-hf-align-group" role="group" aria-label="${t('editor.headerFooter.alignPlacement') || ''}">
+        ${headerAlignBtn('left')}
+        ${headerAlignBtn('center')}
+        ${headerAlignBtn('right')}
+      </div>
       <label class="rm-diff-label">
         <input type="checkbox" class="rm-diff-cb" ${isDifferentFirstPage.value ? 'checked' : ''}>
         <span>${t('editor.headerFooter.differentFirstPage') || 'Different first page'}</span>
@@ -1783,6 +1826,22 @@ const startInlineHeaderEdit = (event?: MouseEvent) => {
     clearHeaderContent()
   })
 
+  const alignButtons = activeBar.querySelectorAll('.rm-align-btn')
+  alignButtons.forEach((btn) => {
+    btn.addEventListener('mousedown', (mouseEvent) => {
+      mouseEvent.stopPropagation()
+      mouseEvent.preventDefault()
+    })
+    btn.addEventListener('click', (clickEvent) => {
+      clickEvent.stopPropagation()
+      const align = (btn as HTMLElement).dataset.align as HeaderFooterAlign
+      finishHeaderEdit(true)
+      userHeaderAlign.value = userHeaderAlign.value === align ? undefined : align
+      applyHeaderFooter()
+      persistCurrentDoc()
+    })
+  })
+
   input.addEventListener('blur', onInputBlur)
   document.addEventListener('mousedown', onOutsideMouseDown)
   window.addEventListener('resize', onResize)
@@ -1850,9 +1909,23 @@ const startInlineFooterEdit = (event?: MouseEvent) => {
 
   const activeBar = document.createElement('div')
   activeBar.className = 'rm-google-docs-footer-bar'
+  const footerAlignSvg = (align: HeaderFooterAlign) => ({
+    left: '<path d="M21 5H3"/><path d="M15 12H3"/><path d="M17 19H3"/>',
+    center: '<path d="M21 5H3"/><path d="M17 12H7"/><path d="M19 19H5"/>',
+    right: '<path d="M21 5H3"/><path d="M21 12H9"/><path d="M21 19H7"/>',
+  }[align])
+  const footerAlignBtn = (align: HeaderFooterAlign) => `
+    <button type="button" class="rm-align-btn ${userFooterAlign.value === align ? 'is-active' : ''}" data-align="${align}" title="${t(`editor.headerFooter.align${align === 'left' ? 'Left' : align === 'center' ? 'Center' : 'Right'}`) || ''}">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${footerAlignSvg(align)}</svg>
+    </button>`
   activeBar.innerHTML = `
     <span class="rm-footer-label">${t('editor.headerFooter.footer') || 'Footer'}</span>
     <div class="rm-footer-right-tools">
+      <div class="rm-hf-align-group" role="group" aria-label="${t('editor.headerFooter.alignPlacement') || ''}">
+        ${footerAlignBtn('left')}
+        ${footerAlignBtn('center')}
+        ${footerAlignBtn('right')}
+      </div>
       <div class="rm-options-wrapper">
         <button type="button" class="rm-options-btn">
           <span>${t('editor.headerFooter.options') || 'Options'}</span>
@@ -1939,6 +2012,22 @@ const startInlineFooterEdit = (event?: MouseEvent) => {
     clickEvent.stopPropagation()
     finishFooterEdit(false)
     clearFooterContent()
+  })
+
+  const alignButtons = activeBar.querySelectorAll('.rm-align-btn')
+  alignButtons.forEach((btn) => {
+    btn.addEventListener('mousedown', (mouseEvent) => {
+      mouseEvent.stopPropagation()
+      mouseEvent.preventDefault()
+    })
+    btn.addEventListener('click', (clickEvent) => {
+      clickEvent.stopPropagation()
+      const align = (btn as HTMLElement).dataset.align as HeaderFooterAlign
+      finishFooterEdit(true)
+      userFooterAlign.value = userFooterAlign.value === align ? undefined : align
+      applyHeaderFooter()
+      persistCurrentDoc()
+    })
   })
 
   input.addEventListener('blur', onInputBlur)

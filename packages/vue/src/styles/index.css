@@ -1109,6 +1109,73 @@
   user-select: text !important;
 }
 
+/* ── Peletakkan header/footer (kiri/tengah/kanan) ────────────────
+   Default (tanpa class align): konten kiri di kiri, nomor halaman di kanan
+   (slot kanan didorong ke tepi kanan via `margin-left: auto`). Saat align
+   eksplisit dipilih, SELURUH konten (teks + nomor halaman) dikelompokkan
+   sesuai nilai — kiri/tengah/kanan — dan gaya "dorong ke kanan" dinonaktifkan.
+   Class dipasang di root editor oleh `applyHeaderFooter()` sehingga bertahan
+   dari rebuild widget PaginationPlus. */
+.rm-with-pagination .rm-page-header-content,
+.rm-with-pagination .rm-page-footer-content {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+}
+
+.rm-with-pagination .rm-page-header-left,
+.rm-with-pagination .rm-page-header-right,
+.rm-with-pagination .rm-page-footer-left,
+.rm-with-pagination .rm-page-footer-right {
+  float: none !important;
+  min-width: 0 !important;
+}
+
+/* Default: nomor halaman (slot kanan) menempel ke tepi kanan. */
+.rm-with-pagination .rm-page-header-right,
+.rm-with-pagination .rm-page-footer-right {
+  margin-left: auto !important;
+}
+
+/* Kiri: seluruh konten dikelompokkan di kiri. */
+.rm-with-pagination.rm-hf-header-align-left .rm-page-header-content,
+.rm-with-pagination.rm-hf-footer-align-left .rm-page-footer-content {
+  justify-content: flex-start !important;
+}
+.rm-with-pagination.rm-hf-header-align-left .rm-page-header-left,
+.rm-with-pagination.rm-hf-header-align-left .rm-page-header-right,
+.rm-with-pagination.rm-hf-footer-align-left .rm-page-footer-left,
+.rm-with-pagination.rm-hf-footer-align-left .rm-page-footer-right {
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+
+/* Tengah: seluruh konten dikelompokkan di tengah. */
+.rm-with-pagination.rm-hf-header-align-center .rm-page-header-content,
+.rm-with-pagination.rm-hf-footer-align-center .rm-page-footer-content {
+  justify-content: center !important;
+}
+.rm-with-pagination.rm-hf-header-align-center .rm-page-header-left,
+.rm-with-pagination.rm-hf-header-align-center .rm-page-header-right,
+.rm-with-pagination.rm-hf-footer-align-center .rm-page-footer-left,
+.rm-with-pagination.rm-hf-footer-align-center .rm-page-footer-right {
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+
+/* Kanan: seluruh konten dikelompokkan di kanan. */
+.rm-with-pagination.rm-hf-header-align-right .rm-page-header-content,
+.rm-with-pagination.rm-hf-footer-align-right .rm-page-footer-content {
+  justify-content: flex-end !important;
+}
+.rm-with-pagination.rm-hf-header-align-right .rm-page-header-left,
+.rm-with-pagination.rm-hf-header-align-right .rm-page-header-right,
+.rm-with-pagination.rm-hf-footer-align-right .rm-page-footer-left,
+.rm-with-pagination.rm-hf-footer-align-right .rm-page-footer-right {
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+
 /* Active Header Inline Editable Area */
 .rm-page-header [contenteditable='true'] {
   outline: none !important;
@@ -1262,6 +1329,65 @@
   border: 1px solid #94a3b8 !important;
   accent-color: #2563eb !important;
   cursor: pointer !important;
+}
+
+/* Align group (peletakkan kiri/tengah/kanan) di bar header & footer */
+.rm-google-docs-header-bar .rm-hf-align-group,
+.rm-google-docs-footer-bar .rm-hf-align-group {
+  display: flex !important;
+  align-items: center !important;
+  gap: 2px !important;
+  padding: 2px !important;
+  background-color: #e2e8f0 !important;
+  border-radius: 9999px !important;
+}
+
+.dark .rm-google-docs-header-bar .rm-hf-align-group,
+.dark .rm-google-docs-footer-bar .rm-hf-align-group {
+  background-color: #1e293b !important;
+}
+
+.rm-google-docs-header-bar .rm-align-btn,
+.rm-google-docs-footer-bar .rm-align-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 26px !important;
+  height: 20px !important;
+  padding: 0 !important;
+  border: none !important;
+  border-radius: 9999px !important;
+  background-color: transparent !important;
+  color: #64748b !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+}
+
+.dark .rm-google-docs-header-bar .rm-align-btn,
+.dark .rm-google-docs-footer-bar .rm-align-btn {
+  color: #94a3b8 !important;
+}
+
+.rm-google-docs-header-bar .rm-align-btn:hover,
+.rm-google-docs-footer-bar .rm-align-btn:hover {
+  background-color: #cbd5e1 !important;
+}
+
+.dark .rm-google-docs-header-bar .rm-align-btn:hover,
+.dark .rm-google-docs-footer-bar .rm-align-btn:hover {
+  background-color: #334155 !important;
+}
+
+.rm-google-docs-header-bar .rm-align-btn.is-active,
+.rm-google-docs-footer-bar .rm-align-btn.is-active {
+  background-color: #2563eb !important;
+  color: #ffffff !important;
+}
+
+.dark .rm-google-docs-header-bar .rm-align-btn.is-active,
+.dark .rm-google-docs-footer-bar .rm-align-btn.is-active {
+  background-color: #3b82f6 !important;
+  color: #ffffff !important;
 }
 
 .rm-google-docs-header-bar .rm-options-wrapper {

@@ -606,6 +606,98 @@ describe('DocsEditor', () => {
     wrapper.unmount()
   })
 
+  it('parses headerAlign/footerAlign from the model and persists them on toggle', async () => {
+    const wrapper = mount(DocsEditor, {
+      props: {
+        plugins: defaultPlugins,
+        modelValue: {
+          type: 'tabbed-doc',
+          activeTabId: 'tab-1',
+          tabs: [{ id: 'tab-1', label: 'Tab 1', content: { type: 'doc', content: [] } }],
+          footerLeft: 'Rahasia',
+          footerRight: '{page}',
+          footerAlign: 'center',
+          headerAlign: 'left',
+        },
+      },
+    })
+    await new Promise((resolve) => setTimeout(resolve, 80))
+
+    const vm = wrapper.vm as unknown as {
+      userFooterAlign: 'left' | 'center' | 'right' | undefined
+      userHeaderAlign: 'left' | 'center' | 'right' | undefined
+      userFooterLeft: string
+      startInlineFooterEdit: () => void
+    }
+    expect(vm.userFooterAlign).toBe('center')
+    expect(vm.userHeaderAlign).toBe('left')
+
+    // Bar footer menampilkan tombol "tengah" sebagai aktif
+    vm.startInlineFooterEdit()
+    await wrapper.vm.$nextTick()
+    const bar = document.querySelector('.rm-google-docs-footer-bar')
+    expect(bar?.querySelector('.rm-align-btn[data-align="center"]')?.classList.contains('is-active')).toBe(true)
+    expect(bar?.querySelector('.rm-align-btn[data-align="left"]')?.classList.contains('is-active')).toBe(false)
+
+    // Klik "kanan" → footerAlign = 'right' + emit update:modelValue
+    ;(bar?.querySelector('.rm-align-btn[data-align="right"]') as HTMLButtonElement | null)?.click()
+    await wrapper.vm.$nextTick()
+    expect(vm.userFooterAlign).toBe('right')
+
+    const emitted = wrapper.emitted('update:modelValue')
+    const last = (emitted ?? [])[(emitted?.length ?? 1) - 1]?.[0] as { footerAlign?: string; headerAlign?: string }
+    expect(last.footerAlign).toBe('right')
+    expect(last.headerAlign).toBe('left')
+
+    // Klik tombol aktif lagi → toggle kembali ke undefined (tata letak default)
+    vm.startInlineFooterEdit()
+    await wrapper.vm.$nextTick()
+    const rightBtn = document.querySelector('.rm-align-btn[data-align="right"]') as HTMLButtonElement | null
+    expect(rightBtn?.classList.contains('is-active')).toBe(true)
+    rightBtn?.click()
+    await wrapper.vm.$nextTick()
+    expect(vm.userFooterAlign).toBeUndefined()
+
+    wrapper.unmount()
+  })
+
+  it('applies the header/footer align class on the editor root', async () => {
+    const wrapper = mount(DocsEditor, {
+      props: { plugins: defaultPlugins },
+    })
+    await new Promise((resolve) => setTimeout(resolve, 80))
+
+    const vm = wrapper.vm as unknown as {
+      editor?: { view: { dom: HTMLElement } }
+      userFooterAlign: 'left' | 'center' | 'right' | undefined
+      userHeaderAlign: 'left' | 'center' | 'right' | undefined
+      startInlineFooterEdit: () => void
+      startInlineHeaderEdit: () => void
+    }
+    const root = vm.editor!.view.dom
+    // Default: tanpa class align
+    expect(root.classList.contains('rm-hf-footer-align-right')).toBe(false)
+    expect(root.classList.contains('rm-hf-header-align-right')).toBe(false)
+
+    // Footer align kanan → class root rm-hf-footer-align-right
+    vm.startInlineFooterEdit()
+    await wrapper.vm.$nextTick()
+    ;(document.querySelector('.rm-align-btn[data-align="right"]') as HTMLButtonElement | null)?.click()
+    await wrapper.vm.$nextTick()
+    expect(root.classList.contains('rm-hf-footer-align-right')).toBe(true)
+    expect(root.classList.contains('rm-hf-header-align-right')).toBe(false)
+
+    // Header align tengah → class root rm-hf-header-align-center (footer tetap kanan)
+    vm.startInlineHeaderEdit()
+    await wrapper.vm.$nextTick()
+    ;(document.querySelector('.rm-align-btn[data-align="center"]') as HTMLButtonElement | null)?.click()
+    await wrapper.vm.$nextTick()
+    expect(root.classList.contains('rm-hf-header-align-center')).toBe(true)
+    expect(root.classList.contains('rm-hf-footer-align-right')).toBe(true)
+
+    wrapper.unmount()
+  })
+
   it('aligns the later-page edit overlay to the body margins and header content rect', async () => {
     const wrapper = mount(DocsEditor, {
       props: { plugins: defaultPlugins },
