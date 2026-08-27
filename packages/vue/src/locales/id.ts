@@ -286,6 +286,8 @@ export default {
       alignLeft: 'Rata kiri',
       alignCenter: 'Rata tengah',
       alignRight: 'Rata kanan',
+      placementSection: 'Peletakkan',
+      placementHint: 'Konten header/footer disejajarkan di dalam area teks (kiri/tengah/kanan).',
       headerFooterFormatTitle: 'Header & footer',
       marginSection: 'Margin',
       headerTopMargin: 'Header (sentimeter dari atas)',
