@@ -253,12 +253,15 @@ const paginationOptions = computed(() => ({
   footerLeft: '',
   footerRight: '',
   onHeaderClick: (params?: { event?: MouseEvent; pageNumber?: number }) => {
-    startInlineHeaderEdit(params?.event)
+    // Hanya double-click (2x) yang membuka setup inline header (instruksi user
+    // 27/08/2026). Klik tunggal tidak memulai sesi edit.
+    if (params?.event?.detail === 2) startInlineHeaderEdit(params?.event)
   },
   onFooterClick: (params?: { event?: MouseEvent; pageNumber?: number }) => {
-    // Klik (tunggal maupun ganda) pada area footer → mode inline edit
-    // (gaya Google Docs), simetris dengan header. Modal footer lama dihapus.
-    startInlineFooterEdit(params?.event)
+    // Simetris dengan header: hanya double-click yang membuka inline edit
+    // footer (gaya Google Docs). Modal footer lama dihapus. Klik tunggal
+    // tidak memulai sesi edit.
+    if (params?.event?.detail === 2) startInlineFooterEdit(params?.event)
   },
 }))
 
@@ -1177,6 +1180,10 @@ watch(isReady, (ready) => {
     editor.value.view.dom.addEventListener('click', (e: MouseEvent) => {
       const target = e.target as HTMLElement | null
       if (!target) return
+
+      // Hanya double-click (2x) yang membuka setup header/footer (instruksi
+      // user 27/08/2026). Klik tunggal (detail 1) diabaikan sepenuhnya.
+      if (e.detail !== 2) return
 
       // Ignore clicks on options dropdown, active bar tools, or active editable header/footer
       if (target.closest('.rm-google-docs-header-bar, .rm-google-docs-footer-bar, .rm-options-dropdown, [contenteditable="true"]')) return
