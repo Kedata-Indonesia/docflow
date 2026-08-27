@@ -606,7 +606,7 @@ describe('DocsEditor', () => {
     wrapper.unmount()
   })
 
-  it('parses headerAlign/footerAlign from the model and persists them on toggle', async () => {
+  it('parses headerAlign/footerAlign from the model and persists them via the page-number modal', async () => {
     const wrapper = mount(DocsEditor, {
       props: {
         plugins: defaultPlugins,
@@ -626,21 +626,25 @@ describe('DocsEditor', () => {
     const vm = wrapper.vm as unknown as {
       userFooterAlign: 'left' | 'center' | 'right' | undefined
       userHeaderAlign: 'left' | 'center' | 'right' | undefined
+      draftFooterAlign: 'left' | 'center' | 'right' | undefined
+      draftPageNumberPosition: 'header' | 'footer'
+      openPageNumberModal: () => void
+      applyPageNumberSettings: () => void
+      toggleDraftPlacement: (align: 'left' | 'center' | 'right') => void
       userFooterLeft: string
-      startInlineFooterEdit: () => void
     }
     expect(vm.userFooterAlign).toBe('center')
     expect(vm.userHeaderAlign).toBe('left')
 
-    // Bar footer menampilkan tombol "tengah" sebagai aktif
-    vm.startInlineFooterEdit()
+    // Buka modal → draft peletakkan mengikuti Posisi (token ada di footer)
+    vm.openPageNumberModal()
     await wrapper.vm.$nextTick()
-    const bar = document.querySelector('.rm-google-docs-footer-bar')
-    expect(bar?.querySelector('.rm-align-btn[data-align="center"]')?.classList.contains('is-active')).toBe(true)
-    expect(bar?.querySelector('.rm-align-btn[data-align="left"]')?.classList.contains('is-active')).toBe(false)
+    expect(vm.draftPageNumberPosition).toBe('footer')
+    expect(vm.draftFooterAlign).toBe('center')
 
-    // Klik "kanan" → footerAlign = 'right' + emit update:modelValue
-    ;(bar?.querySelector('.rm-align-btn[data-align="right"]') as HTMLButtonElement | null)?.click()
+    // Pilih "kanan" di modal → Terapkan → footerAlign = 'right' + emit update:modelValue
+    vm.toggleDraftPlacement('right')
+    vm.applyPageNumberSettings()
     await wrapper.vm.$nextTick()
     expect(vm.userFooterAlign).toBe('right')
 
@@ -649,19 +653,19 @@ describe('DocsEditor', () => {
     expect(last.footerAlign).toBe('right')
     expect(last.headerAlign).toBe('left')
 
-    // Klik tombol aktif lagi → toggle kembali ke undefined (tata letak default)
-    vm.startInlineFooterEdit()
+    // Buka lagi, klik tombol yang sedang aktif → toggle kembali ke undefined (tata letak default)
+    vm.openPageNumberModal()
     await wrapper.vm.$nextTick()
-    const rightBtn = document.querySelector('.rm-align-btn[data-align="right"]') as HTMLButtonElement | null
-    expect(rightBtn?.classList.contains('is-active')).toBe(true)
-    rightBtn?.click()
+    expect(vm.draftFooterAlign).toBe('right')
+    vm.toggleDraftPlacement('right')
+    vm.applyPageNumberSettings()
     await wrapper.vm.$nextTick()
     expect(vm.userFooterAlign).toBeUndefined()
 
     wrapper.unmount()
   })
 
-  it('applies the header/footer align class on the editor root', async () => {
+  it('applies the header/footer align class on the editor root via the modal', async () => {
     const wrapper = mount(DocsEditor, {
       props: { plugins: defaultPlugins },
     })
@@ -671,26 +675,34 @@ describe('DocsEditor', () => {
       editor?: { view: { dom: HTMLElement } }
       userFooterAlign: 'left' | 'center' | 'right' | undefined
       userHeaderAlign: 'left' | 'center' | 'right' | undefined
-      startInlineFooterEdit: () => void
-      startInlineHeaderEdit: () => void
+      userFooterRight: string
+      draftPageNumberPosition: 'header' | 'footer'
+      openPageNumberModal: () => void
+      applyPageNumberSettings: () => void
+      toggleDraftPlacement: (align: 'left' | 'center' | 'right') => void
     }
     const root = vm.editor!.view.dom
     // Default: tanpa class align
     expect(root.classList.contains('rm-hf-footer-align-right')).toBe(false)
     expect(root.classList.contains('rm-hf-header-align-right')).toBe(false)
 
-    // Footer align kanan → class root rm-hf-footer-align-right
-    vm.startInlineFooterEdit()
+    // Footer align kanan via modal (token di footer → Posisi = Footer)
+    vm.userFooterRight = '{page}'
+    vm.openPageNumberModal()
     await wrapper.vm.$nextTick()
-    ;(document.querySelector('.rm-align-btn[data-align="right"]') as HTMLButtonElement | null)?.click()
+    expect(vm.draftPageNumberPosition).toBe('footer')
+    vm.toggleDraftPlacement('right')
+    vm.applyPageNumberSettings()
     await wrapper.vm.$nextTick()
     expect(root.classList.contains('rm-hf-footer-align-right')).toBe(true)
     expect(root.classList.contains('rm-hf-header-align-right')).toBe(false)
 
-    // Header align tengah → class root rm-hf-header-align-center (footer tetap kanan)
-    vm.startInlineHeaderEdit()
+    // Header align tengah via modal (Posisi dipindah ke Header; footer tetap kanan)
+    vm.openPageNumberModal()
     await wrapper.vm.$nextTick()
-    ;(document.querySelector('.rm-align-btn[data-align="center"]') as HTMLButtonElement | null)?.click()
+    vm.draftPageNumberPosition = 'header'
+    vm.toggleDraftPlacement('center')
+    vm.applyPageNumberSettings()
     await wrapper.vm.$nextTick()
     expect(root.classList.contains('rm-hf-header-align-center')).toBe(true)
     expect(root.classList.contains('rm-hf-footer-align-right')).toBe(true)

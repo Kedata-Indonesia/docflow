@@ -846,6 +846,33 @@ const draftHiddenPageNumbers = ref<number[]>([])
 const draftHiddenPageList = ref('')
 const draftPageNumberMode = ref<'startAt' | 'continue'>('startAt')
 const draftPageNumberStartAt = ref(1)
+/** Draft modal — peletakkan (kiri/tengah/kanan) per bagian, independen satu sama lain. */
+const draftHeaderAlign = ref<HeaderFooterAlign | undefined>(userHeaderAlign.value)
+const draftFooterAlign = ref<HeaderFooterAlign | undefined>(userFooterAlign.value)
+
+/**
+ * Peletakkan yang dipilih di modal — mengikuti Posisi (radio header/footer):
+ * mengubah radio Posisi otomatis memindahkan sorotan peletakkan ke bagian tsb.
+ */
+const draftPlacement = computed<HeaderFooterAlign | undefined>({
+  get: () => (draftPageNumberPosition.value === 'footer' ? draftFooterAlign.value : draftHeaderAlign.value),
+  set: (v) => {
+    if (draftPageNumberPosition.value === 'footer') draftFooterAlign.value = v
+    else draftHeaderAlign.value = v
+  },
+})
+
+/** Klik tombol peletakkan di modal: toggle ke `undefined` (default) bila yang sama diklik lagi. */
+const toggleDraftPlacement = (align: HeaderFooterAlign) => {
+  draftPlacement.value = draftPlacement.value === align ? undefined : align
+}
+
+/** Path SVG ikon peletakkan (garis sejajar kiri/tengah/kanan), digabung menjadi satu `d`. */
+const alignPath = (align: HeaderFooterAlign) => ({
+  left: 'M21 5H3 M15 12H3 M17 19H3',
+  center: 'M21 5H3 M17 12H7 M19 19H5',
+  right: 'M21 5H3 M21 12H9 M21 19H7',
+}[align])
 
 /** Checkbox "Tampilkan di halaman pertama" ↔ angka `1` dalam daftar hidden. */
 const draftShowOnFirstPage = computed(() => !draftHiddenPageNumbers.value.includes(1))
@@ -1442,6 +1469,8 @@ const openPageNumberModal = () => {
   draftHiddenPageList.value = serializePageList(draftHiddenPageNumbers.value)
   draftPageNumberMode.value = pageNumberMode.value
   draftPageNumberStartAt.value = pageNumberStartAt.value
+  draftHeaderAlign.value = userHeaderAlign.value
+  draftFooterAlign.value = userFooterAlign.value
   showPageNumberModal.value = true
 }
 
@@ -1484,6 +1513,14 @@ const applyPageNumberSettings = () => {
       userFooterRight.value = userFooterRight.value.replace(/{page}/g, '').trim()
     }
     userHeaderRight.value = pageToken
+  }
+
+  // Terapkan peletakkan sesuai Posisi yang dipilih (per-bagian, independen —
+  // bagian lain tidak disentuh walaupun draft-nya ikut terbawa ke modal).
+  if (pageNumberPosition.value === 'footer') {
+    userFooterAlign.value = draftFooterAlign.value
+  } else {
+    userHeaderAlign.value = draftHeaderAlign.value
   }
 
   applyHeaderFooter()
@@ -1688,23 +1725,9 @@ const startInlineHeaderEdit = (event?: MouseEvent) => {
 
   const activeBar = document.createElement('div')
   activeBar.className = 'rm-google-docs-header-bar'
-  const headerAlignSvg = (align: HeaderFooterAlign) => ({
-    left: '<path d="M21 5H3"/><path d="M15 12H3"/><path d="M17 19H3"/>',
-    center: '<path d="M21 5H3"/><path d="M17 12H7"/><path d="M19 19H5"/>',
-    right: '<path d="M21 5H3"/><path d="M21 12H9"/><path d="M21 19H7"/>',
-  }[align])
-  const headerAlignBtn = (align: HeaderFooterAlign) => `
-    <button type="button" class="rm-align-btn ${userHeaderAlign.value === align ? 'is-active' : ''}" data-align="${align}" title="${t(`editor.headerFooter.align${align === 'left' ? 'Left' : align === 'center' ? 'Center' : 'Right'}`) || ''}">
-      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${headerAlignSvg(align)}</svg>
-    </button>`
   activeBar.innerHTML = `
     <span class="rm-header-label">${t('editor.headerFooter.header') || 'Header'}</span>
     <div class="rm-header-right-tools">
-      <div class="rm-hf-align-group" role="group" aria-label="${t('editor.headerFooter.alignPlacement') || ''}">
-        ${headerAlignBtn('left')}
-        ${headerAlignBtn('center')}
-        ${headerAlignBtn('right')}
-      </div>
       <label class="rm-diff-label">
         <input type="checkbox" class="rm-diff-cb" ${isDifferentFirstPage.value ? 'checked' : ''}>
         <span>${t('editor.headerFooter.differentFirstPage') || 'Different first page'}</span>
@@ -1826,22 +1849,6 @@ const startInlineHeaderEdit = (event?: MouseEvent) => {
     clearHeaderContent()
   })
 
-  const alignButtons = activeBar.querySelectorAll('.rm-align-btn')
-  alignButtons.forEach((btn) => {
-    btn.addEventListener('mousedown', (mouseEvent) => {
-      mouseEvent.stopPropagation()
-      mouseEvent.preventDefault()
-    })
-    btn.addEventListener('click', (clickEvent) => {
-      clickEvent.stopPropagation()
-      const align = (btn as HTMLElement).dataset.align as HeaderFooterAlign
-      finishHeaderEdit(true)
-      userHeaderAlign.value = userHeaderAlign.value === align ? undefined : align
-      applyHeaderFooter()
-      persistCurrentDoc()
-    })
-  })
-
   input.addEventListener('blur', onInputBlur)
   document.addEventListener('mousedown', onOutsideMouseDown)
   window.addEventListener('resize', onResize)
@@ -1909,23 +1916,9 @@ const startInlineFooterEdit = (event?: MouseEvent) => {
 
   const activeBar = document.createElement('div')
   activeBar.className = 'rm-google-docs-footer-bar'
-  const footerAlignSvg = (align: HeaderFooterAlign) => ({
-    left: '<path d="M21 5H3"/><path d="M15 12H3"/><path d="M17 19H3"/>',
-    center: '<path d="M21 5H3"/><path d="M17 12H7"/><path d="M19 19H5"/>',
-    right: '<path d="M21 5H3"/><path d="M21 12H9"/><path d="M21 19H7"/>',
-  }[align])
-  const footerAlignBtn = (align: HeaderFooterAlign) => `
-    <button type="button" class="rm-align-btn ${userFooterAlign.value === align ? 'is-active' : ''}" data-align="${align}" title="${t(`editor.headerFooter.align${align === 'left' ? 'Left' : align === 'center' ? 'Center' : 'Right'}`) || ''}">
-      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${footerAlignSvg(align)}</svg>
-    </button>`
   activeBar.innerHTML = `
     <span class="rm-footer-label">${t('editor.headerFooter.footer') || 'Footer'}</span>
     <div class="rm-footer-right-tools">
-      <div class="rm-hf-align-group" role="group" aria-label="${t('editor.headerFooter.alignPlacement') || ''}">
-        ${footerAlignBtn('left')}
-        ${footerAlignBtn('center')}
-        ${footerAlignBtn('right')}
-      </div>
       <div class="rm-options-wrapper">
         <button type="button" class="rm-options-btn">
           <span>${t('editor.headerFooter.options') || 'Options'}</span>
@@ -2012,22 +2005,6 @@ const startInlineFooterEdit = (event?: MouseEvent) => {
     clickEvent.stopPropagation()
     finishFooterEdit(false)
     clearFooterContent()
-  })
-
-  const alignButtons = activeBar.querySelectorAll('.rm-align-btn')
-  alignButtons.forEach((btn) => {
-    btn.addEventListener('mousedown', (mouseEvent) => {
-      mouseEvent.stopPropagation()
-      mouseEvent.preventDefault()
-    })
-    btn.addEventListener('click', (clickEvent) => {
-      clickEvent.stopPropagation()
-      const align = (btn as HTMLElement).dataset.align as HeaderFooterAlign
-      finishFooterEdit(true)
-      userFooterAlign.value = userFooterAlign.value === align ? undefined : align
-      applyHeaderFooter()
-      persistCurrentDoc()
-    })
   })
 
   input.addEventListener('blur', onInputBlur)
@@ -2891,6 +2868,29 @@ v-if="!focusMode"
               <span>{{ t('editor.headerFooter.showOnFirstPage') }}</span>
             </label>
           </div>
+        </div>
+
+        <!-- Peletakkan Section -->
+        <div class="mb-6">
+          <h3 class="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-3">{{ t('editor.headerFooter.placementSection') }}</h3>
+          <div class="grid grid-cols-3 gap-2" role="group" :aria-label="t('editor.headerFooter.alignPlacement')">
+            <button
+              v-for="align in (['left', 'center', 'right'] as HeaderFooterAlign[])"
+              :key="align"
+              type="button"
+              class="flex items-center justify-center rounded-lg border px-3 py-2 transition-colors"
+              :class="draftPlacement === align
+                ? 'border-blue-600 bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300'
+                : 'border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5'"
+              :title="t(`editor.headerFooter.align${align === 'left' ? 'Left' : align === 'center' ? 'Center' : 'Right'}`)"
+              @click="toggleDraftPlacement(align)"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path :d="alignPath(align)" />
+              </svg>
+            </button>
+          </div>
+          <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-1.5">{{ t('editor.headerFooter.placementHint') }}</p>
         </div>
 
         <!-- Penomoran Section -->

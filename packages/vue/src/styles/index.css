@@ -1331,65 +1331,6 @@
   cursor: pointer !important;
 }
 
-/* Align group (peletakkan kiri/tengah/kanan) di bar header & footer */
-.rm-google-docs-header-bar .rm-hf-align-group,
-.rm-google-docs-footer-bar .rm-hf-align-group {
-  display: flex !important;
-  align-items: center !important;
-  gap: 2px !important;
-  padding: 2px !important;
-  background-color: #e2e8f0 !important;
-  border-radius: 9999px !important;
-}
-
-.dark .rm-google-docs-header-bar .rm-hf-align-group,
-.dark .rm-google-docs-footer-bar .rm-hf-align-group {
-  background-color: #1e293b !important;
-}
-
-.rm-google-docs-header-bar .rm-align-btn,
-.rm-google-docs-footer-bar .rm-align-btn {
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  width: 26px !important;
-  height: 20px !important;
-  padding: 0 !important;
-  border: none !important;
-  border-radius: 9999px !important;
-  background-color: transparent !important;
-  color: #64748b !important;
-  cursor: pointer !important;
-  transition: all 0.15s ease !important;
-}
-
-.dark .rm-google-docs-header-bar .rm-align-btn,
-.dark .rm-google-docs-footer-bar .rm-align-btn {
-  color: #94a3b8 !important;
-}
-
-.rm-google-docs-header-bar .rm-align-btn:hover,
-.rm-google-docs-footer-bar .rm-align-btn:hover {
-  background-color: #cbd5e1 !important;
-}
-
-.dark .rm-google-docs-header-bar .rm-align-btn:hover,
-.dark .rm-google-docs-footer-bar .rm-align-btn:hover {
-  background-color: #334155 !important;
-}
-
-.rm-google-docs-header-bar .rm-align-btn.is-active,
-.rm-google-docs-footer-bar .rm-align-btn.is-active {
-  background-color: #2563eb !important;
-  color: #ffffff !important;
-}
-
-.dark .rm-google-docs-header-bar .rm-align-btn.is-active,
-.dark .rm-google-docs-footer-bar .rm-align-btn.is-active {
-  background-color: #3b82f6 !important;
-  color: #ffffff !important;
-}
-
 .rm-google-docs-header-bar .rm-options-wrapper {
   position: relative !important;
 }

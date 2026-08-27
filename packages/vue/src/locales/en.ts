@@ -286,6 +286,8 @@ export default {
       alignLeft: 'Align left',
       alignCenter: 'Align center',
       alignRight: 'Align right',
+      placementSection: 'Placement',
+      placementHint: 'Placement applies inside the content area (within the page margin boundary).',
       headerFooterFormatTitle: 'Header & footer',
       marginSection: 'Margin',
       headerTopMargin: 'Header (centimeters from top)',
