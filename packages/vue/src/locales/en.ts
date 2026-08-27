@@ -287,7 +287,7 @@ export default {
       alignCenter: 'Align center',
       alignRight: 'Align right',
       placementSection: 'Placement',
-      placementHint: 'Header/footer content is aligned relative to the page edge (left/center/right).',
+      placementHint: 'Header/footer content is aligned within the text area (left/center/right).',
       headerFooterFormatTitle: 'Header & footer',
       marginSection: 'Margin',
       headerTopMargin: 'Header (centimeters from top)',

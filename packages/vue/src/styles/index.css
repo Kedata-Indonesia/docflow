@@ -1111,14 +1111,13 @@
 
 /* ── Peletakkan header/footer (kiri/tengah/kanan) ────────────────
    Default (tanpa class align): konten kiri di kiri, nomor halaman di kanan —
-   nomor halaman menempel ke TEPI KERTAS (bukan tepi area konten). Ekstensi
-   tiptap-pagination-plus meng-inject `margin-right: var(--rm-margin-right)`
-   pada slot kanan (float layout asli); aturan default di bawah meniadakannya
-   agar nomor halaman benar-benar sampai ke tepi kanan lembar. Saat align
-   eksplisit dipilih, SELURUH konten (teks + nomor halaman) dikelompokkan
-   sesuai nilai — kiri/tengah/kanan — dan gaya "dorong ke kanan" dinonaktifkan.
-   Class dipasang di root editor oleh `applyHeaderFooter()` sehingga bertahan
-   dari rebuild widget PaginationPlus. */
+   keduanya SEJAJAR dengan area teks (area konten di antara margin kiri/kanan).
+   Posisi itu berasal dari margin yang di-inject ekstensi tiptap-pagination-plus
+   (`margin-left/right: var(--rm-margin-*)` pada slot), jadi kita tidak boleh
+   mengubahnya. Saat align eksplisit dipilih, SELURUH konten (teks + nomor
+   halaman) dikelompokkan sesuai nilai — kiri/tengah/kanan — tetap di dalam
+   area konten. Class dipasang di root editor oleh `applyHeaderFooter()`
+   sehingga bertahan dari rebuild widget PaginationPlus. */
 .rm-with-pagination .rm-page-header-content,
 .rm-with-pagination .rm-page-footer-content {
   display: flex !important;
@@ -1134,17 +1133,18 @@
   min-width: 0 !important;
 }
 
-/* Default: nomor halaman (slot kanan) menempel ke tepi kanan kertas.
-   `margin-left: auto` mendorong slot ke kanan; `margin-right: 0` meniadakan
-   `margin-right: var(--rm-margin-right)` hasil inject ekstensi (yang
-   menghentikan nomor di tepi area konten). */
+/* Default: nomor halaman (slot kanan) didorong ke kanan dan berhenti di tepi
+   kanan area konten — margin kanan tetap `var(--rm-margin-right)` (inject
+   ekstensi) sehingga SEJAJAR dengan tepi kanan teks. */
 .rm-with-pagination .rm-page-header-right,
 .rm-with-pagination .rm-page-footer-right {
   margin-left: auto !important;
-  margin-right: 0 !important;
 }
 
-/* Kiri: seluruh konten dikelompokkan di kiri. */
+/* Kiri: seluruh konten dikelompokkan di kiri dan mulai dari tepi kiri area
+   konten (SEJAJAR dengan teks). Slot kiri mempertahankan
+   `margin-left: var(--rm-margin-left)` (inject ekstensi); header halaman
+   pertama dikecualikan karena kontainernya sudah selebar area konten. */
 .rm-with-pagination.rm-hf-header-align-left .rm-page-header-content,
 .rm-with-pagination.rm-hf-footer-align-left .rm-page-footer-content {
   justify-content: flex-start !important;
@@ -1155,6 +1155,10 @@
 .rm-with-pagination.rm-hf-footer-align-left .rm-page-footer-right {
   margin-left: 0 !important;
   margin-right: 0 !important;
+}
+.rm-with-pagination.rm-hf-header-align-left .rm-page-header:not(.rm-first-page-header) .rm-page-header-left,
+.rm-with-pagination.rm-hf-footer-align-left .rm-page-footer-left {
+  margin-left: var(--rm-margin-left) !important;
 }
 
 /* Tengah: seluruh konten dikelompokkan di tengah. */
@@ -1170,17 +1174,24 @@
   margin-right: 0 !important;
 }
 
-/* Kanan: seluruh konten dikelompokkan di kanan. */
+/* Kanan: seluruh konten dikelompokkan di kanan dan berhenti di tepi kanan
+   area konten (SEJAJAR dengan teks). Slot kanan mempertahankan
+   `margin-right: var(--rm-margin-right)` (inject ekstensi); header halaman
+   pertama dikecualikan karena kontainernya sudah selebar area konten
+   (margin-nya sudah 0 dari ekstensi). */
 .rm-with-pagination.rm-hf-header-align-right .rm-page-header-content,
 .rm-with-pagination.rm-hf-footer-align-right .rm-page-footer-content {
   justify-content: flex-end !important;
 }
 .rm-with-pagination.rm-hf-header-align-right .rm-page-header-left,
-.rm-with-pagination.rm-hf-header-align-right .rm-page-header-right,
-.rm-with-pagination.rm-hf-footer-align-right .rm-page-footer-left,
-.rm-with-pagination.rm-hf-footer-align-right .rm-page-footer-right {
+.rm-with-pagination.rm-hf-footer-align-right .rm-page-footer-left {
   margin-left: 0 !important;
   margin-right: 0 !important;
+}
+.rm-with-pagination.rm-hf-header-align-right .rm-page-header:not(.rm-first-page-header) .rm-page-header-right,
+.rm-with-pagination.rm-hf-footer-align-right .rm-page-footer-right {
+  margin-left: 0 !important;
+  margin-right: var(--rm-margin-right) !important;
 }
 
 /* Active Header Inline Editable Area */
