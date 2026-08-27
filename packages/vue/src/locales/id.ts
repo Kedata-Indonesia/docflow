@@ -287,7 +287,7 @@ export default {
       alignCenter: 'Rata tengah',
       alignRight: 'Rata kanan',
       placementSection: 'Peletakkan',
-      placementHint: 'Peletakkan diterapkan di dalam area konten (di antara batas margin halaman).',
+      placementHint: 'Konten header/footer disejajarkan terhadap tepi halaman (kiri/tengah/kanan).',
       headerFooterFormatTitle: 'Header & footer',
       marginSection: 'Margin',
       headerTopMargin: 'Header (sentimeter dari atas)',

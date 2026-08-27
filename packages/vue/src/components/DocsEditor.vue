@@ -849,6 +849,21 @@ const draftPageNumberStartAt = ref(1)
 /** Draft modal — peletakkan (kiri/tengah/kanan) per bagian, independen satu sama lain. */
 const draftHeaderAlign = ref<HeaderFooterAlign | undefined>(userHeaderAlign.value)
 const draftFooterAlign = ref<HeaderFooterAlign | undefined>(userFooterAlign.value)
+/**
+ * Flag bahwa user benar-benar mengklik tombol peletakkan di modal.
+ * Tanpa flag ini, membuka modal lalu "Terapkan" tanpa menyentuh peletakkan
+ * akan menuliskan nilai default dan mengubah tata letak dua-posisi dokumen
+ * lama (slot kiri ikut bergeser) tanpa disengaja.
+ */
+const placementTouched = ref(false)
+
+/**
+ * Nilai peletakkan yang TAMPIL di modal — default `'right'` saat belum di-set,
+ * karena posisi bawaan nomor halaman berada di kanan. Ini murni tampilan:
+ * persistensi tetap mengikuti nilai sebenarnya (`draftPlacement`) agar dokumen
+ * lama tanpa setting align tidak berubah hanya karena modal dibuka.
+ */
+const draftPlacementDisplay = computed<HeaderFooterAlign>(() => draftPlacement.value ?? 'right')
 
 /**
  * Peletakkan yang dipilih di modal — mengikuti Posisi (radio header/footer):
@@ -864,6 +879,7 @@ const draftPlacement = computed<HeaderFooterAlign | undefined>({
 
 /** Klik tombol peletakkan di modal: toggle ke `undefined` (default) bila yang sama diklik lagi. */
 const toggleDraftPlacement = (align: HeaderFooterAlign) => {
+  placementTouched.value = true
   draftPlacement.value = draftPlacement.value === align ? undefined : align
 }
 
@@ -1471,6 +1487,7 @@ const openPageNumberModal = () => {
   draftPageNumberStartAt.value = pageNumberStartAt.value
   draftHeaderAlign.value = userHeaderAlign.value
   draftFooterAlign.value = userFooterAlign.value
+  placementTouched.value = false
   showPageNumberModal.value = true
 }
 
@@ -1517,10 +1534,15 @@ const applyPageNumberSettings = () => {
 
   // Terapkan peletakkan sesuai Posisi yang dipilih (per-bagian, independen —
   // bagian lain tidak disentuh walaupun draft-nya ikut terbawa ke modal).
-  if (pageNumberPosition.value === 'footer') {
-    userFooterAlign.value = draftFooterAlign.value
-  } else {
-    userHeaderAlign.value = draftHeaderAlign.value
+  // Hanya ditulis bila user benar-benar mengklik tombol peletakkan
+  // (`placementTouched`); membuka modal lalu Terapkan tanpa menyentuh
+  // peletakkan tidak mengubah tata letak dua-posisi dokumen lama.
+  if (placementTouched.value) {
+    if (pageNumberPosition.value === 'footer') {
+      userFooterAlign.value = draftFooterAlign.value
+    } else {
+      userHeaderAlign.value = draftHeaderAlign.value
+    }
   }
 
   applyHeaderFooter()
@@ -2879,7 +2901,7 @@ v-if="!focusMode"
               :key="align"
               type="button"
               class="flex items-center justify-center rounded-lg border px-3 py-2 transition-colors"
-              :class="draftPlacement === align
+              :class="draftPlacementDisplay === align
                 ? 'border-blue-600 bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300'
                 : 'border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5'"
               :title="t(`editor.headerFooter.align${align === 'left' ? 'Left' : align === 'center' ? 'Center' : 'Right'}`)"
