@@ -256,12 +256,8 @@ const paginationOptions = computed(() => ({
     startInlineHeaderEdit(params?.event)
   },
   onFooterClick: (params?: { event?: MouseEvent; pageNumber?: number }) => {
-    // Single click → inline edit footer (Google Docs style); double click →
-    // modal footer lama (kompatibilitas dipertahankan).
-    if (params?.event && params.event.detail === 2) {
-      openFooterModal()
-      return
-    }
+    // Klik (tunggal maupun ganda) pada area footer → mode inline edit
+    // (gaya Google Docs), simetris dengan header. Modal footer lama dihapus.
     startInlineFooterEdit(params?.event)
   },
 }))
@@ -1235,27 +1231,9 @@ watch(isReady, (ready) => {
       }
     })
 
-    // Handle double clicks on bottom margin / footer area to open footer modal
-    editor.value.view.dom.addEventListener('dblclick', (e: MouseEvent) => {
-      const target = e.target as HTMLElement | null
-      if (!target) return
-
-      const footerEl = target.closest<HTMLElement>('.rm-page-footer')
-      if (footerEl) {
-        openFooterModal()
-        return
-      }
-
-      const pageWrap = target.closest<HTMLElement>('.rm-with-pagination, .rm-page-break, .page, .docs-editor-page')
-      if (pageWrap) {
-        const rect = pageWrap.getBoundingClientRect()
-        const relativeY = rect.bottom - e.clientY
-        const bottomMarginPx = footerMarginCm.value * 37.795
-        if (relativeY >= 0 && relativeY <= Math.max(bottomMarginPx, 40) + 15) {
-          openFooterModal()
-        }
-      }
-    })
+    // Dblclick untuk membuka modal footer lama dihapus: semua klik pada area
+    // footer/margin bawah kini menuju inline edit footer (lihat onFooterClick
+    // dan listener click di atas), simetris dengan header.
   }
 })
 
@@ -1268,10 +1246,6 @@ onUnmounted(() => {
   if (updateFootnotesTimer) clearTimeout(updateFootnotesTimer)
   window.removeEventListener('resize', onResize)
 })
-
-const showFooterModal = ref(false)
-const footerLeftInput = ref('')
-const footerRightInput = ref('')
 
 const showPageSetupModal = ref(false)
 const showDetailsModal = ref(false)
@@ -2049,26 +2023,6 @@ const startInlineFooterEdit = (event?: MouseEvent) => {
   selection?.addRange(range)
 }
 
-const openFooterModal = () => {
-  if (!editor.value) return
-  // Komit konten inline footer yang sedang diedit sebelum membuka modal
-  finishFooterEdit(true)
-  footerLeftInput.value = userFooterLeft.value || editor.value.storage.PaginationPlus?.appliedConfig?.footerLeft || ''
-  footerRightInput.value = userFooterRight.value || editor.value.storage.PaginationPlus?.appliedConfig?.footerRight || ''
-  showFooterModal.value = true
-}
-
-const saveFooter = () => {
-  if (!editor.value) return
-  userFooterLeft.value = footerLeftInput.value
-  userFooterRight.value = footerRightInput.value
-
-  applyHeaderFooter()
-  persistCurrentDoc()
-
-  showFooterModal.value = false
-}
-
 // ─── Edit / Format menu commands ─────────────────────────────────────────────
 // Editor-scoped menu actions are executed in-library (the library owns command
 // execution); they are never emitted to the host app. All dispatch is defensive:
@@ -2285,7 +2239,9 @@ let menuClick = (action: string) => {
   } else if (action === 'insert-header') {
     startInlineHeaderEdit()
   } else if (action === 'insert-footer') {
-    openFooterModal()
+    // Sama seperti header: Insert Footer membuka mode inline edit (gaya Google
+    // Docs), bukan modal lama.
+    startInlineFooterEdit()
   } else if (action === 'toggle-pageless') {
     applyPageless(!isPageless.value)
   } else if (action === 'toggle-left-sidebar') {
@@ -2776,46 +2732,6 @@ v-if="!focusMode"
       :word-count="wordCount" :char-count="charCount" :page-count="pageCount" :current-page="currentPage"
       :page-size="pageSizeId" :page-sizes="PAGE_SIZES" :pageless="isPageless"
       @update:page-size="pageSizeId = $event; emit('update:pageSize', $event)" />
-
-    <!-- Dialog Footer Customization -->
-    <div v-if="showFooterModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm px-4">
-      <div class="w-full max-w-lg rounded-xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-800 dark:bg-[#0e1525] text-slate-800 dark:text-slate-200">
-        <h2 class="text-lg font-bold mb-4">{{ t('editor.headerFooter.footer') }}</h2>
-        
-        <!-- Footer Section -->
-        <div class="mb-6">
-          <div class="flex justify-between items-center mb-2">
-            <h3 class="text-sm font-semibold text-slate-500 dark:text-slate-400">{{ t('editor.headerFooter.footer') }}</h3>
-            <button type="button" class="text-[11px] text-red-500 hover:text-red-600 font-medium transition-colors" @click="footerLeftInput = ''; footerRightInput = ''">{{ t('editor.headerFooter.clear') }}</button>
-          </div>
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="text-[11px] font-medium block mb-1">{{ t('editor.headerFooter.left') }}</label>
-              <input v-model="footerLeftInput" type="text" class="w-full rounded-md border border-slate-200 bg-transparent px-3 py-1.5 text-xs focus:outline-none dark:border-slate-700" :placeholder="t('editor.headerFooter.footerLeftPlaceholder')">
-            </div>
-            <div>
-              <label class="text-[11px] font-medium block mb-1">{{ t('editor.headerFooter.right') }}</label>
-              <input v-model="footerRightInput" type="text" class="w-full rounded-md border border-slate-200 bg-transparent px-3 py-1.5 text-xs focus:outline-none dark:border-slate-700" :placeholder="t('editor.headerFooter.footerRightPlaceholder')">
-            </div>
-          </div>
-        </div>
-
-        <!-- Variables Info -->
-        <div class="rounded-lg bg-slate-50 p-3 text-[11px] text-slate-500 dark:bg-white/5 dark:text-slate-400 mb-6">
-          {{ t('editor.headerFooter.variableInfo') }}
-        </div>
-
-        <!-- Actions -->
-        <div class="flex justify-end gap-2">
-          <button type="button" class="rounded-md px-3 py-1.5 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-white/5" @click="showFooterModal = false">
-            {{ t('editor.headerFooter.cancel') }}
-          </button>
-          <button type="button" class="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700" @click="saveFooter">
-            {{ t('editor.headerFooter.save') }}
-          </button>
-        </div>
-      </div>
-    </div>
 
     <!-- Dialog Header & Footer Format (Google Docs Style) -->
     <div v-if="showHeaderFormatModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm px-4 select-none">

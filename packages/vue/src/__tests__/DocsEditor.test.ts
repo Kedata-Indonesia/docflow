@@ -421,34 +421,29 @@ describe('DocsEditor', () => {
     wrapper.unmount()
   })
 
-  it('opens footer modal with left/right inputs on double click (detail: 2)', async () => {
+  it('opens inline footer edit on single and double click (no legacy modal)', async () => {
     const wrapper = mount(DocsEditor, {
       props: { plugins: defaultPlugins },
     })
-    await new Promise((resolve) => setTimeout(resolve, 50))
+    await new Promise((resolve) => setTimeout(resolve, 80))
 
     const vm = wrapper.vm as unknown as {
       paginationOptions: {
-        onHeaderClick: (params: { event: { detail: number } }) => void
         onFooterClick: (params: { event: { detail: number } }) => void
       }
-      showFooterModal: boolean
-      footerLeftInput: string
-      footerRightInput: string
     }
 
-    // Single click: detail = 1 -> modal does not open
+    // Single click footer: detail = 1 -> inline edit overlay appears
     vm.paginationOptions.onFooterClick({ event: { detail: 1 } })
     await wrapper.vm.$nextTick()
-    expect(vm.showFooterModal).toBe(false)
+    expect(document.querySelector('.rm-footer-edit-overlay')).not.toBeNull()
 
-    // Double click footer: detail = 2 -> opens footer modal
+    // Double click footer: detail = 2 -> still inline edit, no legacy modal
     vm.paginationOptions.onFooterClick({ event: { detail: 2 } })
     await wrapper.vm.$nextTick()
-    expect(vm.showFooterModal).toBe(true)
-
-    // Verify modal has left and right input fields
-    expect(wrapper.find('input[placeholder*="Confidential"], input[placeholder*="Rahasia"]').exists()).toBe(true)
+    expect(document.querySelector('.rm-footer-edit-overlay')).not.toBeNull()
+    // Legacy footer modal (left/right inputs) must not exist anywhere
+    expect(document.querySelector('input[placeholder*="Confidential"], input[placeholder*="Rahasia"]')).toBeNull()
 
     wrapper.unmount()
   })
