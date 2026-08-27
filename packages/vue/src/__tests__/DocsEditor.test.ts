@@ -421,7 +421,7 @@ describe('DocsEditor', () => {
     wrapper.unmount()
   })
 
-  it('opens inline footer edit on single and double click (no legacy modal)', async () => {
+  it('opens inline footer edit only on double click (single click does nothing, no legacy modal)', async () => {
     const wrapper = mount(DocsEditor, {
       props: { plugins: defaultPlugins },
     })
@@ -433,12 +433,13 @@ describe('DocsEditor', () => {
       }
     }
 
-    // Single click footer: detail = 1 -> inline edit overlay appears
+    // Single click footer: detail = 1 -> NO inline edit, NO modal
     vm.paginationOptions.onFooterClick({ event: { detail: 1 } })
     await wrapper.vm.$nextTick()
-    expect(document.querySelector('.rm-footer-edit-overlay')).not.toBeNull()
+    expect(document.querySelector('.rm-footer-edit-overlay')).toBeNull()
+    expect(document.querySelector('input[placeholder*="Confidential"], input[placeholder*="Rahasia"]')).toBeNull()
 
-    // Double click footer: detail = 2 -> still inline edit, no legacy modal
+    // Double click footer: detail = 2 -> inline edit overlay appears
     vm.paginationOptions.onFooterClick({ event: { detail: 2 } })
     await wrapper.vm.$nextTick()
     expect(document.querySelector('.rm-footer-edit-overlay')).not.toBeNull()
