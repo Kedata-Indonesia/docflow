@@ -1123,6 +1123,25 @@
   justify-content: flex-start !important;
 }
 
+/* Batasi konten header/footer ke AREA KONTEN (di antara margin kiri/kanan).
+   `.breaker` membentang selebar halaman penuh (termasuk margin), jadi teks
+   di-indent sebesar margin halaman — dengan begitu peletakkan
+   kiri/tengah/kanan (dan nomor halaman default di kanan) menghormati batas
+   padding halaman, tidak masuk ke gutter margin. */
+.rm-with-pagination .rm-page-header-content,
+.rm-with-pagination .rm-page-footer-content {
+  box-sizing: border-box !important;
+  padding-left: var(--rm-margin-left, 0px) !important;
+  padding-right: var(--rm-margin-right, 0px) !important;
+}
+
+/* First-page header sudah memakai inset `left/right: var(--rm-margin-*)`,
+   jadi padding ganda dinolkan agar kontennya tidak ikut tergeser. */
+.rm-with-pagination .rm-page-header.rm-first-page-header .rm-page-header-content {
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
 .rm-with-pagination .rm-page-header-left,
 .rm-with-pagination .rm-page-header-right,
 .rm-with-pagination .rm-page-footer-left,
