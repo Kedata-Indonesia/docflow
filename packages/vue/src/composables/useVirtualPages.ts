@@ -6,6 +6,7 @@ export interface UseVirtualPagesOptions {
   scrollRef: Ref<HTMLElement | null>
   config: PageOverlayConfig
   bufferPages?: number
+  enabled?: Ref<boolean>
 }
 
 export function useVirtualPages(options: UseVirtualPagesOptions) {
@@ -17,7 +18,10 @@ export function useVirtualPages(options: UseVirtualPagesOptions) {
   let overlay: VirtualPageOverlay | null = null
   let resizeObserver: ResizeObserver | null = null
 
+  const isEnabled = () => options.enabled?.value ?? true
+
   const init = async () => {
+    if (!isEnabled()) return
     const editor = options.editorRef.value
     const scrollEl = options.scrollRef.value
     if (!editor?.view?.dom || !scrollEl) return
@@ -38,13 +42,13 @@ export function useVirtualPages(options: UseVirtualPagesOptions) {
   }
 
   const updateConfig = async (config: Partial<PageOverlayConfig>) => {
-    if (overlay) {
+    if (overlay && isEnabled()) {
       data.value = await overlay.updateConfig(config)
     }
   }
 
   const refreshData = () => {
-    if (overlay) {
+    if (overlay && isEnabled()) {
       data.value = overlay.getData()
     }
   }
@@ -53,7 +57,9 @@ export function useVirtualPages(options: UseVirtualPagesOptions) {
   let pollTimer: ReturnType<typeof setInterval> | null = null
 
   onMounted(() => {
-    pollTimer = setInterval(refreshData, 250)
+    if (isEnabled()) {
+      pollTimer = setInterval(refreshData, 250)
+    }
   })
 
   onUnmounted(() => {
@@ -62,14 +68,23 @@ export function useVirtualPages(options: UseVirtualPagesOptions) {
     resizeObserver?.disconnect()
   })
 
-  // Re-init when editor or scroll container becomes available
-  watch([() => options.editorRef.value?.view?.dom, options.scrollRef], () => {
-    if (!isReady.value) init()
+  // Re-init when editor or scroll container becomes available or enabled state changes
+  watch([() => options.editorRef.value?.view?.dom, options.scrollRef, () => options.enabled?.value], () => {
+    if (isEnabled() && !isReady.value) {
+      init()
+    } else if (!isEnabled() && isReady.value) {
+      if (pollTimer) { clearInterval(pollTimer); pollTimer = null }
+      overlay?.disconnect()
+      resizeObserver?.disconnect()
+      overlay = null
+      resizeObserver = null
+      isReady.value = false
+    }
   }, { immediate: true })
 
   // Re-layout when config changes
   watch(() => options.config, (newConfig) => {
-    if (isReady.value) updateConfig(newConfig)
+    if (isReady.value && isEnabled()) updateConfig(newConfig)
   }, { deep: true })
 
   return {

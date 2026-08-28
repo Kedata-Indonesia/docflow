@@ -661,16 +661,11 @@ const updateBubbleMenu = () => {
 }
 
 const scrollContainerRef = ref<HTMLDivElement | null>(null)
-let scrollTimeout: ReturnType<typeof setTimeout> | null = null
 
 const handleScroll = () => {
-  if (!editor.value) return
-  if (scrollTimeout) clearTimeout(scrollTimeout)
-  scrollTimeout = setTimeout(() => {
-    if (editor.value) {
-      editor.value.view.dispatch(editor.value.state.tr)
-    }
-  }, 150)
+  if (showBubbleMenu.value) {
+    bubblePosition.value = computeBubblePosition()
+  }
 }
 
 const pageCount = ref(1)
@@ -701,6 +696,7 @@ const {
   scrollRef: scrollContainerRef,
   config: virtualConfig.value,
   bufferPages: 2,
+  enabled: useVirtual,
 })
 
 watch([virtualTotalPages, virtualReady], () => {
@@ -954,90 +950,99 @@ const getResolvedPageNumber = (pageIndex: number) => {
   return String(num)
 }
 
-const applyHeaderFooter = () => {
-  if (!editor.value || !isReady.value) return
-  const totalStr = String(pageCount.value)
-  const root = editor.value.view.dom
+let isApplyingHeaderFooter = false
 
-  // Peletakkan header/footer: class pada root editor (bertahan dari rebuild
-  // widget PaginationPlus). `undefined` = tanpa class (tata letak default:
-  // teks kiri, nomor kanan).
-  const setHfAlignClasses = () => {
-    const set = (section: 'header' | 'footer', align: HeaderFooterAlign | undefined) => {
-      root.classList.remove(
-        `rm-hf-${section}-align-left`,
-        `rm-hf-${section}-align-center`,
-        `rm-hf-${section}-align-right`,
-      )
-      if (align) root.classList.add(`rm-hf-${section}-align-${align}`)
+const applyHeaderFooter = (dispatchTransaction = true) => {
+  if (!editor.value || !isReady.value || isApplyingHeaderFooter) return
+  isApplyingHeaderFooter = true
+  try {
+    const totalStr = String(pageCount.value)
+    const root = editor.value.view.dom
+
+    // Peletakkan header/footer: class pada root editor (bertahan dari rebuild
+    // widget PaginationPlus). `undefined` = tanpa class (tata letak default:
+    // teks kiri, nomor kanan).
+    const setHfAlignClasses = () => {
+      const set = (section: 'header' | 'footer', align: HeaderFooterAlign | undefined) => {
+        root.classList.remove(
+          `rm-hf-${section}-align-left`,
+          `rm-hf-${section}-align-center`,
+          `rm-hf-${section}-align-right`,
+        )
+        if (align) root.classList.add(`rm-hf-${section}-align-${align}`)
+      }
+      set('header', userHeaderAlign.value)
+      set('footer', userFooterAlign.value)
     }
-    set('header', userHeaderAlign.value)
-    set('footer', userFooterAlign.value)
+    setHfAlignClasses()
+
+    const defaultHLeft = userHeaderLeft.value.replace(/{total}/g, totalStr)
+    const defaultHRight = userHeaderRight.value.replace(/{total}/g, totalStr)
+    const defaultFLeft = userFooterLeft.value.replace(/{total}/g, totalStr)
+    const defaultFRight = userFooterRight.value.replace(/{total}/g, totalStr)
+
+    editor.value.commands.updateHeaderContent(defaultHLeft, defaultHRight)
+    editor.value.commands.updateFooterContent(defaultFLeft, defaultFRight)
+
+    const headerMarginPx = `${Math.max(0, headerMarginCm.value) * CM_TO_PX}px`
+    const footerMarginPx = `${Math.max(0, footerMarginCm.value) * CM_TO_PX}px`
+    root.style.setProperty('--rm-header-margin-top', headerMarginPx)
+    root.style.setProperty('--rm-footer-margin-bottom', footerMarginPx)
+
+    // Dispatch an empty transaction so PaginationPlus rebuilds its generated
+    // header/footer widgets after the content configuration changes (skip if called from pageCount watcher).
+    if (dispatchTransaction) {
+      editor.value.view.dispatch(editor.value.state.tr)
+    }
+
+    setTimeout(() => {
+      requestAnimationFrame(() => {
+        if (!editor.value || editor.value.view.dom !== root) return
+
+        const resolveHeader = (pageNumber: number, firstPage: boolean) => {
+          let left = defaultHLeft
+          let right = defaultHRight
+          if (firstPage && isDifferentFirstPage.value) {
+            left = userFirstPageHeaderLeft.value.replace(/{total}/g, totalStr)
+            right = userFirstPageHeaderRight.value.replace(/{total}/g, totalStr)
+          } else if (isDifferentOddEven.value && pageNumber % 2 === 0) {
+            left = userEvenPageHeaderLeft.value.replace(/{total}/g, totalStr)
+            right = userEvenPageHeaderRight.value.replace(/{total}/g, totalStr)
+          }
+          return {
+            left: left.replace(/{page}/g, getResolvedPageNumber(pageNumber - 1)),
+            right: right.replace(/{page}/g, getResolvedPageNumber(pageNumber - 1)),
+          }
+        }
+
+        const applyHeader = (header: Element, pageNumber: number, firstPage: boolean) => {
+          const content = resolveHeader(pageNumber, firstPage)
+          const left = header.querySelector('.rm-page-header-left')
+          const right = header.querySelector('.rm-page-header-right')
+          if (left) left.innerHTML = content.left
+          if (right) right.innerHTML = content.right
+        }
+
+        const firstHeader = root.querySelector('.rm-first-page-header')
+        if (firstHeader) applyHeader(firstHeader, 1, true)
+
+        Array.from(root.querySelectorAll('.rm-page-break .rm-page-header')).forEach((header, index) => {
+          applyHeader(header, index + 2, false)
+        })
+
+        Array.from(root.querySelectorAll('.rm-page-break .rm-page-footer')).forEach((footer, index) => {
+          const pageNumber = index + 1
+          const pageValue = getResolvedPageNumber(pageNumber - 1)
+          const left = footer.querySelector('.rm-page-footer-left')
+          const right = footer.querySelector('.rm-page-footer-right')
+          if (left) left.innerHTML = defaultFLeft.replace(/{page}/g, pageValue)
+          if (right) right.innerHTML = defaultFRight.replace(/{page}/g, pageValue)
+        })
+      })
+    }, 50)
+  } finally {
+    isApplyingHeaderFooter = false
   }
-  setHfAlignClasses()
-
-  const defaultHLeft = userHeaderLeft.value.replace(/{total}/g, totalStr)
-  const defaultHRight = userHeaderRight.value.replace(/{total}/g, totalStr)
-  const defaultFLeft = userFooterLeft.value.replace(/{total}/g, totalStr)
-  const defaultFRight = userFooterRight.value.replace(/{total}/g, totalStr)
-
-  editor.value.commands.updateHeaderContent(defaultHLeft, defaultHRight)
-  editor.value.commands.updateFooterContent(defaultFLeft, defaultFRight)
-
-  const headerMarginPx = `${Math.max(0, headerMarginCm.value) * CM_TO_PX}px`
-  const footerMarginPx = `${Math.max(0, footerMarginCm.value) * CM_TO_PX}px`
-  root.style.setProperty('--rm-header-margin-top', headerMarginPx)
-  root.style.setProperty('--rm-footer-margin-bottom', footerMarginPx)
-
-  // Dispatch an empty transaction so PaginationPlus rebuilds its generated
-  // header/footer widgets after the content configuration changes.
-  editor.value.view.dispatch(editor.value.state.tr)
-
-  setTimeout(() => {
-    requestAnimationFrame(() => {
-      if (!editor.value || editor.value.view.dom !== root) return
-
-      const resolveHeader = (pageNumber: number, firstPage: boolean) => {
-        let left = defaultHLeft
-        let right = defaultHRight
-        if (firstPage && isDifferentFirstPage.value) {
-          left = userFirstPageHeaderLeft.value.replace(/{total}/g, totalStr)
-          right = userFirstPageHeaderRight.value.replace(/{total}/g, totalStr)
-        } else if (isDifferentOddEven.value && pageNumber % 2 === 0) {
-          left = userEvenPageHeaderLeft.value.replace(/{total}/g, totalStr)
-          right = userEvenPageHeaderRight.value.replace(/{total}/g, totalStr)
-        }
-        return {
-          left: left.replace(/{page}/g, getResolvedPageNumber(pageNumber - 1)),
-          right: right.replace(/{page}/g, getResolvedPageNumber(pageNumber - 1)),
-        }
-      }
-
-      const applyHeader = (header: Element, pageNumber: number, firstPage: boolean) => {
-        const content = resolveHeader(pageNumber, firstPage)
-        const left = header.querySelector('.rm-page-header-left')
-        const right = header.querySelector('.rm-page-header-right')
-        if (left) left.innerHTML = content.left
-        if (right) right.innerHTML = content.right
-      }
-
-      const firstHeader = root.querySelector('.rm-first-page-header')
-      if (firstHeader) applyHeader(firstHeader, 1, true)
-
-      Array.from(root.querySelectorAll('.rm-page-break .rm-page-header')).forEach((header, index) => {
-        applyHeader(header, index + 2, false)
-      })
-
-      Array.from(root.querySelectorAll('.rm-page-break .rm-page-footer')).forEach((footer, index) => {
-        const pageNumber = index + 1
-        const pageValue = getResolvedPageNumber(pageNumber - 1)
-        const left = footer.querySelector('.rm-page-footer-left')
-        const right = footer.querySelector('.rm-page-footer-right')
-        if (left) left.innerHTML = defaultFLeft.replace(/{page}/g, pageValue)
-        if (right) right.innerHTML = defaultFRight.replace(/{page}/g, pageValue)
-      })
-    })
-  }, 50)
 }
 
 watch(isDifferentFirstPage, () => {
@@ -1049,7 +1054,7 @@ watch([isDifferentOddEven, headerMarginCm, footerMarginCm, pageNumberPosition, h
 })
 
 watch(pageCount, (next) => {
-  applyHeaderFooter()
+  applyHeaderFooter(false)
   emit('update:pageCount', next)
 })
 
@@ -1248,7 +1253,6 @@ watch(() => props.collaboration, () => {}, { deep: true })
 onUnmounted(() => {
   finishHeaderEdit(false)
   if (saveTimer.value) clearTimeout(saveTimer.value)
-  if (scrollTimeout) clearTimeout(scrollTimeout)
   if (resizeTimer) clearTimeout(resizeTimer)
   if (updateFootnotesTimer) clearTimeout(updateFootnotesTimer)
   window.removeEventListener('resize', onResize)
