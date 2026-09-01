@@ -24,7 +24,8 @@ export {
   type SearchState,
 } from './SearchAndReplace.js'
 export type { ImageUploadHandler, ImageUploadResult, CitationPort, CslItemData, CslName, CslDate } from './ports.js'
-export { PaginationPlus, type PaginationPlusOptions, PAGE_SIZES, type PageSize } from 'tiptap-pagination-plus'
+export { PaginationPlus, type PaginationPlusOptions, PAGE_SIZES } from './pagination/PaginationPlus.js'
+export type { PageSize } from './pagination/utils.js'
 export {
   definePlugin,
   collectExtensions,
@@ -46,7 +47,17 @@ export {
   type SubdocState,
   type SubdocumentProviderOptions,
 } from './SubdocumentProvider.js'
-export type { AIAction, AIActionRequest, AIContextLocation, AIStreamFn, AIDraftFn, AIDraftEvent, AIDraftCitation, AIProviderFactory } from './ai/types.js'
+export type {
+  AIAction,
+  AIActionRequest,
+  AIContextLocation,
+  AiChatRequestContext,
+  AIStreamFn,
+  AIDraftFn,
+  AIDraftEvent,
+  AIDraftCitation,
+  AIProviderFactory,
+} from './ai/types.js'
 export type { StreamEvent, AICompleteRequest, AIProvider } from './ai/provider.js'
 export { toAIStreamFn } from './ai/adapter.js'
 export { buildAIPrompt, trimContextBefore, trimContextAfter, CONTEXT_CHAR_CAP } from './ai/prompts.js'

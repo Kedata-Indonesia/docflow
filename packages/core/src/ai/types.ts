@@ -28,13 +28,36 @@ export type AIAction =
   | 'chat' // 7D — doc-aware chat
   | 'draft' // 7E — cited RAG drafting
 
+/**
+ * Location context of the selection/cursor sent alongside the request so the
+ * LLM can reason about *where* in the document the user is pointing. All fields
+ * optional — hosts that don't fill them keep working unchanged (issue #219).
+ */
 export interface AIContextLocation {
+  /** 1-based page number containing the selection head (DOM pagination). */
   page?: number
+  /** Total pages in the document (DOM pagination). */
   pageCount?: number
+  /** 1-based paragraph/block index within the document. */
   paragraphIndex?: number
+  /** 1-based line number of the selection head within its block. */
   line?: number
+  /** Node type of the block under the selection, e.g. 'paragraph' | 'heading' | 'bulletList' | 'tableRow'. */
   blockType?: string
+  /** Nearest preceding heading text (BAB/section context), e.g. 'BAB II …'. */
   section?: string
+}
+
+/**
+ * Payload for the host's AI-chat hook (issue #219). Carries the selected text
+ * (if any) plus the cursor/selection location so a host with its OWN chat panel
+ * can pre-fill the prompt with context — without re-reading editor state.
+ */
+export interface AiChatRequestContext {
+  /** Selected text, when the selection is not empty. */
+  selection?: string
+  /** Location of the selection/cursor (page, paragraph, line, section…). */
+  context: AIContextLocation
 }
 
 export interface AIActionRequest {
@@ -42,7 +65,7 @@ export interface AIActionRequest {
   /** Selected text (7B). */
   selection?: string
   /** Bounded surrounding text — never the whole document. */
-  context?: { before: string; after: string }
+  context?: { before: string; after: string } & AIContextLocation
   /** Cursor location context (page, line, paragraph index, section heading). */
   location?: AIContextLocation
   /** User instruction (/ai prompt, chat message, tone target, target language). */
@@ -86,6 +109,6 @@ export type AIDraftEvent =
  * table on the terminal `done` event). Injected exactly like `aiStream`.
  */
 export type AIDraftFn = (
-  req: { prompt: string; context?: { before: string; after: string }; k?: number },
+  req: { prompt: string; context?: { before: string; after: string } & AIContextLocation; k?: number },
   signal: AbortSignal,
 ) => AsyncIterable<AIDraftEvent>

@@ -18,7 +18,7 @@ import { EditorContextExtension } from './EditorContext.js'
 import { SearchAndReplaceExtension } from './SearchAndReplace.js'
 import type { ImageUploadHandler, CitationPort } from './ports.js'
 import type { AIStreamFn, AIDraftFn } from './ai/types.js'
-import { PaginationPlus, type PaginationPlusOptions } from 'tiptap-pagination-plus'
+import { PaginationPlus, type PaginationPlusOptions } from './pagination/PaginationPlus.js'
 import { createPerformanceMonitor, type PerformanceMonitor } from './PerformanceMonitor.js'
 
 /**

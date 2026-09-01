@@ -83,7 +83,20 @@ export function markdownToFragment(
     slice: true,
     parseOptions: { preserveWhitespace: 'full' },
   })
+  // createNodeFromContent(html, editor.schema, …) always returns values built
+  // from the EDITOR's prosemirror-model copy. A plain `instanceof Fragment`
+  // breaks when the bundle ends up with dual ESM/CJS copies of
+  // prosemirror-model (observed in Docker builds using vite.config.docker.ts:
+  // Fragment-from-copy-A fails `instanceof` against copy B, and the
+  // Fragment.from fallback then throws RangeError "Can not convert … to a
+  // Fragment" — production AI Insert failure, Jam ea38ed71). Check
+  // structurally instead; the returned fragment must stay the editor's copy
+  // so `tr.replaceWith` accepts it.
   if (content instanceof Fragment) return content
+  const asFragment = content as unknown as Fragment
+  if (asFragment && typeof asFragment.forEach === 'function' && typeof asFragment.size === 'number') {
+    return asFragment
+  }
   return Fragment.from(content as PMNode)
 }
 

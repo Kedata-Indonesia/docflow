@@ -22,6 +22,7 @@ export {
   type AIDraftFn,
 } from '@kedata-indonesia/docflow-core'
 export { useTheme } from './composables/useTheme.js'
+export { collectSelectionContext } from './utils/selectionContext.js'
 export { useLocale, provideLocale, getLocaleName, getSupportedLocales, type Locale } from './composables/useLocale.js'
 export { messages, defaultLocale, getLocaleMessages, isLocale, type Messages, type TranslationKey } from './locales/index.js'
 export { default as DocsEditor } from './components/DocsEditor.vue'

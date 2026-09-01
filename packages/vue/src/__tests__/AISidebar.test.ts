@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { createEditor } from '@kedata-indonesia/docflow-core'
-import type { AIStreamFn } from '@kedata-indonesia/docflow-core'
+import type { AIStreamFn, AIActionRequest } from '@kedata-indonesia/docflow-core'
 import { defaultPlugins } from '@kedata-indonesia/docflow-plugins'
 import AISidebar from '../components/sidebars/AISidebar.vue'
 
@@ -150,6 +150,47 @@ describe('AISidebar (Phase 7D)', () => {
     await wrapper.vm.$nextTick()
 
     expect(wrapper.text()).toContain('provider unavailable')
+    wrapper.unmount()
+  })
+
+  it('sends location context with the chat request (#219)', async () => {
+    const target = document.createElement('div')
+    document.body.appendChild(target)
+    const seen: AIActionRequest[] = []
+    const aiStream = (async function* (req: AIActionRequest) {
+      seen.push(req)
+      yield 'ok'
+    }) as AIStreamFn
+    inst = createEditor({ target, plugins: defaultPlugins, aiStream })
+    inst.editor.commands.insertContent([
+      { type: 'heading', attrs: { level: 1 }, content: [{ type: 'text', text: 'BAB I Pendahuluan' }] },
+      { type: 'paragraph', content: [{ type: 'text', text: 'Paragraf pertama.' }] },
+      { type: 'paragraph', content: [{ type: 'text', text: 'Paragraf kedua target.' }] },
+    ])
+    const { doc } = inst.editor.state
+    let pos = -1
+    doc.descendants((n, p) => {
+      if (pos >= 0) return false
+      if (n.isText && n.text?.includes('Paragraf kedua')) {
+        pos = p + n.text.indexOf('Paragraf kedua') + 1
+        return false
+      }
+      return undefined
+    })
+    inst.editor.commands.setTextSelection(pos)
+    const wrapper = mount(AISidebar, { props: { editor: inst.editor } })
+    await wrapper.find('textarea').setValue('ringkas alinea ini')
+    await wrapper.find('form').trigger('submit')
+
+    expect(seen).toHaveLength(1)
+    const ctx = seen[0].context
+    expect(ctx?.paragraphIndex).toBe(3)
+    expect(ctx?.blockType).toBe('paragraph')
+    expect(ctx?.section).toBe('BAB I Pendahuluan')
+    // Headless: no pagination DOM → fallbacks.
+    expect(ctx?.page).toBe(1)
+    expect(ctx?.pageCount).toBe(1)
+    expect(typeof ctx?.line).toBe('number')
     wrapper.unmount()
   })
 })

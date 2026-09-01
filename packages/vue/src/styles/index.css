@@ -1109,6 +1109,91 @@
   user-select: text !important;
 }
 
+/* ── Peletakkan header/footer (kiri/tengah/kanan) ────────────────
+   Default (tanpa class align): konten kiri di kiri, nomor halaman di kanan —
+   keduanya SEJAJAR dengan area teks (area konten di antara margin kiri/kanan).
+   Posisi itu berasal dari margin yang di-inject ekstensi tiptap-pagination-plus
+   (`margin-left/right: var(--rm-margin-*)` pada slot), jadi kita tidak boleh
+   mengubahnya. Saat align eksplisit dipilih, SELURUH konten (teks + nomor
+   halaman) dikelompokkan sesuai nilai — kiri/tengah/kanan — tetap di dalam
+   area konten. Class dipasang di root editor oleh `applyHeaderFooter()`
+   sehingga bertahan dari rebuild widget PaginationPlus. */
+.rm-with-pagination .rm-page-header-content,
+.rm-with-pagination .rm-page-footer-content {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+}
+
+.rm-with-pagination .rm-page-header-left,
+.rm-with-pagination .rm-page-header-right,
+.rm-with-pagination .rm-page-footer-left,
+.rm-with-pagination .rm-page-footer-right {
+  float: none !important;
+  min-width: 0 !important;
+}
+
+/* Default: nomor halaman (slot kanan) didorong ke kanan dan berhenti di tepi
+   kanan area konten — margin kanan tetap `var(--rm-margin-right)` (inject
+   ekstensi) sehingga SEJAJAR dengan tepi kanan teks. */
+.rm-with-pagination .rm-page-header-right,
+.rm-with-pagination .rm-page-footer-right {
+  margin-left: auto !important;
+}
+
+/* Kiri: seluruh konten dikelompokkan di kiri dan mulai dari tepi kiri area
+   konten (SEJAJAR dengan teks). Slot kiri mempertahankan
+   `margin-left: var(--rm-margin-left)` (inject ekstensi); header halaman
+   pertama dikecualikan karena kontainernya sudah selebar area konten. */
+.rm-with-pagination.rm-hf-header-align-left .rm-page-header-content,
+.rm-with-pagination.rm-hf-footer-align-left .rm-page-footer-content {
+  justify-content: flex-start !important;
+}
+.rm-with-pagination.rm-hf-header-align-left .rm-page-header-left,
+.rm-with-pagination.rm-hf-header-align-left .rm-page-header-right,
+.rm-with-pagination.rm-hf-footer-align-left .rm-page-footer-left,
+.rm-with-pagination.rm-hf-footer-align-left .rm-page-footer-right {
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+.rm-with-pagination.rm-hf-header-align-left .rm-page-header:not(.rm-first-page-header) .rm-page-header-left,
+.rm-with-pagination.rm-hf-footer-align-left .rm-page-footer-left {
+  margin-left: var(--rm-margin-left) !important;
+}
+
+/* Tengah: seluruh konten dikelompokkan di tengah. */
+.rm-with-pagination.rm-hf-header-align-center .rm-page-header-content,
+.rm-with-pagination.rm-hf-footer-align-center .rm-page-footer-content {
+  justify-content: center !important;
+}
+.rm-with-pagination.rm-hf-header-align-center .rm-page-header-left,
+.rm-with-pagination.rm-hf-header-align-center .rm-page-header-right,
+.rm-with-pagination.rm-hf-footer-align-center .rm-page-footer-left,
+.rm-with-pagination.rm-hf-footer-align-center .rm-page-footer-right {
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+
+/* Kanan: seluruh konten dikelompokkan di kanan dan berhenti di tepi kanan
+   area konten (SEJAJAR dengan teks). Slot kanan mempertahankan
+   `margin-right: var(--rm-margin-right)` (inject ekstensi); header halaman
+   pertama dikecualikan karena kontainernya sudah selebar area konten
+   (margin-nya sudah 0 dari ekstensi). */
+.rm-with-pagination.rm-hf-header-align-right .rm-page-header-content,
+.rm-with-pagination.rm-hf-footer-align-right .rm-page-footer-content {
+  justify-content: flex-end !important;
+}
+.rm-with-pagination.rm-hf-header-align-right .rm-page-header-left,
+.rm-with-pagination.rm-hf-footer-align-right .rm-page-footer-left {
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+.rm-with-pagination.rm-hf-header-align-right .rm-page-header:not(.rm-first-page-header) .rm-page-header-right,
+.rm-with-pagination.rm-hf-footer-align-right .rm-page-footer-right {
+  margin-left: 0 !important;
+  margin-right: var(--rm-margin-right) !important;
+}
+
 /* Active Header Inline Editable Area */
 .rm-page-header [contenteditable='true'] {
   outline: none !important;
@@ -1131,6 +1216,62 @@
 
 .rm-page-header.rm-header-active .rm-page-header-content {
   visibility: hidden !important;
+}
+
+/* Active Footer Inline Editable Area — mirror of the header rules above.
+   The footer lives inside the full-bleed page breaker; hiding only the
+   generated content keeps the page geometry stable while the external
+   overlay provides the editable surface. */
+.rm-page-footer.rm-footer-active {
+  overflow: visible !important;
+}
+
+.rm-page-footer.rm-footer-active .rm-page-footer-content {
+  visibility: hidden !important;
+}
+
+/* Active Footer Bar (Google Docs style). Same chrome as the header bar but
+   anchored ABOVE the footer (`bottom: 100%`) so it never covers the footer
+   text. Geometry comes from the measured `--rm-footer-bar-*` variables set
+   by `positionFooterEdit()`; values here are inert defaults. */
+.rm-google-docs-footer-bar {
+  position: absolute !important;
+  bottom: 100% !important; /* Sits right at the top edge of footer, ABOVE footer text */
+  left: 0 !important;
+  right: auto !important;
+  width: 100% !important;
+  height: 28px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  background-color: #f8fafc !important;
+  border-bottom: 1px solid #3b82f6 !important;
+  font-family: inherit !important;
+  font-size: 11px !important;
+  color: #64748b !important;
+  -webkit-user-select: none !important;
+  user-select: none !important;
+  z-index: 20 !important;
+  box-sizing: border-box !important;
+}
+
+.dark .rm-google-docs-footer-bar {
+  background-color: #0f172a !important;
+  border-bottom: 1px solid #3b82f6 !important;
+  color: #94a3b8 !important;
+}
+
+.rm-google-docs-footer-bar .rm-footer-label {
+  font-weight: 400 !important;
+  color: #94a3b8 !important;
+}
+
+.rm-google-docs-footer-bar .rm-footer-right-tools {
+  display: flex !important;
+  align-items: center !important;
+  gap: 16px !important;
 }
 
 /* Active Header Bar (Google Docs style - Full Paper Page Sheet Width Edge to Edge)
@@ -1347,9 +1488,59 @@
 }
 
 @media print {
-  .rm-header-edit-overlay {
+  .rm-header-edit-overlay,
+  .rm-footer-edit-overlay {
     display: none !important;
   }
+}
+
+/* ── Footer inline edit overlay (mirror header) ────────────────────
+   Rendered outside the ProseMirror view; same rationale as the header
+   overlay. The bar geometry is populated from the real paper/footer
+   rectangles in JS via the --rm-footer-bar-* variables. */
+.rm-footer-edit-overlay {
+  position: fixed !important;
+  z-index: 1000 !important;
+  pointer-events: none !important;
+  box-sizing: border-box !important;
+}
+
+.rm-footer-edit-input {
+  position: relative !important;
+  display: block !important;
+  width: 100% !important;
+  min-height: 24px !important;
+  box-sizing: border-box !important;
+  outline: none !important;
+  cursor: text !important;
+  pointer-events: auto !important;
+  -webkit-user-select: text !important;
+  user-select: text !important;
+  white-space: pre-wrap !important;
+  overflow-wrap: anywhere !important;
+  font-size: 14px !important;
+  line-height: 1.5 !important;
+  color: inherit !important;
+  background: transparent !important;
+}
+
+.rm-footer-edit-input:empty::before {
+  content: attr(data-placeholder);
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+.rm-footer-edit-overlay .rm-google-docs-footer-bar {
+  left: var(--rm-footer-bar-left, 0px) !important;
+  right: auto !important;
+  width: var(--rm-footer-bar-width, 100%) !important;
+  padding-left: var(--rm-footer-bar-padding-left, 0px) !important;
+  padding-right: var(--rm-footer-bar-padding-right, 0px) !important;
+  pointer-events: auto !important;
+}
+
+.rm-footer-edit-overlay .rm-google-docs-footer-bar .rm-options-dropdown {
+  pointer-events: auto !important;
 }
 
 /* ── Responsive: full-width on mobile ────────────────────────────── */

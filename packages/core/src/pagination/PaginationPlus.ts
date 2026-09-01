@@ -223,7 +223,6 @@ const calculatePageCount = (view: EditorView, pageOptions: any, headerHeight = 0
         }
 
         pageGapTracker.set(editorDom, { gap: lastPageGap, pages: currentPageCount, recent, flapping })
-
         if (currentPageCount + addPage > contentCap) {
           return contentCap
         }

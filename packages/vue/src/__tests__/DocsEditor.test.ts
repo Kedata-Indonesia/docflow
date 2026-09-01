@@ -1,6 +1,6 @@
 import { mount } from '@vue/test-utils'
 import { describe, expect, it, vi } from 'vitest'
-import type { DocsEditorPlugin } from '@kedata-indonesia/docflow-core'
+import type { DocsEditorPlugin, AIStreamFn } from '@kedata-indonesia/docflow-core'
 import type { Editor } from '@tiptap/core'
 import DocsEditor from '../components/DocsEditor.vue'
 import HeaderBar from '../components/HeaderBar.vue'
@@ -91,6 +91,57 @@ describe('DocsEditor', () => {
     await wrapper.vm.$nextTick()
 
     expect(wrapper.find('[data-testid="bubble-menu"]').exists()).toBe(true)
+    wrapper.unmount()
+  })
+
+  it('emits ai-chat from the bubble Chat button when the host subscribes (issue #219)', async () => {
+    const onAiChat = vi.fn()
+    const aiStream = (async function* () { yield '' }) as AIStreamFn
+    const wrapper = mount(DocsEditor, {
+      props: { plugins: defaultPlugins, aiStream, onAiChat },
+    })
+    await new Promise((resolve) => setTimeout(resolve, 50))
+
+    const editor = (wrapper.vm as unknown as {
+      editor?: { commands: { setContent: (c: object) => boolean; focus: () => void; selectAll: () => void } }
+    }).editor
+    editor?.commands.setContent({
+      type: 'doc',
+      content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Selected sentence' }] }],
+    })
+    editor?.commands.focus()
+    editor?.commands.selectAll()
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="bubble-chat"]').exists()).toBe(true)
+    await wrapper.find('[data-testid="bubble-chat"]').trigger('click')
+
+    // The host owns the chat panel → onAiChat fires with the selection +
+    // location payload, and the built-in AI sidebar is NOT opened as fallback.
+    expect(onAiChat).toHaveBeenCalledTimes(1)
+    const payload = onAiChat.mock.calls[0][0] as { selection?: string; context: object }
+    expect(payload.selection).toContain('Selected sentence')
+    expect(payload.context).toEqual(expect.any(Object))
+    expect(wrapper.find('.ai-sidebar').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('falls back to the built-in AI sidebar when no host subscribes to ai-chat (issue #219)', async () => {
+    const aiStream = (async function* () { yield '' }) as AIStreamFn
+    const wrapper = mount(DocsEditor, {
+      props: { plugins: defaultPlugins, aiStream },
+    })
+    await new Promise((resolve) => setTimeout(resolve, 50))
+
+    const editor = (wrapper.vm as unknown as { editor?: { commands: { focus: () => void; selectAll: () => void } } }).editor
+    editor?.commands.focus()
+    editor?.commands.selectAll()
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-testid="bubble-chat"]').trigger('click')
+
+    // No onAiChat handler on the host → the built-in AI sidebar opens.
+    expect(wrapper.find('.ai-sidebar').exists()).toBe(true)
     wrapper.unmount()
   })
 
@@ -370,34 +421,30 @@ describe('DocsEditor', () => {
     wrapper.unmount()
   })
 
-  it('opens footer modal with left/right inputs on double click (detail: 2)', async () => {
+  it('opens inline footer edit only on double click (single click does nothing, no legacy modal)', async () => {
     const wrapper = mount(DocsEditor, {
       props: { plugins: defaultPlugins },
     })
-    await new Promise((resolve) => setTimeout(resolve, 50))
+    await new Promise((resolve) => setTimeout(resolve, 80))
 
     const vm = wrapper.vm as unknown as {
       paginationOptions: {
-        onHeaderClick: (params: { event: { detail: number } }) => void
         onFooterClick: (params: { event: { detail: number } }) => void
       }
-      showFooterModal: boolean
-      footerLeftInput: string
-      footerRightInput: string
     }
 
-    // Single click: detail = 1 -> modal does not open
+    // Single click footer: detail = 1 -> NO inline edit, NO modal
     vm.paginationOptions.onFooterClick({ event: { detail: 1 } })
     await wrapper.vm.$nextTick()
-    expect(vm.showFooterModal).toBe(false)
+    expect(document.querySelector('.rm-footer-edit-overlay')).toBeNull()
+    expect(document.querySelector('input[placeholder*="Confidential"], input[placeholder*="Rahasia"]')).toBeNull()
 
-    // Double click footer: detail = 2 -> opens footer modal
+    // Double click footer: detail = 2 -> inline edit overlay appears
     vm.paginationOptions.onFooterClick({ event: { detail: 2 } })
     await wrapper.vm.$nextTick()
-    expect(vm.showFooterModal).toBe(true)
-
-    // Verify modal has left and right input fields
-    expect(wrapper.find('input[placeholder*="Confidential"], input[placeholder*="Rahasia"]').exists()).toBe(true)
+    expect(document.querySelector('.rm-footer-edit-overlay')).not.toBeNull()
+    // Legacy footer modal (left/right inputs) must not exist anywhere
+    expect(document.querySelector('input[placeholder*="Confidential"], input[placeholder*="Rahasia"]')).toBeNull()
 
     wrapper.unmount()
   })
@@ -463,6 +510,199 @@ describe('DocsEditor', () => {
     expect(vm.userHeaderLeft).toBe('Safe header')
     expect(JSON.stringify(vm.editor?.getJSON() ?? {})).toBe(before)
     expect(document.querySelector('.rm-header-edit-overlay')).toBeNull()
+    wrapper.unmount()
+  })
+
+  it('edits the footer inline (Google Docs style) without changing document content', async () => {
+    const wrapper = mount(DocsEditor, {
+      props: { plugins: defaultPlugins },
+    })
+    await new Promise((resolve) => setTimeout(resolve, 80))
+
+    const vm = wrapper.vm as unknown as {
+      editor?: { getJSON: () => object }
+      startInlineFooterEdit: () => void
+      finishFooterEdit: (commit?: boolean) => void
+      clearFooterContent: () => void
+      userFooterLeft: string
+      userFooterRight: string
+    }
+    expect(vm.editor).toBeDefined()
+    const before = JSON.stringify(vm.editor?.getJSON() ?? {})
+
+    vm.startInlineFooterEdit()
+    await wrapper.vm.$nextTick()
+
+    const overlay = document.querySelector('.rm-footer-edit-overlay') as HTMLElement | null
+    const input = overlay?.querySelector('.rm-footer-edit-input') as HTMLElement | null
+    const activeBar = overlay?.querySelector('.rm-google-docs-footer-bar') as HTMLElement | null
+    expect(overlay).not.toBeNull()
+    expect(input?.contentEditable).toBe('true')
+    expect(input?.closest('.docs-editor__paper')).toBeNull()
+    expect(activeBar?.parentElement).toBe(overlay)
+    expect(activeBar).toBeTruthy()
+
+    // Footer toolbar offers page-number access + remove footer
+    const dropdown = activeBar?.querySelector('.rm-options-dropdown')
+    expect(dropdown?.querySelector('.rm-opt-page-num')).toBeTruthy()
+    expect(dropdown?.querySelector('.rm-opt-remove')).toBeTruthy()
+
+    input!.innerHTML = 'Safe footer'
+    vm.finishFooterEdit(true)
+
+    expect(vm.userFooterLeft).toBe('Safe footer')
+    expect(JSON.stringify(vm.editor?.getJSON() ?? {})).toBe(before)
+    expect(document.querySelector('.rm-footer-edit-overlay')).toBeNull()
+
+    // Remove footer clears both slots and persists
+    vm.clearFooterContent()
+    expect(vm.userFooterLeft).toBe('')
+    expect(vm.userFooterRight).toBe('')
+    wrapper.unmount()
+  })
+
+  it('syncs the page number modal position radio from the actual {page} token location', async () => {
+    const wrapper = mount(DocsEditor, {
+      props: { plugins: defaultPlugins },
+    })
+    await new Promise((resolve) => setTimeout(resolve, 50))
+
+    const vm = wrapper.vm as unknown as {
+      userHeaderRight: string
+      userFooterRight: string
+      pageNumberPosition: 'header' | 'footer'
+      draftPageNumberPosition: 'header' | 'footer'
+      showPageNumberModal: boolean
+      openPageNumberModal: () => void
+      applyPageNumberSettings: () => void
+    }
+
+    // Token di footer (default FE) → radio "Footer", bukan state usang 'header'
+    vm.userFooterRight = '{page}'
+    vm.userHeaderRight = ''
+    vm.openPageNumberModal()
+    await wrapper.vm.$nextTick()
+    expect(vm.showPageNumberModal).toBe(true)
+    expect(vm.draftPageNumberPosition).toBe('footer')
+    expect(vm.pageNumberPosition).toBe('footer')
+
+    // "Terapkan" tanpa mengubah posisi TIDAK memindahkan token ke header
+    vm.applyPageNumberSettings()
+    await wrapper.vm.$nextTick()
+    expect(vm.userFooterRight).toBe('{page}')
+    expect(vm.userHeaderRight).toBe('')
+
+    // Token di header → radio "Header"
+    vm.userFooterRight = ''
+    vm.userHeaderRight = '{page}'
+    vm.openPageNumberModal()
+    expect(vm.draftPageNumberPosition).toBe('header')
+    expect(vm.pageNumberPosition).toBe('header')
+
+    wrapper.unmount()
+  })
+
+  it('parses headerAlign/footerAlign from the model and persists them via the page-number modal', async () => {
+    const wrapper = mount(DocsEditor, {
+      props: {
+        plugins: defaultPlugins,
+        modelValue: {
+          type: 'tabbed-doc',
+          activeTabId: 'tab-1',
+          tabs: [{ id: 'tab-1', label: 'Tab 1', content: { type: 'doc', content: [] } }],
+          footerLeft: 'Rahasia',
+          footerRight: '{page}',
+          footerAlign: 'center',
+          headerAlign: 'left',
+        },
+      },
+    })
+    await new Promise((resolve) => setTimeout(resolve, 80))
+
+    const vm = wrapper.vm as unknown as {
+      userFooterAlign: 'left' | 'center' | 'right' | undefined
+      userHeaderAlign: 'left' | 'center' | 'right' | undefined
+      draftFooterAlign: 'left' | 'center' | 'right' | undefined
+      draftPageNumberPosition: 'header' | 'footer'
+      openPageNumberModal: () => void
+      applyPageNumberSettings: () => void
+      toggleDraftPlacement: (align: 'left' | 'center' | 'right') => void
+      userFooterLeft: string
+    }
+    expect(vm.userFooterAlign).toBe('center')
+    expect(vm.userHeaderAlign).toBe('left')
+
+    // Buka modal → draft peletakkan mengikuti Posisi (token ada di footer)
+    vm.openPageNumberModal()
+    await wrapper.vm.$nextTick()
+    expect(vm.draftPageNumberPosition).toBe('footer')
+    expect(vm.draftFooterAlign).toBe('center')
+
+    // Pilih "kanan" di modal → Terapkan → footerAlign = 'right' + emit update:modelValue
+    vm.toggleDraftPlacement('right')
+    vm.applyPageNumberSettings()
+    await wrapper.vm.$nextTick()
+    expect(vm.userFooterAlign).toBe('right')
+
+    const emitted = wrapper.emitted('update:modelValue')
+    const last = (emitted ?? [])[(emitted?.length ?? 1) - 1]?.[0] as { footerAlign?: string; headerAlign?: string }
+    expect(last.footerAlign).toBe('right')
+    expect(last.headerAlign).toBe('left')
+
+    // Buka lagi, klik tombol yang sedang aktif → toggle kembali ke undefined (tata letak default)
+    vm.openPageNumberModal()
+    await wrapper.vm.$nextTick()
+    expect(vm.draftFooterAlign).toBe('right')
+    vm.toggleDraftPlacement('right')
+    vm.applyPageNumberSettings()
+    await wrapper.vm.$nextTick()
+    expect(vm.userFooterAlign).toBeUndefined()
+
+    wrapper.unmount()
+  })
+
+  it('applies the header/footer align class on the editor root via the modal', async () => {
+    const wrapper = mount(DocsEditor, {
+      props: { plugins: defaultPlugins },
+    })
+    await new Promise((resolve) => setTimeout(resolve, 80))
+
+    const vm = wrapper.vm as unknown as {
+      editor?: { view: { dom: HTMLElement } }
+      userFooterAlign: 'left' | 'center' | 'right' | undefined
+      userHeaderAlign: 'left' | 'center' | 'right' | undefined
+      userFooterRight: string
+      draftPageNumberPosition: 'header' | 'footer'
+      openPageNumberModal: () => void
+      applyPageNumberSettings: () => void
+      toggleDraftPlacement: (align: 'left' | 'center' | 'right') => void
+    }
+    const root = vm.editor!.view.dom
+    // Default: tanpa class align
+    expect(root.classList.contains('rm-hf-footer-align-right')).toBe(false)
+    expect(root.classList.contains('rm-hf-header-align-right')).toBe(false)
+
+    // Footer align kanan via modal (token di footer → Posisi = Footer)
+    vm.userFooterRight = '{page}'
+    vm.openPageNumberModal()
+    await wrapper.vm.$nextTick()
+    expect(vm.draftPageNumberPosition).toBe('footer')
+    vm.toggleDraftPlacement('right')
+    vm.applyPageNumberSettings()
+    await wrapper.vm.$nextTick()
+    expect(root.classList.contains('rm-hf-footer-align-right')).toBe(true)
+    expect(root.classList.contains('rm-hf-header-align-right')).toBe(false)
+
+    // Header align tengah via modal (Posisi dipindah ke Header; footer tetap kanan)
+    vm.openPageNumberModal()
+    await wrapper.vm.$nextTick()
+    vm.draftPageNumberPosition = 'header'
+    vm.toggleDraftPlacement('center')
+    vm.applyPageNumberSettings()
+    await wrapper.vm.$nextTick()
+    expect(root.classList.contains('rm-hf-header-align-center')).toBe(true)
+    expect(root.classList.contains('rm-hf-footer-align-right')).toBe(true)
+
     wrapper.unmount()
   })
 
@@ -691,7 +931,7 @@ describe('DocsEditor', () => {
     wrapper.unmount()
   })
 
-  it('supports Page Number modal settings with draft states (position, start at, show on first page)', async () => {
+  it('supports Page Number modal settings with draft states (position, start at, hidden pages)', async () => {
     const wrapper = mount(DocsEditor, {
       props: { plugins: defaultPlugins },
     })
@@ -700,10 +940,10 @@ describe('DocsEditor', () => {
     const vm = wrapper.vm as unknown as {
       showPageNumberModal: boolean
       pageNumberPosition: 'header' | 'footer'
-      showPageNumberOnFirstPage: boolean
+      hiddenPageNumbers: number[]
       pageNumberStartAt: number
       draftPageNumberPosition: 'header' | 'footer'
-      draftShowPageNumberOnFirstPage: boolean
+      draftHiddenPageList: string
       draftPageNumberStartAt: number
       userHeaderRight: string
       userFooterRight: string
@@ -725,7 +965,7 @@ describe('DocsEditor', () => {
     // Open modal again and set draft position to footer -> clears header page token only on apply
     vm.openPageNumberModal()
     vm.draftPageNumberPosition = 'footer'
-    vm.draftShowPageNumberOnFirstPage = false
+    vm.draftHiddenPageList = '1, 3-5'
     vm.draftPageNumberStartAt = 5
     vm.applyPageNumberSettings()
     await wrapper.vm.$nextTick()
@@ -734,7 +974,7 @@ describe('DocsEditor', () => {
     expect(vm.pageNumberPosition).toBe('footer')
     expect(vm.userHeaderRight).toBe('')
     expect(vm.userFooterRight).toBe('{page}')
-    expect(vm.showPageNumberOnFirstPage).toBe(false)
+    expect(vm.hiddenPageNumbers).toEqual([1, 3, 4, 5])
     expect(vm.pageNumberStartAt).toBe(5)
 
     wrapper.unmount()

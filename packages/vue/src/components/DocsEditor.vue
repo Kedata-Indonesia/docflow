@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { type DocsEditor, type DocsEditorPlugin, type EditorOptions, type ImageUploadHandler, type CitationPort, type CslItemData, type AIStreamFn, type AIDraftFn } from '@kedata-indonesia/docflow-core'
+import { type DocsEditor, type DocsEditorPlugin, type EditorOptions, type ImageUploadHandler, type CitationPort, type CslItemData, type AIStreamFn, type AIDraftFn, type AIContextLocation, type AiChatRequestContext } from '@kedata-indonesia/docflow-core'
 import { PAGE_SIZES, getPageSize } from '@kedata-indonesia/docflow-layout-engine'
 import { useVirtualPages } from '../composables/useVirtualPages.js'
 import VirtualPageOverlay from './VirtualPageOverlay.vue'
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, toRaw, watch } from 'vue'
 import { useEditor } from '../composables/useEditor.js'
+import { collectSelectionContext } from '../utils/selectionContext.js'
 import SlashMenuVue from './SlashMenu.vue'
 import type { Collaborator, CommentItem, ConnectionState, DocumentMeta, DocumentSnapshot, SavingStatus, SidebarKey } from '../types.js'
 import HeaderBar from './HeaderBar.vue'
@@ -57,6 +58,18 @@ const props = withDefaults(
     aiStream?: AIStreamFn
     aiDraft?: AIDraftFn
     /**
+     * Issue #219 — handler for "Chat with AI" triggers (bubble-menu Chat
+     * button, ⌘L/Ctrl+L, "Help me create" action). A host with its OWN chat
+     * panel binds `:on-ai-chat="openChatPanel"`; without it the editor falls
+     * back to its built-in AI sidebar. (Same pattern as `onImageUpload`.)
+     *
+     * The handler receives the payload the host needs to pre-fill its prompt:
+     * the selected text (if any) plus the cursor/selection location
+     * (page/paragraph/line/section) — the same context the built-in AI
+     * sidebar uses, so a host chat panel can offer identical grounding.
+     */
+    onAiChat?: (context: AiChatRequestContext) => void
+    /**
      * Enable the debug overlay (CPU + RAM monitor) pinned to the bottom-right
      * corner of the viewport. Pure debug view — never touches document state.
      * Defaults to `false`, so production consumers are unaffected.
@@ -102,6 +115,7 @@ const props = withDefaults(
     citation: undefined,
     aiStream: undefined,
     aiDraft: undefined,
+    onAiChat: undefined,
     debug: false,
     comments: () => [],
     selectedTextSnippet: '',
@@ -239,17 +253,26 @@ const paginationOptions = computed(() => ({
   footerLeft: '',
   footerRight: '',
   onHeaderClick: (params?: { event?: MouseEvent; pageNumber?: number }) => {
-    startInlineHeaderEdit(params?.event)
+    // Hanya double-click (2x) yang membuka setup inline header (instruksi user
+    // 27/08/2026). Klik tunggal tidak memulai sesi edit.
+    if (params?.event?.detail === 2) startInlineHeaderEdit(params?.event)
   },
   onFooterClick: (params?: { event?: MouseEvent; pageNumber?: number }) => {
-    if (params?.event && params.event.detail !== 2) return
-    openFooterModal()
+    // Simetris dengan header: hanya double-click yang membuka inline edit
+    // footer (gaya Google Docs). Modal footer lama dihapus. Klik tunggal
+    // tidak memulai sesi edit.
+    if (params?.event?.detail === 2) startInlineFooterEdit(params?.event)
   },
 }))
 
 // ─── Editor ───────────────────────────────────────────────────────────────────
 
 interface TabItem { id: string; label: string; content: object }
+/** Peletakkan horizontal konten header/footer: `undefined` = tata letak
+ *  default (teks di kiri, nomor halaman di kanan); eksplisit = seluruh konten
+ *  (teks + nomor halaman) dikelompokkan sesuai nilai. */
+type HeaderFooterAlign = 'left' | 'center' | 'right'
+
 interface TabbedDoc {
   type: 'tabbed-doc'
   activeTabId: string
@@ -258,6 +281,16 @@ interface TabbedDoc {
   headerRight?: string
   footerLeft?: string
   footerRight?: string
+  /** Peletakkan konten header/footer (kiri/tengah/kanan). Absen = default. */
+  headerAlign?: HeaderFooterAlign
+  footerAlign?: HeaderFooterAlign
+  /**
+   * Daftar halaman yang nomor halamannya disembunyikan (1-based, sudah
+   * di-parse dari rentang, mis. `1, 3-5` → `[1,3,4,5]`). Netral = `[]`
+   * (semua halaman bernomor), konvensi naskah akademik = `[1]` (cover/judul
+   * tidak bernomor). Menggantikan flag boolean `showPageNumberOnFirstPage`.
+   */
+  hiddenPageNumbers?: number[]
 }
 
 const parseModelValue = (val: unknown): TabbedDoc => {
@@ -266,11 +299,23 @@ const parseModelValue = (val: unknown): TabbedDoc => {
   return { type: 'tabbed-doc', activeTabId: 'tab-1', tabs: [{ id: 'tab-1', label: 'Tab 1', content: val || { type: 'doc', content: [{ type: 'paragraph' }] } }] }
 }
 
+/** Sanitasi nilai `hiddenPageNumbers` dari model host: hanya array angka ≥ 1, unik & terurut. */
+const sanitizeHiddenPages = (v: unknown): number[] => {
+  if (!Array.isArray(v)) return []
+  const set = new Set<number>()
+  for (const n of v) {
+    if (typeof n === 'number' && Number.isFinite(n) && n >= 1) set.add(Math.floor(n))
+  }
+  return [...set].sort((a, b) => a - b)
+}
+
 const initialDoc = parseModelValue(props.modelValue)
 const userHeaderLeft = ref(initialDoc.headerLeft || '')
 const userHeaderRight = ref(initialDoc.headerRight || '')
 const userFooterLeft = ref(initialDoc.footerLeft || '')
 const userFooterRight = ref(initialDoc.footerRight || '')
+const userHeaderAlign = ref<HeaderFooterAlign | undefined>(initialDoc.headerAlign)
+const userFooterAlign = ref<HeaderFooterAlign | undefined>(initialDoc.footerAlign)
 
 const tabs = ref<Array<{ id: string; label: string; active: boolean }>>(initialDoc.tabs.map(t => ({ id: t.id, label: t.label, active: t.id === initialDoc.activeTabId })))
 const tabContents = ref<Record<string, object>>({})
@@ -281,6 +326,10 @@ const activeTabContent = computed(() => tabContents.value[activeTabId.value])
 const showBubbleMenu = ref(false)
 const bubblePosition = ref<{ top: number; left: number } | null>(null)
 const activeSidebar = ref<SidebarKey | null>(null)
+// Issue #219 — ⌘L handler ref: the editor may rebuild (collab room change),
+// and re-registering on the same DOM would stack a duplicate that toggles the
+// sidebar twice (net no-op). We remove the previous handler before adding.
+let aiChatKeydown: ((e: KeyboardEvent) => void) | null = null
 // View menu toggles — ruler visibility persists across sessions, focus mode does not.
 const showRuler = ref(localStorage.getItem('docflow:view:showRuler') !== 'false')
 const focusMode = ref(false)
@@ -377,6 +426,9 @@ const persistCurrentDoc = () => {
     headerRight: userHeaderRight.value,
     footerLeft: userFooterLeft.value,
     footerRight: userFooterRight.value,
+    headerAlign: userHeaderAlign.value,
+    footerAlign: userFooterAlign.value,
+    hiddenPageNumbers: hiddenPageNumbers.value,
   }
   emit('update:modelValue', fullDoc)
   savingStatus.value = 'saving'
@@ -609,16 +661,11 @@ const updateBubbleMenu = () => {
 }
 
 const scrollContainerRef = ref<HTMLDivElement | null>(null)
-let scrollTimeout: ReturnType<typeof setTimeout> | null = null
 
 const handleScroll = () => {
-  if (!editor.value) return
-  if (scrollTimeout) clearTimeout(scrollTimeout)
-  scrollTimeout = setTimeout(() => {
-    if (editor.value) {
-      editor.value.view.dispatch(editor.value.state.tr)
-    }
-  }, 150)
+  if (showBubbleMenu.value) {
+    bubblePosition.value = computeBubblePosition()
+  }
 }
 
 const pageCount = ref(1)
@@ -649,6 +696,7 @@ const {
   scrollRef: scrollContainerRef,
   config: virtualConfig.value,
   bufferPages: 2,
+  enabled: useVirtual,
 })
 
 watch([virtualTotalPages, virtualReady], () => {
@@ -777,103 +825,236 @@ const draftDifferentOddEven = ref(false)
 
 const showPageNumberModal = ref(false)
 const pageNumberPosition = ref<'header' | 'footer'>('header')
-const showPageNumberOnFirstPage = ref(true)
+/**
+ * Halaman yang nomor halamannya disembunyikan (1-based). Default `[]` =
+ * netral (semua bernomor); host produk memakai `[1]` untuk konvensi cover.
+ * Menggantikan flag boolean `showPageNumberOnFirstPage` (hide = `[1]`).
+ */
+const hiddenPageNumbers = ref<number[]>(sanitizeHiddenPages(initialDoc.hiddenPageNumbers))
 const pageNumberMode = ref<'startAt' | 'continue'>('startAt')
 const pageNumberStartAt = ref(1)
 
 const draftPageNumberPosition = ref<'header' | 'footer'>('header')
-const draftShowPageNumberOnFirstPage = ref(true)
+/** Draft modal — dua kontrol (checkbox halaman pertama & input daftar) berbagi sumber ini. */
+const draftHiddenPageNumbers = ref<number[]>([])
+/** Raw text input "Sembunyikan di halaman" — dipertahankan apa adanya saat user mengetik. */
+const draftHiddenPageList = ref('')
 const draftPageNumberMode = ref<'startAt' | 'continue'>('startAt')
 const draftPageNumberStartAt = ref(1)
+/** Draft modal — peletakkan (kiri/tengah/kanan) per bagian, independen satu sama lain. */
+const draftHeaderAlign = ref<HeaderFooterAlign | undefined>(userHeaderAlign.value)
+const draftFooterAlign = ref<HeaderFooterAlign | undefined>(userFooterAlign.value)
+/**
+ * Flag bahwa user benar-benar mengklik tombol peletakkan di modal.
+ * Tanpa flag ini, membuka modal lalu "Terapkan" tanpa menyentuh peletakkan
+ * akan menuliskan nilai default dan mengubah tata letak dua-posisi dokumen
+ * lama (slot kiri ikut bergeser) tanpa disengaja.
+ */
+const placementTouched = ref(false)
+
+/**
+ * Nilai peletakkan yang TAMPIL di modal — default `'right'` saat belum di-set,
+ * karena posisi bawaan nomor halaman berada di kanan. Ini murni tampilan:
+ * persistensi tetap mengikuti nilai sebenarnya (`draftPlacement`) agar dokumen
+ * lama tanpa setting align tidak berubah hanya karena modal dibuka.
+ */
+const draftPlacementDisplay = computed<HeaderFooterAlign>(() => draftPlacement.value ?? 'right')
+
+/**
+ * Peletakkan yang dipilih di modal — mengikuti Posisi (radio header/footer):
+ * mengubah radio Posisi otomatis memindahkan sorotan peletakkan ke bagian tsb.
+ */
+const draftPlacement = computed<HeaderFooterAlign | undefined>({
+  get: () => (draftPageNumberPosition.value === 'footer' ? draftFooterAlign.value : draftHeaderAlign.value),
+  set: (v) => {
+    if (draftPageNumberPosition.value === 'footer') draftFooterAlign.value = v
+    else draftHeaderAlign.value = v
+  },
+})
+
+/** Klik tombol peletakkan di modal: toggle ke `undefined` (default) bila yang sama diklik lagi. */
+const toggleDraftPlacement = (align: HeaderFooterAlign) => {
+  placementTouched.value = true
+  draftPlacement.value = draftPlacement.value === align ? undefined : align
+}
+
+/** Path SVG ikon peletakkan (garis sejajar kiri/tengah/kanan), digabung menjadi satu `d`. */
+const alignPath = (align: HeaderFooterAlign) => ({
+  left: 'M21 5H3 M15 12H3 M17 19H3',
+  center: 'M21 5H3 M17 12H7 M19 19H5',
+  right: 'M21 5H3 M21 12H9 M21 19H7',
+}[align])
+
+/** Checkbox "Tampilkan di halaman pertama" ↔ angka `1` dalam daftar hidden. */
+const draftShowOnFirstPage = computed(() => !draftHiddenPageNumbers.value.includes(1))
+const onDraftShowOnFirstPageChange = (event: Event) => {
+  const show = (event.target as HTMLInputElement).checked
+  let list = draftHiddenPageNumbers.value
+  if (show) {
+    list = list.filter(n => n !== 1)
+  } else if (!list.includes(1)) {
+    list = [...list, 1].sort((a, b) => a - b)
+  }
+  draftHiddenPageNumbers.value = list
+  draftHiddenPageList.value = serializePageList(list)
+}
+watch(draftHiddenPageList, (raw) => {
+  draftHiddenPageNumbers.value = parsePageList(raw)
+})
+
+/** Parse input user "1, 3-5" → [1,3,4,5]; token tak valid diabaikan; unik & terurut. */
+const parsePageList = (input: string): number[] => {
+  const set = new Set<number>()
+  for (const part of String(input || '').split(',')) {
+    const token = part.trim()
+    if (!token) continue
+    const range = token.match(/^(\d+)\s*-\s*(\d+)$/)
+    if (range) {
+      const a = Math.max(1, Number(range[1]))
+      const b = Math.max(a, Number(range[2]))
+      for (let n = a; n <= b; n++) set.add(n)
+    } else if (/^\d+$/.test(token)) {
+      set.add(Math.max(1, Number(token)))
+    }
+  }
+  return [...set].sort((a, b) => a - b)
+}
+
+/** Kebalikan parsePageList: [1,3,4,5] → "1, 3-5". */
+const serializePageList = (pages: number[]): string => {
+  const sorted = [...pages].filter(n => Number.isFinite(n) && n >= 1).sort((a, b) => a - b)
+  if (sorted.length === 0) return ''
+  const parts: string[] = []
+  let start = sorted[0]
+  let prev = sorted[0]
+  for (let i = 1; i <= sorted.length; i++) {
+    const cur = sorted[i]
+    if (cur === prev + 1) {
+      prev = cur
+      continue
+    }
+    parts.push(start === prev ? String(start) : `${start}-${prev}`)
+    start = cur
+    prev = cur
+  }
+  return parts.join(', ')
+}
 
 const getResolvedPageNumber = (pageIndex: number) => {
-  if (!showPageNumberOnFirstPage.value && pageIndex === 0) return ''
-  let num = pageIndex + 1
+  const pageNum = pageIndex + 1
+  if (hiddenPageNumbers.value.includes(pageNum)) return ''
+  let num = pageNum
   if (pageNumberMode.value === 'startAt') {
     num = pageIndex + pageNumberStartAt.value
   }
   return String(num)
 }
 
-const applyHeaderFooter = () => {
-  if (!editor.value || !isReady.value) return
-  const totalStr = String(pageCount.value)
-  const root = editor.value.view.dom
+let isApplyingHeaderFooter = false
 
-  const defaultHLeft = userHeaderLeft.value.replace(/{total}/g, totalStr)
-  const defaultHRight = userHeaderRight.value.replace(/{total}/g, totalStr)
-  const defaultFLeft = userFooterLeft.value.replace(/{total}/g, totalStr)
-  const defaultFRight = userFooterRight.value.replace(/{total}/g, totalStr)
+const applyHeaderFooter = (dispatchTransaction = true) => {
+  if (!editor.value || !isReady.value || isApplyingHeaderFooter) return
+  isApplyingHeaderFooter = true
+  try {
+    const totalStr = String(pageCount.value)
+    const root = editor.value.view.dom
 
-  editor.value.commands.updateHeaderContent(defaultHLeft, defaultHRight)
-  editor.value.commands.updateFooterContent(defaultFLeft, defaultFRight)
-
-  const headerMarginPx = `${Math.max(0, headerMarginCm.value) * CM_TO_PX}px`
-  const footerMarginPx = `${Math.max(0, footerMarginCm.value) * CM_TO_PX}px`
-  root.style.setProperty('--rm-header-margin-top', headerMarginPx)
-  root.style.setProperty('--rm-footer-margin-bottom', footerMarginPx)
-
-  // Dispatch an empty transaction so PaginationPlus rebuilds its generated
-  // header/footer widgets after the content configuration changes.
-  editor.value.view.dispatch(editor.value.state.tr)
-
-  setTimeout(() => {
-    requestAnimationFrame(() => {
-      if (!editor.value || editor.value.view.dom !== root) return
-
-      const resolveHeader = (pageNumber: number, firstPage: boolean) => {
-        let left = defaultHLeft
-        let right = defaultHRight
-        if (firstPage && isDifferentFirstPage.value) {
-          left = userFirstPageHeaderLeft.value.replace(/{total}/g, totalStr)
-          right = userFirstPageHeaderRight.value.replace(/{total}/g, totalStr)
-        } else if (isDifferentOddEven.value && pageNumber % 2 === 0) {
-          left = userEvenPageHeaderLeft.value.replace(/{total}/g, totalStr)
-          right = userEvenPageHeaderRight.value.replace(/{total}/g, totalStr)
-        }
-        return {
-          left: left.replace(/{page}/g, getResolvedPageNumber(pageNumber - 1)),
-          right: right.replace(/{page}/g, getResolvedPageNumber(pageNumber - 1)),
-        }
+    // Peletakkan header/footer: class pada root editor (bertahan dari rebuild
+    // widget PaginationPlus). `undefined` = tanpa class (tata letak default:
+    // teks kiri, nomor kanan).
+    const setHfAlignClasses = () => {
+      const set = (section: 'header' | 'footer', align: HeaderFooterAlign | undefined) => {
+        root.classList.remove(
+          `rm-hf-${section}-align-left`,
+          `rm-hf-${section}-align-center`,
+          `rm-hf-${section}-align-right`,
+        )
+        if (align) root.classList.add(`rm-hf-${section}-align-${align}`)
       }
+      set('header', userHeaderAlign.value)
+      set('footer', userFooterAlign.value)
+    }
+    setHfAlignClasses()
 
-      const applyHeader = (header: Element, pageNumber: number, firstPage: boolean) => {
-        const content = resolveHeader(pageNumber, firstPage)
-        const left = header.querySelector('.rm-page-header-left')
-        const right = header.querySelector('.rm-page-header-right')
-        if (left) left.innerHTML = content.left
-        if (right) right.innerHTML = content.right
-      }
+    const defaultHLeft = userHeaderLeft.value.replace(/{total}/g, totalStr)
+    const defaultHRight = userHeaderRight.value.replace(/{total}/g, totalStr)
+    const defaultFLeft = userFooterLeft.value.replace(/{total}/g, totalStr)
+    const defaultFRight = userFooterRight.value.replace(/{total}/g, totalStr)
 
-      const firstHeader = root.querySelector('.rm-first-page-header')
-      if (firstHeader) applyHeader(firstHeader, 1, true)
+    editor.value.commands.updateHeaderContent(defaultHLeft, defaultHRight)
+    editor.value.commands.updateFooterContent(defaultFLeft, defaultFRight)
 
-      Array.from(root.querySelectorAll('.rm-page-break .rm-page-header')).forEach((header, index) => {
-        applyHeader(header, index + 2, false)
+    const headerMarginPx = `${Math.max(0, headerMarginCm.value) * CM_TO_PX}px`
+    const footerMarginPx = `${Math.max(0, footerMarginCm.value) * CM_TO_PX}px`
+    root.style.setProperty('--rm-header-margin-top', headerMarginPx)
+    root.style.setProperty('--rm-footer-margin-bottom', footerMarginPx)
+
+    // Dispatch an empty transaction so PaginationPlus rebuilds its generated
+    // header/footer widgets after the content configuration changes (skip if called from pageCount watcher).
+    if (dispatchTransaction) {
+      editor.value.view.dispatch(editor.value.state.tr)
+    }
+
+    setTimeout(() => {
+      requestAnimationFrame(() => {
+        if (!editor.value || editor.value.view.dom !== root) return
+
+        const resolveHeader = (pageNumber: number, firstPage: boolean) => {
+          let left = defaultHLeft
+          let right = defaultHRight
+          if (firstPage && isDifferentFirstPage.value) {
+            left = userFirstPageHeaderLeft.value.replace(/{total}/g, totalStr)
+            right = userFirstPageHeaderRight.value.replace(/{total}/g, totalStr)
+          } else if (isDifferentOddEven.value && pageNumber % 2 === 0) {
+            left = userEvenPageHeaderLeft.value.replace(/{total}/g, totalStr)
+            right = userEvenPageHeaderRight.value.replace(/{total}/g, totalStr)
+          }
+          return {
+            left: left.replace(/{page}/g, getResolvedPageNumber(pageNumber - 1)),
+            right: right.replace(/{page}/g, getResolvedPageNumber(pageNumber - 1)),
+          }
+        }
+
+        const applyHeader = (header: Element, pageNumber: number, firstPage: boolean) => {
+          const content = resolveHeader(pageNumber, firstPage)
+          const left = header.querySelector('.rm-page-header-left')
+          const right = header.querySelector('.rm-page-header-right')
+          if (left) left.innerHTML = content.left
+          if (right) right.innerHTML = content.right
+        }
+
+        const firstHeader = root.querySelector('.rm-first-page-header')
+        if (firstHeader) applyHeader(firstHeader, 1, true)
+
+        Array.from(root.querySelectorAll('.rm-page-break .rm-page-header')).forEach((header, index) => {
+          applyHeader(header, index + 2, false)
+        })
+
+        Array.from(root.querySelectorAll('.rm-page-break .rm-page-footer')).forEach((footer, index) => {
+          const pageNumber = index + 1
+          const pageValue = getResolvedPageNumber(pageNumber - 1)
+          const left = footer.querySelector('.rm-page-footer-left')
+          const right = footer.querySelector('.rm-page-footer-right')
+          if (left) left.innerHTML = defaultFLeft.replace(/{page}/g, pageValue)
+          if (right) right.innerHTML = defaultFRight.replace(/{page}/g, pageValue)
+        })
       })
-
-      Array.from(root.querySelectorAll('.rm-page-break .rm-page-footer')).forEach((footer, index) => {
-        const pageNumber = index + 1
-        const pageValue = getResolvedPageNumber(pageNumber - 1)
-        const left = footer.querySelector('.rm-page-footer-left')
-        const right = footer.querySelector('.rm-page-footer-right')
-        if (left) left.innerHTML = defaultFLeft.replace(/{page}/g, pageValue)
-        if (right) right.innerHTML = defaultFRight.replace(/{page}/g, pageValue)
-      })
-    })
-  }, 50)
+    }, 50)
+  } finally {
+    isApplyingHeaderFooter = false
+  }
 }
 
 watch(isDifferentFirstPage, () => {
   applyHeaderFooter()
 })
 
-watch([isDifferentOddEven, headerMarginCm, footerMarginCm, pageNumberPosition, showPageNumberOnFirstPage, pageNumberMode, pageNumberStartAt], () => {
+watch([isDifferentOddEven, headerMarginCm, footerMarginCm, pageNumberPosition, hiddenPageNumbers, pageNumberMode, pageNumberStartAt], () => {
   applyHeaderFooter()
 })
 
 watch(pageCount, (next) => {
-  applyHeaderFooter()
+  applyHeaderFooter(false)
   emit('update:pageCount', next)
 })
 
@@ -936,6 +1117,10 @@ watch(isReady, (ready) => {
       userFooterRight.value = editor.value.storage.PaginationPlus?.appliedConfig?.footerRight || ''
     }
 
+    // Issue #133 (0.0.68): selaraskan posisi nomor halaman dengan lokasi token
+    // `{page}` yang dimuat (mis. FE default footerRight '{page}' → 'footer').
+    syncPageNumberPositionFromToken()
+
     // Apply header & footer with correct page stats
     applyHeaderFooter()
 
@@ -981,13 +1166,32 @@ watch(isReady, (ready) => {
       }
     })
 
+    // Issue #219: ⌘L / Ctrl+L opens the AI chat (built-in sidebar, or the
+    // host's own panel via the `onAiChat` prop). `preventDefault` also
+    // swallows the browser default (address-bar focus) while the editor has
+    // focus.
+    if (aiChatKeydown) {
+      editor.value.view.dom.removeEventListener('keydown', aiChatKeydown)
+    }
+    aiChatKeydown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'l') {
+        e.preventDefault()
+        requestAiChat()
+      }
+    }
+    editor.value.view.dom.addEventListener('keydown', aiChatKeydown)
+
     // Handle clicks on top margin / page header area to activate header inline editing
     editor.value.view.dom.addEventListener('click', (e: MouseEvent) => {
       const target = e.target as HTMLElement | null
       if (!target) return
 
-      // Ignore clicks on options dropdown, active bar tools, or active editable header
-      if (target.closest('.rm-google-docs-header-bar, .rm-options-dropdown, [contenteditable="true"]')) return
+      // Hanya double-click (2x) yang membuka setup header/footer (instruksi
+      // user 27/08/2026). Klik tunggal (detail 1) diabaikan sepenuhnya.
+      if (e.detail !== 2) return
+
+      // Ignore clicks on options dropdown, active bar tools, or active editable header/footer
+      if (target.closest('.rm-google-docs-header-bar, .rm-google-docs-footer-bar, .rm-options-dropdown, [contenteditable="true"]')) return
 
       // Direct click on header or its children
       const headerEl = target.closest<HTMLElement>('.rm-page-header, .rm-first-page-header')
@@ -996,7 +1200,14 @@ watch(isReady, (ready) => {
         return
       }
 
-      // Click on top margin boundary area of editor or page
+      // Direct click on footer or its children → inline edit footer
+      const footerEl = target.closest<HTMLElement>('.rm-page-footer')
+      if (footerEl) {
+        startInlineFooterEdit(e)
+        return
+      }
+
+      // Click on top/bottom margin boundary area of editor or page
       const pageWrap = target.closest<HTMLElement>('.rm-with-pagination, .rm-page-break, .page, .docs-editor-page')
       if (pageWrap) {
         const rect = pageWrap.getBoundingClientRect()
@@ -1013,31 +1224,28 @@ watch(isReady, (ready) => {
           if (targetHeader) {
             startInlineHeaderEdit(e)
           }
+          return
         }
-      }
-    })
-
-    // Handle double clicks on bottom margin / footer area to open footer modal
-    editor.value.view.dom.addEventListener('dblclick', (e: MouseEvent) => {
-      const target = e.target as HTMLElement | null
-      if (!target) return
-
-      const footerEl = target.closest<HTMLElement>('.rm-page-footer')
-      if (footerEl) {
-        openFooterModal()
-        return
-      }
-
-      const pageWrap = target.closest<HTMLElement>('.rm-with-pagination, .rm-page-break, .page, .docs-editor-page')
-      if (pageWrap) {
-        const rect = pageWrap.getBoundingClientRect()
-        const relativeY = rect.bottom - e.clientY
+        const relativeBottom = rect.bottom - e.clientY
         const bottomMarginPx = footerMarginCm.value * 37.795
-        if (relativeY >= 0 && relativeY <= Math.max(bottomMarginPx, 40) + 15) {
-          openFooterModal()
+        if (relativeBottom >= 0 && relativeBottom <= Math.max(bottomMarginPx, 40) + 15) {
+          let targetFooter: HTMLElement | null = null
+          if (pageWrap.classList.contains('rm-page-break')) {
+            targetFooter = pageWrap.querySelector<HTMLElement>('.rm-page-footer')
+          }
+          if (!targetFooter) {
+            targetFooter = document.querySelector<HTMLElement>('.rm-page-footer')
+          }
+          if (targetFooter) {
+            startInlineFooterEdit(e)
+          }
         }
       }
     })
+
+    // Dblclick untuk membuka modal footer lama dihapus: semua klik pada area
+    // footer/margin bawah kini menuju inline edit footer (lihat onFooterClick
+    // dan listener click di atas), simetris dengan header.
   }
 })
 
@@ -1045,15 +1253,10 @@ watch(() => props.collaboration, () => {}, { deep: true })
 onUnmounted(() => {
   finishHeaderEdit(false)
   if (saveTimer.value) clearTimeout(saveTimer.value)
-  if (scrollTimeout) clearTimeout(scrollTimeout)
   if (resizeTimer) clearTimeout(resizeTimer)
   if (updateFootnotesTimer) clearTimeout(updateFootnotesTimer)
   window.removeEventListener('resize', onResize)
 })
-
-const showFooterModal = ref(false)
-const footerLeftInput = ref('')
-const footerRightInput = ref('')
 
 const showPageSetupModal = ref(false)
 const showDetailsModal = ref(false)
@@ -1211,6 +1414,27 @@ interface HeaderEditSession {
 
 const headerEditSession: { value: HeaderEditSession | null } = { value: null }
 
+/** Sesi edit inline footer (mirror header). Footer bersifat global: semua
+ *  halaman berbagi satu konten (`userFooterLeft`), tanpa varian halaman
+ *  pertama / ganjil-genap. */
+const isFooterActive = ref(false)
+
+interface FooterEditSession {
+  targetFooter: HTMLElement
+  overlay: HTMLElement
+  input: HTMLElement
+  activeBar: HTMLElement
+  generatedContent: HTMLElement | null
+  pageIndex: number
+  onOutsideMouseDown: (event: MouseEvent) => void
+  onInputBlur: () => void
+  onResize: () => void
+  onScroll: () => void
+  onWindowScroll: () => void
+}
+
+const footerEditSession: { value: FooterEditSession | null } = { value: null }
+
 const openHeaderFormatModal = () => {
   draftHeaderMarginCm.value = headerMarginCm.value
   draftFooterMarginCm.value = footerMarginCm.value
@@ -1236,16 +1460,43 @@ const applyHeaderFormat = () => {
 }
 
 const openPageNumberModal = () => {
+  // Issue #133 (0.0.68): radio posisi mengikuti lokasi token `{page}` yang
+  // sebenarnya, bukan state lama yang bisa basi (default `'header'`).
+  // Tanpa ini, dokumen yang nomornya ada di footer akan terbaca "header" dan
+  // menekan Terapkan tanpa mengubah apa pun memindahkan nomor ke header.
+  syncPageNumberPositionFromToken()
   draftPageNumberPosition.value = pageNumberPosition.value
-  draftShowPageNumberOnFirstPage.value = showPageNumberOnFirstPage.value
+  draftHiddenPageNumbers.value = [...hiddenPageNumbers.value]
+  draftHiddenPageList.value = serializePageList(draftHiddenPageNumbers.value)
   draftPageNumberMode.value = pageNumberMode.value
   draftPageNumberStartAt.value = pageNumberStartAt.value
+  draftHeaderAlign.value = userHeaderAlign.value
+  draftFooterAlign.value = userFooterAlign.value
+  placementTouched.value = false
   showPageNumberModal.value = true
+}
+
+/**
+ * Sinkronkan `pageNumberPosition` dengan lokasi token `{page}` yang nyata
+ * di konten header/footer. Token di footer → `'footer'`; token di header
+ * (atau tidak ada di mana pun) → `'header'`. Dipanggil saat modal dibuka
+ * dan saat dokumen dimuat, supaya radio modal & logika pemindahan token
+ * (applyPageNumberSettings) tidak bergeser tanpa disengaja.
+ */
+const syncPageNumberPositionFromToken = () => {
+  const token = '{page}'
+  const headerHasToken = [userHeaderLeft.value, userHeaderRight.value].some(v => v.includes(token))
+  const footerHasToken = [userFooterLeft.value, userFooterRight.value].some(v => v.includes(token))
+  if (footerHasToken && !headerHasToken) {
+    pageNumberPosition.value = 'footer'
+  } else {
+    pageNumberPosition.value = 'header'
+  }
 }
 
 const applyPageNumberSettings = () => {
   pageNumberPosition.value = draftPageNumberPosition.value
-  showPageNumberOnFirstPage.value = draftShowPageNumberOnFirstPage.value
+  hiddenPageNumbers.value = parsePageList(draftHiddenPageList.value)
   pageNumberMode.value = draftPageNumberMode.value
   pageNumberStartAt.value = draftPageNumberStartAt.value
   showPageNumberModal.value = false
@@ -1266,6 +1517,19 @@ const applyPageNumberSettings = () => {
     userHeaderRight.value = pageToken
   }
 
+  // Terapkan peletakkan sesuai Posisi yang dipilih (per-bagian, independen —
+  // bagian lain tidak disentuh walaupun draft-nya ikut terbawa ke modal).
+  // Hanya ditulis bila user benar-benar mengklik tombol peletakkan
+  // (`placementTouched`); membuka modal lalu Terapkan tanpa menyentuh
+  // peletakkan tidak mengubah tata letak dua-posisi dokumen lama.
+  if (placementTouched.value) {
+    if (pageNumberPosition.value === 'footer') {
+      userFooterAlign.value = draftFooterAlign.value
+    } else {
+      userHeaderAlign.value = draftHeaderAlign.value
+    }
+  }
+
   applyHeaderFooter()
   persistCurrentDoc()
 }
@@ -1277,6 +1541,16 @@ const clearHeaderContent = () => {
   persistCurrentDoc()
   isHeaderActive.value = false
 }
+
+const clearFooterContent = () => {
+  userFooterLeft.value = ''
+  userFooterRight.value = ''
+  applyHeaderFooter()
+  persistCurrentDoc()
+  isFooterActive.value = false
+}
+
+const getFooterEditValue = (): string => userFooterLeft.value
 
 const getHeaderEditValue = (pageNumber: number): string => {
   const isFirstPage = pageNumber === 1
@@ -1310,6 +1584,29 @@ const finishHeaderEdit = (commit = true) => {
   } else {
     userHeaderLeft.value = value
   }
+
+  applyHeaderFooter()
+  persistCurrentDoc()
+}
+
+const finishFooterEdit = (commit = true) => {
+  const session = footerEditSession.value
+  if (!session) return
+
+  const value = session.input.innerHTML.trim()
+  document.removeEventListener('mousedown', session.onOutsideMouseDown)
+  window.removeEventListener('resize', session.onResize)
+  window.removeEventListener('scroll', session.onWindowScroll)
+  scrollContainerRef.value?.removeEventListener('scroll', session.onScroll)
+  session.overlay.remove()
+  if (session.generatedContent) session.generatedContent.style.visibility = ''
+  session.targetFooter.classList.remove('rm-footer-active')
+  footerEditSession.value = null
+  isFooterActive.value = false
+
+  if (!commit) return
+
+  userFooterLeft.value = value
 
   applyHeaderFooter()
   persistCurrentDoc()
@@ -1351,7 +1648,48 @@ const positionHeaderEdit = (session: HeaderEditSession) => {
   session.activeBar.style.setProperty('--rm-header-bar-padding-right', `${rightInset}px`)
 }
 
+const positionFooterEdit = (session: FooterEditSession) => {
+  if (!session.targetFooter.parentNode || !editor.value) return
+
+  const root = editor.value.view.dom
+  const footerRect = session.targetFooter.getBoundingClientRect()
+  const paperRect = root.getBoundingClientRect()
+
+  // Footers always live inside the full-bleed page breaker, so the element
+  // rectangle spans the paper edge-to-edge while the footer content is inset
+  // by the body margins (`.rm-page-footer-left/right` float margins). The
+  // overlay aligns to the CONTENT rectangle, and the toolbar bar sits ABOVE
+  // the footer (bottom: 100%) so it never covers the footer text.
+  const paperStyle = getComputedStyle(root)
+  const bodyMarginLeft = parseFloat(paperStyle.getPropertyValue('--rm-margin-left')) || 0
+  const bodyMarginRight = parseFloat(paperStyle.getPropertyValue('--rm-margin-right')) || 0
+  const contentEl = session.targetFooter.querySelector('.rm-page-footer-content')
+  const contentRect = contentEl?.getBoundingClientRect() ?? footerRect
+  const contentLeft = footerRect.left + bodyMarginLeft
+  const contentRight = footerRect.right - bodyMarginRight
+
+  const leftInset = Math.max(0, contentLeft - paperRect.left)
+  const rightInset = Math.max(0, paperRect.right - contentRight)
+
+  session.overlay.style.left = `${contentLeft}px`
+  session.overlay.style.top = `${contentRect.top}px`
+  session.overlay.style.width = `${Math.max(contentRight - contentLeft, 1)}px`
+  session.overlay.style.height = `${Math.max(contentRect.height, 24)}px`
+  session.activeBar.style.setProperty('--rm-footer-bar-left', `${-leftInset}px`)
+  session.activeBar.style.setProperty('--rm-footer-bar-width', `${paperRect.width}px`)
+  session.activeBar.style.setProperty('--rm-footer-bar-padding-left', `${leftInset}px`)
+  session.activeBar.style.setProperty('--rm-footer-bar-padding-right', `${rightInset}px`)
+}
+
 const startInlineHeaderEdit = (event?: MouseEvent) => {
+  // Cross-type: mulai edit header menutup sesi edit footer yang sedang aktif
+  // (commit) — kecuali klik terjadi di dalam overlay footer.
+  const existingFooter = footerEditSession.value
+  if (existingFooter) {
+    const target = event?.target
+    if (target instanceof Node && existingFooter.overlay.contains(target)) return
+    finishFooterEdit(true)
+  }
   const existing = headerEditSession.value
   if (existing) {
     const target = event?.target
@@ -1538,22 +1876,162 @@ const startInlineHeaderEdit = (event?: MouseEvent) => {
   selection?.addRange(range)
 }
 
-const openFooterModal = () => {
-  if (!editor.value) return
-  footerLeftInput.value = userFooterLeft.value || editor.value.storage.PaginationPlus?.appliedConfig?.footerLeft || ''
-  footerRightInput.value = userFooterRight.value || editor.value.storage.PaginationPlus?.appliedConfig?.footerRight || ''
-  showFooterModal.value = true
-}
+const startInlineFooterEdit = (event?: MouseEvent) => {
+  // Cross-type: mulai edit footer menutup sesi edit header yang sedang aktif
+  // (commit) — kecuali klik terjadi di dalam overlay header.
+  const existingHeader = headerEditSession.value
+  if (existingHeader) {
+    const target = event?.target
+    if (target instanceof Node && existingHeader.overlay.contains(target)) return
+    finishHeaderEdit(true)
+  }
+  const existing = footerEditSession.value
+  if (existing) {
+    const target = event?.target
+    if (!target || target instanceof Node && existing.targetFooter.contains(target)) return
+    finishFooterEdit(false)
+  }
 
-const saveFooter = () => {
-  if (!editor.value) return
-  userFooterLeft.value = footerLeftInput.value
-  userFooterRight.value = footerRightInput.value
+  let footerEl: HTMLElement | null = null
+  if (event) {
+    const target = event.target as HTMLElement | null
+    footerEl = target?.closest('.rm-page-footer') as HTMLElement | null
+  }
+  if (!footerEl) {
+    footerEl = editor.value?.view.dom.querySelector('.rm-page-footer') as HTMLElement | null
+  }
+  if (!footerEl || !editor.value) return
 
-  applyHeaderFooter()
-  persistCurrentDoc()
+  const root = editor.value.view.dom
+  // Page mapping: each `.rm-page-break .rm-page-footer` is the footer of the
+  // page at `index + 1` (the first break contains the first-page footer).
+  const breakFooters = Array.from(root.querySelectorAll<HTMLElement>('.rm-page-break .rm-page-footer'))
+  const pageNumber = breakFooters.indexOf(footerEl) + 1
+  const generatedContent = footerEl.querySelector('.rm-page-footer-content') as HTMLElement | null
+  if (generatedContent) generatedContent.style.visibility = 'hidden'
+  const input = document.createElement('div')
+  input.className = 'rm-footer-edit-input'
+  input.contentEditable = 'true'
+  input.setAttribute('role', 'textbox')
+  input.setAttribute('aria-label', t('editor.headerFooter.footer') || 'Footer')
+  input.dataset.placeholder = t('editor.headerFooter.footerPlaceholder') || 'Footer'
+  input.innerHTML = getFooterEditValue()
 
-  showFooterModal.value = false
+  const overlay = document.createElement('div')
+  overlay.className = 'rm-footer-edit-overlay'
+  overlay.appendChild(input)
+
+  const activeBar = document.createElement('div')
+  activeBar.className = 'rm-google-docs-footer-bar'
+  activeBar.innerHTML = `
+    <span class="rm-footer-label">${t('editor.headerFooter.footer') || 'Footer'}</span>
+    <div class="rm-footer-right-tools">
+      <div class="rm-options-wrapper">
+        <button type="button" class="rm-options-btn">
+          <span>${t('editor.headerFooter.options') || 'Options'}</span>
+          <span class="rm-arrow-icon" style="font-size: 8px;">▼</span>
+        </button>
+        <div class="rm-options-dropdown">
+          <button type="button" class="rm-opt-page-num">${t('editor.headerFooter.pageNumber') || 'Page numbers'}</button>
+          <button type="button" class="rm-opt-remove">${t('editor.headerFooter.removeFooter') || 'Remove footer'}</button>
+        </div>
+      </div>
+    </div>
+  `
+  overlay.appendChild(activeBar)
+  document.body.appendChild(overlay)
+
+  footerEl.classList.add('rm-footer-active')
+
+  const onResize = () => {
+    const current = footerEditSession.value
+    if (current) positionFooterEdit(current)
+  }
+  const onScroll = onResize
+  const onWindowScroll = onResize
+  const onOutsideMouseDown = (mouseEvent: MouseEvent) => {
+    const target = mouseEvent.target
+    if (target instanceof Node && overlay.contains(target)) return
+    if (target instanceof Element && target.closest('.fixed.z-50')) return
+    finishFooterEdit(true)
+  }
+  const onInputBlur = () => {
+    requestAnimationFrame(() => {
+      const current = footerEditSession.value
+      if (current && !current.overlay.contains(document.activeElement)) finishFooterEdit(true)
+    })
+  }
+
+  const session: FooterEditSession = {
+    targetFooter: footerEl,
+    overlay,
+    input,
+    activeBar,
+    generatedContent,
+    pageIndex: pageNumber,
+    onOutsideMouseDown,
+    onInputBlur,
+    onResize,
+    onScroll,
+    onWindowScroll,
+  }
+  footerEditSession.value = session
+  isFooterActive.value = true
+
+  const optionsButton = activeBar.querySelector('.rm-options-btn') as HTMLButtonElement | null
+  const dropdown = activeBar.querySelector('.rm-options-dropdown') as HTMLElement | null
+  const arrow = activeBar.querySelector('.rm-arrow-icon') as HTMLElement | null
+  optionsButton?.addEventListener('mousedown', (mouseEvent) => {
+    mouseEvent.stopPropagation()
+    mouseEvent.preventDefault()
+  })
+  optionsButton?.addEventListener('click', (clickEvent) => {
+    clickEvent.stopPropagation()
+    clickEvent.preventDefault()
+    const open = dropdown?.classList.toggle('is-open') ?? false
+    if (arrow) arrow.textContent = open ? '▲' : '▼'
+  })
+
+  const pageNumberButton = activeBar.querySelector('.rm-opt-page-num') as HTMLButtonElement | null
+  pageNumberButton?.addEventListener('mousedown', (mouseEvent) => {
+    mouseEvent.stopPropagation()
+    mouseEvent.preventDefault()
+  })
+  pageNumberButton?.addEventListener('click', (clickEvent) => {
+    clickEvent.stopPropagation()
+    finishFooterEdit(true)
+    openPageNumberModal()
+  })
+
+  const removeButton = activeBar.querySelector('.rm-opt-remove') as HTMLButtonElement | null
+  removeButton?.addEventListener('mousedown', (mouseEvent) => {
+    mouseEvent.stopPropagation()
+    mouseEvent.preventDefault()
+  })
+  removeButton?.addEventListener('click', (clickEvent) => {
+    clickEvent.stopPropagation()
+    finishFooterEdit(false)
+    clearFooterContent()
+  })
+
+  input.addEventListener('blur', onInputBlur)
+  document.addEventListener('mousedown', onOutsideMouseDown)
+  window.addEventListener('resize', onResize)
+  window.addEventListener('scroll', onWindowScroll)
+  scrollContainerRef.value?.addEventListener('scroll', onScroll)
+  // Position once the DOM/layout has settled (PaginationPlus may still be
+  // rebuilding its generated widgets when the edit session starts).
+  requestAnimationFrame(() => {
+    if (footerEditSession.value === session) positionFooterEdit(session)
+  })
+  input.focus()
+
+  const selection = window.getSelection()
+  const range = document.createRange()
+  range.selectNodeContents(input)
+  range.collapse(false)
+  selection?.removeAllRanges()
+  selection?.addRange(range)
 }
 
 // ─── Edit / Format menu commands ─────────────────────────────────────────────
@@ -1772,7 +2250,9 @@ let menuClick = (action: string) => {
   } else if (action === 'insert-header') {
     startInlineHeaderEdit()
   } else if (action === 'insert-footer') {
-    openFooterModal()
+    // Sama seperti header: Insert Footer membuka mode inline edit (gaya Google
+    // Docs), bukan modal lama.
+    startInlineFooterEdit()
   } else if (action === 'toggle-pageless') {
     applyPageless(!isPageless.value)
   } else if (action === 'toggle-left-sidebar') {
@@ -1783,7 +2263,7 @@ let menuClick = (action: string) => {
     focusMode.value = !focusMode.value
     if (focusMode.value) activeSidebar.value = null
   } else if (action === 'new-help-me-create') {
-    toggleSidebar('ai')
+    requestAiChat()
   } else if (action === 'insert-footnote') {
     // Use ProseMirror's transaction API directly — more reliable than chain()
     // because chain().focus() can fail when focus has left the editor via menu click.
@@ -1818,6 +2298,39 @@ let menuClick = (action: string) => {
   }
 }
 let toggleSidebar = (key: SidebarKey) => { activeSidebar.value = activeSidebar.value === key ? null : key }
+
+// Issue #219 — "Chat" trigger shared by the bubble-menu button, ⌘L/Ctrl+L and
+// the "Help me create" action. A host that provides its OWN chat panel binds
+// `:on-ai-chat` (same pattern as `onImageUpload`); without it we fall back to
+// the built-in AI sidebar so the library stays self-contained.
+function requestAiChat() {
+  if (typeof props.onAiChat === 'function') {
+    props.onAiChat(collectAiChatRequest())
+    return
+  }
+  toggleSidebar('ai')
+}
+
+/**
+ * Build the host payload: selected text (when the selection is not empty) plus
+ * the cursor/selection location — the same context `AISidebar` uses, so a host
+ * chat panel can pre-fill its prompt with identical grounding. Best-effort:
+ * any failure degrades to an empty context object.
+ */
+function collectAiChatRequest(): AiChatRequestContext {
+  const ed = toRaw(editor.value)
+  const payload: AiChatRequestContext = { context: {} }
+  if (!ed) return payload
+  const { from, to, empty } = ed.state.selection
+  if (!empty) payload.selection = ed.state.doc.textBetween(from, to, '\n', ' ')
+  try {
+    const location: AIContextLocation = collectSelectionContext(ed)
+    payload.context = location
+  } catch {
+    payload.context = {}
+  }
+  return payload
+}
 let handlePrint = () => window.print()
 
 // ─── Footnote (Catatan Kaki) ──────────────────────────────────────────────────
@@ -2118,7 +2631,13 @@ v-if="!focusMode"
     >
       <Minimize2 class="h-5 w-5" />
     </button>
-    <BubbleMenu :visible="showBubbleMenu" :actions="pluginActions" :position="bubblePosition" :editor="editor" />
+    <BubbleMenu
+      :visible="showBubbleMenu"
+      :actions="pluginActions"
+      :position="bubblePosition"
+      :editor="editor"
+      @chat="requestAiChat"
+    />
     <SlashMenuVue :editor="editor" :commands="slashCommands" />
     <div class="docs-editor__body relative flex flex-1 overflow-hidden">
       <!-- Find & replace floating panel (Edit menu / ⌘⇧H) -->
@@ -2225,46 +2744,6 @@ v-if="!focusMode"
       :page-size="pageSizeId" :page-sizes="PAGE_SIZES" :pageless="isPageless"
       @update:page-size="pageSizeId = $event; emit('update:pageSize', $event)" />
 
-    <!-- Dialog Footer Customization -->
-    <div v-if="showFooterModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm px-4">
-      <div class="w-full max-w-lg rounded-xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-800 dark:bg-[#0e1525] text-slate-800 dark:text-slate-200">
-        <h2 class="text-lg font-bold mb-4">{{ t('editor.headerFooter.footer') }}</h2>
-        
-        <!-- Footer Section -->
-        <div class="mb-6">
-          <div class="flex justify-between items-center mb-2">
-            <h3 class="text-sm font-semibold text-slate-500 dark:text-slate-400">{{ t('editor.headerFooter.footer') }}</h3>
-            <button type="button" class="text-[11px] text-red-500 hover:text-red-600 font-medium transition-colors" @click="footerLeftInput = ''; footerRightInput = ''">{{ t('editor.headerFooter.clear') }}</button>
-          </div>
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="text-[11px] font-medium block mb-1">{{ t('editor.headerFooter.left') }}</label>
-              <input v-model="footerLeftInput" type="text" class="w-full rounded-md border border-slate-200 bg-transparent px-3 py-1.5 text-xs focus:outline-none dark:border-slate-700" :placeholder="t('editor.headerFooter.footerLeftPlaceholder')">
-            </div>
-            <div>
-              <label class="text-[11px] font-medium block mb-1">{{ t('editor.headerFooter.right') }}</label>
-              <input v-model="footerRightInput" type="text" class="w-full rounded-md border border-slate-200 bg-transparent px-3 py-1.5 text-xs focus:outline-none dark:border-slate-700" :placeholder="t('editor.headerFooter.footerRightPlaceholder')">
-            </div>
-          </div>
-        </div>
-
-        <!-- Variables Info -->
-        <div class="rounded-lg bg-slate-50 p-3 text-[11px] text-slate-500 dark:bg-white/5 dark:text-slate-400 mb-6">
-          {{ t('editor.headerFooter.variableInfo') }}
-        </div>
-
-        <!-- Actions -->
-        <div class="flex justify-end gap-2">
-          <button type="button" class="rounded-md px-3 py-1.5 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-white/5" @click="showFooterModal = false">
-            {{ t('editor.headerFooter.cancel') }}
-          </button>
-          <button type="button" class="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700" @click="saveFooter">
-            {{ t('editor.headerFooter.save') }}
-          </button>
-        </div>
-      </div>
-    </div>
-
     <!-- Dialog Header & Footer Format (Google Docs Style) -->
     <div v-if="showHeaderFormatModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm px-4 select-none">
       <div class="w-full max-w-sm rounded-3xl border border-slate-100 bg-white p-7 shadow-2xl dark:border-slate-800 dark:bg-[#0e1525] text-slate-800 dark:text-slate-200">
@@ -2334,10 +2813,33 @@ v-if="!focusMode"
               <span>{{ t('editor.headerFooter.positionFooter') }}</span>
             </label>
             <label class="flex items-center gap-3 cursor-pointer text-xs font-medium text-slate-700 dark:text-slate-300 select-none pt-1">
-              <input v-model="draftShowPageNumberOnFirstPage" type="checkbox" class="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
+              <input :checked="draftShowOnFirstPage" type="checkbox" class="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" @change="onDraftShowOnFirstPageChange" />
               <span>{{ t('editor.headerFooter.showOnFirstPage') }}</span>
             </label>
           </div>
+        </div>
+
+        <!-- Peletakkan Section -->
+        <div class="mb-6">
+          <h3 class="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-3">{{ t('editor.headerFooter.placementSection') }}</h3>
+          <div class="grid grid-cols-3 gap-2" role="group" :aria-label="t('editor.headerFooter.alignPlacement')">
+            <button
+              v-for="align in (['left', 'center', 'right'] as HeaderFooterAlign[])"
+              :key="align"
+              type="button"
+              class="flex items-center justify-center rounded-lg border px-3 py-2 transition-colors"
+              :class="draftPlacementDisplay === align
+                ? 'border-blue-600 bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300'
+                : 'border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5'"
+              :title="t(`editor.headerFooter.align${align === 'left' ? 'Left' : align === 'center' ? 'Center' : 'Right'}`)"
+              @click="toggleDraftPlacement(align)"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path :d="alignPath(align)" />
+              </svg>
+            </button>
+          </div>
+          <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-1.5">{{ t('editor.headerFooter.placementHint') }}</p>
         </div>
 
         <!-- Penomoran Section -->
@@ -2355,6 +2857,11 @@ v-if="!focusMode"
               <input v-model="draftPageNumberMode" type="radio" value="continue" class="w-4 h-4 text-blue-600 focus:ring-blue-500" />
               <span>{{ t('editor.headerFooter.continueFromPrevious') }}</span>
             </label>
+            <div class="pt-2">
+              <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">{{ t('editor.headerFooter.hideOnPages') }}</label>
+              <input v-model="draftHiddenPageList" type="text" :placeholder="t('editor.headerFooter.hideOnPagesPlaceholder')" class="w-full rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a2332] px-2.5 py-1.5 text-xs text-slate-800 dark:text-slate-100 focus:border-blue-600 focus:outline-none" />
+              <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-1">{{ t('editor.headerFooter.hideOnPagesHint') }}</p>
+            </div>
           </div>
         </div>
 
