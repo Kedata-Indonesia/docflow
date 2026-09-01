@@ -66,6 +66,8 @@ export interface AIActionRequest {
   selection?: string
   /** Bounded surrounding text — never the whole document. */
   context?: { before: string; after: string } & AIContextLocation
+  /** Cursor location context (page, line, paragraph index, section heading). */
+  location?: AIContextLocation
   /** User instruction (/ai prompt, chat message, tone target, target language). */
   prompt?: string
   /** For doc-aware chat / RAG scoping. */

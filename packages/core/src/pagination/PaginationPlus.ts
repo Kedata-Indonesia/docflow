@@ -198,21 +198,6 @@ const calculatePageCount = (view: EditorView, pageOptions: any, headerHeight = 0
           }
         }
 
-        const prev = pageGapTracker.get(editorDom)
-        if (prev && prev.pages < currentPageCount && lastPageGap > prev.gap - 2) {
-          return currentPageCount
-        }
-
-        const recent = prev?.recent ?? []
-        let flapping = prev?.flapping ?? []
-        if (recent.length >= 4 && recent.filter((p) => p === currentPageCount + addPage).length >= 2) {
-          flapping = [...new Set([...flapping, currentPageCount + addPage, currentPageCount])]
-          pageGapTracker.set(editorDom, { gap: lastPageGap, pages: currentPageCount, recent, flapping })
-          return currentPageCount
-        }
-
-        pageGapTracker.set(editorDom, { gap: lastPageGap, pages: currentPageCount, recent, flapping })
-
         let totalEditorContentHeight = 0
         for (const child of Array.from(editorDom.children)) {
           if (!(child instanceof HTMLElement)) continue
@@ -223,6 +208,21 @@ const calculatePageCount = (view: EditorView, pageOptions: any, headerHeight = 0
 
         const maxPagesByContent = Math.ceil(totalEditorContentHeight / pageContentAreaHeight)
         const contentCap = Math.max(currentPageCount, maxPagesByContent + 1)
+
+        const prev = pageGapTracker.get(editorDom)
+        if (prev && prev.pages < currentPageCount && lastPageGap > prev.gap - 2 && currentPageCount >= maxPagesByContent) {
+          return currentPageCount
+        }
+
+        const recent = prev?.recent ?? []
+        let flapping = prev?.flapping ?? []
+        if (recent.length >= 4 && recent.filter((p) => p === currentPageCount + addPage).length >= 2 && currentPageCount >= maxPagesByContent) {
+          flapping = [...new Set([...flapping, currentPageCount + addPage, currentPageCount])]
+          pageGapTracker.set(editorDom, { gap: lastPageGap, pages: currentPageCount, recent, flapping })
+          return currentPageCount
+        }
+
+        pageGapTracker.set(editorDom, { gap: lastPageGap, pages: currentPageCount, recent, flapping })
         if (currentPageCount + addPage > contentCap) {
           return contentCap
         }
