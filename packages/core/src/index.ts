@@ -46,7 +46,7 @@ export {
   type SubdocState,
   type SubdocumentProviderOptions,
 } from './SubdocumentProvider.js'
-export type { AIAction, AIActionRequest, AIStreamFn, AIDraftFn, AIDraftEvent, AIDraftCitation, AIProviderFactory } from './ai/types.js'
+export type { AIAction, AIActionRequest, AIContextLocation, AIStreamFn, AIDraftFn, AIDraftEvent, AIDraftCitation, AIProviderFactory } from './ai/types.js'
 export type { StreamEvent, AICompleteRequest, AIProvider } from './ai/provider.js'
 export { toAIStreamFn } from './ai/adapter.js'
 export { buildAIPrompt, trimContextBefore, trimContextAfter, CONTEXT_CHAR_CAP } from './ai/prompts.js'

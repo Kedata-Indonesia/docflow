@@ -28,12 +28,23 @@ export type AIAction =
   | 'chat' // 7D — doc-aware chat
   | 'draft' // 7E — cited RAG drafting
 
+export interface AIContextLocation {
+  page?: number
+  pageCount?: number
+  paragraphIndex?: number
+  line?: number
+  blockType?: string
+  section?: string
+}
+
 export interface AIActionRequest {
   action: AIAction
   /** Selected text (7B). */
   selection?: string
   /** Bounded surrounding text — never the whole document. */
   context?: { before: string; after: string }
+  /** Cursor location context (page, line, paragraph index, section heading). */
+  location?: AIContextLocation
   /** User instruction (/ai prompt, chat message, tone target, target language). */
   prompt?: string
   /** For doc-aware chat / RAG scoping. */

@@ -57,6 +57,9 @@ function refreshHeadings() {
   const items: HeadingItem[] = []
   props.editor.state.doc.descendants((node, pos) => {
     if (node.type.name === 'heading') {
+      if (node.attrs.tocExclude === true || node.attrs['data-toc-exclude'] === 'true' || node.attrs['data-toc-exclude'] === true) {
+        return true
+      }
       const level = node.attrs.level as number
       if (level === 1 || level === 2 || level === 3) {
         const text = node.textContent.trim()
