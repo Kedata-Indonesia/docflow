@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { NodeSelection } from '@tiptap/pm/state'
-import { createEditor } from '@kedata-indonesia/docflow-core'
+import { createEditor, createCollaboration } from '@kedata-indonesia/docflow-core'
 import { imagePlugin, defaultPlugins } from '../index.js'
 
 /**
@@ -50,13 +50,19 @@ describe('issue #115: image delete in collab mode', () => {
 
   it.each(['Delete', 'Backspace'])(
     'collab [imagePlugin]: deletes a selected image with %s',
-    (key) => {
+    async (key) => {
       const target = document.createElement('div')
       document.body.appendChild(target)
+      // Issue fe-aktifai#230: createEditor accepts a prebuilt CollaborationSetup
+      // only — raw options are built via the async createCollaboration.
+      const collabSetup = await createCollaboration({
+        room: `issue-115-img-${key}`,
+        user: { name: 'Alice', color: '#f00' },
+      })
       const inst = createEditor({
         target,
         plugins: [imagePlugin],
-        collaboration: { room: `issue-115-img-${key}`, user: { name: 'Alice', color: '#f00' } },
+        collaboration: collabSetup,
       })
       try {
         inst.editor.commands.setImage({ src: 'https://example.com/x.png' })
@@ -80,13 +86,17 @@ describe('issue #115: image delete in collab mode', () => {
 
   it.each(['Delete', 'Backspace'])(
     'collab [defaultPlugins]: deletes a selected image with %s',
-    (key) => {
+    async (key) => {
       const target = document.createElement('div')
       document.body.appendChild(target)
+      const collabSetup = await createCollaboration({
+        room: `issue-115-def-${key}`,
+        user: { name: 'Alice', color: '#f00' },
+      })
       const inst = createEditor({
         target,
         plugins: defaultPlugins,
-        collaboration: { room: `issue-115-def-${key}`, user: { name: 'Alice', color: '#f00' } },
+        collaboration: collabSetup,
       })
       try {
         inst.editor.commands.focus()

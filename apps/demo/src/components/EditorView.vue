@@ -1,8 +1,14 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
 import { DocsEditor } from '@kedata-indonesia/docflow-vue'
+import {
+  createCollaboration,
+  type CollaborationSetup,
+  type DocsEditor as DocsEditorInstance,
+  type CitationPort,
+  type CslItemData,
+} from '@kedata-indonesia/docflow-core'
 import { defaultPlugins } from '@kedata-indonesia/docflow-plugins'
-import type { DocsEditor as DocsEditorInstance, CitationPort, CslItemData } from '@kedata-indonesia/docflow-core'
 import { exportDocument, type ExportFormat } from '../utils/export.js'
 
 /**
@@ -28,11 +34,33 @@ const emit = defineEmits<{
 
 // webrtc P2P collab for the two-tabs demo; no server involved. The library
 // logs its one-time localhost-only signaling notice — intentional here.
-const collaboration = {
-  room: 'docflow-demo',
-  provider: 'webrtc' as const,
-  user: { name: 'Demo User', color: '#06b6d4' },
-}
+//
+// Built asynchronously via createCollaboration (issue fe-aktifai#230): the
+// API is async because y-webrtc is lazy-imported only when the webrtc
+// provider is actually requested — keeping the collab stack out of bundles
+// where collaboration is disabled. DocsEditor accepts the resulting
+// CollaborationSetup (raw options are no longer auto-created by the editor).
+const collabSetup = shallowRef<CollaborationSetup | null>(null)
+let disposed = false
+onBeforeUnmount(() => {
+  disposed = true
+})
+
+onMounted(async () => {
+  const setup = await createCollaboration({
+    room: 'docflow-demo',
+    provider: 'webrtc',
+    user: { name: 'Demo User', color: '#06b6d4' },
+  })
+  // Guard against resolving after this host already unmounted (DocsEditor
+  // destroys the setup it received; an un-delivered one must be cleaned up
+  // here).
+  if (disposed) {
+    setup.destroy()
+    return
+  }
+  collabSetup.value = setup
+})
 
 // ─── Citations demo (Phase 6A) ────────────────────────────────────────────
 // Hardcoded CSL-JSON sources + a minimal prompt picker — proves the library
@@ -119,7 +147,7 @@ async function handleExport(format: ExportFormat) {
   <DocsEditor
     :model-value="content"
     :plugins="defaultPlugins"
-    :collaboration="collaboration"
+    :collaboration="collabSetup ?? undefined"
     :citation="citationPort"
     :title="title"
     :starred="starred"
