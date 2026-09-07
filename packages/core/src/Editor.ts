@@ -9,11 +9,10 @@ import {
 } from './PluginSystem.js'
 import {
   collaborationExtensions,
-  createCollaboration,
-  type CollaborationOptions,
   type CollaborationSetup,
 } from './Collaboration.js'
 import { BlockAttributesExtension } from './BlockAttributes.js'
+import { seedEmptyFragment } from './collab/seedEmptyFragment.js'
 import { EditorContextExtension } from './EditorContext.js'
 import { SearchAndReplaceExtension } from './SearchAndReplace.js'
 import type { ImageUploadHandler, CitationPort } from './ports.js'
@@ -50,7 +49,16 @@ export interface EditorOptions {
   plugins?: DocsEditorPlugin[]
   editable?: boolean
   onUpdate?: (json: object) => void
-  collaboration?: CollaborationOptions | CollaborationSetup
+  /**
+   * Prebuilt collaboration setup from `await createCollaboration(...)`.
+   *
+   * A `CollaborationSetup` — never raw `CollaborationOptions` (issue
+   * fe-aktifai#230): building a provider is async (lazy-imports of
+   * y-webrtc/y-websocket), so `createEditor` cannot construct one itself.
+   * When set, history is disabled and the Yjs document is authoritative
+   * (local `content` is not seeded).
+   */
+  collaboration?: CollaborationSetup
   getPageMap?: () => Map<number, { page: number; blockIndex: number }>
   paginationOptions?: PaginationPlusOptions
   /** Host-injected image upload port (see docs/LIBRARY_CONTRACT.md). */
@@ -127,12 +135,8 @@ export function createEditor(options: EditorOptions = {}): DocsEditor {
     content: options.content ? (migrateContent(options.content) as string | object | undefined) : options.content
   }
   const plugins = migratedOptions.plugins ?? []
-  const collaborationSetup: CollaborationSetup | undefined =
-    !migratedOptions.collaboration
-      ? undefined
-      : 'ydoc' in migratedOptions.collaboration
-        ? migratedOptions.collaboration
-        : createCollaboration(migratedOptions.collaboration)
+  // The host must pass a ready `CollaborationSetup` (see EditorOptions.collaboration).
+  const collaborationSetup = migratedOptions.collaboration
 
   // Debug overlay: opt-in via `debug: true`. Lives and dies with the editor.
   const performanceMonitor = migratedOptions.debug
@@ -632,10 +636,28 @@ function createTiptapEditor(
     // document is authoritative, and an unguarded local seed races with other
     // clients and duplicates the document. Hosts seed via `initialStorageState`
     // or the server's guarded seed endpoint (Phase 1).
+
+    // Empty-fragment reconciliation (issue fe-aktifai#230): ProseMirror always
+    // starts with one pristine default paragraph that y-prosemirror never
+    // mirrors into Yjs, so with an empty fragment EVERY PM transaction crashes
+    // (undo-plugin relative-selection mapping) — including no-op layout
+    // dispatches and the first keystroke in a brand-new room. Seed a
+    // provisional paragraph when the fragment is empty; the observer steps it
+    // aside as soon as real (non-local) content arrives so existing documents
+    // never keep a duplicate trailing paragraph. See ./collab/seedEmptyFragment.ts.
+    const seed = seedEmptyFragment(collaborationSetup.ydoc)
+    if (seed.seeded) {
+      extensions.push(
+        Extension.create({
+          name: 'provisionalSeedCleanup',
+          onDestroy: () => seed.dispose(),
+        }),
+      )
+    }
     extensions = [...extensions, ...collaborationExtensions(collaborationSetup)]
   }
 
-  return new TiptapEditor({
+  const tiptapEditor = new TiptapEditor({
     element: options.target,
     content,
     extensions,
@@ -650,4 +672,6 @@ function createTiptapEditor(
       transformPastedHTML: sanitizePastedHTML,
     },
   })
+
+  return tiptapEditor
 }
