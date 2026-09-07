@@ -18,6 +18,7 @@ import { SearchAndReplaceExtension } from './SearchAndReplace.js'
 import type { ImageUploadHandler, CitationPort } from './ports.js'
 import type { AIStreamFn, AIDraftFn } from './ai/types.js'
 import { PaginationPlus, type PaginationPlusOptions } from './pagination/PaginationPlus.js'
+import { PaginationCaretFix } from './pagination/PaginationCaretFix.js'
 import { createPerformanceMonitor, type PerformanceMonitor } from './PerformanceMonitor.js'
 
 /**
@@ -617,6 +618,10 @@ function createTiptapEditor(
     TextStyle,
     blockAttrs,
     paginationExt,
+    // Always present — fixes caret-on-click misplacement caused by the
+    // pagination DOM (header/footer/gap widgets breaking linear coordinates).
+    // No-op (gated at runtime) when pagination is off or disabled.
+    PaginationCaretFix,
     // Always present — carries host-injected ports (onImageUpload, citation, …)
     // in storage so plugin commands can reach them through the editor instance.
     EditorContextExtension.configure({
