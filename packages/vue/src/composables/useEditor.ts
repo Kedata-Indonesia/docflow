@@ -1,11 +1,24 @@
-import { createEditor, type DocsEditor, type EditorOptions } from '@kedata-indonesia/docflow-core'
+import {
+  createEditor,
+  type CollaborationSetup,
+  type DocsEditor,
+  type EditorOptions,
+} from '@kedata-indonesia/docflow-core'
 import { computed, onMounted, onUnmounted, ref, shallowRef, watch, type ComputedRef, type Ref, type ShallowRef, nextTick, unref } from 'vue'
 
 export interface UseEditorOptions extends Omit<EditorOptions, 'target' | 'onUpdate' | 'content' | 'collaboration'> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   content?: any
   onUpdate?: (json: object) => void
-  collaboration?: any
+  /**
+   * Prebuilt collaboration setup (issue fe-aktifai#230). Raw
+   * CollaborationOptions are intentionally not accepted — providers are
+   * created via the async `createCollaboration()` by the host and passed in
+   * as a ready `CollaborationSetup`. A `Ref`/computed is also accepted so
+   * hosts can mount the editor immediately and bind collaboration when the
+   * async setup resolves (the editor then rebuilds against it).
+   */
+  collaboration?: CollaborationSetup | Ref<CollaborationSetup | undefined>
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   paginationOptions?: any
 }
@@ -77,19 +90,24 @@ export function useEditor(options: UseEditorOptions): UseEditorReturn {
     },
   )
 
+  // Rebuild the editor when the collaboration setup is swapped. Comparison is
+  // on setup object identity (issue fe-aktifai#230): a CollaborationSetup is an
+  // opaque, immutable-per-room object produced by the async
+  // createCollaboration — a room/provider change always yields a *new* setup,
+  // so deep-watching internals (room/provider fields) is unnecessary and was
+  // fragile (JSON.stringify over a live provider instance can throw on
+  // circular Yjs structures). When a plain (non-ref) setup is passed the
+  // watcher never fires — mounting after `await createCollaboration` is the
+  // supported alternative.
   watch(
-    () => {
-      const collab = unref(options.collaboration)
-      return collab ? { room: collab.room, provider: collab.provider } : null
-    },
-    async (newVal, oldVal) => {
-      if (JSON.stringify(newVal) !== JSON.stringify(oldVal)) {
+    () => unref(options.collaboration),
+    async (collab, prevCollab) => {
+      if (collab !== prevCollab) {
         destroyEditor()
         await nextTick()
         initEditor()
       }
     },
-    { deep: true }
   )
 
   return {

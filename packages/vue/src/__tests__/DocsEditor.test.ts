@@ -1,6 +1,6 @@
 import { mount } from '@vue/test-utils'
 import { describe, expect, it, vi } from 'vitest'
-import type { DocsEditorPlugin, AIStreamFn } from '@kedata-indonesia/docflow-core'
+import { createCollaboration, type DocsEditorPlugin, type AIStreamFn } from '@kedata-indonesia/docflow-core'
 import type { Editor } from '@tiptap/core'
 import DocsEditor from '../components/DocsEditor.vue'
 import HeaderBar from '../components/HeaderBar.vue'
@@ -1129,19 +1129,20 @@ describe('DocsEditor', () => {
   })
 
   it('defers the first orphan scan until content is present (no collab flash)', async () => {
-    // With `collaboration` set, the empty-doc guard must hold the first
-    // scan until the Yjs provider has synced real content. We simulate
-    // the load window by mounting with the default empty doc, then
-    // injecting content after a delay.
+    // Sanctioned flow (docs/INTEGRATION.md + demo apps): the editor mounts
+    // FIRST without collaboration (local mode), then the host hands over the
+    // async-built CollaborationSetup when it resolves — useEditor tears down
+    // and rebuilds the editor against it (issue fe-aktifai#230).
     const { commentPlugin } = await import('../../../plugins/src/comment')
+    const collabSetup = await createCollaboration({
+      provider: 'websocket',
+      room: 'room-EXP-' + Date.now(),
+      websocketUrl: 'ws://127.0.0.1:1/',
+      user: { name: 'Alice', color: '#f00' },
+    })
     const wrapper = mount(DocsEditor, {
       props: {
         plugins: [...defaultPlugins, commentPlugin],
-        collaboration: {
-          provider: 'webrtc',
-          room: 'room-1',
-          user: { name: 'Alice', color: '#f00' },
-        },
         comments: [
           {
             id: 'thread-collab',
@@ -1158,15 +1159,30 @@ describe('DocsEditor', () => {
         ],
       },
     })
-    // Wait long enough for the debounced scan timer to fire, but the doc
-    // is still empty (no Yjs provider is actually wired in the test
-    // harness) — the guard must keep orphanedCommentIds empty.
+    // Wait for the initial (local) editor to settle before rebinding.
+    await new Promise((resolve) => setTimeout(resolve, 30))
+    await wrapper.setProps({ collaboration: collabSetup })
+    // Wait long enough for the debounced scan timer to fire; the doc is still
+    // empty (no provider sync in the test harness) — the guard must keep
+    // orphanedCommentIds empty.
     await new Promise((resolve) => setTimeout(resolve, 150))
 
     const before = (wrapper.vm as unknown as { orphanedCommentIds: string[] }).orphanedCommentIds
     expect(before).toEqual([])
 
+    // Requirement (fe-aktifai#230): a brand-new empty collab room must be
+    // typeable immediately — the provisional empty-paragraph seed keeps PM and
+    // Yjs in agreement, so typing no longer crashes in y-prosemirror's undo
+    // plugin (lib0 `unexpectedCase`).
+    const vm = wrapper.vm as unknown as {
+      editor?: {
+        commands: { focus: () => void; insertContent: (text: string) => void }
+        getText: () => string
+      }
+    }
+    vm.editor?.commands.insertContent('Halo kosong')
+    expect(vm.editor?.getText()).toContain('Halo kosong')
+
     wrapper.unmount()
   })
 })
-
