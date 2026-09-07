@@ -1,11 +1,15 @@
 import { defineConfig } from 'tsup'
 
 export default defineConfig({
-  // Two entries: the full barrel (index) and the yjs-free AI surface (ai).
-  // Server-side consumers must import from './ai' — the barrel eagerly pulls
-  // the client collab stack (y-webrtc/y-indexeddb/y-websocket → ESM yjs),
-  // which dual-instantiates yjs next to the server's vendored CJS y-websocket.
-  entry: ['src/index.ts', 'src/ai/index.ts'],
+  // Three entries: the full barrel (index), the yjs-free AI surface (ai),
+  // and the opt-in collaboration subpath (collab). Server-side consumers must
+  // import from './ai' — the barrel eagerly pulls the client collab stack
+  // (y-webrtc/y-indexeddb/y-websocket → ESM yjs), which dual-instantiates yjs
+  // next to the server's vendored CJS y-websocket. 'collab' exists for hosts
+  // that DO want subdocument sync helpers — since issue fe-aktifai#230 the
+  // barrel itself is lazy-safe (createCollaboration dynamic-imports providers),
+  // but SubdocumentProvider is a synchronous class and still lives here.
+  entry: ['src/index.ts', 'src/ai/index.ts', 'src/collab/index.ts'],
   format: ['esm', 'cjs'],
   dts: true,
   clean: true,

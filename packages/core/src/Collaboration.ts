@@ -2,9 +2,9 @@ import type { AnyExtension } from '@tiptap/core'
 import { Collaboration } from '@tiptap/extension-collaboration'
 import { CollaborationCursor } from '@tiptap/extension-collaboration-cursor'
 import { Awareness } from 'y-protocols/awareness'
-import { IndexeddbPersistence } from 'y-indexeddb'
-import { WebrtcProvider } from 'y-webrtc'
-import { WebsocketProvider } from 'y-websocket'
+import type { IndexeddbPersistence } from 'y-indexeddb'
+import type { WebrtcProvider } from 'y-webrtc'
+import type { WebsocketProvider } from 'y-websocket'
 import * as Y from 'yjs'
 
 export interface AwarenessState {
@@ -132,7 +132,18 @@ function createAwarenessStates(awareness: Awareness): AwarenessState[] {
   return states
 }
 
-export function createCollaboration(options: CollaborationOptions): CollaborationSetup {
+/**
+ * Build the collaboration runtime for a room.
+ *
+ * Async by design (issue fe-aktifai#230): the network sync providers are
+ * imported lazily — `y-webrtc` only when `provider: 'webrtc'`, `y-websocket`
+ * only when `provider: 'websocket'`, `y-indexeddb` only when `offline` is
+ * set. The main docflow barrel therefore never pulls the collab stack into
+ * bundles where collaboration is disabled; hosts that opt in simply
+ * `await createCollaboration(...)` and pass the resulting `CollaborationSetup`
+ * to `createEditor` / `<DocsEditor>`.
+ */
+export async function createCollaboration(options: CollaborationOptions): Promise<CollaborationSetup> {
   const ydoc = new Y.Doc()
   if (options.initialStorageState) {
     Y.applyUpdate(ydoc, options.initialStorageState)
@@ -141,14 +152,21 @@ export function createCollaboration(options: CollaborationOptions): Collaboratio
   // persisted state into the doc and writes every local update back to
   // IndexedDB (`docflow-<room>`). It never seeds: the server still owns
   // initial state; the mirror only carries local offline edits into the
-  // normal Yjs merge on reconnect.
+  // normal Yjs merge on reconnect. Lazy-imported so the barrel stays
+  // IndexedDB-free when `offline` is never used.
   let persistence: IndexeddbPersistence | undefined
   if (options.offline) {
+    const { IndexeddbPersistence } = await import('y-indexeddb')
     persistence = new IndexeddbPersistence(`docflow-${options.room}`, ydoc)
   }
   let provider: WebrtcProvider | WebsocketProvider | null = null
 
   if (options.provider === 'webrtc') {
+    // Lazy provider import (issue fe-aktifai#230): y-webrtc drags the whole
+    // P2P stack (simple-peer, RTCPeerConnection, …) into any bundle that
+    // statically imports it. It is loaded only when a host actually opts
+    // into webrtc sync.
+    const { WebrtcProvider } = await import('y-webrtc')
     provider = new WebrtcProvider(options.room, ydoc, {
       signaling: resolveSignalingUrls(options.signaling),
     })
@@ -156,6 +174,8 @@ export function createCollaboration(options: CollaborationOptions): Collaboratio
     if (!options.websocketUrl) {
       throw new Error('[Collaboration] websocketUrl is required when provider is "websocket"')
     }
+    // Lazy provider import (issue fe-aktifai#230) — see webrtc branch above.
+    const { WebsocketProvider } = await import('y-websocket')
     provider = new WebsocketProvider(options.websocketUrl, options.room, ydoc)
   }
 
@@ -295,11 +315,16 @@ export function isLocalCursorEnabled(setup: CollaborationSetup): boolean {
   return setup.awareness.getLocalState()?.emitCursor !== false
 }
 
-export function collaborationExtensions(
-  options: CollaborationOptions | CollaborationSetup,
-): AnyExtension[] {
-  const setup = 'ydoc' in options ? options : createCollaboration(options)
-
+/**
+ * Build the TipTap extensions that bind an editor to a collaboration room.
+ *
+ * Takes a prebuilt `CollaborationSetup` only (issue fe-aktifai#230): the
+ * raw-options convenience path was removed because it required a
+ * *synchronous* provider construction, which is impossible now that
+ * `createCollaboration` lazy-imports `y-webrtc`/`y-websocket` and is async.
+ * Hosts must `await createCollaboration(...)` first and pass the result.
+ */
+export function collaborationExtensions(setup: CollaborationSetup): AnyExtension[] {
   const extensions: AnyExtension[] = [
     Collaboration.configure({ document: setup.ydoc }),
   ]

@@ -488,7 +488,10 @@ const { editorRef, editor, pluginActions, isReady, docsEditor: docEditor } = use
   content: activeTabContent,
   plugins: props.plugins,
   editable: props.editable,
-  collaboration: props.collaboration,
+  // Reactive source (issue fe-aktifai#230): hosts may mount the editor first
+  // and assign a `CollaborationSetup` later — useEditor rebuilds against it.
+  // Passing a plain setup up front (mount-after-await) works equally well.
+  collaboration: computed(() => props.collaboration),
   onImageUpload: props.onImageUpload,
   citation: citationPort.value,
     aiStream: props.aiStream,
@@ -1249,7 +1252,8 @@ watch(isReady, (ready) => {
   }
 })
 
-watch(() => props.collaboration, () => {}, { deep: true })
+// Collaboration rebinding is handled reactively inside useEditor (see the
+// `collaboration: computed(...)` wiring above) — no extra watch needed here.
 onUnmounted(() => {
   finishHeaderEdit(false)
   if (saveTimer.value) clearTimeout(saveTimer.value)

@@ -8,8 +8,8 @@ import {
 import { createEditor } from '../Editor.js'
 
 describe('createCollaboration', () => {
-  it('creates a Y.Doc, awareness, and a null provider by default', () => {
-    const collab = createCollaboration({
+  it('creates a Y.Doc, awareness, and a null provider by default', async () => {
+    const collab = await createCollaboration({
       room: 'room-1',
       user: { name: 'Alice', color: '#ff0000' },
     })
@@ -21,17 +21,17 @@ describe('createCollaboration', () => {
     collab.destroy()
   })
 
-  it('sets the local awareness user', () => {
+  it('sets the local awareness user', async () => {
     const user = { name: 'Alice', color: '#ff0000' }
-    const collab = createCollaboration({ room: 'room-1', user })
+    const collab = await createCollaboration({ room: 'room-1', user })
 
     expect(collab.awareness.getLocalState()).toMatchObject({ user })
 
     collab.destroy()
   })
 
-  it('removes the local awareness state on destroy', () => {
-    const collab = createCollaboration({
+  it('removes the local awareness state on destroy', async () => {
+    const collab = await createCollaboration({
       room: 'room-1',
       user: { name: 'Alice', color: '#ff0000' },
     })
@@ -41,9 +41,9 @@ describe('createCollaboration', () => {
     expect(collab.awareness.getLocalState()).toBeNull()
   })
 
-  it('calls onAwarenessChange with the current states and on changes', () => {
+  it('calls onAwarenessChange with the current states and on changes', async () => {
     const onAwarenessChange = vi.fn()
-    const collab = createCollaboration({
+    const collab = await createCollaboration({
       room: 'room-1',
       user: { name: 'Alice', color: '#ff0000' },
       onAwarenessChange,
@@ -62,12 +62,12 @@ describe('createCollaboration', () => {
     collab.destroy()
   })
 
-  it('converges two Yjs documents in the same room via in-memory sync', () => {
-    const a = createCollaboration({
+  it('converges two Yjs documents in the same room via in-memory sync', async () => {
+    const a = await createCollaboration({
       room: 'shared-room',
       user: { name: 'Alice', color: '#ff0000' },
     })
-    const b = createCollaboration({
+    const b = await createCollaboration({
       room: 'shared-room',
       user: { name: 'Bob', color: '#0000ff' },
     })
@@ -81,12 +81,12 @@ describe('createCollaboration', () => {
     b.destroy()
   })
 
-  it('keeps documents from different rooms isolated', () => {
-    const a = createCollaboration({
+  it('keeps documents from different rooms isolated', async () => {
+    const a = await createCollaboration({
       room: 'room-a',
       user: { name: 'Alice', color: '#ff0000' },
     })
-    const b = createCollaboration({
+    const b = await createCollaboration({
       room: 'room-b',
       user: { name: 'Bob', color: '#0000ff' },
     })
@@ -102,8 +102,8 @@ describe('createCollaboration', () => {
 })
 
 describe('collaborationExtensions', () => {
-  it('returns Collaboration (and CollaborationCursor when a provider exists)', () => {
-    const setup = createCollaboration({
+  it('returns Collaboration (and CollaborationCursor when a provider exists)', async () => {
+    const setup = await createCollaboration({
       room: 'ext-room',
       user: { name: 'Alice', color: '#ff0000' },
     })
@@ -119,11 +119,18 @@ describe('collaborationExtensions', () => {
 })
 
 describe('createEditor collaboration integration', () => {
-  it('wires collaboration extensions automatically', () => {
+  it('wires collaboration extensions automatically', async () => {
     const target = document.createElement('div')
+    // Raw CollaborationOptions are no longer accepted by createEditor (the
+    // barrel must stay free of eager provider imports — issue fe-aktifai#230).
+    // Hosts build the setup via the async createCollaboration and pass it.
+    const collabSetup = await createCollaboration({
+      room: 'editor-room',
+      user: { name: 'Alice', color: '#ff0000' },
+    })
     const editor = createEditor({
       target,
-      collaboration: { room: 'editor-room', user: { name: 'Alice', color: '#ff0000' } },
+      collaboration: collabSetup,
     })
 
     const names = editor.editor.extensionManager.extensions.map((e) => e.name)
@@ -136,8 +143,8 @@ describe('createEditor collaboration integration', () => {
 // ─── Phase 9 PR1 + PR2 — awareness state shape + present gate ───────────────
 
 describe('awareness state — present flag + cursor gate (Phase 9 PR1+PR2)', () => {
-  it('defaults `present` to true on the local state', () => {
-    const collab = createCollaboration({
+  it('defaults `present` to true on the local state', async () => {
+    const collab = await createCollaboration({
       room: 'pr-room',
       user: { name: 'Alice', color: '#ff0000' },
     })
@@ -145,9 +152,9 @@ describe('awareness state — present flag + cursor gate (Phase 9 PR1+PR2)', () 
     collab.destroy()
   })
 
-  it('reports present=true for the local user by default', () => {
+  it('reports present=true for the local user by default', async () => {
     const onAwarenessChange = vi.fn()
-    const a = createCollaboration({
+    const a = await createCollaboration({
       room: 'pr-room',
       user: { name: 'Alice', color: '#ff0000' },
       onAwarenessChange,
@@ -161,14 +168,14 @@ describe('awareness state — present flag + cursor gate (Phase 9 PR1+PR2)', () 
     a.destroy()
   })
 
-  it('toggles `emitCursor` to false (and clears cursor) when setLocalCursorEnabled(false) fires — but `present` stays true', () => {
+  it('toggles `emitCursor` to false (and clears cursor) when setLocalCursorEnabled(false) fires — but `present` stays true', async () => {
     // 2026-08 fix: `setLocalCursorEnabled(false)` is the cursor-publish
     // perf gate (fires on `visibilitychange` when the user switches tabs).
     // It must NOT flip `present` to false — that caused the "collaborator
     // avatar flashes off" regression in the two-writer scenario. Only
     // `destroy()` clears `present` (via `awareness.setLocalState(null)`).
     const onAwarenessChange = vi.fn()
-    const a = createCollaboration({
+    const a = await createCollaboration({
       room: 'pr-room',
       user: { name: 'Alice', color: '#ff0000' },
       onAwarenessChange,
@@ -184,14 +191,14 @@ describe('awareness state — present flag + cursor gate (Phase 9 PR1+PR2)', () 
     a.destroy()
   })
 
-  it('clears the cursor field when leaving the editor (present stays true)', () => {
+  it('clears the cursor field when leaving the editor (present stays true)', async () => {
     // 2026-08 fix: `setLocalCursorEnabled(false)` must NOT flip `present` to
     // false. The visibilitychange handler in apps/web calls this whenever
     // the user switches browser tabs (a cursor-publish perf gate), and the
     // previous coupling caused the peer's top-bar avatar to flash off on
     // every tab switch. `present` only goes false on `destroy()` (the
     // editor-unmount → WS-close → server-side awareness cleanup path).
-    const a = createCollaboration({
+    const a = await createCollaboration({
       room: 'pr-room',
       user: { name: 'Alice', color: '#ff0000' },
     })
@@ -204,7 +211,7 @@ describe('awareness state — present flag + cursor gate (Phase 9 PR1+PR2)', () 
     a.destroy()
   })
 
-  it('peers see Alice leave on destroy (no REST lag)', () => {
+  it('peers see Alice leave on destroy (no REST lag)', async () => {
     // Cross-peer propagation requires a real WebrtcProvider /
     // WebsocketProvider (the awareness `change` events are routed through
     // the provider's sync protocol). With no provider, the local
@@ -214,11 +221,11 @@ describe('awareness state — present flag + cursor gate (Phase 9 PR1+PR2)', () 
     // covers the cross-peer case via the websocket provider; this unit
     // test pins the *local* mutation contract.
     const onBobAwareness = vi.fn()
-    const alice = createCollaboration({
+    const alice = await createCollaboration({
       room: 'pr-room',
       user: { name: 'Alice', color: '#ff0000' },
     })
-    const bob = createCollaboration({
+    const bob = await createCollaboration({
       room: 'pr-room',
       user: { name: 'Bob', color: '#0000ff' },
       onAwarenessChange: onBobAwareness,
@@ -241,8 +248,8 @@ describe('awareness state — present flag + cursor gate (Phase 9 PR1+PR2)', () 
     bob.destroy()
   })
 
-  it('isLocalCursorEnabled reflects the current gate state', () => {
-    const a = createCollaboration({
+  it('isLocalCursorEnabled reflects the current gate state', async () => {
+    const a = await createCollaboration({
       room: 'pr-room',
       user: { name: 'Alice', color: '#ff0000' },
     })
@@ -254,9 +261,9 @@ describe('awareness state — present flag + cursor gate (Phase 9 PR1+PR2)', () 
     a.destroy()
   })
 
-  it('does not duplicate awareness-change events when toggling to the same value', () => {
+  it('does not duplicate awareness-change events when toggling to the same value', async () => {
     const onAwarenessChange = vi.fn()
-    const a = createCollaboration({
+    const a = await createCollaboration({
       room: 'pr-room',
       user: { name: 'Alice', color: '#ff0000' },
       onAwarenessChange,
@@ -267,11 +274,11 @@ describe('awareness state — present flag + cursor gate (Phase 9 PR1+PR2)', () 
     a.destroy()
   })
 
-  it('emits cursor=true by default so CollaborationCursor renders for the local user', () => {
+  it('emits cursor=true by default so CollaborationCursor renders for the local user', async () => {
     // Backwards compat: legacy states that only carry `user` + `cursor`
     // should appear as `present: true` to peers. The createAwarenessStates
     // mapping handles missing `present` by defaulting to true.
-    const a = createCollaboration({
+    const a = await createCollaboration({
       room: 'pr-room',
       user: { name: 'Alice', color: '#ff0000' },
     })

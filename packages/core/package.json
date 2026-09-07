@@ -16,6 +16,11 @@
       "types": "./dist/ai/index.d.ts",
       "import": "./dist/ai/index.js",
       "require": "./dist/ai/index.cjs"
+    },
+    "./collab": {
+      "types": "./dist/collab/index.d.ts",
+      "import": "./dist/collab/index.js",
+      "require": "./dist/collab/index.cjs"
     }
   },
   "publishConfig": {
