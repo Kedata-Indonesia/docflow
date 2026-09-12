@@ -6,6 +6,7 @@ import VirtualPageOverlay from './VirtualPageOverlay.vue'
 import { computed, onMounted, onUnmounted, ref, toRaw, watch } from 'vue'
 import { useEditor } from '../composables/useEditor.js'
 import { collectSelectionContext } from '../utils/selectionContext.js'
+import { assignFootnotePages, DEFERRED_PAGE } from '../utils/footnotePages.js'
 import SlashMenuVue from './SlashMenu.vue'
 import type { Collaborator, CommentItem, ConnectionState, DocumentMeta, DocumentSnapshot, SavingStatus, SidebarKey } from '../types.js'
 import HeaderBar from './HeaderBar.vue'
@@ -1059,6 +1060,11 @@ watch([isDifferentOddEven, headerMarginCm, footerMarginCm, pageNumberPosition, h
 watch(pageCount, (next) => {
   applyHeaderFooter(false)
   emit('update:pageCount', next)
+  // Badan footnote hidup di dalam area break tiap halaman, jadi begitu
+  // jumlah halaman berubah (pagination selesai menghitung ulang) pass footnote
+  // harus dijalankan lagi — kalau tidak, catatan tetap menempel di halaman
+  // terakhir walau halaman baru sudah ada (docflow #248).
+  scheduleFootnotes(50)
 })
 
 watch(isDark, (darkVal) => {
@@ -2367,6 +2373,10 @@ const saveFootnoteItemContent = (refEl: HTMLElement, newContent: string) => {
  */
 let updateFootnotesTimer: ReturnType<typeof setTimeout> | null = null
 let resizeTimer: ReturnType<typeof setTimeout> | null = null
+// Berapa kali pass footnote boleh diulang menunggu pagination mencakup seluruh
+// dokumen (docflow #248) sebelum jatuh ke perilaku lama (halaman terakhir).
+let footnoteRetryCount = 0
+const FOOTNOTE_MAX_RETRIES = 3
 const updateFootnotes = () => {
   if (!editor.value || !isReady.value) return
 
@@ -2473,18 +2483,39 @@ const updateFootnotes = () => {
   }
 
 
-  // Map page index → footnote refs on that page
+  // Map page index → footnote refs on that page.
+  //
+  // Refs that sit past the last page break mean pagination has not covered the
+  // whole document yet (docflow #248). They are reported as deferred instead of
+  // being clamped onto the last page — that clamp is what stacked every footnote
+  // onto the final page. We retry a bounded number of times for pagination to
+  // catch up, and only then fall back to the last page so no footnote disappears.
+  const breakerTops: number[] = []
+  const breakerBottoms: number[] = []
+  pageBreaks.forEach((pb) => {
+    const breaker = pb.querySelector<HTMLElement>('.breaker')
+    const rect = breaker?.getBoundingClientRect()
+    breakerTops.push(rect ? rect.top : Number.POSITIVE_INFINITY)
+    breakerBottoms.push(rect ? rect.bottom : Number.NEGATIVE_INFINITY)
+  })
+  const { pages: assignedPages, deferred } = assignFootnotePages(
+    allRefs.map((ref) => ref.getBoundingClientRect().top),
+    breakerTops,
+    breakerBottoms,
+  )
+  if (deferred > 0 && footnoteRetryCount < FOOTNOTE_MAX_RETRIES) {
+    footnoteRetryCount++
+    scheduleFootnotes(400)
+  } else if (deferred === 0) {
+    footnoteRetryCount = 0
+  }
+
   const pageRefs = new Map<number, HTMLElement[]>()
   pageBreaks.forEach((_, i) => pageRefs.set(i, []))
-
-  allRefs.forEach(ref => {
-    const top = ref.getBoundingClientRect().top
-    let assigned = pageBreaks.length - 1
-    for (let i = 0; i < pageBreaks.length - 1; i++) {
-      const breaker = pageBreaks[i].querySelector<HTMLElement>('.breaker')
-      if (breaker && top < breaker.getBoundingClientRect().top) { assigned = i; break }
-    }
-    pageRefs.get(assigned)!.push(ref)
+  allRefs.forEach((ref, i) => {
+    const page = assignedPages[i]
+    const target = page === undefined || page === DEFERRED_PAGE ? pageBreaks.length - 1 : page
+    pageRefs.get(target)!.push(ref)
   })
 
   // Footnotes are numbered continuously through the document — the first
