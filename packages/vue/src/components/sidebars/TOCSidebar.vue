@@ -11,6 +11,7 @@ import {
   Navigation2,
 } from 'lucide-vue-next'
 import { useLocale } from '../../composables/useLocale.js'
+import { headingElementAt } from '../../utils/headingDom.js'
 
 interface HeadingItem {
   id: string
@@ -146,11 +147,22 @@ const filteredHeadings = computed(() =>
 
 function handleJumpToHeading(heading: HeadingItem) {
   if (!props.editor) return
-  props.editor.chain().focus().setTextSelection(heading.pos).run()
+  const editor = props.editor
+  editor.chain().focus().setTextSelection(heading.pos).run()
   activeHeadingId.value = heading.id
   setTimeout(() => {
     const scrollContainer = document.querySelector('.docs-editor-scroll')
     if (!scrollContainer) return
+    // Resolve the target by POSITION first. Matching by `textContent` is
+    // brittle: inline atoms (footnote/citation refs, page-number widgets)
+    // render extra text into the heading, and duplicate headings would scroll
+    // to the first occurrence instead of the clicked one.
+    const nodeEl = headingElementAt(editor, heading.pos)
+    if (nodeEl) {
+      nodeEl.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      return
+    }
+    // Fallback for editors whose node views render the heading indirectly.
     const els = scrollContainer.querySelectorAll(
       '.ProseMirror h1, .ProseMirror h2, .ProseMirror h3',
     )
