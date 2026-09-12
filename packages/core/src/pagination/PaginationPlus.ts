@@ -15,6 +15,7 @@ import {
   getPageSize,
   type PageSize,
 } from './utils.js'
+import { grownPageCount } from './pageCount.js'
 
 const page_count_meta_key = 'PAGE_COUNT_META_KEY'
 const key = new PluginKey('brDecoration')
@@ -161,6 +162,23 @@ const getExistingPageCount = (view: EditorView) => {
   return 0
 }
 
+/**
+ * Last element of the document that carries user content: the pagination
+ * wrapper and its page-break widgets are skipped, so measuring the overflow
+ * never compares a pagination artefact against the last page break (which would
+ * always read as "no overflow" and freeze the page count).
+ */
+const lastContentChild = (editorDom: HTMLElement): HTMLElement | null => {
+  for (let i = editorDom.children.length - 1; i >= 0; i--) {
+    const child = editorDom.children[i]
+    if (!(child instanceof HTMLElement)) continue
+    if (child.hasAttribute('data-rm-pagination')) continue
+    if (child.classList.contains('rm-page-break')) continue
+    return child
+  }
+  return null
+}
+
 interface GapTrackerState {
   gap: number
   pages: number
@@ -179,7 +197,7 @@ const calculatePageCount = (view: EditorView, pageOptions: any, headerHeight = 0
   const currentPageCount = getExistingPageCount(view)
 
   if (paginationElement) {
-    const lastElementOfEditor = editorDom.lastElementChild as HTMLElement | null
+    const lastElementOfEditor = lastContentChild(editorDom)
     const lastPageBreak = paginationElement.lastElementChild?.querySelector('.breaker') as HTMLElement | null
 
     if (lastElementOfEditor && lastPageBreak) {
@@ -190,14 +208,6 @@ const calculatePageCount = (view: EditorView, pageOptions: any, headerHeight = 0
       if (lastPageGap > 0) {
         const addPage = Math.ceil(lastPageGap / pageContentAreaHeight)
 
-        if (lastElementRect.height > pageContentAreaHeight) {
-          const isSplittableTable =
-            lastElementOfEditor.tagName === 'TABLE' && lastElementOfEditor.hasAttribute('data-tps-splittable')
-          if (!isSplittableTable) {
-            return currentPageCount
-          }
-        }
-
         let totalEditorContentHeight = 0
         for (const child of Array.from(editorDom.children)) {
           if (!(child instanceof HTMLElement)) continue
@@ -207,7 +217,6 @@ const calculatePageCount = (view: EditorView, pageOptions: any, headerHeight = 0
         }
 
         const maxPagesByContent = Math.ceil(totalEditorContentHeight / pageContentAreaHeight)
-        const contentCap = Math.max(currentPageCount, maxPagesByContent + 1)
 
         const prev = pageGapTracker.get(editorDom)
         if (prev && prev.pages < currentPageCount && lastPageGap > prev.gap - 2 && currentPageCount >= maxPagesByContent) {
@@ -223,15 +232,12 @@ const calculatePageCount = (view: EditorView, pageOptions: any, headerHeight = 0
         }
 
         pageGapTracker.set(editorDom, { gap: lastPageGap, pages: currentPageCount, recent, flapping })
-        if (currentPageCount + addPage > contentCap) {
-          return contentCap
-        }
-
-        const MAX_PAGES = 1000
-        if (currentPageCount + addPage > MAX_PAGES) {
-          return currentPageCount
-        }
-        return currentPageCount + addPage
+        return grownPageCount({
+          currentPageCount,
+          lastPageGap,
+          pageContentAreaHeight,
+          maxPagesByContent,
+        })
       } else {
         const allBreaksAfterLastElement = Array.from(paginationElement.querySelectorAll<HTMLElement>('.breaker'))
         const allBreaksAfterLastElementRect = allBreaksAfterLastElement.filter(
