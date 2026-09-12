@@ -108,4 +108,39 @@ describe('exportDocx with citations (6D)', () => {
     expect(documentXml).toContain('Plain text.')
     expect(documentXml).not.toContain('Bibliography')
   })
+
+  it('honours showHeading=false / headingText on the bibliography node', async () => {
+    const doc = {
+      type: 'doc',
+      content: [
+        { type: 'paragraph', content: [{ type: 'citation', attrs: { citationId: 'c1', sourceId: 's1' } }] },
+        { type: 'bibliography', attrs: { showHeading: false } },
+      ],
+    }
+
+    const blob = await exportDocx({ doc, title: 'No Heading', citation: citationPort })
+    const zip = await JSZip.loadAsync(await blob.arrayBuffer())
+    const documentXml = await zip.file('word/document.xml')!.async('string')
+
+    // Entries survive; the built-in heading does not.
+    expect(documentXml).toContain('The Design of Tests')
+    expect(documentXml).not.toContain('Bibliography')
+  })
+
+  it('relabels the bibliography heading via headingText', async () => {
+    const doc = {
+      type: 'doc',
+      content: [
+        { type: 'paragraph', content: [{ type: 'citation', attrs: { citationId: 'c1', sourceId: 's1' } }] },
+        { type: 'bibliography', attrs: { headingText: 'Daftar Pustaka' } },
+      ],
+    }
+
+    const blob = await exportDocx({ doc, title: 'Relabelled', citation: citationPort })
+    const zip = await JSZip.loadAsync(await blob.arrayBuffer())
+    const documentXml = await zip.file('word/document.xml')!.async('string')
+
+    expect(documentXml).toContain('Daftar Pustaka')
+    expect(documentXml).not.toContain('Bibliography')
+  })
 })

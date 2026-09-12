@@ -105,11 +105,26 @@ export function footnoteBodyRuns(
   return [new TextRun({ text: content })]
 }
 
-/** Bibliography block: heading + entries with a standard hanging indent. */
-export function bibliographyToParagraphs(entries: string[]): Paragraph[] {
-  const paragraphs: Paragraph[] = [
-    new Paragraph({ children: [new TextRun({ text: 'Bibliography', bold: true })], heading: HeadingLevel.HEADING_2 }),
-  ]
+/**
+ * Bibliography block: heading + entries with a standard hanging indent.
+ *
+ * `showHeading`/`headingText` mirror the bibliography node's presentation attrs
+ * (a host may place the block under its own section heading, e.g. an NA's
+ * "Daftar Pustaka"). Defaults keep the previous output.
+ */
+export function bibliographyToParagraphs(
+  entries: string[],
+  options: { showHeading?: boolean; headingText?: string } = {},
+): Paragraph[] {
+  const paragraphs: Paragraph[] = []
+  if (options.showHeading !== false) {
+    paragraphs.push(
+      new Paragraph({
+        children: [new TextRun({ text: options.headingText || 'Bibliography', bold: true })],
+        heading: HeadingLevel.HEADING_2,
+      }),
+    )
+  }
   for (const entry of entries) {
     paragraphs.push(
       new Paragraph({
