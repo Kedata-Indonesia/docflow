@@ -9,6 +9,18 @@ import { buildCitationNodes } from './citationNodeSpec.js'
 
 export { buildCitationNodes } from './citationNodeSpec.js'
 
+declare module '@tiptap/core' {
+  interface EditorEvents {
+    /**
+     * Emitted once the document-scoped CiteEngine exists. It is created by
+     * `citationPlugin.hooks.onInit`, i.e. AFTER the editor view (and therefore
+     * after the node views for the already-loaded document), so node views
+     * cannot rely on the engine being there when they are constructed.
+     */
+    citationEngineReady: { editor: Editor }
+  }
+}
+
 interface EditorContextStorage {
   citation?: CitationPort
 }
@@ -45,95 +57,113 @@ export const CitationEngineExtension = Extension.create({
    * recomputes only when the ordered signature changed, so plain typing
    * costs one cheap walk and no citeproc work.
    */
+  /**
+   * Keep the engine's cluster registry in sync with the document — see
+   * `syncCitationClusters`. The engine recomputes only when the ordered
+   * signature changed, so plain typing costs one cheap walk and no citeproc
+   * work.
+   */
   onUpdate(this: { editor: Editor }): void {
-    const editor = this.editor
-    const engine = getCitationEngine(editor)
-    if (!engine) return
+    syncCitationClusters(this.editor)
+  },
+})
 
-    // Repair duplicate citationIds first: copy-pasting a citation clones the
-    // node WITH its id — two clusters sharing an id collapse into one engine
-    // entry and every occurrence renders the LAST computed form (wrong).
-    // Assign fresh ids to the later occurrences, then re-run on the next
-    // update (the repair dispatch re-triggers this hook).
-    {
-      const seen = new Set<string>()
-      const repairs: Array<{ pos: number; attrs: Record<string, unknown> }> = []
-      editor.state.doc.descendants((node, pos) => {
-        if (node.type.name === 'citation' || (node.type.name === 'footnote' && node.attrs.sourceId)) {
-          const id = node.attrs.citationId as string | null
-          if (id) {
-            if (seen.has(id)) {
-              repairs.push({ pos, attrs: { ...node.attrs } })
-            } else {
-              seen.add(id)
-            }
+/**
+ * Walk the PM doc, collect citation nodes AND citation-backed footnotes in
+ * document order, and hand them to the engine.
+ *
+ * Runs after every editor update AND once right after the engine is created
+ * (`citationPlugin.hooks.onInit`): `onUpdate` never fires for the content that
+ * is already loaded, so a document whose citations were saved earlier would
+ * otherwise render "[?]" / an empty bibliography until the next keystroke.
+ */
+function syncCitationClusters(editor: Editor): void {
+  const engine = getCitationEngine(editor)
+  if (!engine) return
+
+  // Repair duplicate citationIds first: copy-pasting a citation clones the
+  // node WITH its id — two clusters sharing an id collapse into one engine
+  // entry and every occurrence renders the LAST computed form (wrong).
+  // Assign fresh ids to the later occurrences, then re-run on the next
+  // update (the repair dispatch re-triggers this hook).
+  {
+    const seen = new Set<string>()
+    const repairs: Array<{ pos: number; attrs: Record<string, unknown> }> = []
+    editor.state.doc.descendants((node, pos) => {
+      if (node.type.name === 'citation' || (node.type.name === 'footnote' && node.attrs.sourceId)) {
+        const id = node.attrs.citationId as string | null
+        if (id) {
+          if (seen.has(id)) {
+            repairs.push({ pos, attrs: { ...node.attrs } })
+          } else {
+            seen.add(id)
           }
         }
-        return true
-      })
-      if (repairs.length > 0) {
-        const tr = editor.state.tr
-        for (const { pos, attrs } of repairs) {
-          tr.setNodeMarkup(pos, undefined, { ...attrs, citationId: nextCitationId() })
-        }
-        editor.view.dispatch(tr)
-        return
-      }
-    }
-
-    const ordered: Array<{ citationId: string; attrs: CitationAttrs }> = []
-    editor.state.doc.descendants((node: PMNode, pos: number) => {
-      if (node.type.name === 'citation' || (node.type.name === 'footnote' && node.attrs.sourceId)) {
-        ordered.push({
-          citationId: (node.attrs.citationId as string | null) ?? `anon-${pos}`,
-          attrs: {
-            sourceId: (node.attrs.sourceId as string | null) ?? null,
-            locator: (node.attrs.locator as string) || '',
-            label: (node.attrs.label as string) || 'page',
-            mode: (node.attrs.mode as CitationAttrs['mode']) || 'normal',
-            prefix: (node.attrs.prefix as string) || '',
-            suffix: (node.attrs.suffix as string) || '',
-          },
-        })
       }
       return true
     })
-
-    const changed = engine.syncCitations(ordered)
-    if (changed) {
-      const port = (editor.storage as Record<string, unknown>).editorContext as EditorContextStorage | undefined
-      port?.citation?.onSourcesChange?.(engine.getCitedSourceIds())
-    }
-
-    // Persist the engine's rendered text into citation-backed footnote `content`
-    // attrs so the text survives document reloads — same persistence model as
-    // typed footnotes. The engine can still re-render on style/source changes.
-    {
-      const updates: Array<{ pos: number; content: string }> = []
-      editor.state.doc.descendants((node, pos) => {
-        if (node.type.name === 'footnote' && node.attrs.sourceId) {
-          const id = node.attrs.citationId as string | null
-          if (!id) return true
-          const text = engine.renderCluster(id)
-          if (text && text !== (node.attrs.content as string)) {
-            updates.push({ pos, content: text })
-          }
-        }
-        return true
-      })
-      if (updates.length > 0) {
-        const tr = editor.state.tr
-        for (const { pos, content } of updates) {
-          const node = editor.state.doc.nodeAt(pos)
-          if (node) {
-            tr.setNodeMarkup(pos, undefined, { ...node.attrs, content })
-          }
-        }
-        editor.view.dispatch(tr)
+    if (repairs.length > 0) {
+      const tr = editor.state.tr
+      for (const { pos, attrs } of repairs) {
+        tr.setNodeMarkup(pos, undefined, { ...attrs, citationId: nextCitationId() })
       }
+      editor.view.dispatch(tr)
+      return
     }
-  },
-})
+  }
+
+  const ordered: Array<{ citationId: string; attrs: CitationAttrs }> = []
+  editor.state.doc.descendants((node: PMNode, pos: number) => {
+    if (node.type.name === 'citation' || (node.type.name === 'footnote' && node.attrs.sourceId)) {
+      ordered.push({
+        citationId: (node.attrs.citationId as string | null) ?? `anon-${pos}`,
+        attrs: {
+          sourceId: (node.attrs.sourceId as string | null) ?? null,
+          locator: (node.attrs.locator as string) || '',
+          label: (node.attrs.label as string) || 'page',
+          mode: (node.attrs.mode as CitationAttrs['mode']) || 'normal',
+          prefix: (node.attrs.prefix as string) || '',
+          suffix: (node.attrs.suffix as string) || '',
+        },
+      })
+    }
+    return true
+  })
+
+  const changed = engine.syncCitations(ordered)
+  if (changed) {
+    const port = (editor.storage as Record<string, unknown>).editorContext as EditorContextStorage | undefined
+    port?.citation?.onSourcesChange?.(engine.getCitedSourceIds())
+  }
+
+  // Persist the engine's rendered text into citation-backed footnote `content`
+  // attrs so the text survives document reloads — same persistence model as
+  // typed footnotes. The engine can still re-render on style/source changes.
+  {
+    const updates: Array<{ pos: number; content: string }> = []
+    editor.state.doc.descendants((node, pos) => {
+      if (node.type.name === 'footnote' && node.attrs.sourceId) {
+        const id = node.attrs.citationId as string | null
+        if (!id) return true
+        const text = engine.renderCluster(id)
+        if (text && text !== (node.attrs.content as string)) {
+          updates.push({ pos, content: text })
+        }
+      }
+      return true
+    })
+    if (updates.length > 0) {
+      const tr = editor.state.tr
+      for (const { pos, content } of updates) {
+        const node = editor.state.doc.nodeAt(pos)
+        if (node) {
+          tr.setNodeMarkup(pos, undefined, { ...node.attrs, content })
+        }
+      }
+      editor.view.dispatch(tr)
+    }
+  }
+}
 
 /**
  * Inline citation — `{ sourceId, locator, … }` only. The visible text is
@@ -227,8 +257,23 @@ export const CitationNode = Node.create({
 
       render()
 
-      const engine = getCitationEngine(editor)
-      const unsubscribe = engine?.onChange(render)
+      // Bind to the engine lazily: it is created by the plugin's `onInit`,
+      // which runs AFTER the initial document (and this node view). Without
+      // this, a citation that is part of the loaded document keeps rendering
+      // "[?]" while the persisted footnote text still looks fine.
+      let unsubscribe: (() => void) | null = null
+      let bound: CiteEngine | null = null
+      const syncEngine = () => {
+        const engine = getCitationEngine(editor)
+        if (engine === bound) return
+        unsubscribe?.()
+        bound = engine
+        unsubscribe = engine ? engine.onChange(render) : null
+        render()
+      }
+      syncEngine()
+      editor.on('create', syncEngine)
+      editor.on('citationEngineReady', syncEngine)
 
       return {
         dom,
@@ -242,6 +287,8 @@ export const CitationNode = Node.create({
           return true
         },
         destroy() {
+          editor.off('create', syncEngine)
+          editor.off('citationEngineReady', syncEngine)
           unsubscribe?.()
         },
       }
@@ -340,6 +387,15 @@ export const citationPlugin = definePlugin({
       const sources = typeof citation.sources === 'function' ? citation.sources() : citation.sources
       const engine = new CiteEngine({ sources, style: citation.style })
       ;(editor.storage as unknown as { citationEngine: CitationStorage }).citationEngine.engine = engine
+      // The engine is created AFTER the editor view (and therefore after the
+      // node views for the initial document). Node views bind to it by
+      // listening for this event — without it, a bibliography/citation that is
+      // part of the loaded document never repaints.
+      editor.emit('citationEngineReady', { editor })
+      // `onUpdate` never fires for the content that is already loaded, so seed
+      // the engine here: a document whose citations were saved earlier renders
+      // on mount instead of waiting for the next keystroke.
+      syncCitationClusters(editor)
     },
     onDestroy(editor) {
       ;(editor.storage as unknown as { citationEngine: CitationStorage }).citationEngine.engine = null
