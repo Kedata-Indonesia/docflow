@@ -411,4 +411,19 @@ describe('bibliography node heading attrs (issue #239)', () => {
     expect(html).not.toContain('data-show-heading')
     expect(html).not.toContain('data-heading-text')
   })
+
+  it('treats the Yjs string form "false" as hidden (collab round-trip)', async () => {
+    const { instance } = insertCitedBibliography()
+    // Yjs XML attributes are always strings: a collaborator seeds the block with
+    // "false" instead of boolean false.
+    applyBibliographyAttrs(instance, { showHeading: 'false' })
+
+    const bib = instance.editor.view.dom.querySelector('.docs-bibliography')
+    await vi.waitFor(() => {
+      expect(bib?.querySelectorAll('.docs-bibliography__entry').length).toBeGreaterThan(0)
+    })
+    expect(bib?.querySelector('.docs-bibliography__heading')).toBeNull()
+    // And it serializes back to the canonical HTML form.
+    expect(instance.editor.getHTML()).toContain('data-show-heading="false"')
+  })
 })

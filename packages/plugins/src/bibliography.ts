@@ -12,6 +12,20 @@ function getEngine(editor: Editor): CiteEngine | null {
 }
 
 /**
+ * `showHeading` arrives as a boolean from JSON/HTML but as the **string**
+ * `'false'` when the document round-trips through Yjs/y-prosemirror (Yjs XML
+ * attributes are always strings). Both forms mean "hidden".
+ */
+export function isHeadingHidden(value: unknown): boolean {
+  return value === false || value === 'false'
+}
+
+/** Label heading/placeholder, dengan fallback ke default docflow. */
+function headingLabel(value: unknown): string {
+  return typeof value === 'string' && value !== '' ? value : 'Bibliography'
+}
+
+/**
  * Bibliography — a fully derived block. It stores no entries: the node view
  * renders the engine's citeproc-sorted bibliography and repaints on every
  * engine change (source edit, style switch, citation add/remove).
@@ -32,12 +46,13 @@ export const BibliographyNode = Node.create({
     return {
       showHeading: {
         default: true,
-        parseHTML: el => el.getAttribute('data-show-heading') !== 'false',
-        renderHTML: attrs => (attrs.showHeading === false ? { 'data-show-heading': 'false' } : {}),
+        parseHTML: el => !isHeadingHidden(el.getAttribute('data-show-heading')),
+        renderHTML: attrs =>
+          isHeadingHidden(attrs.showHeading) ? { 'data-show-heading': 'false' } : {},
       },
       headingText: {
         default: 'Bibliography',
-        parseHTML: el => el.getAttribute('data-heading-text') || 'Bibliography',
+        parseHTML: el => headingLabel(el.getAttribute('data-heading-text')),
         renderHTML: attrs =>
           typeof attrs.headingText === 'string' && attrs.headingText !== 'Bibliography'
             ? { 'data-heading-text': attrs.headingText }
@@ -80,8 +95,8 @@ export const BibliographyNode = Node.create({
       const render = () => {
         const engine = getEngine(editor)
         const items = engine?.getBibliography() ?? []
-        const showHeading = attrs.showHeading !== false
-        const headingText = typeof attrs.headingText === 'string' ? attrs.headingText : 'Bibliography'
+        const showHeading = !isHeadingHidden(attrs.showHeading)
+        const headingText = headingLabel(attrs.headingText)
 
         dom.innerHTML = ''
         if (items.length === 0) {
@@ -122,8 +137,11 @@ export const BibliographyNode = Node.create({
         update(updatedNode: any): boolean {
           if (updatedNode?.type?.name !== 'bibliography') return false
           const next = updatedNode.attrs ?? {}
+          // Bandingkan bentuk efektifnya: Yjs bisa mengirim `'false'` untuk
+          // nilai yang tadinya boolean `false` (dan sebaliknya).
           const changed =
-            next.showHeading !== attrs.showHeading || next.headingText !== attrs.headingText
+            isHeadingHidden(next.showHeading) !== isHeadingHidden(attrs.showHeading)
+            || headingLabel(next.headingText) !== headingLabel(attrs.headingText)
           attrs = next
           if (changed) render()
           return true
