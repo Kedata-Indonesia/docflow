@@ -426,4 +426,51 @@ describe('bibliography node heading attrs (issue #239)', () => {
     // And it serializes back to the canonical HTML form.
     expect(instance.editor.getHTML()).toContain('data-show-heading="false"')
   })
+
+  it('renders a bibliography that is part of the INITIAL document (engine binds after mount)', async () => {
+    const { instance, target } = makeEditor({
+      citation: { sources: [bookDoe], style: 'chicago-notes-bibliography' },
+      content: {
+        type: 'doc',
+        content: [
+          {
+            type: 'paragraph',
+            content: [{ type: 'citation', attrs: { citationId: 'c1', sourceId: 'doe-2020' } }],
+          },
+          { type: 'bibliography', attrs: { showHeading: false } },
+        ],
+      },
+    })
+    cleanup = () => { instance.destroy(); target.remove() }
+
+    // The engine is created by the plugin's onInit hook, i.e. AFTER the node
+    // views for the initial document exist. They must bind to it lazily.
+    const bib = instance.editor.view.dom.querySelector('.docs-bibliography')
+    await vi.waitFor(() => {
+      expect(bib?.querySelectorAll('.docs-bibliography__entry').length).toBeGreaterThan(0)
+    })
+    expect(bib?.textContent).toContain('The Design of Tests')
+  })
+
+  it('renders an inline citation that is part of the INITIAL document', async () => {
+    const { instance, target } = makeEditor({
+      citation: { sources: [bookDoe], style: 'apa' },
+      content: {
+        type: 'doc',
+        content: [
+          {
+            type: 'paragraph',
+            content: [{ type: 'citation', attrs: { citationId: 'c1', sourceId: 'doe-2020' } }],
+          },
+        ],
+      },
+    })
+    cleanup = () => { instance.destroy(); target.remove() }
+
+    const citation = instance.editor.view.dom.querySelector('.docs-citation')
+    await vi.waitFor(() => {
+      expect(citation?.textContent).toContain('Doe')
+    })
+    expect(citation?.textContent).not.toContain('[?]')
+  })
 })

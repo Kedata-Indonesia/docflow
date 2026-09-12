@@ -128,8 +128,23 @@ export const BibliographyNode = Node.create({
 
       render()
 
-      const engine = getEngine(editor)
-      const unsubscribe = engine?.onChange(render)
+      // Bind to the engine lazily: it is created by the plugin's `onInit`,
+      // which runs AFTER the initial document (and this node view). Without
+      // this, a bibliography that is part of the loaded document stays empty
+      // until its node view happens to be recreated.
+      let unsubscribe: (() => void) | null = null
+      let bound: CiteEngine | null = null
+      const syncEngine = () => {
+        const engine = getEngine(editor)
+        if (engine === bound) return
+        unsubscribe?.()
+        bound = engine
+        unsubscribe = engine ? engine.onChange(render) : null
+        render()
+      }
+      syncEngine()
+      editor.on('create', syncEngine)
+      editor.on('citationEngineReady', syncEngine)
 
       return {
         dom,
@@ -147,6 +162,8 @@ export const BibliographyNode = Node.create({
           return true
         },
         destroy() {
+          editor.off('create', syncEngine)
+          editor.off('citationEngineReady', syncEngine)
           unsubscribe?.()
         },
       }
