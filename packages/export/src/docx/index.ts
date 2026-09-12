@@ -35,8 +35,17 @@ async function docToDocxDocument(title: string, doc: PmNode, ctx: ExportContext)
         const img = await imageToDocxParagraph(child, ctx)
         if (img) children.push(img)
       } else if (child.type === 'bibliography') {
-        // Fully derived block (Phase 6D): rendered from the active CSL style.
-        if (ctx.citation) children.push(...bibliographyToParagraphs(ctx.citation.getBibliography()))
+        // Fully derived block (Phase 6D): rendered from the active CSL style,
+        // honouring the node's presentation attrs.
+        if (ctx.citation) {
+          const attrs = child.attrs ?? {}
+          children.push(
+            ...bibliographyToParagraphs(ctx.citation.getBibliography(), {
+              showHeading: attrs.showHeading !== false,
+              headingText: typeof attrs.headingText === 'string' ? attrs.headingText : undefined,
+            }),
+          )
+        }
       } else if (child.type === 'footnote') {
         children.push(...mapBlockNode(child, undefined, walkCtx))
       } else if (child.type === 'bulletList' || child.type === 'orderedList') {
