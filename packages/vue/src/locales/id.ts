@@ -398,7 +398,7 @@ export default {
       preview: 'Pratinjau',
     },
     toc: {
-      title: 'Daftar Isi',
+      title: 'DAFTAR ISI',
       empty: 'Belum ada judul.',
       untitledHeading: 'Judul Tanpa Nama {level}',
       newSection: 'Bagian {tag} Baru',
