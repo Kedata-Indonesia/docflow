@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
+import { onBeforeUnmount, onMounted, onUnmounted, ref, shallowRef } from 'vue'
 import { DocsEditor } from '@kedata-indonesia/docflow-vue'
 import {
   createCollaboration,
@@ -45,6 +45,13 @@ let disposed = false
 onBeforeUnmount(() => {
   disposed = true
 })
+// Host-owned setup: the editor no longer destroys it on unmount (see
+// EditorOptions.collaboration), so release the room here — after the child
+// editor has been unmounted.
+onUnmounted(() => {
+  collabSetup.value?.destroy()
+  collabSetup.value = null
+})
 
 onMounted(async () => {
   const setup = await createCollaboration({
@@ -52,9 +59,8 @@ onMounted(async () => {
     provider: 'webrtc',
     user: { name: 'Demo User', color: '#06b6d4' },
   })
-  // Guard against resolving after this host already unmounted (DocsEditor
-  // destroys the setup it received; an un-delivered one must be cleaned up
-  // here).
+  // Guard against resolving after this host already unmounted. The setup is
+  // host-owned: a setup that never reached the editor must be cleaned up here.
   if (disposed) {
     setup.destroy()
     return
