@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { DocsEditorElement, registerDocsEditor } from '../index.js'
 import type { DocsEditorPlugin } from '@kedata-indonesia/docflow-core'
 
@@ -65,6 +65,27 @@ describe('DocsEditorElement', () => {
     element.plugins = plugins
     const props = (element as unknown as { _buildProps: () => Record<string, unknown> })._buildProps()
     expect(props.plugins).toBe(plugins)
+  })
+
+  it('releases the collaboration setup on teardown (host-owned room)', () => {
+    // The editor no longer destroys host-provided setups — the element owns
+    // the room it built, so it must release it here (regression guard for the
+    // "remote cursors die until reload" bug in remounting hosts).
+    class DocsEditorTeardownElement extends DocsEditorElement {}
+    customElements.define('docs-editor-teardown-test', DocsEditorTeardownElement)
+
+    const element = document.createElement('docs-editor-teardown-test') as DocsEditorTeardownElement
+    const destroy = vi.fn()
+    const internals = element as unknown as {
+      _collabSetup?: { destroy: () => void }
+      _teardownEditor: () => void
+    }
+    internals._collabSetup = { destroy }
+
+    internals._teardownEditor()
+
+    expect(destroy).toHaveBeenCalledTimes(1)
+    expect(internals._collabSetup).toBeUndefined()
   })
 })
 

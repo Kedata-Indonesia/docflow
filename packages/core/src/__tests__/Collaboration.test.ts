@@ -137,6 +137,42 @@ describe('createEditor collaboration integration', () => {
     expect(names).toContain('collaboration')
 
     editor.destroy()
+    // The setup is host-owned: the editor must not release the room.
+    collabSetup.destroy()
+  })
+
+  it('does not destroy the host-owned collaboration setup on editor.destroy()', async () => {
+    // Regression: hosts remount the editor against the same room (Vue `:key`
+    // bumps, tab switches, external document refreshes). `editor.destroy()`
+    // used to call `setup.destroy()`, which silently killed the provider +
+    // awareness on every remount — sync and remote cursors only came back
+    // after a full page reload.
+    const target = document.createElement('div')
+    const collabSetup = await createCollaboration({
+      room: 'editor-ownership-room',
+      user: { name: 'Alice', color: '#ff0000' },
+    })
+    const editor = createEditor({ target, collaboration: collabSetup })
+
+    editor.destroy()
+
+    // Awareness, provider and Y.Doc stay alive — the host owns them.
+    expect(collabSetup.awareness.getLocalState()).not.toBeNull()
+    expect(collabSetup.awareness.getLocalState()?.present).toBe(true)
+    expect(collabSetup.ydoc.isDestroyed).toBe(false)
+
+    // A second editor can rebind to the very same live setup.
+    const reboundTarget = document.createElement('div')
+    const rebound = createEditor({ target: reboundTarget, collaboration: collabSetup })
+    expect(
+      rebound.editor.extensionManager.extensions.map((e) => e.name),
+    ).toContain('collaboration')
+    rebound.destroy()
+
+    // Only the host's explicit destroy() releases the room.
+    collabSetup.destroy()
+    expect(collabSetup.awareness.getLocalState()).toBeNull()
+    expect(collabSetup.ydoc.isDestroyed).toBe(true)
   })
 })
 

@@ -58,6 +58,16 @@ export interface EditorOptions {
    * y-webrtc/y-websocket), so `createEditor` cannot construct one itself.
    * When set, history is disabled and the Yjs document is authoritative
    * (local `content` is not seeded).
+   *
+   * **Ownership (host-owned):** the host that built the setup owns its
+   * lifecycle. `editor.destroy()` tears down the TipTap view only — it does
+   * **not** call `setup.destroy()`. This is deliberate: hosts routinely
+   * remount the editor against the same room (Vue `:key` bumps, tab
+   * switches, external document refreshes), and destroying the shared
+   * `Y.Doc`/provider/awareness on every remount silently kills sync and
+   * remote cursors until a full page reload. Destroy the setup yourself when
+   * the room is no longer needed (unmount, room change, `createCollaboration`
+   * resolving after disposal).
    */
   collaboration?: CollaborationSetup
   getPageMap?: () => Map<number, { page: number; blockIndex: number }>
@@ -191,7 +201,11 @@ export function createEditor(options: EditorOptions = {}): DocsEditor {
         plugin.hooks?.onDestroy?.(tiptapEditor)
       }
       tiptapEditor.destroy()
-      collaborationSetup?.destroy()
+      // NOTE: the collaboration setup is host-owned and deliberately NOT
+      // destroyed here — see EditorOptions.collaboration. The editor may be
+      // remounted against the same room (key bump / doc refresh); killing the
+      // provider on every remount would drop sync + remote cursors until a
+      // page reload. The host destroys the setup when the room is done.
       performanceMonitor?.destroy()
     },
     use: (plugin) => {

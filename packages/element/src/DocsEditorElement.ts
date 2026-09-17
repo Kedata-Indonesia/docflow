@@ -143,20 +143,18 @@ export class DocsEditorElement extends HTMLElement {
   /**
    * Unmount the inner Vue editor and release its collaboration setup.
    *
-   * Ownership: a setup handed to a mounted editor is destroyed exactly once
-   * by the editor itself (`createEditor().destroy()` → `setup.destroy()`).
-   * Only setups that were resolved but never reached an editor (element
-   * disconnected / room changed mid-resolution) are destroyed here.
+   * Ownership: the element owns every setup it builds. The editor no longer
+   * destroys host-provided setups (`createEditor().destroy()` only tears down
+   * the TipTap view — see `EditorOptions.collaboration`), so releasing the
+   * room is the element's job. The Vue element is removed first so the editor
+   * view is detached before the shared Y.Doc/provider/awareness go away.
    */
   private _teardownEditor(): void {
-    const setupHandedToEditor = this._vueElement !== undefined
     this._vueElement?.remove()
     this._vueElement = undefined
     const setup = this._collabSetup
     this._collabSetup = undefined
-    if (setup && !setupHandedToEditor) {
-      setup.destroy()
-    }
+    setup?.destroy()
   }
 
   private _buildProps(): Record<string, unknown> {
