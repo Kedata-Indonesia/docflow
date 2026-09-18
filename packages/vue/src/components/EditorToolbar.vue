@@ -47,12 +47,17 @@ import ColorPickerDropdown from './ColorPickerDropdown.vue'
 
 const { t } = useLocale()
 
-const props = defineProps<{
-  actions: Record<string, (...args: unknown[]) => boolean>
-  plugins?: DocsEditorPlugin[]
-  editor?: Editor | null
-  activeSidebar?: SidebarKey | null
-}>()
+const props = withDefaults(
+  defineProps<{
+    actions: Record<string, (...args: unknown[]) => boolean>
+    plugins?: DocsEditorPlugin[]
+    editor?: Editor | null
+    activeSidebar?: SidebarKey | null
+    /** Render the built-in "Riwayat" sidebar toggle. Defaults to `true`. */
+    showHistory?: boolean
+  }>(),
+  { showHistory: true },
+)
 
 const emit = defineEmits<{
   'toggle-sidebar': [key: SidebarKey]
@@ -293,17 +298,20 @@ const COLOR_ACTIONS = ['setTextColor', 'setHighlight']
 const allPluginItems = computed(() => toolbarGroups.value.flatMap((g) => g.items))
 const alignItems = computed(() => allPluginItems.value.filter((i) => ALIGN_ACTIONS.includes(i.action)))
 const listItems = computed(() => allPluginItems.value.filter((i) => LIST_ACTIONS.includes(i.action)))
-const insertItems = computed(() => allPluginItems.value.filter((i) => INSERT_ACTIONS.includes(i.action)))
+// Built-in insert actions are grouped here, plus any plugin item that opts in
+// explicitly via `menu: 'insert'` (needed for plugin-own actions, e.g. tocPlugin).
+const isInsertMenuItem = (i: ToolbarItem) => INSERT_ACTIONS.includes(i.action) || i.menu === 'insert'
+const insertItems = computed(() => allPluginItems.value.filter((i) => isInsertMenuItem(i)))
 const colorItems = computed(() => allPluginItems.value.filter((i) => COLOR_ACTIONS.includes(i.action)))
 const textColorItem = computed(() => colorItems.value.find((i) => i.action === 'setTextColor'))
 const highlightItem = computed(() => colorItems.value.find((i) => i.action === 'setHighlight'))
 const flatItems = computed(() =>
   allPluginItems.value.filter(
     (i) =>
+      !isInsertMenuItem(i) &&
       !HEADING_ACTIONS.includes(i.action) &&
       !ALIGN_ACTIONS.includes(i.action) &&
       !LIST_ACTIONS.includes(i.action) &&
-      !INSERT_ACTIONS.includes(i.action) &&
       !COLOR_ACTIONS.includes(i.action),
   ),
 )
@@ -896,6 +904,7 @@ function cancelFontSize(event: KeyboardEvent) {
         <MessageSquare class="h-[18px] w-[18px]" />
       </button>
       <button
+        v-if="showHistory"
         type="button"
         :class="['docs-editor-toolbar__control flex h-8 w-8 items-center justify-center rounded-md transition-all', sidebarClass('history')]"
         :title="t('toolbar.history')"

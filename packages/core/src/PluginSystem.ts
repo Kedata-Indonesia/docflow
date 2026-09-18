@@ -7,6 +7,16 @@ export interface ToolbarItem {
   label?: string
   action: string
   args?: unknown[]
+  /**
+   * Group this item into the toolbar's compact groups instead of rendering it
+   * as a flat button. Currently only `'insert'` (the "+" / Sisipkan dropdown)
+   * is supported; built-in insert actions (link, image, table, footnote, page
+   * break, …) are grouped automatically, so plugins only need this flag for
+   * their OWN actions.
+   *
+   * Defaults to `undefined` → flat toolbar button (previous behaviour).
+   */
+  menu?: 'insert'
 }
 
 export interface SlashCommand {

@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { createEditor } from '@kedata-indonesia/docflow-core'
 import { defaultPlugins } from '../index.js'
+import { collectHeadings, tocPlugin } from '../toc.js'
 
 describe('toc plugin', () => {
   let editorInstance: ReturnType<typeof createEditor>
@@ -59,6 +60,36 @@ describe('toc plugin', () => {
     expect(toc?.content?.[0]?.content?.[0]?.text).toBe('Updated Intro')
   })
 
+  it('generateToc inserts when absent, then regenerates in place without duplicating', () => {
+    const { editor } = editorInstance
+    // The toolbar runs plugin actions (createActionMap), not tiptap commands.
+    const generateToc = tocPlugin.commands?.generateToc as (e: typeof editor) => boolean
+    editor.commands.setContent('<h1>Intro</h1><h2>Details</h2>')
+    editor.commands.focus('end')
+
+    const tocBlocks = () => editor.getJSON().content?.filter((n) => n.type === 'toc') ?? []
+    const texts = () => tocBlocks()[0]?.content?.map((e) => e.content?.[0]?.text)
+
+    // No toc yet → generate creates one.
+    expect(generateToc(editor)).toBe(true)
+    expect(tocBlocks()).toHaveLength(1)
+
+    // Heading edited, generate again → regenerated in place, still a single toc.
+    const { state, view } = editor
+    view.dispatch(state.tr.insertText('Updated ', 1))
+    expect(generateToc(editor)).toBe(true)
+    expect(tocBlocks()).toHaveLength(1)
+    expect(texts()).toEqual(['Updated Intro', 'Details'])
+  })
+
+  it('exposes "Generate Daftar Isi" through the toolbar insert (+) menu', () => {
+    const items = tocPlugin.toolbar ?? []
+    expect(items).toHaveLength(1)
+    expect(items[0]).toMatchObject({ action: 'generateToc', menu: 'insert' })
+    // The toolbar resolves the item's action through the plugin's command map.
+    expect(typeof tocPlugin.commands?.generateToc).toBe('function')
+  })
+
   it('keeps entry paragraphs in getJSON (export invariant)', () => {
     const { editor } = editorInstance
     editor.commands.setContent('<h1>Intro</h1><h2>Details</h2>')
@@ -100,6 +131,46 @@ describe('toc plugin', () => {
     // PaginationPlus keeps module-level options — re-enable so the disabled
     // state doesn't leak into the next test's editor instance.
     editor.commands.enablePagination()
+  })
+
+  it('keeps the "Daftar Isi" heading out of the generated entries (insert & refresh)', () => {
+    const { editor } = editorInstance
+    editor.commands.setContent(
+      '<h1>Daftar Isi</h1><h2>BAB I Pendahuluan</h2><p>Body</p><h3>1.1 Latar Belakang</h3>',
+    )
+    editor.commands.focus('end')
+
+    editor.commands.insertToc()
+    let texts = editor.getJSON().content
+      ?.find((n) => n.type === 'toc')
+      ?.content?.map((e) => e.content?.[0]?.text)
+    // The toc block sits under the "Daftar Isi" heading; listing it would make
+    // the table of contents list itself (NA/RUU document convention).
+    expect(texts).toEqual(['BAB I Pendahuluan', '1.1 Latar Belakang'])
+
+    // Regeneration path (refresh button / generateToc action) must exclude it too.
+    const refreshToc = editor.commands.refreshToc()
+    expect(refreshToc).toBe(true)
+    texts = editor.getJSON().content
+      ?.find((n) => n.type === 'toc')
+      ?.content?.map((e) => e.content?.[0]?.text)
+    expect(texts).toEqual(['BAB I Pendahuluan', '1.1 Latar Belakang'])
+
+    // Normalised match: case, dashes and repeated spaces.
+    editor.commands.setContent('<h1>daftar-isi</h1><h2>DAFTAR  ISI</h2><h2>BAB II</h2>')
+    editor.commands.focus('end')
+    editor.commands.insertToc()
+    texts = editor.getJSON().content
+      ?.find((n) => n.type === 'toc')
+      ?.content?.map((e) => e.content?.[0]?.text)
+    expect(texts).toEqual(['BAB II'])
+  })
+
+  it('keeps "Daftar Isi" in the outline collector (sidebar parity)', () => {
+    const { editor } = editorInstance
+    editor.commands.setContent('<h1>Daftar Isi</h1><h2>BAB I</h2>')
+    // collectHeadings feeds the outline sidebar — it must NOT be filtered.
+    expect(collectHeadings(editor).map((h) => h.text)).toEqual(['Daftar Isi', 'BAB I'])
   })
 
   it('captures page numbers when pagination breakers are present', () => {

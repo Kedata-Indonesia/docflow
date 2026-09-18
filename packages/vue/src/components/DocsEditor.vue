@@ -94,6 +94,12 @@ const props = withDefaults(
     /** Distance from the paper edge to the header/footer content, in cm. */
     headerMarginCm?: number
     footerMarginCm?: number
+    /**
+     * Show the toolbar's built-in "Riwayat" (history) sidebar toggle.
+     * Hosts that ship their own version-history UI (e.g. a separate artifact
+     * toolbar) set this to `false`. Defaults to `true`.
+     */
+    showHistory?: boolean
   }>(),
   {
     editable: true,
@@ -127,6 +133,7 @@ const props = withDefaults(
     margins: () => ({ top: 94, bottom: 94, left: 94, right: 94 }),
     headerMarginCm: 0.5,
     footerMarginCm: 0.5,
+    showHistory: true,
   },
 )
 
@@ -2653,6 +2660,7 @@ v-if="!focusMode"
     <EditorToolbar
 v-if="!focusMode"
 :actions="pluginActions" :plugins="plugins" :editor="editor" :active-sidebar="activeSidebar"
+      :show-history="showHistory"
       @toggle-sidebar="toggleSidebar"       @print="handlePrint" />
     <RulerBar v-if="showRuler && !focusMode" :layout-options="resolvedLayoutOptions" />
     <!-- Floating exit button shown only while focus mode is active -->
