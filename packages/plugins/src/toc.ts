@@ -10,6 +10,30 @@ export interface TocHeading {
   pos: number
 }
 
+/**
+ * Heading yang TIDAK boleh muncul sebagai entri Daftar Isi: heading
+ * "Daftar Isi" itu sendiri — blok toc berada tepat di bawahnya, sehingga tanpa
+ * pengecualian daftar isi akan mencantumkan dirinya sendiri. Konvensi dokumen
+ * resmi (Naskah Akademik/RUU): daftar entri dimulai dari heading konten
+ * pertama. Perbandingan dinormalisasi (huruf besar, pemisah → spasi) agar
+ * "Daftar Isi", "DAFTAR  ISI", dan "daftar-isi" sama-sama terdeteksi.
+ */
+export const TOC_EXCLUDED_HEADING_NORMS = ['DAFTAR ISI']
+
+function normHeadingText(text: string): string {
+  return text
+    .toUpperCase()
+    .replace(/[—–]/g, '-')
+    .replace(/[^A-Z0-9]+/g, ' ')
+    .trim()
+}
+
+/** Buang heading yang dikecualikan dari daftar entri (hanya untuk blok toc —
+ *  outline sidebar tetap memakai seluruh heading). */
+function withoutExcludedHeadings(headings: TocHeading[]): TocHeading[] {
+  return headings.filter((h) => !TOC_EXCLUDED_HEADING_NORMS.includes(normHeadingText(h.text)))
+}
+
 function collectHeadingsFromDoc(doc: PMNode): TocHeading[] {
   const headings: TocHeading[] = []
   doc.descendants((node, pos) => {
@@ -31,6 +55,13 @@ function collectHeadingsFromDoc(doc: PMNode): TocHeading[] {
  */
 export function collectHeadings(editor: Editor): TocHeading[] {
   return collectHeadingsFromDoc(editor.state.doc)
+}
+
+/** Heading yang dipakai sebagai ENTRI Daftar Isi (heading kontrol seperti
+ *  "Daftar Isi" dibuang). Dipakai insertToc & regenerateToc — BUKAN outline
+ *  sidebar yang tetap menampilkan semua heading. */
+function collectTocHeadings(doc: PMNode): TocHeading[] {
+  return withoutExcludedHeadings(collectHeadingsFromDoc(doc))
 }
 
 /**
@@ -87,7 +118,7 @@ function buildTocEntryNodes(schema: Schema, headings: TocHeading[], pageFor: Pag
 }
 
 function buildTocContentJSON(editor: Editor) {
-  const headings = collectHeadings(editor)
+  const headings = collectTocHeadings(editor.state.doc)
   if (headings.length === 0) {
     return [{ type: 'tocEntry', attrs: { level: 1, pos: 0 } }]
   }
@@ -127,7 +158,7 @@ function applyTocRegeneration(editor: Editor, tr: Transaction): boolean {
   })
   if (targets.length === 0) return false
 
-  const entries = buildTocEntryNodes(editor.schema, collectHeadingsFromDoc(tr.doc), createPageResolver(editor))
+  const entries = buildTocEntryNodes(editor.schema, collectTocHeadings(tr.doc), createPageResolver(editor))
   for (const target of targets.reverse()) {
     tr.replaceWith(target.pos, target.pos + target.nodeSize, tocType.create(null, entries))
   }
