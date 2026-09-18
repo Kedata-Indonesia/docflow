@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { createEditor } from '@kedata-indonesia/docflow-core'
 import { defaultPlugins } from '../index.js'
+import { tocPlugin } from '../toc.js'
 
 describe('toc plugin', () => {
   let editorInstance: ReturnType<typeof createEditor>
@@ -57,6 +58,36 @@ describe('toc plugin', () => {
 
     toc = editor.getJSON().content?.find((n) => n.type === 'toc')
     expect(toc?.content?.[0]?.content?.[0]?.text).toBe('Updated Intro')
+  })
+
+  it('generateToc inserts when absent, then regenerates in place without duplicating', () => {
+    const { editor } = editorInstance
+    // The toolbar runs plugin actions (createActionMap), not tiptap commands.
+    const generateToc = tocPlugin.commands?.generateToc as (e: typeof editor) => boolean
+    editor.commands.setContent('<h1>Intro</h1><h2>Details</h2>')
+    editor.commands.focus('end')
+
+    const tocBlocks = () => editor.getJSON().content?.filter((n) => n.type === 'toc') ?? []
+    const texts = () => tocBlocks()[0]?.content?.map((e) => e.content?.[0]?.text)
+
+    // No toc yet → generate creates one.
+    expect(generateToc(editor)).toBe(true)
+    expect(tocBlocks()).toHaveLength(1)
+
+    // Heading edited, generate again → regenerated in place, still a single toc.
+    const { state, view } = editor
+    view.dispatch(state.tr.insertText('Updated ', 1))
+    expect(generateToc(editor)).toBe(true)
+    expect(tocBlocks()).toHaveLength(1)
+    expect(texts()).toEqual(['Updated Intro', 'Details'])
+  })
+
+  it('exposes "Generate Daftar Isi" through the toolbar insert (+) menu', () => {
+    const items = tocPlugin.toolbar ?? []
+    expect(items).toHaveLength(1)
+    expect(items[0]).toMatchObject({ action: 'generateToc', menu: 'insert' })
+    // The toolbar resolves the item's action through the plugin's command map.
+    expect(typeof tocPlugin.commands?.generateToc).toBe('function')
   })
 
   it('keeps entry paragraphs in getJSON (export invariant)', () => {

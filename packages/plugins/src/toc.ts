@@ -343,9 +343,20 @@ export const TocNode = Node.create({
 export const tocPlugin = definePlugin({
   id: 'toc',
   tiptapExtensions: [TocPageNumNode, TocEntryNode, TocNode, TocCommandsExtension],
+  // `menu: 'insert'` puts it in the toolbar's "+" (Sisipkan) dropdown: the
+  // action is plugin-own (not one of the built-in insert actions), so it has to
+  // opt in explicitly. `generateToc` = regenerate, else insert → idempotent.
+  toolbar: [
+    { id: 'insert-toc', label: 'Generate Daftar Isi', action: 'generateToc', iconComponent: 'List', menu: 'insert' },
+  ],
   slashCommands: [{ name: 'Table of contents', description: 'Daftar isi', command: 'insertToc' }],
   commands: {
     insertToc: (editor: Editor) => editor.commands.insertToc(),
     refreshToc: (editor: Editor) => regenerateToc(editor),
+    // Toolbar-facing "Generate Daftar Isi": regenerate every existing toc, or
+    // insert a prefilled one when the document has none. Implemented as a
+    // plugin action (like refreshToc) so the manual `refreshToc` dispatch
+    // doesn't nest inside a tiptap command transaction.
+    generateToc: (editor: Editor) => regenerateToc(editor) || editor.commands.insertToc(),
   },
 })
