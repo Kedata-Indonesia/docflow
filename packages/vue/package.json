@@ -59,7 +59,7 @@
   },
   "devDependencies": {
     "@tiptap/core": "^2.11.0",
-    "@vitejs/plugin-vue": "^5.1.4",
+    "@vitejs/plugin-vue": "^6.0.9",
     "@vue/test-utils": "^2.4.6",
     "autoprefixer": "^10.5.2",
     "happy-dom": "^20.10.6",
