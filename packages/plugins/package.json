@@ -55,9 +55,9 @@
   },
   "dependencies": {
     "@kedata-indonesia/docflow-core": "workspace:*",
-    "@tiptap/extension-color": "^2.27.2",
-    "@tiptap/extension-highlight": "^2.27.2",
-    "@tiptap/pm": "^2.11.0",
+    "@tiptap/extension-color": "^3.31.3",
+    "@tiptap/extension-highlight": "^3.31.3",
+    "@tiptap/pm": "^3.31.3",
     "citeproc": "^2.4.63",
     "tiptap-markdown": "0.8.10"
   },

@@ -47,7 +47,7 @@
   },
   "dependencies": {
     "@kedata-indonesia/docflow-core": "workspace:*",
-    "@tiptap/pm": "^2.11.0"
+    "@tiptap/pm": "^3.31.3"
   },
   "devDependencies": {
     "happy-dom": "^20.10.6",
