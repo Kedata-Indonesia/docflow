@@ -18,7 +18,7 @@ jobs:
     # "npm-publish" under Settings → Environments (add required reviewers).
     environment: npm-publish
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: pnpm/action-setup@v4
         with:
