@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted } from 'vue'
+import { ref, watch } from 'vue'
 import type { Editor } from '@tiptap/core'
 import { useLocale } from '../composables/useLocale.js'
 
@@ -96,37 +96,83 @@ function onTextInput() {
   visible.value = false
 }
 
-watch(() => props.editor, (ed) => {
-  if (ed) {
-    ed.on('update', onTextInput)
-    ed.on('selectionUpdate', () => {
-      if (visible.value) updatePosition()
-    })
-  }
-})
+function onSelectionUpdate() {
+  if (visible.value) updatePosition()
+}
 
+// The keydown listener must run in the CAPTURE phase on the editor element.
+// ProseMirror registers its own keydown handler on `view.dom` (bubble), so a
+// document-level bubble listener runs *after* ProseMirror has already handled
+// Enter/ArrowUp/ArrowDown. The resulting transaction fires the editor `update`
+// event, which calls `onTextInput` and closes the menu — before the menu ever
+// sees the key. Capturing on `view.dom` lets us intercept first.
+let editorDom: HTMLElement | null = null
+
+watch(() => props.editor, (ed, _prev, onCleanup) => {
+  if (!ed) return
+  ed.on('update', onTextInput)
+  ed.on('selectionUpdate', onSelectionUpdate)
+  editorDom = ed.view.dom
+  editorDom.addEventListener('keydown', onKeyDown, true)
+  onCleanup(() => {
+    if (editorDom) editorDom.removeEventListener('keydown', onKeyDown, true)
+    editorDom = null
+    ed.off('update', onTextInput)
+    ed.off('selectionUpdate', onSelectionUpdate)
+  })
+}, { immediate: true })
+
+// `immediate` so the full command list is populated as soon as the menu opens
+// on a bare '/': otherwise `filteredCommands` stays empty (the watcher only
+// fires when `query` changes) and the menu's `length > 0` guard hides it until
+// the user types a query character.
 watch([query, () => props.commands], () => {
   const q = query.value.toLowerCase()
   filteredCommands.value = q
     ? props.commands.filter(c => c.name.toLowerCase().includes(q))
     : props.commands
-})
+  // Keep the highlight inside the new list: `props.commands` can shrink while the
+  // query stays the same, which would leave Enter silently selecting nothing.
+  selectedIndex.value = Math.min(selectedIndex.value, Math.max(filteredCommands.value.length - 1, 0))
+}, { immediate: true })
+
+const isMenuOpen = () => visible.value && filteredCommands.value.length > 0
 
 function onKeyDown(e: KeyboardEvent) {
-  if (!visible.value) return
-  if (e.key === 'ArrowDown') { e.preventDefault(); selectedIndex.value = Math.min(selectedIndex.value + 1, filteredCommands.value.length - 1) }
-  if (e.key === 'ArrowUp') { e.preventDefault(); selectedIndex.value = Math.max(selectedIndex.value - 1, 0) }
-  if (e.key === 'Enter') { e.preventDefault(); const cmd = filteredCommands.value[selectedIndex.value]; if (cmd) selectCommand(cmd) }
-  if (e.key === 'Escape') { e.preventDefault(); close() }
+  // `visible` alone is not enough: with no matches (`/zzz`) the template hides
+  // the menu, so there is nothing to navigate and the keys must reach
+  // ProseMirror instead of being swallowed.
+  if (!isMenuOpen()) return
+  // Never steal the Enter that confirms an IME composition.
+  if (e.isComposing || e.keyCode === 229) return
+
+  if (e.key === 'ArrowDown') {
+    e.preventDefault()
+    e.stopPropagation()
+    selectedIndex.value = Math.min(selectedIndex.value + 1, filteredCommands.value.length - 1)
+    return
+  }
+  if (e.key === 'ArrowUp') {
+    e.preventDefault()
+    e.stopPropagation()
+    selectedIndex.value = Math.max(selectedIndex.value - 1, 0)
+    return
+  }
+  // Only a bare Enter activates a command; modifier combos (Shift+Enter,
+  // Ctrl/Cmd+Enter, …) belong to the editor.
+  if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
+    e.preventDefault()
+    e.stopPropagation()
+    const cmd = filteredCommands.value[selectedIndex.value]
+    if (cmd) selectCommand(cmd)
+    return
+  }
+  if (e.key === 'Escape') {
+    e.preventDefault()
+    e.stopPropagation()
+    close()
+  }
 }
-
-onMounted(() => {
-  document.addEventListener('keydown', onKeyDown)
-})
-
-onUnmounted(() => {
-  document.removeEventListener('keydown', onKeyDown)
-})
 </script>
 
 <template>

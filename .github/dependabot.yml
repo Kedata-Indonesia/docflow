@@ -1,0 +1,23 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: '/'
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+    groups:
+      tiptap:
+        patterns:
+          - '@tiptap/*'
+      prosemirror:
+        patterns:
+          - 'prosemirror-*'
+      yjs:
+        patterns:
+          - 'y-*'
+          - 'yjs'
+
+  - package-ecosystem: github-actions
+    directory: '/'
+    schedule:
+      interval: weekly

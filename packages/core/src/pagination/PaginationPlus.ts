@@ -129,26 +129,25 @@ const getPageConfig = (_storage: any, _currentOptions: any) => {
   }
 }
 
-const getPageConfigFromOptions = (_currentOptions: any) => {
-  return {
-    enabled: _currentOptions.enabled ?? defaultOptions.enabled,
-    pageBreakBackground: _currentOptions.pageBreakBackground ?? defaultOptions.pageBreakBackground,
-    pageHeight: _currentOptions.pageHeight ?? defaultOptions.pageHeight,
-    pageWidth: _currentOptions.pageWidth ?? defaultPageConfig.pageWidth,
-    marginTop: _currentOptions.marginTop ?? defaultPageConfig.marginTop,
-    marginBottom: _currentOptions.marginBottom ?? defaultPageConfig.marginBottom,
-    marginLeft: _currentOptions.marginLeft ?? defaultPageConfig.marginLeft,
-    marginRight: _currentOptions.marginRight ?? defaultPageConfig.marginRight,
-    pageGap: _currentOptions.pageGap ?? defaultPageConfig.pageGap,
-    contentMarginTop: _currentOptions.contentMarginTop ?? defaultPageConfig.contentMarginTop,
-    contentMarginBottom: _currentOptions.contentMarginBottom ?? defaultPageConfig.contentMarginBottom,
-    footerRight: _currentOptions.footerRight ?? defaultPageConfig.footerRight,
-    footerLeft: _currentOptions.footerLeft ?? defaultPageConfig.footerLeft,
-    headerRight: _currentOptions.headerRight ?? defaultPageConfig.headerRight,
-    headerLeft: _currentOptions.headerLeft ?? defaultPageConfig.headerLeft,
-    customHeader: _currentOptions.customHeader ?? defaultPageConfig.customHeader,
-    customFooter: _currentOptions.customFooter ?? defaultPageConfig.customFooter,
-  }
+/**
+ * Re-apply the `--rm-*` CSS variables from the runtime `storage` state.
+ *
+ * `onCreate()` only applies these once, from the configured options. The
+ * runtime commands (`updatePageSize`, `updatePageWidth`, `updatePageHeight`,
+ * `updateMargins`) mutate `storage` only — the source of truth for the
+ * pagination algorithm — so without this refresh the drawn page box
+ * (`--rm-page-height` / `--rm-page-width`) and the derived `max-height` rules
+ * would keep the dimensions from mount time.
+ *
+ * `getPageConfig(storage, options)` returns its `options` with storage values
+ * taking precedence, which is what we want here: a command that just wrote
+ * `storage.pageHeight` must win over the (unchanged) configured options.
+ */
+const applyCssVariablesFromStorage = (ctx: { editor?: unknown; storage?: unknown; options?: unknown }) => {
+  const targetNode = (ctx?.editor as { view?: { dom?: HTMLElement } } | undefined)?.view?.dom
+  if (!targetNode) return
+  const { options } = getPageConfig(ctx.storage, ctx.options)
+  updateCssVariables(targetNode, options)
 }
 
 const paginationKey = new PluginKey('pagination')
@@ -448,23 +447,37 @@ export const PaginationPlus = Extension.create<PaginationPlusOptions>({
     return defaultOptions
   },
   addStorage() {
+    // Seed storage from the configured options (`PaginationPlus.configure(...)`),
+    // preferring them over the module defaults. `getPageConfig()` reads storage
+    // first, so pre-seeding with `defaultOptions` silently discarded any
+    // configured values (e.g. `pageHeight`) and made the pagination algorithm
+    // fall back to the defaults. Storage remains the runtime source of truth,
+    // so commands such as `updatePageHeight` can still override it after init.
+    //
+    // `this.options` is the already-resolved options object (`addOptions()`
+    // merged with `configure()`), provided by tiptap's `addStorage` context.
     return {
       ...defaultOptions,
+      ...this.options,
       headerHeight: new Map<number, number>(),
       footerHeight: new Map<number, number>(),
       appliedConfig: defaultPageConfig,
     }
   },
   onCreate() {
-    const { options: _currentOptions } = getPageConfig(this.storage, this.options)
-    const pageConfig = getPageConfigFromOptions(this.options)
+    // Storage-first, exactly like the runtime commands: they may have run before
+    // TipTap's deferred `create` (e.g. `createEditor()` → `updatePageSize()`),
+    // and re-applying the raw options here used to clobber them. Initial
+    // `paginationOptions` are preserved because `addStorage()` seeds storage
+    // from `this.options`.
+    const { options: pageConfig } = getPageConfig(this.storage, this.options)
     const targetNode = this.editor.view.dom as HTMLElement
     targetNode.classList.add('rm-with-pagination')
     targetNode.style.border = `1px solid var(--rm-page-gap-border-color)`
     targetNode.style.paddingLeft = 'var(--rm-margin-left)'
     targetNode.style.paddingRight = 'var(--rm-margin-right)'
     targetNode.style.width = 'var(--rm-page-width)'
-    updateCssVariables(targetNode, { ..._currentOptions, ...pageConfig })
+    updateCssVariables(targetNode, pageConfig)
 
     if (!document.querySelector('style[data-rm-pagination-style]')) {
       const style = document.createElement('style')
@@ -581,7 +594,7 @@ export const PaginationPlus = Extension.create<PaginationPlusOptions>({
       `
       document.head.appendChild(style)
     }
-    refreshPage(targetNode, _currentOptions.enabled)
+    refreshPage(targetNode, pageConfig.enabled)
   },
   addProseMirrorPlugins() {
     const storage = this.storage as any
@@ -745,14 +758,17 @@ export const PaginationPlus = Extension.create<PaginationPlusOptions>({
         this.storage.marginBottom = size.marginBottom
         this.storage.marginLeft = size.marginLeft
         this.storage.marginRight = size.marginRight
+        applyCssVariablesFromStorage(this)
         return true
       },
       updatePageWidth: (width: number) => () => {
         this.storage.pageWidth = width
+        applyCssVariablesFromStorage(this)
         return true
       },
       updatePageHeight: (height: number) => () => {
         this.storage.pageHeight = height
+        applyCssVariablesFromStorage(this)
         return true
       },
       updatePageGap: (gap: number) => () => {
@@ -764,6 +780,7 @@ export const PaginationPlus = Extension.create<PaginationPlusOptions>({
         this.storage.marginBottom = margins.bottom
         this.storage.marginLeft = margins.left
         this.storage.marginRight = margins.right
+        applyCssVariablesFromStorage(this)
         return true
       },
       updateHeaderContent: (left?: string, right?: string) => () => {

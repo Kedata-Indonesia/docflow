@@ -1,0 +1,125 @@
+DocFlow — Third-Party Notices
+=============================
+
+DocFlow bundles and/or depends on third-party software components. Each
+component is governed by its own license (the "Upstream License"); nothing
+in this NOTICE modifies the Upstream License, nor grants you any rights
+beyond those granted by the Upstream License.
+
+DocFlow itself is licensed under the Apache License, Version 2.0 (see
+`LICENSE`). This file only enumerates the open-source components used by,
+redistributed with, or bundled into the published packages.
+
+The full machine-readable dependency list is `pnpm-lock.yaml` at the repo
+root (https://github.com/Kedata-Indonesia/docflow). The curated list below
+covers the meaningful editor / collab / rendering dependencies (not the
+entire transitive set). This NOTICE is shared by every DocFlow package, so a
+given package may not use or redistribute every component listed; the
+components actually compiled into a package's `dist/` bundle are called out
+explicitly, and each package's own `package.json` is authoritative for its
+dependency closure.
+
+──────────────────────────────────────────────────────────────────────
+MIT / ISC / permissive components
+──────────────────────────────────────────────────────────────────────
+
+  TipTap (@tiptap/core, @tiptap/pm, @tiptap/starter-kit,
+  @tiptap/extension-collaboration, @tiptap/extension-collaboration-cursor,
+  @tiptap/extension-text-style, @tiptap/extension-color,
+  @tiptap/extension-highlight)
+    Copyright (c) 2014-present Tiptap contributors / webfoli
+    License: MIT <https://github.com/ueberdosis/tiptap/blob/main/LICENSE.md>
+
+  ProseMirror (prosemirror-model, prosemirror-state, prosemirror-transform,
+  prosemirror-view, prosemirror-markdown, and transitive packages)
+    Copyright (c) Marijn Haverbeke and contributors
+    License: MIT <https://github.com/ProseMirror/prosemirror/blob/master/LICENSE>
+
+  Yjs and related packages (yjs, y-protocols, y-indexeddb, y-prosemirror,
+  y-websocket, y-webrtc)
+    Copyright (c) 2016-present Kevin Jahns <kevin.jahns@protonmail.com>
+    License: MIT <https://github.com/yjs/yjs/blob/main/LICENSE>
+
+  tiptap-pagination-plus
+    Copyright (c) Romik Makavana
+    License: MIT <https://github.com/romikmakavana/tiptap-pagination-plus>
+    NOTE: This component is bundled into `@kedataindo/docflow-core`'s
+    `dist/` output (see `packages/core/tsup.config.ts`) and is applied with
+    a local patch (see `patches/tiptap-pagination-plus@3.1.0.patch`). The
+    upstream package does not ship a LICENSE file; the MIT terms above are
+    reproduced from the upstream repository.
+
+  tiptap-markdown
+    Copyright (c) 2021-present Robert Agakishiev
+    License: MIT <https://github.com/aguingand/tiptap-markdown>
+
+  jszip
+    Copyright (c) 2009-2016 Stuart Knightley, David Duponchel, Franz Buchinger, António Afonso
+    License: (MIT OR GPL-3.0-or-later) — DocFlow elects the MIT option.
+    <https://github.com/Stuk/jszip/blob/main/LICENSE.markdown>
+
+  docx
+    Copyright (c) 2019 Dolan
+    License: MIT <https://github.com/dolanmiu/docx/blob/master/LICENSE>
+
+  lucide-vue-next
+    Copyright (c) for portions of Lucide are held by Cole Bemis 2013-2026 as
+    part of Feather (MIT). All other copyright (c) for Lucide are held by
+    Lucide Contributors 2026.
+    License: ISC <https://github.com/lucide-icons/lucide/blob/main/LICENSE>
+
+  Vue.js
+    Copyright (c) 2014-present Evan You <evan@vuejs.org>
+    License: MIT <https://github.com/vuejs/core/blob/main/LICENSE>
+
+  Vite, Vitest, tsup, TypeScript, ESLint, Prettier, Tailwind CSS,
+  PostCSS, Autoprefixer (development tooling)
+    License: MIT / Apache-2.0 — see each package's LICENSE.
+
+──────────────────────────────────────────────────────────────────────
+Copyleft / share-alike components (read carefully)
+──────────────────────────────────────────────────────────────────────
+
+  citeproc (citeproc-js)
+    Version: 2.4.63 — a dependency of `@kedataindo/docflow-plugins`, and
+    therefore present transitively in `@kedataindo/docflow-vue` and
+    `@kedataindo/docflow-element`.
+    Copyright (c) 2009 Frank Bennett and contributors
+    License: CPAL-1.0 OR AGPL-1.0
+    <https://github.com/Juris-M/citeproc-js/blob/master/LICENSE>
+    NOTE: This is a copyleft license. DocFlow does NOT modify citeproc-js;
+    it is consumed as an unmodified dependency. Downstream hosts that
+    modify citeproc-js, or that provide network access to a modified
+    citeproc-js to third parties, bear the AGPL/CPAL source-disclosure
+    obligations themselves.
+
+    PLANNED CHANGE: the citation engine is currently reachable from the
+    main `docflow-plugins` barrel (via `citationPlugin`). A follow-up will
+    move the citation feature behind the opt-in
+    `@kedataindo/docflow-plugins/citations` entry point so that citeproc is
+    no longer part of the default dependency closure. Until then, hosts that
+    cannot accept a copyleft dependency should avoid the citation plugin.
+
+  Citation Style Language (CSL) styles and the en-US locale
+    Files: `packages/plugins/src/csl/*.ts` (APA, Chicago author-date,
+    Chicago notes & bibliography, MLA) and `localesEnUS.ts`
+    Source: generated from the Citation Style Language repositories
+    <https://github.com/citation-style-language/styles> and
+    <https://github.com/citation-style-language/locales>
+    License: Creative Commons Attribution-ShareAlike 3.0
+    <https://creativecommons.org/licenses/by-sa/3.0/>
+    NOTE: These data files are distributed verbatim and remain under
+    CC-BY-SA-3.0. See `packages/plugins/src/csl/LICENSE-CC-BY-SA-3.0` and
+    `packages/plugins/src/csl/ATTRIBUTION.md` for the full share-alike
+    notice and attribution. Because they are compiled into the published
+    `dist/`, the same notice also ships with the npm package as
+    `@kedataindo/docflow-plugins/CSL-LICENSES.md`. The Apache-2.0 license
+    of DocFlow does not alter the license of these bundled data files.
+
+──────────────────────────────────────────────────────────────────────
+DocFlow's own code
+──────────────────────────────────────────────────────────────────────
+
+  All original code in `packages/` and `apps/demo/` is copyright
+  PT Kedata Indonesia and licensed under the Apache License, Version 2.0
+  (see `LICENSE`).

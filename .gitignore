@@ -1,0 +1,25 @@
+node_modules
+dist
+.vite
+
+# Env files — only the *.example templates are committed
+.env
+.env.*
+!.env*.example
+
+# Editor / OS noise
+.idea/
+.vscode/
+*.swp
+*.orig
+*.rej
+.DS_Store
+*.log
+
+# Build / test artifacts
+coverage
+test-results
+playwright-report
+.playwright-mcp
+*.tsbuildinfo
+*.bak

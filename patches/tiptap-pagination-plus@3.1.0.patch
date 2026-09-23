@@ -1,0 +1,90 @@
+diff --git a/dist/PaginationPlus.js b/dist/PaginationPlus.js
+index 186b6759ba503bbc707e3d8efa98e8b6e396b026..608af4cf97db61218410f118cde410ecee5c6829 100644
+--- a/dist/PaginationPlus.js
++++ b/dist/PaginationPlus.js	
+@@ -171,11 +171,6 @@ export const PaginationPlus = Extension.create({
+         width: 100%;
+         display: contents;
+       }
+-      .rm-with-pagination table tbody{
+-        display: table;
+-        max-height: 300px;
+-        overflow-y: auto;
+-      }
+       .rm-with-pagination table tbody > tr{
+         display: table-row !important;
+       }
+@@ -347,6 +342,13 @@ export const PaginationPlus = Extension.create({
+                             const currentPageCount = getExistingPageCount(view);
+                             const triggerUpdate = (_footerHeight) => {
+                                 requestAnimationFrame(() => {
++                                    const history = pageGapTracker.get(view.dom);
++                                    if (history && history.flapping && history.flapping.includes(pageCount)) {
++                                        return;
++                                    }
++                                    if (history && history.recent) {
++                                        history.recent.push(pageCount);
++                                    }
+                                     const tr = view.state.tr.setMeta(page_count_meta_key, { footerHeight: _footerHeight });
+                                     view.dispatch(tr);
+                                 });
+@@ -523,6 +525,7 @@ const getExistingPageCount = (view) => {
+     }
+     return 0;
+ };
++const pageGapTracker = new WeakMap();
+ const calculatePageCount = (view, pageOptions, headerHeight = 0, footerHeight = 0) => {
+     var _a;
+     const editorDom = view.dom;
+@@ -541,6 +544,42 @@ const calculatePageCount = (view, pageOptions, headerHeight = 0, footerHeight =
+                 lastPageBreakRect.bottom;
+             if (lastPageGap > 0) {
+                 const addPage = Math.ceil(lastPageGap / pageContentAreaHeight);
++                if (lastElementRect.height > pageContentAreaHeight) {
++                    const isSplittableTable =
++                        (lastElementOfEditor === null || lastElementOfEditor === void 0 ? void 0 : lastElementOfEditor.tagName) === 'TABLE' &&
++                        lastElementOfEditor.hasAttribute('data-tps-splittable');
++                    if (!isSplittableTable) {
++                        return currentPageCount;
++                    }
++                }
++                const prev = pageGapTracker.get(editorDom);
++                if (prev && prev.pages < currentPageCount && lastPageGap > prev.gap - 2) {
++                    return currentPageCount;
++                }
++                const recent = (prev && prev.recent) ? prev.recent : [];
++                let flapping = (prev && prev.flapping) ? prev.flapping : [];
++                if (recent.length >= 4 && recent.filter(p => p === currentPageCount + addPage).length >= 2) {
++                    flapping = [...new Set([...flapping, currentPageCount + addPage, currentPageCount])];
++                    pageGapTracker.set(editorDom, { gap: lastPageGap, pages: currentPageCount, recent, flapping });
++                    return currentPageCount;
++                }
++                pageGapTracker.set(editorDom, { gap: lastPageGap, pages: currentPageCount, recent, flapping });
++                let totalEditorContentHeight = 0;
++                for (const child of editorDom.children) {
++                    if (!(child instanceof HTMLElement)) continue;
++                    if (child.hasAttribute('data-rm-pagination')) continue;
++                    if (child.classList.contains('rm-page-break')) continue;
++                    totalEditorContentHeight += child.getBoundingClientRect().height;
++                }
++                const maxPagesByContent = Math.ceil(totalEditorContentHeight / pageContentAreaHeight);
++                const contentCap = Math.max(currentPageCount, maxPagesByContent + 1);
++                if (currentPageCount + addPage > contentCap) {
++                    return contentCap;
++                }
++                const MAX_PAGES = 1000;
++                if (currentPageCount + addPage > MAX_PAGES) {
++                    return currentPageCount;
++                }
+                 return currentPageCount + addPage;
+             }
+             else {
+@@ -548,7 +587,7 @@ const calculatePageCount = (view, pageOptions, headerHeight = 0, footerHeight =
+                 const allBreaksAfterLastElementRect = allBreaksAfterLastElement.filter(element => element.getBoundingClientRect().top > lastElementRect.bottom);
+                 const removePage = allBreaksAfterLastElementRect.length;
+                 if (removePage > 1) {
+-                    return currentPageCount - removePage;
++                    return currentPageCount - (removePage - 1);
+                 }
+                 else {
+                     return currentPageCount;

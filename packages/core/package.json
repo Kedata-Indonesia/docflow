@@ -1,11 +1,31 @@
 {
   "name": "@kedata-indonesia/docflow-core",
-  "license": "UNLICENSED",
+  "license": "Apache-2.0",
   "version": "0.0.82",
+  "description": "Headless DocFlow editor factory and plugin system.",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Kedata-Indonesia/docflow.git",
+    "directory": "packages/core"
+  },
+  "homepage": "https://github.com/Kedata-Indonesia/docflow#readme",
+  "bugs": {
+    "url": "https://github.com/Kedata-Indonesia/docflow/issues"
+  },
+  "author": "PT Kedata Indonesia",
+  "keywords": [
+    "editor",
+    "rich-text",
+    "tiptap",
+    "prosemirror",
+    "document",
+    "pagination",
+    "collaboration"
+  ],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -24,10 +44,13 @@
     }
   },
   "publishConfig": {
-    "registry": "https://npm.pkg.github.com"
+    "registry": "https://registry.npmjs.org",
+    "access": "public"
   },
   "files": [
-    "dist"
+    "dist",
+    "LICENSE",
+    "NOTICE"
   ],
   "scripts": {
     "build": "tsup",

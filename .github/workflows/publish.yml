@@ -1,0 +1,119 @@
+name: Publish to npm
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write # required for npm provenance
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    # Publishes are gated behind a protected environment so they require
+    # explicit approval and so NPM_TOKEN is only exposed to this job. Configure
+    # "npm-publish" under Settings → Environments (add required reviewers).
+    environment: npm-publish
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.9.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: 'https://registry.npmjs.org'
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+
+      - name: Validate release trigger
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          if ! [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Tag '$TAG' must look like vX.Y.Z."
+            exit 1
+          fi
+          V="${TAG#v}"
+          matched=0
+          for pkg in core layout-engine plugins vue element export; do
+            PV=$(node -p "require('./packages/$pkg/package.json').version")
+            echo "packages/$pkg → $PV"
+            if [ "$PV" = "$V" ]; then matched=1; fi
+          done
+          if [ "$matched" = "0" ]; then
+            echo "::warning::Tag '$TAG' matches no package version; all not-yet-published package versions will still be published."
+          fi
+
+      # The workspace uses the internal @kedata-indonesia scope while the
+      # public npm packages are published under @kedataindo. This step rewrites
+      # the manifests and built dist output before publishing, then restores the
+      # originals.
+      #
+      # Authentication: this job currently uses the long-lived NPM_TOKEN secret.
+      # Once npm Trusted Publishing (OIDC) is configured for these packages on
+      # npmjs.com, drop NODE_AUTH_TOKEN and rely solely on `permissions.id-token`
+      # plus `--provenance`. The `environment` gate above limits token exposure
+      # in the meantime.
+      - name: Publish @kedataindo/* to npm
+        run: |
+          PKGS="core layout-engine plugins vue element export"
+
+          # 1) Backup + rewrite manifests (name, internal deps, workspace:*)
+          for pkg in $PKGS; do
+            cp "./packages/$pkg/package.json" "./packages/$pkg/package.json.bak"
+            node -e "
+              const fs = require('fs');
+              const fp = './packages/$pkg/package.json';
+              const p = JSON.parse(fs.readFileSync(fp, 'utf8'));
+              p.name = '@kedataindo/docflow-$pkg';
+              ['dependencies', 'devDependencies', 'peerDependencies'].forEach(section => {
+                if (!p[section]) return;
+                Object.keys(p[section]).forEach(k => {
+                  if (k.startsWith('@kedata-indonesia/docflow-')) {
+                    const sub = k.replace('@kedata-indonesia/docflow-', '');
+                    const v = p[section][k];
+                    const depPkg = JSON.parse(fs.readFileSync('./packages/' + sub + '/package.json', 'utf8'));
+                    delete p[section][k];
+                    p[section]['@kedataindo/docflow-' + sub] = v === 'workspace:*' ? depPkg.version : v;
+                  }
+                });
+              });
+              p.publishConfig = { registry: 'https://registry.npmjs.org', access: 'public' };
+              fs.writeFileSync(fp, JSON.stringify(p, null, 2) + '\n');
+            "
+          done
+
+          # 2) Rewrite built dist imports
+          for pkg in $PKGS; do
+            if [ -d "./packages/$pkg/dist" ]; then
+              find "./packages/$pkg/dist" -type f \( -name '*.js' -o -name '*.cjs' -o -name '*.mjs' -o -name '*.d.ts' -o -name '*.d.cts' -o -name '*.mts' \) \
+                -exec sed -i 's|@kedata-indonesia/docflow-|@kedataindo/docflow-|g' {} +
+            fi
+          done
+
+          # 3) Publish in dependency order
+          for pkg in $PKGS; do
+            VERSION=$(node -e "console.log(JSON.parse(require('fs').readFileSync('./packages/$pkg/package.json.bak','utf8')).version)")
+            if npm view @kedataindo/docflow-$pkg@$VERSION version --registry=https://registry.npmjs.org &>/dev/null 2>&1; then
+              echo "@kedataindo/docflow-$pkg@$VERSION already published, skipping"
+            else
+              echo "Publishing @kedataindo/docflow-$pkg@$VERSION..."
+              pnpm publish --filter @kedataindo/docflow-$pkg --no-git-checks --access public --provenance
+            fi
+          done
+
+          # 4) Restore manifests
+          for pkg in $PKGS; do
+            mv "./packages/$pkg/package.json.bak" "./packages/$pkg/package.json"
+          done
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_PROVENANCE: 'true'

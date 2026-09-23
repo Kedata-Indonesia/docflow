@@ -1,11 +1,31 @@
 {
   "name": "@kedata-indonesia/docflow-plugins",
-  "license": "UNLICENSED",
+  "license": "Apache-2.0",
   "version": "0.0.84",
+  "description": "Built-in plugins for DocFlow (table, image, link, citations, …).",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Kedata-Indonesia/docflow.git",
+    "directory": "packages/plugins"
+  },
+  "homepage": "https://github.com/Kedata-Indonesia/docflow#readme",
+  "bugs": {
+    "url": "https://github.com/Kedata-Indonesia/docflow/issues"
+  },
+  "author": "PT Kedata Indonesia",
+  "keywords": [
+    "editor",
+    "tiptap",
+    "prosemirror",
+    "plugins",
+    "table",
+    "image",
+    "citations"
+  ],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -19,10 +39,14 @@
     }
   },
   "publishConfig": {
-    "registry": "https://npm.pkg.github.com"
+    "registry": "https://registry.npmjs.org",
+    "access": "public"
   },
   "files": [
-    "dist"
+    "dist",
+    "CSL-LICENSES.md",
+    "LICENSE",
+    "NOTICE"
   ],
   "scripts": {
     "build": "tsup src/index.ts src/citations.ts --format esm,cjs --dts --no-splitting",
