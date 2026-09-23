@@ -60,6 +60,11 @@ pnpm lint         # ESLint
 pnpm dev          # run the demo app (Vite)
 ```
 
+The order matters: run `pnpm build` **before** `pnpm typecheck` and
+`pnpm test:unit`. `packages/element`, `packages/plugins`, and `apps/demo` resolve
+their sibling packages through the built output in `packages/*/dist`, so in a
+fresh clone the type check and some unit tests fail until you have built once.
+
 Run the checks affected by your change before opening a PR. If you touch
 `packages/core`, `packages/layout-engine`, or `packages/vue`, please run the
 full set (`build`, `typecheck`, `test:unit`, `lint`).

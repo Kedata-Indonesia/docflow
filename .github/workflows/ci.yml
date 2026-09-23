@@ -27,6 +27,12 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # Build first: packages/element, packages/plugins and apps/demo resolve
+      # their sibling packages through the built output, so typecheck and some
+      # unit tests fail on a clean checkout until `dist/` exists.
+      - name: Build
+        run: pnpm build
+
       - name: Lint
         run: pnpm lint
 
@@ -35,6 +41,3 @@ jobs:
 
       - name: Unit tests
         run: pnpm test:unit
-
-      - name: Build
-        run: pnpm build
