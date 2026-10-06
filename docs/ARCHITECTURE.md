@@ -166,8 +166,9 @@ ProseMirror state (doc)
 BlockInfo[]  ──PageBreaker.computePages()──▶  Page[]  ──▶  renderer (view layer only)
 ```
 
-- `Page[]` (`packages/layout-engine/src/types.ts`) carries **ProseMirror offsets** (`from`/`to`) plus per-block geometry. `BlockInfo[]` is measured by `PageLayout` (read-only, detached shadow DOM for text metrics) and broken into pages by `PageBreaker` (pure: no DOM, no ProseMirror imports — see `packages/layout-engine/src/__tests__/purity.test.ts`).
-- Data flows **one way**: `state → measurement → Page[] → renderer`. Nothing in layout ever feeds back into the document, so the layout engine can never be a second editable model.
+- `Page[]` (`packages/layout-engine/src/types.ts`) is a block-range read model — `from`/`to` plus per-block geometry. The offsets are real ProseMirror positions when the DOM exposes them (`data-from`/`data-to`, or an editor `view` with `posAtDOM`); otherwise `PageLayout` falls back to synthetic text-length offsets. The current virtual-page wiring passes the bare `editor.view.dom` and `getPageMap: () => new Map()`, so it takes the fallback. Either way the model stays **derived**.
+- `BlockInfo[]` is measured by `PageLayout` (read-only *for document state*: it clones the editor DOM into an off-screen hidden container — a plain `<div data-layout-shadow>` on `body`, not a real Shadow DOM) and broken into pages by `PageBreaker` (pure: no DOM, no ProseMirror imports — guard in `packages/layout-engine/src/__tests__/purity.test.ts`).
+- Data flows **one way**: `state → measurement → Page[] → renderer`. Nothing in the layout engine ever feeds back into the document, so it can never become a second editable model.
 
 The Vue layer picks **exactly one renderer** per editor instance (`packages/vue/src/components/DocsEditor.vue`):
 
@@ -175,9 +176,14 @@ The Vue layer picks **exactly one renderer** per editor instance (`packages/vue/
 |------|-------------|----------|--------|
 | Pageless | `<DocsEditor pageless>` | none — continuous surface | — |
 | Paginated (default) | neither flag | `tiptap-pagination-plus` (patched, see `patches/tiptap-pagination-plus@3.1.0.patch`) | page-break **ProseMirror decorations** + `[data-rm-pagination]` DOM; its only transaction is `setMeta(PAGE_COUNT_META_KEY)` — no doc change |
-| Virtual pages (experimental) | `<DocsEditor :virtual-pages="true">` | `VirtualPageOverlay` + `PageLayout` (`packages/layout-engine`) | absolutely-positioned overlay frames; PaginationPlus is switched **off** (`paginationOptions.enabled = false`) |
+| Virtual pages (experimental) | `<DocsEditor :virtual-pages="true">` (ignored while `pageless`) | `VirtualPageOverlay` + `PageLayout` (`packages/layout-engine`) | absolutely-positioned overlay frames; PaginationPlus is switched **off** (`paginationOptions.enabled = false`) |
 
-The modes are mutually exclusive, so there is no "two competing pagination systems" at runtime: **`layout-engine` owns the derived `Page[]` read model**, **`PaginationPlus` owns the live paginated rendering**. A new renderer must (a) be selected by prop, (b) read the derived model, (c) never dispatch a document-changing transaction.
+The modes are mutually exclusive, so there is no "two competing pagination systems" at runtime: **`layout-engine` owns the derived `Page[]` read model**, **`PaginationPlus` owns the live paginated rendering**. A new renderer must (a) be selected by prop, (b) read the derived model, (c) never write the document.
+
+Two operations *outside* this model do mutate the document, driven by the geometry it produces — they are ordinary, undoable, collaborative edits, not layout writes:
+
+- `tablePageSplitPlugin` (`packages/plugins/src/tablePageSplit.ts`, in `defaultPlugins`) splits an over-tall table across pages via `appendTransaction` → `tr.replaceWith(…)`, so it runs inside the normal TipTap transaction cycle.
+- The Vue layer dispatches *empty* transactions (`view.dispatch(view.state.tr)`) to force a decoration rebuild after a page-size change — no steps, no doc change.
 
 ---
 

@@ -220,7 +220,8 @@ const { isDark } = useTheme()
 
 // Experimental: virtual page overlay flag. Must be defined early — referenced
 // by paginationOptions computed (below) to disable PaginationPlus when active.
-const useVirtual = computed(() => props.virtualPages === true)
+// Pageless wins: a pageless surface has no page frames to overlay.
+const useVirtual = computed(() => props.virtualPages === true && !isPageless.value)
 
 const paginationOptions = computed(() => ({
   enabled: !isPageless.value && !useVirtual.value,

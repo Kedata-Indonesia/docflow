@@ -27,42 +27,78 @@ function collectSources(dir: string): string[] {
  * Invariant documented in `docs/ARCHITECTURE.md` §2.1 and required by issue
  * #43: the layout engine is a *derived read model*. It measures the DOM but
  * must never mutate ProseMirror document state.
+ *
+ * The patterns target the calls that can actually change a document — importing
+ * ProseMirror (statically or dynamically), dispatching, replacing state, or
+ * building transaction steps. A bare `dispatch(` in prose is ignored by
+ * requiring a receiver.
  */
-describe('layout-engine purity (derived view, never a second editable model)', () => {
-  const forbidden: Array<{ label: string; pattern: RegExp }> = [
-    { label: 'imports @tiptap/pm state', pattern: /from\s+'@tiptap\/pm\/state'/ },
-    { label: 'imports @tiptap/pm view', pattern: /from\s+'@tiptap\/pm\/view'/ },
-    { label: 'imports @tiptap/pm model', pattern: /from\s+'@tiptap\/pm\/model'/ },
-    { label: 'dispatches a transaction', pattern: /\bdispatch\s*\(/ },
-    { label: 'calls view.updateState()', pattern: /\.updateState\s*\(/ },
-    { label: 'constructs a Transaction', pattern: /\bnew\s+Transaction\b/ },
-  ]
+const FORBIDDEN: Array<{ label: string; pattern: RegExp }> = [
+  { label: 'imports ProseMirror', pattern: /from\s+['"]@tiptap\/pm(\/[^'"]*)?['"]/ },
+  { label: 'dynamic-imports ProseMirror', pattern: /import\s*\(\s*['"]@tiptap\/pm/ },
+  { label: 'dispatches a transaction', pattern: /\b[\w$.]+\.dispatch\s*\(/ },
+  { label: 'replaces editor state', pattern: /\.updateState\s*\(/ },
+  { label: 'constructs a Transaction', pattern: /\bnew\s+Transaction\b/ },
+  { label: 'builds steps on a state.tr', pattern: /\b[\w$]*[sS]tate\s*\.\s*tr\b/ },
+  {
+    label: 'mutates the doc through a transaction',
+    pattern: /\b[a-zA-Z_$][\w$]*\.(?:replaceWith|replace|insert|delete|setNodeMarkup|addMark|removeMark)\s*\(/,
+  },
+  { label: 'implements appendTransaction', pattern: /\bappendTransaction\b/ },
+]
 
+describe('layout-engine purity (derived view, never a second editable model)', () => {
   it('source never touches ProseMirror state or dispatches transactions', () => {
     const files = collectSources(SRC_DIR)
     expect(files.length).toBeGreaterThan(0)
 
     const violations = files.flatMap((file) => {
       const source = readFileSync(file, 'utf8')
-      return forbidden
-        .filter(({ pattern }) => pattern.test(source))
-        .map(({ label }) => `${file.slice(SRC_DIR.length)}: ${label}`)
+      return FORBIDDEN.filter(({ pattern }) => pattern.test(source)).map(
+        ({ label }) => `${file.slice(SRC_DIR.length)}: ${label}`,
+      )
     })
 
     expect(violations).toEqual([])
   })
 
-  it('computePages() leaves its input blocks untouched', () => {
+  // A doc-mutating plugin commonly returns `this.state.tr.replaceWith(...)`
+  // from `appendTransaction` without ever calling `dispatch(`. Make sure the
+  // guard would catch that shape (regression test for the guard itself).
+  it('the guard detects a doc-mutating appendTransaction plugin', () => {
+    const plausibleViolation = [
+      "import { Plugin } from '@tiptap/pm/state'",
+      'export const p = new Plugin({',
+      '  appendTransaction(_trs, _old, nextState) {',
+      '    const tail = nextState.tr',
+      '    tail.replaceWith(1, 2, nextState.schema.text("x"))',
+      '    return tail',
+      '  },',
+      '})',
+    ].join('\n')
+
+    const hits = FORBIDDEN.filter(({ pattern }) => pattern.test(plausibleViolation))
+
+    expect(hits.map(({ label }) => label)).toEqual([
+      'imports ProseMirror',
+      'builds steps on a state.tr',
+      'mutates the doc through a transaction',
+      'implements appendTransaction',
+    ])
+  })
+
+  it('computePages() leaves its input blocks untouched, including when splitting', () => {
     const blocks: BlockInfo[] = [
-      { nodeType: 'paragraph', from: 0, to: 10, top: 0, bottom: 40, canSplit: true },
-      { nodeType: 'paragraph', from: 10, to: 20, top: 40, bottom: 80, canSplit: true },
-      { nodeType: 'paragraph', from: 20, to: 30, top: 80, bottom: 120, canSplit: true },
+      { nodeType: 'paragraph', from: 0, to: 40, top: 0, bottom: 200, canSplit: true },
     ]
     const snapshot = JSON.stringify(blocks)
 
-    const pages = new PageBreaker().computePages(blocks, 100)
+    // 5px per character: 40 chars = 200px, so the block must split across the 100px page.
+    const pages = new PageBreaker((_block, offset) => offset * 5).computePages(blocks, 100)
 
     expect(pages).toHaveLength(2)
+    expect(pages[0].to).toBe(20)
+    expect(pages[1].from).toBe(20)
     expect(JSON.stringify(blocks)).toBe(snapshot)
   })
 })
