@@ -3,6 +3,12 @@
 > **Audience:** AI agents writing or serving DocFlow integration content — release notes, migration guides, integration recipes, support replies, third-party docs, and cross-team explanations.
 > **Status:** as of `main` @ `a25e96d` (post Phase 9 P9-4 C1+C2+C3).
 > **Use together with:** `docs/ARCHITECTURE.md` (system map) + `AGENTS.md` (commands + invariants).
+>
+> **Repo boundary.** This repo (`Kedata-Indonesia/docflow`) ships the **library only**
+> (`packages/*`). The product app — `apps/web` + `apps/server` — lives in the separate
+> private repo **`Kedata-Indonesia/docflow-app`**. Any `apps/*` path, `pnpm dev:server`,
+> `pnpm dev:web`, or `--filter …docflow-server` command below is a **host-app example**:
+> run it from `docflow-app`, not here.
 
 ---
 
@@ -24,7 +30,7 @@
 | **Operator deploying DocFlow self-host** | "How do I configure this env var?" → `docs/DEPLOYMENT.md` §3 |
 | **Team lead planning a rollout** | "What's safe to parallelize?" → `docs/plans/sprint-9-10-execution-plan.md` |
 | **Another agentic AI extending or running DocFlow** | "What can I safely touch?" → `docs/ARCHITECTURE.md` §10 + §12 |
-| **End user (rare; goes through support)** | "How do I…?" → `apps/web/src/locales/` strings |
+| **End user (rare; goes through support)** | "How do I…?" → host-app UI strings (`docflow-app` → `apps/web/src/locales/`) |
 
 Write **one document per audience**, don't try to hit all five at once.
 
@@ -323,6 +329,7 @@ Atomic PR closing the Phase 9 P9-4 cornerstone. The plan §6 risk rows
 ### Try it
 
 \`\`\`bash
+# Host app repo (Kedata-Indonesia/docflow-app) — not this library repo:
 pnpm dev:server       # apps/server on :3001
 pnpm dev:web          # apps/web on :5174 (Vite proxies /api/* → :3001)
 \`\`\`
@@ -334,8 +341,11 @@ within one round-trip (no reload).
 ### Verification
 
 \`\`\`bash
+# Host app repo (Kedata-Indonesia/docflow-app): server route tests
 pnpm --filter @kedata-indonesia/docflow-server test:unit  # 199 tests
-pnpm test:unit                                           # full suite
+
+# This library repo: full suite
+pnpm test:unit
 \`\`\`
 ```
 
@@ -395,7 +405,7 @@ When you encounter one of these terms in the codebase or docs, use them consiste
 | Term | Meaning |
 |------|---------|
 | **Library** | The six published `packages/*` — headless + Vue editor. Storage-agnostic, backend-agnostic. |
-| **Host** | `apps/web` + `apps/server` — the product app + API that runs the library for end users. |
+| **Host** | The product app + API that runs the library for end users — `apps/web` + `apps/server`, which live in the separate repo `Kedata-Indonesia/docflow-app`. |
 | **Authoritative state** | The single source of truth (Yjs Y.Doc for collab documents; Mongo `User` for identity; etc.). Everything else is a derived view. |
 | **Derived read-model** | A field computed from authoritative state on demand (`Document.content` is a derived read-model of the Yjs Y.Doc; `Document.plainText` is derived from `content` via `extractPlainText` in `models/Document.ts`). |
 | **Port / Injection port** | A function or option the library accepts so the host can plug in behavior (`onImageUpload`, `collaboration`, `aiStream`). Catalogued in `docs/LIBRARY_CONTRACT.md`. |
