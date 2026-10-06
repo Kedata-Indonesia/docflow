@@ -2,11 +2,20 @@
 import { type DocsEditor, type DocsEditorPlugin, type EditorOptions, type ImageUploadHandler, type CitationPort, type CslItemData, type AIStreamFn, type AIDraftFn } from '@kedata-indonesia/docflow-core'
 import { PAGE_SIZES, getPageSize } from '@kedata-indonesia/docflow-layout-engine'
 import { useVirtualPages } from '../composables/useVirtualPages.js'
+import { useFootnotes } from '../composables/useFootnotes.js'
+import { useEditCommands } from '../composables/useEditCommands.js'
+import { usePageSetup } from '../composables/usePageSetup.js'
+import { useHeaderFooter } from '../composables/useHeaderFooter.js'
+import { useHeaderEdit } from '../composables/useHeaderEdit.js'
+import { useDocumentModel } from '../composables/useDocumentModel.js'
+import { useCitations } from '../composables/useCitations.js'
+import { useCommentAnchors } from '../composables/useCommentAnchors.js'
+import { useBubbleMenu } from '../composables/useBubbleMenu.js'
 import VirtualPageOverlay from './VirtualPageOverlay.vue'
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onUnmounted, ref, watch } from 'vue'
 import { useEditor } from '../composables/useEditor.js'
 import SlashMenuVue from './SlashMenu.vue'
-import type { Collaborator, CommentItem, ConnectionState, DocumentMeta, DocumentSnapshot, SavingStatus, SidebarKey } from '../types.js'
+import type { Collaborator, CommentItem, ConnectionState, DocumentMeta, DocumentSnapshot, SidebarKey } from '../types.js'
 import HeaderBar from './HeaderBar.vue'
 import EditorToolbar from './EditorToolbar.vue'
 import BubbleMenu from './BubbleMenu.vue'
@@ -25,9 +34,6 @@ import LinkDialog from './LinkDialog.vue'
 import { Menu, Minimize2 } from 'lucide-vue-next'
 import { useTheme } from '../composables/useTheme.js'
 import { provideLocale, type Locale } from '../composables/useLocale.js'
-import { writeClipboard, readClipboardHtml, readClipboardText } from '../composables/useClipboard.js'
-import { DOMSerializer } from 'prosemirror-model'
-import { sanitizePastedHTML } from '@kedata-indonesia/docflow-core'
 
 const props = withDefaults(
   defineProps<{
@@ -170,18 +176,6 @@ watch(currentLocale, (next) => {
 // ─── Page Size ────────────────────────────────────────────────────────────────
 
 const margins = ref({ top: props.margins?.top ?? 94, bottom: props.margins?.bottom ?? 94, left: props.margins?.left ?? 94, right: props.margins?.right ?? 94 })
-const PAGE_MARGIN_MAX = 189
-const CM_TO_PX = 37.795
-const HEADER_MARGIN_CM_MIN = 0
-const HEADER_MARGIN_CM_MAX = 5
-const HEADER_MARGIN_CM_STEP = 0.1
-
-function normalizeMarginCm(value: unknown, fallback = 0.5): number {
-  const numericValue = typeof value === 'number' ? value : Number(value)
-  if (!Number.isFinite(numericValue)) return fallback
-  const clamped = Math.min(HEADER_MARGIN_CM_MAX, Math.max(HEADER_MARGIN_CM_MIN, numericValue))
-  return Math.round(clamped * 10) / 10
-}
 
 const orientation = ref<'portrait' | 'landscape'>(props.orientation ?? 'portrait')
 
@@ -194,14 +188,6 @@ watch(() => props.orientation, (v) => {
 
 watch(() => props.margins, (v) => {
   if (v !== undefined) margins.value = { ...v }
-})
-
-watch(() => props.headerMarginCm, (v) => {
-  if (typeof v === 'number' && Number.isFinite(v)) headerMarginCm.value = normalizeMarginCm(v)
-})
-
-watch(() => props.footerMarginCm, (v) => {
-  if (typeof v === 'number' && Number.isFinite(v)) footerMarginCm.value = normalizeMarginCm(v)
 })
 
 const resolvedLayoutOptions = computed(() => {
@@ -250,37 +236,36 @@ const paginationOptions = computed(() => ({
 
 // ─── Editor ───────────────────────────────────────────────────────────────────
 
-interface TabItem { id: string; label: string; content: object }
-interface TabbedDoc {
-  type: 'tabbed-doc'
-  activeTabId: string
-  tabs: TabItem[]
-  headerLeft?: string
-  headerRight?: string
-  footerLeft?: string
-  footerRight?: string
-}
+// ─── Document model ───────────────────────────────────────────────────────────
+// Created first: the editor, header/footer and edit-command composables all
+// consume the active tab content / persistence port it owns. Header/footer
+// slots live on a composable created later, so they are read lazily.
+const {
+  initialDoc,
+  tabContents,
+  activeTabId,
+  activeTabContent,
+  wordCount,
+  charCount,
+  savingStatus,
+  lastSaved,
+  saveTimer,
+  persistCurrentDoc,
+  updateCounts,
+  slashCommands,
+} = useDocumentModel({
+  modelValue: props.modelValue,
+  getPlugins: () => props.plugins,
+  emit,
+  getHeaderFooter: () => ({
+    headerLeft: userHeaderLeft.value,
+    headerRight: userHeaderRight.value,
+    footerLeft: userFooterLeft.value,
+    footerRight: userFooterRight.value,
+  }),
+  getEditor: () => editor.value,
+})
 
-const parseModelValue = (val: unknown): TabbedDoc => {
-  const obj = val as Record<string, unknown> | null
-  if (obj && typeof obj === 'object' && obj.type === 'tabbed-doc' && Array.isArray(obj.tabs)) return obj as unknown as TabbedDoc
-  return { type: 'tabbed-doc', activeTabId: 'tab-1', tabs: [{ id: 'tab-1', label: 'Tab 1', content: val || { type: 'doc', content: [{ type: 'paragraph' }] } }] }
-}
-
-const initialDoc = parseModelValue(props.modelValue)
-const userHeaderLeft = ref(initialDoc.headerLeft || '')
-const userHeaderRight = ref(initialDoc.headerRight || '')
-const userFooterLeft = ref(initialDoc.footerLeft || '')
-const userFooterRight = ref(initialDoc.footerRight || '')
-
-const tabs = ref<Array<{ id: string; label: string; active: boolean }>>(initialDoc.tabs.map(t => ({ id: t.id, label: t.label, active: t.id === initialDoc.activeTabId })))
-const tabContents = ref<Record<string, object>>({})
-initialDoc.tabs.forEach(t => { tabContents.value[t.id] = t.content })
-const activeTabId = ref(initialDoc.activeTabId)
-const activeTabContent = computed(() => tabContents.value[activeTabId.value])
-
-const showBubbleMenu = ref(false)
-const bubblePosition = ref<{ top: number; left: number } | null>(null)
 const activeSidebar = ref<SidebarKey | null>(null)
 // View menu toggles — ruler visibility persists across sessions, focus mode does not.
 // Guarded for SSR / environments without Web Storage (Node >= 26 exposes no
@@ -296,149 +281,33 @@ watch(showRuler, (next) => {
     localStorage.setItem('docflow:view:showRuler', next ? 'true' : 'false')
   }
 })
-const wordCount = ref(0)
-const charCount = ref(0)
-const savingStatus = ref<SavingStatus>('saved')
-const lastSaved = ref(Date.now())
-const saveTimer = ref<ReturnType<typeof setTimeout> | null>(null)
-
-// ─── Issue #133 — orphaned comment thread detection ────────────────────────
-// The doc-side anchor is a TipTap `comment` mark (threadId, pos) living
-// inside the ProseMirror document. When the anchored text is deleted the
-// mark vanishes with it — but the thread record lives in MongoDB and
-// nothing reconciled the two. We compute "orphaned" client-side: a thread
-// is orphaned when it is anchored (anchorIndex != null) and its id no
-// longer appears on any `comment` mark in the current document. Never
-// persisted — all peers derive the same state because marks replicate.
-const presentCommentThreadIds = ref<Set<string>>(new Set())
-let commentAnchorScanTimer: ReturnType<typeof setTimeout> | null = null
-// Guards the first scan in collab mode — until the Yjs doc has synced
-// (doc is non-empty) we skip, otherwise every anchored thread would
-// briefly flash orphaned while the room is still loading. Reactive so
-// the `orphanedCommentIds` computed stays empty until the first real
-// scan has run.
-const firstCommentScanDone = ref(false)
-
-function refreshCommentAnchors() {
-  if (!editor.value || !isReady.value) return
-  // Transient-empty-doc guard for collaboration: the first scan must
-  // wait until the provider has synced real content, otherwise all
-  // anchored threads flash orphaned during the Yjs load window. In
-  // non-collab mode the guard is a no-op (content is seeded eagerly).
-  const doc = editor.value.state.doc
-  if (props.collaboration && !firstCommentScanDone.value) {
-    // An empty ProseMirror doc is just its root paragraph node — size 2
-    // (open + close tokens). Anything above means real content loaded.
-    if (doc.content.size <= 2) return
-  }
-  firstCommentScanDone.value = true
-  const ids = new Set<string>()
-  doc.descendants((node) => {
-    for (const mark of node.marks) {
-      if (mark.type.name === 'comment' && mark.attrs.threadId) {
-        ids.add(mark.attrs.threadId as string)
-      }
-    }
-    return true
-  })
-  presentCommentThreadIds.value = ids
-}
-
-function scheduleCommentAnchorScan() {
-  if (commentAnchorScanTimer) clearTimeout(commentAnchorScanTimer)
-  commentAnchorScanTimer = setTimeout(refreshCommentAnchors, 200)
-}
-
-const orphanedCommentIds = computed(() => {
-  // Until the first scan has run we don't know which marks are present
-  // — returning empty avoids orphan false-positives during collab load.
-  if (!firstCommentScanDone.value) return []
-  const present = presentCommentThreadIds.value
-  return (props.comments ?? [])
-    .filter((c) => c.anchorIndex != null && !present.has(c.id))
-    .map((c) => c.id)
-})
-
-onUnmounted(() => {
-  if (commentAnchorScanTimer) clearTimeout(commentAnchorScanTimer)
-})
-
-// Collect slash commands from all plugins
-const slashCommands = computed(() => {
-  const cmds: Array<{ name: string; command: string }> = []
-  for (const plugin of props.plugins) {
-    for (const sc of plugin.slashCommands || []) {
-      cmds.push({ name: sc.name, command: sc.command })
-    }
-  }
-  return cmds
-})
-
-// Build the full tabbed document from current state and emit it to the host.
-// Persistence is the host's job (via update:modelValue / onUpdate) — the
-// library deliberately performs no storage writes (LIBRARY_CONTRACT rule 5).
-const persistCurrentDoc = () => {
-  const fullDoc: TabbedDoc = {
-    type: 'tabbed-doc',
-    activeTabId: activeTabId.value,
-    tabs: tabs.value.map(t => ({ id: t.id, label: t.label, content: tabContents.value[t.id] })),
-    headerLeft: userHeaderLeft.value,
-    headerRight: userHeaderRight.value,
-    footerLeft: userFooterLeft.value,
-    footerRight: userFooterRight.value,
-  }
-  emit('update:modelValue', fullDoc)
-  savingStatus.value = 'saving'
-  if (saveTimer.value) clearTimeout(saveTimer.value)
-  saveTimer.value = setTimeout(() => { savingStatus.value = 'saved'; lastSaved.value = Date.now() }, 800)
-}
-
 // ─── References / citations (Phase 6B) ────────────────────────────────────────
-
 // The host seeds the reference library through the CitationPort; the editor
 // then owns a live copy so sidebar CRUD re-renders citations immediately.
-// Hosts that persist (apps/web) listen to `citation-sources-change`.
-const citationSources = ref<CslItemData[]>(
-  (() => {
-    const s = props.citation?.sources
-    if (Array.isArray(s)) return [...s]
-    if (typeof s === 'function') return [...s()]
-    return []
-  })(),
-)
-const citationStyleId = ref(props.citation?.style || 'chicago-notes-bibliography')
-
-// Pending source pick (toolbar Citation → the references sidebar acts as the
-// picker). Resolved with a sourceId by the sidebar's Cite button, or with
-// null when the sidebar is closed without picking.
-let pendingSourceResolve: ((id: string | null) => void) | null = null
-const pendingSourceRequest = ref(false)
-
-const resolvePendingSource = (id: string | null) => {
-  pendingSourceResolve?.(id)
-  pendingSourceResolve = null
-  pendingSourceRequest.value = false
-}
-
-const defaultSourceRequest = (): Promise<string | null> =>
-  new Promise((resolve) => {
-    resolvePendingSource(null)
-    pendingSourceResolve = resolve
-    pendingSourceRequest.value = true
-    activeSidebar.value = 'references'
-  })
-
-// The port handed to the editor: live source getter (sidebar CRUD is always
-// reflected) + the sidebar picker as the default onSourceRequest when the
-// host does not provide its own.
-const citationPort = computed<CitationPort | undefined>(() => {
-  const port = props.citation
-  if (!port) return undefined
-  return {
-    ...port,
-    sources: () => citationSources.value,
-    onSourceRequest: port.onSourceRequest ?? defaultSourceRequest,
-  }
+// Hosts that persist (apps/web) listen to `citation-sources-change`. The
+// editor and plugin actions are created below, so they are read lazily.
+const {
+  citationSources,
+  citationStyleId,
+  pendingSourceRequest,
+  citationPort,
+  handleSourceCreate,
+  handleSourceUpdate,
+  handleSourceRemove,
+  handleCitationStyleChange,
+  handleReferenceInsert,
+  importBusy,
+  importMessage,
+  canImportSources,
+  handleImportDoi,
+  handleImportBibliography,
+} = useCitations({
+  getEditor: () => editor.value,
+  getPluginActions: () => pluginActions.value,
+  getCitation: () => props.citation,
+  emit,
+  t,
+  activeSidebar,
 })
 
 const { editorRef, editor, pluginActions, isReady, docsEditor: docEditor } = useEditor({
@@ -459,163 +328,26 @@ const { editorRef, editor, pluginActions, isReady, docsEditor: docEditor } = use
   },
 })
 
-// ─── Reference library CRUD + style switching (Phase 6B-3) ─────────────────
-
-interface CitationEngineLike {
-  updateSources: (sources: CslItemData[]) => void
-  setStyle: (styleId: string) => void
-}
-
-const getCitationEngineLike = (): CitationEngineLike | null =>
-  (((editor.value?.storage as Record<string, unknown> | undefined)?.citationEngine) as
-    | { engine?: CitationEngineLike | null }
-    | undefined)?.engine ?? null
-
-/** Push the live library into the engine (re-renders every citation) and let the host persist. */
-const syncCitationEngine = () => {
-  getCitationEngineLike()?.updateSources(citationSources.value)
-  emit('citation-sources-change', citationSources.value)
-}
-
-const handleSourceCreate = (source: CslItemData) => {
-  citationSources.value = [...citationSources.value, source]
-  syncCitationEngine()
-}
-
-const handleSourceUpdate = (source: CslItemData) => {
-  citationSources.value = citationSources.value.map((s) => (s.id === source.id ? source : s))
-  syncCitationEngine()
-}
-
-const handleSourceRemove = (id: string) => {
-  citationSources.value = citationSources.value.filter((s) => s.id !== id)
-  syncCitationEngine()
-}
-
-const handleCitationStyleChange = (styleId: string) => {
-  citationStyleId.value = styleId
-  getCitationEngineLike()?.setStyle(styleId)
-  emit('update:citation-style', styleId)
-}
-
-const handleReferenceInsert = (sourceId: string) => {
-  if (pendingSourceResolve) {
-    // Picker flow: the citation command performs the insertion on resolve.
-    resolvePendingSource(sourceId)
-    activeSidebar.value = null
-  } else {
-    pluginActions.value.insertCitation?.({ sourceId })
-  }
-}
-
-// Closing the references sidebar mid-pick cancels the pending citation insert.
-watch(activeSidebar, (key, prev) => {
-  if (prev === 'references' && key !== 'references') resolvePendingSource(null)
+// ─── Comment anchors (Issue #133) ─────────────────────────────────────────────
+// The scan walks ProseMirror `comment` marks, so it is wired here and triggered
+// from the `transaction` listener further down.
+const { orphanedCommentIds, scheduleCommentAnchorScan } = useCommentAnchors({
+  editor,
+  isReady,
+  getCollaboration: () => props.collaboration,
+  getComments: () => props.comments ?? [],
 })
 
-// ─── Importers (Phase 6C) ────────────────────────────────────────────────────
-// The library never calls CrossRef or parses files itself — the host's import
-// ports (CitationPort.onImportDoi / onImportBibliography) do that and return
-// persisted sources; we just merge them into the live list and re-render.
-
-const importBusy = ref(false)
-const importMessage = ref('')
-const canImportSources = computed(() =>
-  Boolean(props.citation?.onImportDoi || props.citation?.onImportBibliography),
-)
-
-const handleImportDoi = async (doi: string) => {
-  const port = props.citation
-  if (!port?.onImportDoi || importBusy.value) return
-  importBusy.value = true
-  importMessage.value = ''
-  try {
-    const source = await port.onImportDoi(doi)
-    if (!source) {
-      importMessage.value = t('sidebars.references.import.doiFailed')
-      return
-    }
-    const exists = citationSources.value.some((s) => s.id === source.id)
-    citationSources.value = exists
-      ? citationSources.value.map((s) => (s.id === source.id ? source : s))
-      : [...citationSources.value, source]
-    syncCitationEngine()
-    importMessage.value = t('sidebars.references.import.doiSuccess')
-  } catch {
-    importMessage.value = t('sidebars.references.import.doiFailed')
-  } finally {
-    importBusy.value = false
-  }
-}
-
-const handleImportBibliography = async (payload: { format: 'bibtex' | 'ris'; text: string }) => {
-  const port = props.citation
-  if (!port?.onImportBibliography || importBusy.value) return
-  importBusy.value = true
-  importMessage.value = ''
-  try {
-    const { imported, failed } = await port.onImportBibliography(payload)
-    if (imported.length > 0) {
-      const byId = new Map(citationSources.value.map((s) => [s.id, s]))
-      for (const s of imported) byId.set(s.id, s)
-      citationSources.value = [...byId.values()]
-      syncCitationEngine()
-    }
-    importMessage.value =
-      failed > 0
-        ? t('sidebars.references.import.partial')
-            .replace('{ok}', String(imported.length))
-            .replace('{failed}', String(failed))
-        : t('sidebars.references.import.batchSuccess').replace('{count}', String(imported.length))
-  } catch {
-    importMessage.value = t('sidebars.references.import.failed')
-  } finally {
-    importBusy.value = false
-  }
-}
-
-const updateCounts = () => {
-  const text = editor.value?.getText() ?? ''
-  charCount.value = text.length
-  wordCount.value = text.trim() ? text.trim().split(/\s+/).length : 0
-}
-
-const computeBubblePosition = (): { top: number; left: number } | null => {
-  if (!editor.value) return null
-  const { from, to, head } = editor.value.state.selection
-  if (from === to) return null
-  const coords = editor.value.view.coordsAtPos(head)
-  if (!coords) return null
-
-  const viewportMargin = 12
-  const estimatedMenuHalfWidth = 180
-  const top = coords.top - 48
-  const left = (coords.left + coords.right) / 2
-
-  if (typeof window === 'undefined') {
-    return { top: Math.max(viewportMargin, top), left }
-  }
-
-  const halfWidth = Math.min(
-    estimatedMenuHalfWidth,
-    Math.max(0, window.innerWidth / 2 - viewportMargin),
-  )
-  const minLeft = viewportMargin + halfWidth
-  const maxLeft = window.innerWidth - viewportMargin - halfWidth
-  const maxTop = Math.max(viewportMargin, window.innerHeight - 48)
-
-  return {
-    top: Math.min(maxTop, Math.max(viewportMargin, top)),
-    left: Math.min(maxLeft, Math.max(minLeft, left)),
-  }
-}
-
-const updateBubbleMenu = () => {
-  if (!editor.value) { showBubbleMenu.value = false; bubblePosition.value = null; return }
-  const { from, to } = editor.value.state.selection
-  showBubbleMenu.value = from !== to
-  bubblePosition.value = from !== to ? computeBubblePosition() : null
-}
+// ─── Bubble menu ──────────────────────────────────────────────────────────────
+const {
+  showBubbleMenu,
+  bubblePosition,
+  updateBubbleMenu,
+  computeBubblePosition,
+} = useBubbleMenu({ editor })
+// Kept as a top-level binding: the DocsEditor tests drive the anchor math
+// directly through `wrapper.vm.computeBubblePosition()`.
+void computeBubblePosition
 
 const scrollContainerRef = ref<HTMLDivElement | null>(null)
 let scrollTimeout: ReturnType<typeof setTimeout> | null = null
@@ -632,6 +364,113 @@ const handleScroll = () => {
 
 const pageCount = ref(1)
 const currentPage = ref(1)
+
+// ─── Page Setup ───────────────────────────────────────────────────────────────
+
+const {
+  showPageSetupModal,
+  pageSetupSize,
+  pageSetupOrientation,
+  pageSetupMarginsCm,
+  PAGE_MARGIN_CM_MIN,
+  PAGE_MARGIN_CM_MAX,
+  openPageSetupModal,
+  applyPageSetup,
+} = usePageSetup({
+  pageSizeId,
+  orientation,
+  margins,
+  onUpdatePageSize: (value) => emit('update:pageSize', value),
+  onUpdateOrientation: (value) => emit('update:orientation', value),
+  onUpdateMargins: (value) => emit('update:margins', value),
+})
+
+// ─── Header / footer ──────────────────────────────────────────────────────────
+// Page-numbering settings live on the component (tests read them through
+// `wrapper.vm`); the composable mutates them through this bundle so the
+// document view stays the single source of truth.
+const pageNumberPosition = ref<'header' | 'footer'>('header')
+const showPageNumberOnFirstPage = ref(true)
+const pageNumberMode = ref<'startAt' | 'continue'>('startAt')
+const pageNumberStartAt = ref(1)
+
+const {
+  userHeaderLeft,
+  userHeaderRight,
+  userFooterLeft,
+  userFooterRight,
+  isDifferentFirstPage,
+  isDifferentOddEven,
+  userFirstPageHeaderLeft,
+  userFirstPageHeaderRight,
+  userEvenPageHeaderLeft,
+  headerMarginCm,
+  footerMarginCm,
+  showHeaderFormatModal,
+  draftHeaderMarginCm,
+  draftFooterMarginCm,
+  draftDifferentFirstPage,
+  draftDifferentOddEven,
+  showPageNumberModal,
+  draftPageNumberPosition,
+  draftShowPageNumberOnFirstPage,
+  draftPageNumberMode,
+  draftPageNumberStartAt,
+  showFooterModal,
+  footerLeftInput,
+  footerRightInput,
+  HEADER_MARGIN_CM_MIN,
+  HEADER_MARGIN_CM_MAX,
+  HEADER_MARGIN_CM_STEP,
+  applyHeaderFooter,
+  openHeaderFormatModal,
+  applyHeaderFormat,
+  openPageNumberModal,
+  applyPageNumberSettings,
+  openFooterModal,
+  saveFooter,
+} = useHeaderFooter({
+  editor,
+  isReady,
+  pageCount,
+  isDark,
+  initialContent: {
+    headerLeft: initialDoc.headerLeft ?? '',
+    headerRight: initialDoc.headerRight ?? '',
+    footerLeft: initialDoc.footerLeft ?? '',
+    footerRight: initialDoc.footerRight ?? '',
+  },
+  headerMarginCmProp: computed(() => props.headerMarginCm),
+  footerMarginCmProp: computed(() => props.footerMarginCm),
+  pageNumber: {
+    position: pageNumberPosition,
+    showOnFirstPage: showPageNumberOnFirstPage,
+    mode: pageNumberMode,
+    startAt: pageNumberStartAt,
+  },
+  persistCurrentDoc,
+  onUpdatePageCount: (value) => emit('update:pageCount', value),
+  onUpdateHeaderFooterMargins: (value) => emit('update:header-footer-margins', value),
+})
+
+// ─── Inline header editing ────────────────────────────────────────────────────
+
+const { startInlineHeaderEdit, finishHeaderEdit } = useHeaderEdit({
+  editor,
+  scrollContainerRef,
+  t,
+  isDifferentFirstPage,
+  isDifferentOddEven,
+  userHeaderLeft,
+  userHeaderRight,
+  userFirstPageHeaderLeft,
+  userFirstPageHeaderRight,
+  userEvenPageHeaderLeft,
+  applyHeaderFooter,
+  persistCurrentDoc,
+  openHeaderFormatModal,
+  openPageNumberModal,
+})
 
 // ─── Virtual Pages (experimental) ──────────────────────────────────────────
 
@@ -765,134 +604,6 @@ watch(
   () => props.pageless,
   (next) => applyPageless(next ?? false),
 )
-
-// Header & footer refs are defined above to support initialization from props
-
-const isDifferentFirstPage = ref(false)
-const isDifferentOddEven = ref(false)
-const userFirstPageHeaderLeft = ref('')
-const userFirstPageHeaderRight = ref('')
-const userEvenPageHeaderLeft = ref('')
-const userEvenPageHeaderRight = ref('')
-
-const headerMarginCm = ref(normalizeMarginCm(props.headerMarginCm))
-const footerMarginCm = ref(normalizeMarginCm(props.footerMarginCm))
-
-const showHeaderFormatModal = ref(false)
-const draftHeaderMarginCm = ref(headerMarginCm.value)
-const draftFooterMarginCm = ref(footerMarginCm.value)
-const draftDifferentFirstPage = ref(false)
-const draftDifferentOddEven = ref(false)
-
-const showPageNumberModal = ref(false)
-const pageNumberPosition = ref<'header' | 'footer'>('header')
-const showPageNumberOnFirstPage = ref(true)
-const pageNumberMode = ref<'startAt' | 'continue'>('startAt')
-const pageNumberStartAt = ref(1)
-
-const draftPageNumberPosition = ref<'header' | 'footer'>('header')
-const draftShowPageNumberOnFirstPage = ref(true)
-const draftPageNumberMode = ref<'startAt' | 'continue'>('startAt')
-const draftPageNumberStartAt = ref(1)
-
-const getResolvedPageNumber = (pageIndex: number) => {
-  if (!showPageNumberOnFirstPage.value && pageIndex === 0) return ''
-  let num = pageIndex + 1
-  if (pageNumberMode.value === 'startAt') {
-    num = pageIndex + pageNumberStartAt.value
-  }
-  return String(num)
-}
-
-const applyHeaderFooter = () => {
-  if (!editor.value || !isReady.value) return
-  const totalStr = String(pageCount.value)
-  const root = editor.value.view.dom
-
-  const defaultHLeft = userHeaderLeft.value.replace(/{total}/g, totalStr)
-  const defaultHRight = userHeaderRight.value.replace(/{total}/g, totalStr)
-  const defaultFLeft = userFooterLeft.value.replace(/{total}/g, totalStr)
-  const defaultFRight = userFooterRight.value.replace(/{total}/g, totalStr)
-
-  editor.value.commands.updateHeaderContent(defaultHLeft, defaultHRight)
-  editor.value.commands.updateFooterContent(defaultFLeft, defaultFRight)
-
-  const headerMarginPx = `${Math.max(0, headerMarginCm.value) * CM_TO_PX}px`
-  const footerMarginPx = `${Math.max(0, footerMarginCm.value) * CM_TO_PX}px`
-  root.style.setProperty('--rm-header-margin-top', headerMarginPx)
-  root.style.setProperty('--rm-footer-margin-bottom', footerMarginPx)
-
-  // Dispatch an empty transaction so PaginationPlus rebuilds its generated
-  // header/footer widgets after the content configuration changes.
-  editor.value.view.dispatch(editor.value.state.tr)
-
-  setTimeout(() => {
-    requestAnimationFrame(() => {
-      if (!editor.value || editor.value.view.dom !== root) return
-
-      const resolveHeader = (pageNumber: number, firstPage: boolean) => {
-        let left = defaultHLeft
-        let right = defaultHRight
-        if (firstPage && isDifferentFirstPage.value) {
-          left = userFirstPageHeaderLeft.value.replace(/{total}/g, totalStr)
-          right = userFirstPageHeaderRight.value.replace(/{total}/g, totalStr)
-        } else if (isDifferentOddEven.value && pageNumber % 2 === 0) {
-          left = userEvenPageHeaderLeft.value.replace(/{total}/g, totalStr)
-          right = userEvenPageHeaderRight.value.replace(/{total}/g, totalStr)
-        }
-        return {
-          left: left.replace(/{page}/g, getResolvedPageNumber(pageNumber - 1)),
-          right: right.replace(/{page}/g, getResolvedPageNumber(pageNumber - 1)),
-        }
-      }
-
-      const applyHeader = (header: Element, pageNumber: number, firstPage: boolean) => {
-        const content = resolveHeader(pageNumber, firstPage)
-        const left = header.querySelector('.rm-page-header-left')
-        const right = header.querySelector('.rm-page-header-right')
-        if (left) left.innerHTML = content.left
-        if (right) right.innerHTML = content.right
-      }
-
-      const firstHeader = root.querySelector('.rm-first-page-header')
-      if (firstHeader) applyHeader(firstHeader, 1, true)
-
-      Array.from(root.querySelectorAll('.rm-page-break .rm-page-header')).forEach((header, index) => {
-        applyHeader(header, index + 2, false)
-      })
-
-      Array.from(root.querySelectorAll('.rm-page-break .rm-page-footer')).forEach((footer, index) => {
-        const pageNumber = index + 1
-        const pageValue = getResolvedPageNumber(pageNumber - 1)
-        const left = footer.querySelector('.rm-page-footer-left')
-        const right = footer.querySelector('.rm-page-footer-right')
-        if (left) left.innerHTML = defaultFLeft.replace(/{page}/g, pageValue)
-        if (right) right.innerHTML = defaultFRight.replace(/{page}/g, pageValue)
-      })
-    })
-  }, 50)
-}
-
-watch(isDifferentFirstPage, () => {
-  applyHeaderFooter()
-})
-
-watch([isDifferentOddEven, headerMarginCm, footerMarginCm, pageNumberPosition, showPageNumberOnFirstPage, pageNumberMode, pageNumberStartAt], () => {
-  applyHeaderFooter()
-})
-
-watch(pageCount, (next) => {
-  applyHeaderFooter()
-  emit('update:pageCount', next)
-})
-
-watch(isDark, (darkVal) => {
-  if (editor.value) {
-    editor.value.commands.updatePageBreakBackground(darkVal ? '#02040a' : '#f1f5f9')
-    // Dispatch transaction to trigger decoration rebuild with new background
-    editor.value.view.dispatch(editor.value.state.tr)
-  }
-})
 
 // Reactively sync layout changes (margins, page size, orientation) to the
 // PaginationPlus extension storage so decoration rebuilds use current values.
@@ -1055,16 +766,9 @@ onUnmounted(() => {
   finishHeaderEdit(false)
   if (saveTimer.value) clearTimeout(saveTimer.value)
   if (scrollTimeout) clearTimeout(scrollTimeout)
-  if (resizeTimer) clearTimeout(resizeTimer)
-  if (updateFootnotesTimer) clearTimeout(updateFootnotesTimer)
-  window.removeEventListener('resize', onResize)
 })
 
-const showFooterModal = ref(false)
-const footerLeftInput = ref('')
-const footerRightInput = ref('')
 
-const showPageSetupModal = ref(false)
 const showDetailsModal = ref(false)
 const showEmailModal = ref(false)
 const showFindReplace = ref(false)
@@ -1143,623 +847,18 @@ function removeLink() {
   chain.unsetLink().run()
   showLinkDialog.value = false
 }
-const pageSetupSize = ref(pageSizeId.value)
-const pageSetupOrientation = ref(orientation.value)
-const pageSetupMarginsCm = ref({
-  top: toCm(margins.value.top),
-  bottom: toCm(margins.value.bottom),
-  left: toCm(margins.value.left),
-  right: toCm(margins.value.right),
-})
-const PAGE_MARGIN_CM_MIN = 0
-const PAGE_MARGIN_CM_MAX = Number((PAGE_MARGIN_MAX / CM_TO_PX).toFixed(1))
-
-function toCm(px: number): number {
-  return Math.round((px / CM_TO_PX) * 10) / 10
-}
-
-function toPx(cm: number): number {
-  return Math.round(cm * CM_TO_PX)
-}
-
-const openPageSetupModal = () => {
-  pageSetupSize.value = pageSizeId.value
-  pageSetupOrientation.value = orientation.value
-  pageSetupMarginsCm.value = {
-    top: toCm(margins.value.top),
-    bottom: toCm(margins.value.bottom),
-    left: toCm(margins.value.left),
-    right: toCm(margins.value.right),
-  }
-  showPageSetupModal.value = true
-}
-
-const applyPageSetup = () => {
-  const clampCm = (value: unknown) => {
-    const numericValue = typeof value === 'number' ? value : Number(value)
-    if (!Number.isFinite(numericValue)) return PAGE_MARGIN_CM_MIN
-    return Math.min(PAGE_MARGIN_CM_MAX, Math.max(PAGE_MARGIN_CM_MIN, numericValue))
-  }
-
-  pageSizeId.value = pageSetupSize.value
-  orientation.value = pageSetupOrientation.value
-  pageSetupMarginsCm.value = {
-    top: clampCm(pageSetupMarginsCm.value.top),
-    bottom: clampCm(pageSetupMarginsCm.value.bottom),
-    left: clampCm(pageSetupMarginsCm.value.left),
-    right: clampCm(pageSetupMarginsCm.value.right),
-  }
-  margins.value = {
-    top: toPx(pageSetupMarginsCm.value.top),
-    bottom: toPx(pageSetupMarginsCm.value.bottom),
-    left: toPx(pageSetupMarginsCm.value.left),
-    right: toPx(pageSetupMarginsCm.value.right),
-  }
-  emit('update:pageSize', pageSizeId.value)
-  emit('update:orientation', pageSetupOrientation.value)
-  emit('update:margins', { ...margins.value })
-  showPageSetupModal.value = false
-}
-
-const isHeaderActive = ref(false)
-
-interface HeaderEditSession {
-  targetHeader: HTMLElement
-  overlay: HTMLElement
-  input: HTMLElement
-  activeBar: HTMLElement
-  generatedContent: HTMLElement | null
-  isFirstPage: boolean
-  pageIndex: number
-  onOutsideMouseDown: (event: MouseEvent) => void
-  onInputBlur: () => void
-  onResize: () => void
-  onScroll: () => void
-  onWindowScroll: () => void
-}
-
-const headerEditSession: { value: HeaderEditSession | null } = { value: null }
-
-const openHeaderFormatModal = () => {
-  draftHeaderMarginCm.value = headerMarginCm.value
-  draftFooterMarginCm.value = footerMarginCm.value
-  draftDifferentFirstPage.value = isDifferentFirstPage.value
-  draftDifferentOddEven.value = isDifferentOddEven.value
-  showHeaderFormatModal.value = true
-}
-
-const applyHeaderFormat = () => {
-  headerMarginCm.value = normalizeMarginCm(draftHeaderMarginCm.value)
-  footerMarginCm.value = normalizeMarginCm(draftFooterMarginCm.value)
-  draftHeaderMarginCm.value = headerMarginCm.value
-  draftFooterMarginCm.value = footerMarginCm.value
-  isDifferentFirstPage.value = draftDifferentFirstPage.value
-  isDifferentOddEven.value = draftDifferentOddEven.value
-  showHeaderFormatModal.value = false
-  applyHeaderFooter()
-  emit('update:header-footer-margins', {
-    headerMarginCm: headerMarginCm.value,
-    footerMarginCm: footerMarginCm.value,
-  })
-  persistCurrentDoc()
-}
-
-const openPageNumberModal = () => {
-  draftPageNumberPosition.value = pageNumberPosition.value
-  draftShowPageNumberOnFirstPage.value = showPageNumberOnFirstPage.value
-  draftPageNumberMode.value = pageNumberMode.value
-  draftPageNumberStartAt.value = pageNumberStartAt.value
-  showPageNumberModal.value = true
-}
-
-const applyPageNumberSettings = () => {
-  pageNumberPosition.value = draftPageNumberPosition.value
-  showPageNumberOnFirstPage.value = draftShowPageNumberOnFirstPage.value
-  pageNumberMode.value = draftPageNumberMode.value
-  pageNumberStartAt.value = draftPageNumberStartAt.value
-  showPageNumberModal.value = false
-
-  const pageToken = '{page}'
-
-  if (pageNumberPosition.value === 'footer') {
-    // If moving page numbers to footer, clear page token from header
-    if (userHeaderRight.value.includes(pageToken)) {
-      userHeaderRight.value = userHeaderRight.value.replace(/{page}/g, '').trim()
-    }
-    userFooterRight.value = pageToken
-  } else {
-    // If moving page numbers to header, clear page token from footer
-    if (userFooterRight.value.includes(pageToken)) {
-      userFooterRight.value = userFooterRight.value.replace(/{page}/g, '').trim()
-    }
-    userHeaderRight.value = pageToken
-  }
-
-  applyHeaderFooter()
-  persistCurrentDoc()
-}
-
-const clearHeaderContent = () => {
-  userHeaderLeft.value = ''
-  userHeaderRight.value = ''
-  applyHeaderFooter()
-  persistCurrentDoc()
-  isHeaderActive.value = false
-}
-
-const getHeaderEditValue = (pageNumber: number): string => {
-  const isFirstPage = pageNumber === 1
-  const isEvenPage = pageNumber % 2 === 0
-  if (isDifferentFirstPage.value && isFirstPage) return userFirstPageHeaderLeft.value
-  if (isDifferentOddEven.value && isEvenPage) return userEvenPageHeaderLeft.value
-  return userHeaderLeft.value
-}
-
-const finishHeaderEdit = (commit = true) => {
-  const session = headerEditSession.value
-  if (!session) return
-
-  const value = session.input.innerHTML.trim()
-  document.removeEventListener('mousedown', session.onOutsideMouseDown)
-  window.removeEventListener('resize', session.onResize)
-  window.removeEventListener('scroll', session.onWindowScroll)
-  scrollContainerRef.value?.removeEventListener('scroll', session.onScroll)
-  session.overlay.remove()
-  if (session.generatedContent) session.generatedContent.style.visibility = ''
-  session.targetHeader.classList.remove('rm-header-active')
-  headerEditSession.value = null
-  isHeaderActive.value = false
-
-  if (!commit) return
-
-  if (isDifferentFirstPage.value && session.isFirstPage) {
-    userFirstPageHeaderLeft.value = value
-  } else if (isDifferentOddEven.value && session.pageIndex % 2 === 0) {
-    userEvenPageHeaderLeft.value = value
-  } else {
-    userHeaderLeft.value = value
-  }
-
-  applyHeaderFooter()
-  persistCurrentDoc()
-}
-
-const positionHeaderEdit = (session: HeaderEditSession) => {
-  if (!session.targetHeader.parentNode || !editor.value) return
-
-  const root = editor.value.view.dom
-  const headerRect = session.targetHeader.getBoundingClientRect()
-  const paperRect = root.getBoundingClientRect()
-
-  // Later-page headers live inside the full-bleed page breaker, so their
-  // element rectangle spans the paper edge-to-edge while the header content
-  // is inset by the body margins (`.rm-page-header-left/right` float margins).
-  // Vertically the element reserves the whole top-margin zone and the text
-  // sits at the header margin inside it, so the overlay aligns to the
-  // CONTENT rectangle. The first-page header is absolutely positioned at the
-  // body margins with no padding, so its rectangle already is the content
-  // rectangle.
-  const paperStyle = getComputedStyle(root)
-  const bodyMarginLeft = parseFloat(paperStyle.getPropertyValue('--rm-margin-left')) || 0
-  const bodyMarginRight = parseFloat(paperStyle.getPropertyValue('--rm-margin-right')) || 0
-  const contentEl = session.targetHeader.querySelector('.rm-page-header-content')
-  const contentRect = contentEl?.getBoundingClientRect() ?? headerRect
-  const contentLeft = session.isFirstPage ? headerRect.left : headerRect.left + bodyMarginLeft
-  const contentRight = session.isFirstPage ? headerRect.right : headerRect.right - bodyMarginRight
-
-  const leftInset = Math.max(0, contentLeft - paperRect.left)
-  const rightInset = Math.max(0, paperRect.right - contentRight)
-
-  session.overlay.style.left = `${contentLeft}px`
-  session.overlay.style.top = `${contentRect.top}px`
-  session.overlay.style.width = `${Math.max(contentRight - contentLeft, 1)}px`
-  session.overlay.style.height = `${Math.max(contentRect.height, 24)}px`
-  session.activeBar.style.setProperty('--rm-header-bar-left', `${-leftInset}px`)
-  session.activeBar.style.setProperty('--rm-header-bar-width', `${paperRect.width}px`)
-  session.activeBar.style.setProperty('--rm-header-bar-padding-left', `${leftInset}px`)
-  session.activeBar.style.setProperty('--rm-header-bar-padding-right', `${rightInset}px`)
-}
-
-const startInlineHeaderEdit = (event?: MouseEvent) => {
-  const existing = headerEditSession.value
-  if (existing) {
-    const target = event?.target
-    if (!target || target instanceof Node && existing.targetHeader.contains(target)) return
-    finishHeaderEdit(false)
-  }
-
-  let headerEl: HTMLElement | null = null
-  if (event) {
-    const target = event.target as HTMLElement | null
-    headerEl = target?.closest('.rm-page-header, .rm-first-page-header') as HTMLElement | null
-  }
-  if (!headerEl) {
-    headerEl = editor.value?.view.dom.querySelector('.rm-first-page-header, .rm-page-header') as HTMLElement | null
-  }
-  if (!headerEl || !editor.value) return
-
-  const root = editor.value.view.dom
-  // Explicit page mapping: the first-page header widget is page 1; each
-  // `.rm-page-break .rm-page-header` is the header of a later page. Note the
-  // first-page header also carries the `rm-page-header` class, so a flat
-  // `.rm-page-header` query cannot be indexed for page numbers.
-  const isFirstPage = headerEl.classList.contains('rm-first-page-header')
-  const breakHeaders = Array.from(root.querySelectorAll<HTMLElement>('.rm-page-break .rm-page-header'))
-  const pageNumber = isFirstPage ? 1 : breakHeaders.indexOf(headerEl) + 2
-  if (!isFirstPage && pageNumber < 2) return
-  const generatedContent = headerEl.querySelector('.rm-page-header-content') as HTMLElement | null
-  if (generatedContent) generatedContent.style.visibility = 'hidden'
-  const input = document.createElement('div')
-  input.className = 'rm-header-edit-input'
-  input.contentEditable = 'true'
-  input.setAttribute('role', 'textbox')
-  input.setAttribute('aria-label', t('editor.headerFooter.header') || 'Header')
-  input.dataset.placeholder = t('editor.headerFooter.headerPlaceholder') || 'Header'
-  input.innerHTML = getHeaderEditValue(pageNumber)
-
-  const overlay = document.createElement('div')
-  overlay.className = 'rm-header-edit-overlay'
-  overlay.appendChild(input)
-
-  const activeBar = document.createElement('div')
-  activeBar.className = 'rm-google-docs-header-bar'
-  activeBar.innerHTML = `
-    <span class="rm-header-label">${t('editor.headerFooter.header') || 'Header'}</span>
-    <div class="rm-header-right-tools">
-      <label class="rm-diff-label">
-        <input type="checkbox" class="rm-diff-cb" ${isDifferentFirstPage.value ? 'checked' : ''}>
-        <span>${t('editor.headerFooter.differentFirstPage') || 'Different first page'}</span>
-      </label>
-      <div class="rm-options-wrapper">
-        <button type="button" class="rm-options-btn">
-          <span>${t('editor.headerFooter.options') || 'Options'}</span>
-          <span class="rm-arrow-icon" style="font-size: 8px;">▼</span>
-        </button>
-        <div class="rm-options-dropdown">
-          <button type="button" class="rm-opt-format">${t('editor.headerFooter.formatHeader') || 'Header format'}</button>
-          <button type="button" class="rm-opt-page-num">${t('editor.headerFooter.pageNumber') || 'Page numbers'}</button>
-          <button type="button" class="rm-opt-remove">${t('editor.headerFooter.removeHeader') || 'Remove header'}</button>
-        </div>
-      </div>
-    </div>
-  `
-  overlay.appendChild(activeBar)
-  document.body.appendChild(overlay)
-
-  headerEl.classList.add('rm-header-active')
-
-  const onResize = () => {
-    const current = headerEditSession.value
-    if (current) positionHeaderEdit(current)
-  }
-  const onScroll = onResize
-  const onWindowScroll = onResize
-  const onOutsideMouseDown = (mouseEvent: MouseEvent) => {
-    const target = mouseEvent.target
-    if (target instanceof Node && overlay.contains(target)) return
-    if (target instanceof Element && target.closest('.fixed.z-50')) return
-    finishHeaderEdit(true)
-  }
-  const onInputBlur = () => {
-    requestAnimationFrame(() => {
-      const current = headerEditSession.value
-      if (current && !current.overlay.contains(document.activeElement)) finishHeaderEdit(true)
-    })
-  }
-
-  const session: HeaderEditSession = {
-    targetHeader: headerEl,
-    overlay,
-    input,
-    activeBar,
-    generatedContent,
-    isFirstPage,
-    pageIndex: pageNumber,
-    onOutsideMouseDown,
-    onInputBlur,
-    onResize,
-    onScroll,
-    onWindowScroll,
-  }
-  headerEditSession.value = session
-  isHeaderActive.value = true
-
-  const checkbox = activeBar.querySelector('.rm-diff-cb') as HTMLInputElement | null
-  checkbox?.addEventListener('mousedown', (mouseEvent) => {
-    mouseEvent.stopPropagation()
-  })
-  checkbox?.addEventListener('change', (changeEvent) => {
-    changeEvent.stopPropagation()
-    const checked = (changeEvent.target as HTMLInputElement).checked
-    finishHeaderEdit(true)
-    if (checked) {
-      userFirstPageHeaderLeft.value = ''
-      userFirstPageHeaderRight.value = ''
-    }
-    isDifferentFirstPage.value = checked
-    applyHeaderFooter()
-  })
-
-  const optionsButton = activeBar.querySelector('.rm-options-btn') as HTMLButtonElement | null
-  const dropdown = activeBar.querySelector('.rm-options-dropdown') as HTMLElement | null
-  const arrow = activeBar.querySelector('.rm-arrow-icon') as HTMLElement | null
-  optionsButton?.addEventListener('mousedown', (mouseEvent) => {
-    mouseEvent.stopPropagation()
-    mouseEvent.preventDefault()
-  })
-  optionsButton?.addEventListener('click', (clickEvent) => {
-    clickEvent.stopPropagation()
-    clickEvent.preventDefault()
-    const open = dropdown?.classList.toggle('is-open') ?? false
-    if (arrow) arrow.textContent = open ? '▲' : '▼'
-  })
-
-  const formatButton = activeBar.querySelector('.rm-opt-format') as HTMLButtonElement | null
-  formatButton?.addEventListener('mousedown', (mouseEvent) => {
-    mouseEvent.stopPropagation()
-    mouseEvent.preventDefault()
-  })
-  formatButton?.addEventListener('click', (clickEvent) => {
-    clickEvent.stopPropagation()
-    finishHeaderEdit(true)
-    openHeaderFormatModal()
-  })
-
-  const pageNumberButton = activeBar.querySelector('.rm-opt-page-num') as HTMLButtonElement | null
-  pageNumberButton?.addEventListener('mousedown', (mouseEvent) => {
-    mouseEvent.stopPropagation()
-    mouseEvent.preventDefault()
-  })
-  pageNumberButton?.addEventListener('click', (clickEvent) => {
-    clickEvent.stopPropagation()
-    finishHeaderEdit(true)
-    openPageNumberModal()
-  })
-
-  const removeButton = activeBar.querySelector('.rm-opt-remove') as HTMLButtonElement | null
-  removeButton?.addEventListener('mousedown', (mouseEvent) => {
-    mouseEvent.stopPropagation()
-    mouseEvent.preventDefault()
-  })
-  removeButton?.addEventListener('click', (clickEvent) => {
-    clickEvent.stopPropagation()
-    finishHeaderEdit(false)
-    clearHeaderContent()
-  })
-
-  input.addEventListener('blur', onInputBlur)
-  document.addEventListener('mousedown', onOutsideMouseDown)
-  window.addEventListener('resize', onResize)
-  window.addEventListener('scroll', onWindowScroll)
-  scrollContainerRef.value?.addEventListener('scroll', onScroll)
-  // Position once the DOM/layout has settled (PaginationPlus may still be
-  // rebuilding its generated widgets when the edit session starts).
-  requestAnimationFrame(() => {
-    if (headerEditSession.value === session) positionHeaderEdit(session)
-  })
-  input.focus()
-
-  const selection = window.getSelection()
-  const range = document.createRange()
-  range.selectNodeContents(input)
-  range.collapse(false)
-  selection?.removeAllRanges()
-  selection?.addRange(range)
-}
-
-const openFooterModal = () => {
-  if (!editor.value) return
-  footerLeftInput.value = userFooterLeft.value || editor.value.storage.PaginationPlus?.appliedConfig?.footerLeft || ''
-  footerRightInput.value = userFooterRight.value || editor.value.storage.PaginationPlus?.appliedConfig?.footerRight || ''
-  showFooterModal.value = true
-}
-
-const saveFooter = () => {
-  if (!editor.value) return
-  userFooterLeft.value = footerLeftInput.value
-  userFooterRight.value = footerRightInput.value
-
-  applyHeaderFooter()
-  persistCurrentDoc()
-
-  showFooterModal.value = false
-}
-
 // ─── Edit / Format menu commands ─────────────────────────────────────────────
-// Editor-scoped menu actions are executed in-library (the library owns command
-// execution); they are never emitted to the host app. All dispatch is defensive:
-// a missing command (e.g. undo in collab mode where StarterKit history is off,
-// or a plugin the host didn't load) is a no-op, never a crash.
 
-// Call a native TipTap command by name, then refocus the editor.
-const runMenuEditorCommand = (name: string, ...args: unknown[]) => {
-  if (!editor.value) return
-  const command = (editor.value.commands as Record<string, ((...a: unknown[]) => unknown) | undefined>)[name]
-  if (typeof command === 'function') command(...args)
-  editor.value.commands.focus()
-}
-
-// Plugin-backed actions (alignment, task list) go through pluginActions first so
-// custom plugin commands win; fall back to a native command of the same name.
-const runPluginMenuAction = (action: string, ...args: unknown[]) => {
-  if (!editor.value) return
-  const fn = pluginActions.value[action]
-  if (typeof fn === 'function') {
-    fn(...args)
-  } else {
-    runMenuEditorCommand(action, ...args)
-    return
-  }
-  editor.value.commands.focus()
-}
-
-// Insert the {page} placeholder into the header or footer (right slot, Google
-// Docs style). tiptap-pagination-plus renders {page} per page; {total} is
-// resolved by applyHeaderFooter. Persisted via the shared doc pipeline.
-const insertPageNumber = (slot: 'header' | 'footer') => {
-  const target = slot === 'header' ? userHeaderRight : userFooterRight
-  if (!target.value.includes('{page}')) {
-    target.value = target.value ? `${target.value} {page}` : '{page}'
-  }
-  applyHeaderFooter()
-  persistCurrentDoc()
-}
-
-// ─── Clipboard operations (Edit menu) ────────────────────────────────────────
-// Selection is serialized from ProseMirror state (not the DOM), so menu clicks
-// that blurred the editor still cut/copy the right content.
-
-const serializeSelection = (): { html: string; text: string } | null => {
-  if (!editor.value) return null
-  const { state } = editor.value
-  if (state.selection.empty) return null
-  const slice = state.selection.content()
-  const div = document.createElement('div')
-  div.appendChild(DOMSerializer.fromSchema(state.schema).serializeFragment(slice.content))
-  return {
-    html: div.innerHTML,
-    text: slice.content.textBetween(0, slice.content.size, '\n\n', ' '),
-  }
-}
-
-const handleCut = async () => {
-  const sel = serializeSelection()
-  if (!sel || !editor.value) return
-  const ok = await writeClipboard(sel.text, sel.html)
-  if (ok) editor.value.chain().focus().deleteSelection().run()
-}
-
-const handleCopy = async () => {
-  const sel = serializeSelection()
-  if (!sel) return
-  await writeClipboard(sel.text, sel.html)
-  editor.value?.commands.focus()
-}
-
-const handlePaste = async () => {
-  if (!editor.value) return
-  // Rich first (keeps formatting); falls back to plain text inside the helper.
-  // Sanitize pasted HTML (strip <meta>, <style>, etc.) to prevent crashes
-  // from non-content tags commonly produced by Google Docs.
-  const html = await readClipboardHtml()
-  if (html) {
-    const sanitized = sanitizePastedHTML(html)
-    try {
-      editor.value.chain().focus().insertContent(sanitized).run()
-    } catch (err) {
-      console.error('[DocsEditor] paste HTML failed, falling back to plain text:', err)
-      const text = await readClipboardText()
-      if (text) {
-        try {
-          editor.value.chain().focus().insertContent(text).run()
-        } catch (fallbackErr) {
-          console.error('[DocsEditor] paste plain text also failed:', fallbackErr)
-        }
-      }
-    }
-    return
-  }
-  const text = await readClipboardText()
-  if (text) {
-    try {
-      editor.value.chain().focus().insertContent(text).run()
-    } catch (err) {
-      console.error('[DocsEditor] paste plain text failed:', err)
-    }
-  }
-}
-
-const handlePastePlain = async () => {
-  if (!editor.value) return
-  const text = await readClipboardText()
-  if (text) editor.value.chain().focus().insertContent(text).run()
-}
-
-const handleDeleteSelection = () => {
-  if (!editor.value) return
-  const { state } = editor.value
-  if (state.selection.empty) {
-    // Google Docs behavior: with no selection, Delete removes the next character.
-    const { from, to } = state.selection
-    if (to < state.doc.content.size) {
-      editor.value.chain().focus().deleteRange({ from, to: to + 1 }).run()
-    }
-  } else {
-    editor.value.chain().focus().deleteSelection().run()
-  }
-}
-
-// ⌘⇧V pastes plain text (native in some browsers; registered here for parity);
-// ⌘⇧H opens find & replace (Google Docs parity).
-const handleEditKeydown = (e: KeyboardEvent) => {
-  if (e.key === 'Escape' && focusMode.value) {
-    focusMode.value = false
-    return
-  }
-  if (!(e.metaKey || e.ctrlKey) || !e.shiftKey) return
-  if (!editor.value?.view.dom.contains(e.target as Node)) return
-  if (e.key.toLowerCase() === 'v') {
-    e.preventDefault()
-    void handlePastePlain()
-  } else if (e.key.toLowerCase() === 'h') {
-    e.preventDefault()
-    showFindReplace.value = true
-  }
-}
-
-onMounted(() => document.addEventListener('keydown', handleEditKeydown))
-onUnmounted(() => document.removeEventListener('keydown', handleEditKeydown))
-
-const editFormatMenuCommands: Record<string, () => void> = {
-  // Edit menu
-  undo: () => runMenuEditorCommand('undo'),
-  redo: () => runMenuEditorCommand('redo'),
-  'select-all': () => runMenuEditorCommand('selectAll'),
-  cut: () => { void handleCut() },
-  copy: () => { void handleCopy() },
-  paste: () => { void handlePaste() },
-  'paste-without-formatting': () => { void handlePastePlain() },
-  delete: () => handleDeleteSelection(),
-  // Format menu — text styles
-  bold: () => runMenuEditorCommand('toggleBold'),
-  italic: () => runMenuEditorCommand('toggleItalic'),
-  underline: () => runMenuEditorCommand('toggleUnderline'),
-  heading1: () => runMenuEditorCommand('toggleHeading', { level: 1 }),
-  heading2: () => runMenuEditorCommand('toggleHeading', { level: 2 }),
-  heading3: () => runMenuEditorCommand('toggleHeading', { level: 3 }),
-  // Format menu — align & indent (alignment plugin)
-  'align-left': () => runPluginMenuAction('alignLeft'),
-  'align-center': () => runPluginMenuAction('alignCenter'),
-  'align-right': () => runPluginMenuAction('alignRight'),
-  'align-justify': () => runPluginMenuAction('alignJustify'),
-  // Format menu — bullets & numbering (StarterKit lists + lists plugin)
-  'bullet-list': () => runMenuEditorCommand('toggleBulletList'),
-  'numbered-list': () => runMenuEditorCommand('toggleOrderedList'),
-  'task-list': () => runPluginMenuAction('toggleTaskList'),
-  // Insert menu — horizontal line (StarterKit HorizontalRule extension)
-  'horizontal-line': () => runMenuEditorCommand('setHorizontalRule'),
-  'page-numbers-header': () => insertPageNumber('header'),
-  'page-numbers-footer': () => insertPageNumber('footer'),
-  'clear-formatting': () => {
-    if (!editor.value) return
-    editor.value.chain().unsetAllMarks().clearNodes().run()
-    // clearNodes keeps node attributes — also reset text alignment when the
-    // alignment plugin's command is available.
-    runMenuEditorCommand('setTextAlign', 'left')
-  },
-  // Insert menu — editor-scoped inserts (template actions like meeting-notes /
-  // email-draft stay host-level and are still emitted).
-  'insert-image': () => runPluginMenuAction('insertImage'),
-  'insert-table': () => runPluginMenuAction('insertTable', { rows: 3, cols: 3, withHeaderRow: true }),
-  'insert-code': () => runPluginMenuAction('toggleCodeBlock'),
-  'insert-page-break': () => runPluginMenuAction('insertPageBreak'),
-  'insert-toc': () => runPluginMenuAction('insertToc'),
-  'insert-date-chip': () => runPluginMenuAction('insertDateChip'),
-  'insert-people-chip': () => runPluginMenuAction('insertPeopleChip'),
-  'insert-file-chip': () => runPluginMenuAction('insertFileChip'),
-  'insert-dropdown-chip': () => runPluginMenuAction('insertDropdownChip'),
-  'insert-location-chip': () => runPluginMenuAction('insertLocationChip'),
-}
+const { editFormatMenuCommands } = useEditCommands({
+  editor,
+  pluginActions,
+  focusMode,
+  showFindReplace,
+  userHeaderRight,
+  userFooterRight,
+  applyHeaderFooter,
+  persistCurrentDoc,
+})
 
 let menuClick = (action: string) => {
   if (action === 'page-setup') {
@@ -1831,275 +930,10 @@ let handlePrint = () => window.print()
 
 // ─── Footnote (Catatan Kaki) ──────────────────────────────────────────────────
 
-/**
- * Save edited footnote content from a contenteditable div back to the
- * ProseMirror node attribute when the user blurs the item.
- */
-const saveFootnoteItemContent = (refEl: HTMLElement, newContent: string) => {
-  if (!editor.value) return
-  const view = editor.value.view
-  view.state.doc.descendants((node, pos): boolean | undefined | void => {
-    if (node.type.name === 'footnote') {
-      if (view.nodeDOM(pos) === refEl) {
-        view.dispatch(view.state.tr.setNodeMarkup(pos, undefined, { content: newContent }))
-        return false
-      }
-    }
-    return undefined
-  })
-}
-
-/**
- * Build / refresh the inline footnote area at the bottom of each page.
- * ─ Numbers the inline <sup> refs CONTINUOUSLY through the document (Word /
- *   Google Docs behavior): page N continues from the last number on page
- *   N-1. This also matches the citation engine's sequential noteIndex.
- * ─ Creates contenteditable footnote items that sync back to ProseMirror on blur.
- * ─ Skips rebuilding any page whose footnote area is currently focused.
- */
-let updateFootnotesTimer: ReturnType<typeof setTimeout> | null = null
-let resizeTimer: ReturnType<typeof setTimeout> | null = null
-const updateFootnotes = () => {
-  if (!editor.value || !isReady.value) return
-
-  const editorDom = editor.value.view.dom
-
-  const paginationEl = editorDom.querySelector('[data-rm-pagination]')
-  if (!paginationEl) return
-
-  /**
-   * Build one footnote row body. Free-text footnotes stay editable and sync
-   * back to the PM node on blur (existing behavior). Citation-backed
-   * footnotes (Phase 6, `data-footnote-source-id`) are citeproc-rendered and
-   * read-only — their text is derived, never typed.
-   */
-  const buildFootnoteTextDiv = (ref: HTMLElement): HTMLDivElement => {
-    const textDiv = document.createElement('div')
-    textDiv.className = 'docs-footnote-item-text'
-
-    if (ref.hasAttribute('data-footnote-source-id')) {
-      const citationId = ref.getAttribute('data-citation-id') ?? ''
-      const engine = (editor.value?.storage as Record<string, unknown> | undefined)?.citationEngine as
-        { engine?: { renderCluster: (id: string) => string } | null } | undefined
-      const html = engine?.engine?.renderCluster(citationId) ?? ''
-      textDiv.classList.add('docs-footnote-item-text--citation')
-      if (html) {
-        textDiv.innerHTML = html
-      } else {
-        // Fall back to persisted content when the engine hasn't synced yet
-        // (e.g. immediately after document load).
-        const persisted = ref.getAttribute('data-footnote-content') ?? ''
-        if (persisted) {
-          textDiv.innerHTML = persisted
-        } else {
-          textDiv.setAttribute('data-empty', 'true')
-        }
-      }
-      return textDiv
-    }
-
-    const content = ref.getAttribute('data-footnote-content') ?? ''
-    textDiv.contentEditable = 'true'
-    textDiv.textContent = content
-    if (!content) textDiv.setAttribute('data-empty', 'true')
-
-    textDiv.addEventListener('input', () => {
-      textDiv.removeAttribute('data-empty')
-      if (!textDiv.textContent) textDiv.setAttribute('data-empty', 'true')
-    })
-
-    textDiv.addEventListener('blur', () => {
-      const newContent = textDiv.textContent?.trim() ?? ''
-      saveFootnoteItemContent(ref, newContent)
-    })
-    return textDiv
-  }
-
-  const pageBreaks = Array.from(paginationEl.querySelectorAll<HTMLElement>('.rm-page-break'))
-  const allRefs = Array.from(editorDom.querySelectorAll<HTMLElement>('.docs-footnote-ref'))
-
-  if (pageBreaks.length === 0) {
-    // Pageless mode or layout not computed yet: render footnotes at the very bottom of the paper
-    allRefs.forEach((ref, i) => { ref.textContent = String(i + 1) })
-
-    // Find paper container
-    const paper = editorRef.value
-    if (!paper) return
-
-    // Remove existing pageless container
-    paper.querySelector('.docs-pageless-footnotes')?.remove()
-
-    if (allRefs.length === 0) return
-
-    // Skip if a footnote text input inside this container is currently focused
-    const existing = paper.querySelector<HTMLElement>('.docs-pageless-footnotes')
-    if (existing?.querySelector<HTMLElement>('.docs-footnote-item-text:focus')) return
-
-    const container = document.createElement('div')
-    container.className = 'docs-page-footnotes docs-pageless-footnotes'
-
-    const sep = document.createElement('div')
-    sep.className = 'docs-footnotes-sep'
-    container.appendChild(sep)
-
-    allRefs.forEach((ref, n) => {
-      const row = document.createElement('div')
-      row.className = 'docs-footnote-item'
-
-      const num = document.createElement('sup')
-      num.className = 'docs-footnote-item-num'
-      num.textContent = String(n + 1)
-
-      const textDiv = buildFootnoteTextDiv(ref)
-
-      ref.dataset.footnoteItemId = `fn-pageless-${n}`
-      row.id = `fn-pageless-${n}`
-
-      row.appendChild(num)
-      row.appendChild(textDiv)
-      container.appendChild(row)
-    })
-
-    paper.appendChild(container)
-    return
-  }
-
-
-  // Map page index → footnote refs on that page
-  const pageRefs = new Map<number, HTMLElement[]>()
-  pageBreaks.forEach((_, i) => pageRefs.set(i, []))
-
-  allRefs.forEach(ref => {
-    const top = ref.getBoundingClientRect().top
-    let assigned = pageBreaks.length - 1
-    for (let i = 0; i < pageBreaks.length - 1; i++) {
-      const breaker = pageBreaks[i].querySelector<HTMLElement>('.breaker')
-      if (breaker && top < breaker.getBoundingClientRect().top) { assigned = i; break }
-    }
-    pageRefs.get(assigned)!.push(ref)
-  })
-
-  // Footnotes are numbered continuously through the document — the first
-  // footnote on a page continues from the last number of the previous page.
-  let nextFootnoteNumber = 1
-  pageBreaks.forEach((pb, pageIdx) => {
-    const refs = pageRefs.get(pageIdx) ?? []
-    const pageStartNumber = nextFootnoteNumber
-    nextFootnoteNumber += refs.length
-
-    // Number inline refs (continuous across pages)
-    refs.forEach((ref, n) => { ref.textContent = String(pageStartNumber + n) })
-
-    // Skip rebuild if a footnote item on this page has focus
-    const existing = pb.querySelector<HTMLElement>('.docs-page-footnotes')
-    if (existing?.querySelector<HTMLElement>('.docs-footnote-item-text:focus')) return
-
-    existing?.remove()
-    if (refs.length === 0) return
-
-    // Build inline footnote area
-    const container = document.createElement('div')
-    container.className = 'docs-page-footnotes'
-
-    // Separator line
-    const sep = document.createElement('div')
-    sep.className = 'docs-footnotes-sep'
-    container.appendChild(sep)
-
-    refs.forEach((ref, n) => {
-      const row = document.createElement('div')
-      row.className = 'docs-footnote-item'
-
-      const num = document.createElement('sup')
-      num.className = 'docs-footnote-item-num'
-      num.textContent = String(pageStartNumber + n)
-
-      const textDiv = buildFootnoteTextDiv(ref)
-
-      // Clicking the sup ref in the text jumps here
-      ref.dataset.footnoteItemId = `fn-${pageIdx}-${n}`
-      row.id = `fn-${pageIdx}-${n}`
-
-      row.appendChild(num)
-      row.appendChild(textDiv)
-      container.appendChild(row)
-    })
-
-    // Find the page breaker (the layout divider which contains the footer)
-    const breaker = pb.querySelector('.breaker')
-    if (breaker) {
-      // Prepend so it sits exactly above the footer content inside the breaker
-      breaker.insertBefore(container, breaker.firstChild)
-    } else {
-      pb.appendChild(container)
-    }
-  })
-}
-
-
-// Click on sup ref → scroll to + focus corresponding footnote item
-watch(isReady, (ready) => {
-  if (!ready || !editor.value) return
-  editor.value.view.dom.addEventListener('click', (e) => {
-    const target = (e.target as HTMLElement).closest<HTMLElement>('.docs-footnote-ref')
-    if (!target) return
-    e.preventDefault()
-    e.stopPropagation()
-    const id = target.dataset.footnoteItemId
-    if (!id) return
-    const itemRow = document.getElementById(id)
-    const textEl = itemRow?.querySelector<HTMLElement>('.docs-footnote-item-text')
-    if (textEl) {
-      textEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
-      textEl.focus()
-      // Place cursor at end
-      const range = document.createRange()
-      range.selectNodeContents(textEl)
-      range.collapse(false)
-      const sel = window.getSelection()
-      sel?.removeAllRanges()
-      sel?.addRange(range)
-    }
-  })
-})
-
-function scheduleFootnotes(delay: number) {
-  if (updateFootnotesTimer) clearTimeout(updateFootnotesTimer)
-  updateFootnotesTimer = setTimeout(() => {
-    updateFootnotesTimer = null
-    updateFootnotes()
-  }, delay)
-}
-
-const onResize = () => {
-  if (resizeTimer) clearTimeout(resizeTimer)
-  if (updateFootnotesTimer) {
-    clearTimeout(updateFootnotesTimer)
-    updateFootnotesTimer = null
-  }
-  resizeTimer = setTimeout(() => {
-    resizeTimer = null
-    updateFootnotes()
-  }, 150)
-}
-
-watch(isReady, (ready) => {
-  if (!ready || !editor.value) return
-
-  scheduleFootnotes(150)
-
-  // Run on update & selection changes
-  editor.value.on('update', () => { scheduleFootnotes(60) })
-  editor.value.on('selectionUpdate', () => { scheduleFootnotes(100) })
-
-  // Citation-backed footnotes repaint when the engine emits change
-  // (source edit, style switch, citation add/remove).
-  const citationStorage = (editor.value.storage as Record<string, unknown>).citationEngine as
-    { engine?: { onChange: (cb: () => void) => () => void } | null } | undefined
-  citationStorage?.engine?.onChange(() => { scheduleFootnotes(30) })
-
-  // Listen to window resize because pagination calculations layout can shift
-  window.addEventListener('resize', onResize)
+const { updateFootnotes } = useFootnotes({
+  editor,
+  editorRef,
+  isReady,
 })
 </script>
 
