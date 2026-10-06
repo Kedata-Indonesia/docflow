@@ -1,6 +1,17 @@
 import { describe, it, expect, afterEach, vi } from 'vitest'
-import { createEditor } from '@kedata-indonesia/docflow-core'
+import { createEditor, type PaginationPlusOptions } from '@kedata-indonesia/docflow-core'
 import { tablePlugin, tablePageSplitPlugin } from '../index.js'
+
+/** Shape of the ProseMirror JSON nodes these tests assert on. */
+interface SplitNode {
+  type: string
+  attrs: Record<string, unknown>
+  content: SplitNode[]
+}
+
+function docContent(json: object): SplitNode[] {
+  return (json as { content: SplitNode[] }).content
+}
 
 /**
  * Tests for the experimental table-page-split plugin (Path B for the
@@ -59,7 +70,7 @@ function setup(content: object, opts: { split?: boolean; pageContentPx?: number 
   // a small fixed value. The plugin reads `--rm-max-content-child-height`
   // from view.dom.style (set by PaginationPlus in production); in the test
   // we set it manually because happy-dom doesn't run the full layout pass.
-  const paginationOptions = opts.pageContentPx != null
+  const paginationOptions: Partial<PaginationPlusOptions> | undefined = opts.pageContentPx != null
     ? {
         pageHeight: opts.pageContentPx + 40,
         pageWidth: 600,
@@ -72,7 +83,7 @@ function setup(content: object, opts: { split?: boolean; pageContentPx?: number 
       }
     : undefined
 
-  const inst = createEditor({ target, content, plugins, paginationOptions } as any)
+  const inst = createEditor({ target, content, plugins, paginationOptions })
 
   if (opts.pageContentPx != null) {
     inst.editor.view.dom.style.setProperty('--rm-max-content-child-height', `${opts.pageContentPx}px`)
@@ -137,8 +148,8 @@ describe('tablePageSplitPlugin', () => {
     await s.awaitSplit()
 
     const json = s.inst.editor.getJSON()
-    const blockNodes = (json as any).content
-    const tableNodes = blockNodes.filter((n: any) => n.type === 'table')
+    const blockNodes = docContent(json)
+    const tableNodes = blockNodes.filter((n) => n.type === 'table')
     // Deferred multi-split (#192 + multi-table): the queueMicrotask runs
     // AFTER view.updateState so the DOM is current, then dispatches a single
     // tr that produces all chunks. 600 px / 180 px-per-chunk = 4 chunks of
@@ -149,7 +160,7 @@ describe('tablePageSplitPlugin', () => {
     expect(tableNodes[2].content.length).toBe(6)
     expect(tableNodes[3].content.length).toBe(2)
     // Total row count is preserved (the bug from #192 was 2× duplication).
-    const totalRows = tableNodes.reduce((acc: number, t: any) => acc + t.content.length, 0)
+    const totalRows = tableNodes.reduce((acc, t) => acc + t.content.length, 0)
     expect(totalRows).toBe(20)
     // Paragraph separators between chunks — kept here as a guard against
     // accidentally re-introducing them. Empty paragraphs in the middle of a
@@ -157,7 +168,7 @@ describe('tablePageSplitPlugin', () => {
     // the last chunk onto a fresh page (issue #193 "empty space above 2nd
     // table"). Adjacent tables render flush; the page-break decoration
     // provides visual separation when it matters.
-    const separatorsBetweenTables = blockNodes.filter((n: any, i: number) =>
+    const separatorsBetweenTables = blockNodes.filter((n, i) =>
       n.type === 'paragraph' &&
       i > 0 && blockNodes[i - 1].type === 'table' &&
       i < blockNodes.length - 1 && blockNodes[i + 1].type === 'table',
@@ -171,7 +182,7 @@ describe('tablePageSplitPlugin', () => {
     s.inst.editor.view.dispatch(s.inst.editor.state.tr)
 
     const json = s.inst.editor.getJSON()
-    const tableNodes = (json as any).content.filter((n: any) => n.type === 'table')
+    const tableNodes = docContent(json).filter((n) => n.type === 'table')
     expect(tableNodes.length).toBe(1)
     expect(tableNodes[0].content.length).toBe(20)
   })
@@ -183,7 +194,7 @@ describe('tablePageSplitPlugin', () => {
     s.inst.editor.view.dispatch(s.inst.editor.state.tr)
 
     const json = s.inst.editor.getJSON()
-    const tableNodes = (json as any).content.filter((n: any) => n.type === 'table')
+    const tableNodes = docContent(json).filter((n) => n.type === 'table')
     expect(tableNodes.length).toBe(1)
     expect(tableNodes[0].content.length).toBe(5)
   })
@@ -197,12 +208,12 @@ describe('tablePageSplitPlugin', () => {
     s.inst.editor.view.dispatch(s.inst.editor.state.tr)
     await s.awaitSplit()
 
-    const tables = (s.inst.editor.getJSON() as any).content.filter((n: any) => n.type === 'table')
+    const tables = docContent(s.inst.editor.getJSON()).filter((n) => n.type === 'table')
     // 20 rows × 30 px = 600 px total; each chunk must fit in 200 px → max 6 rows.
     // Result: 4 tables of 6,6,6,2 rows.
     expect(tables.length).toBe(4)
     // Total rows preserved (the bug from #192 was 2× duplication).
-    const totalRows = tables.reduce((acc: number, t: any) => acc + t.content.length, 0)
+    const totalRows = tables.reduce((acc, t) => acc + t.content.length, 0)
     expect(totalRows).toBe(20)
     // Every chunk except possibly the last one should fit in the page-content area
     // (≤ 6 rows × 30 px = 180 px ≤ 200 px).
@@ -217,7 +228,7 @@ describe('tablePageSplitPlugin', () => {
     s = setup(makeBigTableDoc(20), { split: false, pageContentPx: 200 })
     s.inst.editor.view.dispatch(s.inst.editor.state.tr)
     const json = s.inst.editor.getJSON()
-    const tableNodes = (json as any).content.filter((n: any) => n.type === 'table')
+    const tableNodes = docContent(json).filter((n) => n.type === 'table')
     expect(tableNodes.length).toBe(1)
     expect(tableNodes[0].content.length).toBe(20)
   })
@@ -231,11 +242,11 @@ describe('tablePageSplitPlugin', () => {
       s.inst.editor.view.dispatch(s.inst.editor.state.tr)
       await s.awaitSplit()
 
-      const tables = (s.inst.editor.getJSON() as any).content.filter(
-        (n: any) => n.type === 'table',
+      const tables = docContent(s.inst.editor.getJSON()).filter(
+        (n) => n.type === 'table',
       )
       const totalRows = tables.reduce(
-        (acc: number, t: any) => acc + t.content.length,
+        (acc, t) => acc + t.content.length,
         0,
       )
       expect(totalRows).toBe(rowCount)
@@ -262,13 +273,13 @@ describe('tablePageSplitPlugin', () => {
     s.inst.editor.view.dispatch(s.inst.editor.state.tr)
     await s.awaitSplit()
 
-    const blocks = (s.inst.editor.getJSON() as any).content
-    const tableNodes = blocks.filter((n: any) => n.type === 'table')
+    const blocks = docContent(s.inst.editor.getJSON())
+    const tableNodes = blocks.filter((n) => n.type === 'table')
     // Two source tables × 4 chunks per source = 8 tables total.
     expect(tableNodes.length).toBe(8)
     // Total row count is preserved per source (20 + 20 = 40 rows).
     const totalRows = tableNodes.reduce(
-      (acc: number, t: any) => acc + t.content.length,
+      (acc, t) => acc + t.content.length,
       0,
     )
     expect(totalRows).toBe(40)

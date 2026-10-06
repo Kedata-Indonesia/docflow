@@ -52,7 +52,7 @@ export interface EditorOptions {
   onUpdate?: (json: object) => void
   collaboration?: CollaborationOptions | CollaborationSetup
   getPageMap?: () => Map<number, { page: number; blockIndex: number }>
-  paginationOptions?: PaginationPlusOptions
+  paginationOptions?: Partial<PaginationPlusOptions>
   /** Host-injected image upload port (see docs/LIBRARY_CONTRACT.md). */
   onImageUpload?: ImageUploadHandler
   /** Host-injected citation port (Phase 6 — reference library + CSL styles). */

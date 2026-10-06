@@ -40,7 +40,27 @@ const PLUGIN_KEY = new PluginKey('docflow/table-page-split')
 const SPLIT_MARK = 'head'
 const MAX_SPLIT_DEPTH = 16
 
-function readPageContentHeightPx(view: EditorView, editor: { storage?: { PaginationPlus?: any } } | null): number | null {
+/**
+ * Minimal structural view of the PaginationPlus editor storage this plugin
+ * reads. Fields are optional because TipTap populates storage lazily and this
+ * plugin is only a consumer of it.
+ */
+interface PaginationPlusStorageLike {
+  pageHeight?: number
+  marginTop?: number
+  marginBottom?: number
+  contentMarginTop?: number
+  contentMarginBottom?: number
+  headerHeight?: { get: (page: number) => number | undefined }
+  footerHeight?: { get: (page: number) => number | undefined }
+}
+
+/** Anything exposing PaginationPlus storage (the TipTap editor, or null). */
+interface EditorWithPaginationStorage {
+  storage?: { PaginationPlus?: PaginationPlusStorageLike }
+}
+
+function readPageContentHeightPx(view: EditorView, editor: EditorWithPaginationStorage | null): number | null {
   // Primary source: editor.storage.PaginationPlus.pageHeight minus margins.
   // This matches the page-content area the editor renders against, regardless
   // of which page (first vs later) the table ends up on — both pages use the
@@ -285,7 +305,7 @@ function lastChunkHeightPx(
  * the page its last chunk consumed — rather than re-reading DOM that
  * doesn't yet reflect the pending split.
  */
-function runSplitPass(view: EditorView, editor: { storage?: { PaginationPlus?: any } } | null): void {
+function runSplitPass(view: EditorView, editor: EditorWithPaginationStorage | null): void {
   if (!view || view.isDestroyed) return
   const v = view
   const state = v.state
@@ -377,8 +397,8 @@ const TablePageSplitExtension = Extension.create({
   addProseMirrorPlugins() {
     let viewRef: EditorView | null = null
     let pendingRun = false
-    const ext = this as unknown as { editor?: { storage: { PaginationPlus?: any } } }
-    const editorRef: { storage: { PaginationPlus?: any } } | null = ext.editor ?? null
+    const ext = this as unknown as { editor?: EditorWithPaginationStorage }
+    const editorRef: EditorWithPaginationStorage | null = ext.editor ?? null
 
     return [
       new Plugin({
