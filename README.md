@@ -385,13 +385,13 @@ docflow/
 
 ## Releasing
 
-Packages are published triggered by a git tag (`v*`), not on every push to main: publicly to **npm** under `@kedataindo/docflow-*`, and to GitHub Packages under `@kedata-indonesia/docflow-*` for internal consumers. See [docs/PUBLISH.md](./docs/PUBLISH.md) for the full guide.
+Packages are published triggered by a git tag (`v*`), not on every push to main: publicly to **npm** under `@kedataindo/docflow-*` (the in-repo source scope stays `@kedata-indonesia`). See [docs/PUBLISH.md](./docs/PUBLISH.md) for the full guide.
 
 ```bash
 # After bumping versions in packages/*/package.json:
 git tag v0.0.5
 git push --tags
-# → GitHub Actions publishes automatically to npm + GitHub Packages
+# → GitHub Actions publishes automatically to the public npm registry
 ```
 
 ---
