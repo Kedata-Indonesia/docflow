@@ -1,4 +1,4 @@
-import { ref, type Ref } from 'vue'
+import { type Ref } from 'vue'
 import type { DocsEditor } from '@kedata-indonesia/docflow-core'
 import { positionHeaderOverlay, type HeaderOverlaySession } from './headerEditOverlay.js'
 
@@ -53,7 +53,6 @@ export function useHeaderEdit(options: UseHeaderEditOptions) {
     openPageNumberModal,
   } = options
 
-  const isHeaderActive = ref(false)
   const headerEditSession: { value: HeaderEditSession | null } = { value: null }
 
   const getHeaderEditValue = (pageNumber: number): string => {
@@ -77,7 +76,6 @@ export function useHeaderEdit(options: UseHeaderEditOptions) {
     if (session.generatedContent) session.generatedContent.style.visibility = ''
     session.targetHeader.classList.remove('rm-header-active')
     headerEditSession.value = null
-    isHeaderActive.value = false
 
     if (!commit) return
 
@@ -98,7 +96,6 @@ export function useHeaderEdit(options: UseHeaderEditOptions) {
     userHeaderRight.value = ''
     applyHeaderFooter()
     persistCurrentDoc()
-    isHeaderActive.value = false
   }
 
   const positionHeaderEdit = (session: HeaderEditSession) => {
@@ -207,7 +204,6 @@ export function useHeaderEdit(options: UseHeaderEditOptions) {
       onWindowScroll,
     }
     headerEditSession.value = session
-    isHeaderActive.value = true
 
     const checkbox = activeBar.querySelector('.rm-diff-cb') as HTMLInputElement | null
     checkbox?.addEventListener('mousedown', (mouseEvent) => {
