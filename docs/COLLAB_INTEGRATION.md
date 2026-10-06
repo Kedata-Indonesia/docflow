@@ -55,9 +55,9 @@ Paling sederhana. **Tidak perlu server, tidak perlu auth.** Cocok untuk prototyp
 ```vue
 <script setup lang="ts">
 import { ref } from 'vue'
-import { DocsEditor } from '@kedata-indonesia/docflow-vue'
-import { defaultPlugins } from '@kedata-indonesia/docflow-plugins'
-import '@kedata-indonesia/docflow-vue/style.css'
+import { DocsEditor } from '@kedataindo/docflow-vue'
+import { defaultPlugins } from '@kedataindo/docflow-plugins'
+import '@kedataindo/docflow-vue/style.css'
 
 const collaborationOptions = {
   room: 'meeting-notes-2024',
@@ -93,9 +93,9 @@ Untuk production. Kamu perlu **server sendiri** yang handle WebSocket + auth.
 ```vue
 <script setup lang="ts">
 import { computed } from 'vue'
-import { DocsEditor } from '@kedata-indonesia/docflow-vue'
-import { defaultPlugins } from '@kedata-indonesia/docflow-plugins'
-import '@kedata-indonesia/docflow-vue/style.css'
+import { DocsEditor } from '@kedataindo/docflow-vue'
+import { defaultPlugins } from '@kedataindo/docflow-plugins'
+import '@kedataindo/docflow-vue/style.css'
 
 // — Ambil data user dari auth system kamu —
 // Bisa dari Pinia store, Vuex, localStorage JWT, dll.
@@ -128,7 +128,7 @@ const collaborationOptions = computed(() => ({
 #### Via Core API (Headless / React / Vanilla)
 
 ```ts
-import { createEditor } from '@kedata-indonesia/docflow-core'
+import { createEditor } from '@kedataindo/docflow-core'
 
 const editor = createEditor({
   target: document.getElementById('editor'),
@@ -527,9 +527,9 @@ server.listen(4000, () => {
 ```vue
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
-import { DocsEditor } from '@kedata-indonesia/docflow-vue'
-import { defaultPlugins } from '@kedata-indonesia/docflow-plugins'
-import '@kedata-indonesia/docflow-vue/style.css'
+import { DocsEditor } from '@kedataindo/docflow-vue'
+import { defaultPlugins } from '@kedataindo/docflow-plugins'
+import '@kedataindo/docflow-vue/style.css'
 import { useAuth } from './stores/auth'
 
 const auth = useAuth()
