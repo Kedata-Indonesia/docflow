@@ -47,10 +47,19 @@ const globalScope = globalThis as typeof globalThis & {
 }
 
 for (const name of ['localStorage', 'sessionStorage'] as const) {
-  if (!globalScope[name]) {
+  let existing: Storage | undefined
+  try {
+    existing = globalScope[name]
+  } catch {
+    // A runtime may expose a throwing storage getter — treat it as absent.
+    existing = undefined
+  }
+
+  if (!existing) {
     Object.defineProperty(globalThis, name, {
       value: createMemoryStorage(),
       configurable: true,
+      writable: true,
     })
   }
 }

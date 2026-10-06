@@ -128,7 +128,7 @@ How each existing port flows through the layers (verified 2026-07-19):
 
 | Layer | Wiring |
 |-------|--------|
-| core | Declared on `EditorOptions` — [Editor.ts:122-124](../packages/core/src/Editor.ts); carried by the always-registered `EditorContextExtension` into `editor.storage.editorContext` — [EditorContext.ts](../packages/core/src/EditorContext.ts), forwarded in [Editor.ts:636-637](../packages/core/src/Editor.ts). Default transport + adapter ship in [packages/core/src/ai/](../packages/core/src/ai) (`openaiCompatibleProvider`, `toAIStreamFn`, `KeyStorage` impls) |
+| core | Declared on `EditorOptions` — [Editor.ts:61-63](../packages/core/src/Editor.ts); carried by the always-registered `EditorContextExtension` into `editor.storage.editorContext` — [EditorContext.ts](../packages/core/src/EditorContext.ts), forwarded in [Editor.ts:238-239](../packages/core/src/Editor.ts). Default transport + adapter ship in [packages/core/src/ai/](../packages/core/src/ai) (`openaiCompatibleProvider`, `toAIStreamFn`, `KeyStorage` impls) |
 | plugins | `aiPlugin` reads `editorContext.aiStream` for inline transforms / generation — [ai.ts](../packages/plugins/src/ai.ts); no shape change, no endpoint knowledge |
 | vue (component) | `AISidebar.vue` accepts `aiStream` / `aiDraft` props and falls back to `editor.storage.editorContext` — [AISidebar.vue:75-82](../packages/vue/src/components/sidebars/AISidebar.vue) |
 | vue (composable) | `useAIProvider(editor)` exposes the injected ports reactively — [useAIProvider.ts](../packages/vue/src/composables/useAIProvider.ts); provider + key-storage impls re-exported from [packages/vue/src/index.ts](../packages/vue/src/index.ts) |
