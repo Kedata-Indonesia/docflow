@@ -1,67 +1,95 @@
-# Docflow
+# DocFlow
 
-**Rich text editor with page layout & real-time collaboration** — modular, framework-agnostic, like Google Docs as a library.
+**The open-source editor engine for document-style apps** — true A4 pagination, real-time collaboration, and layout-aware AI. Free to embed (Apache-2.0); pay only for the cloud services around it.
 
-Built on [TipTap](https://tiptap.dev) / [ProseMirror](https://prosemirror.net) with page pagination engine and Yjs-based collaboration.
+<p align="center">
+  <a href="./LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-green" alt="License: Apache-2.0"></a>
+  <a href="https://github.com/Kedata-Indonesia/docflow/actions/workflows/publish.yml"><img src="https://github.com/Kedata-Indonesia/docflow/actions/workflows/publish.yml/badge.svg" alt="CI"></a>
+  <img src="https://img.shields.io/github/package-json/v/Kedata-Indonesia/docflow?filename=packages%2Fcore%2Fpackage.json" alt="Package version">
+  <img src="https://img.shields.io/badge/built%20on-TipTap%20%2B%20Yjs%20%2B%20Vue-blueviolet" alt="Built on TipTap + Yjs + Vue">
+</p>
+
+<p align="center">
+  <a href="https://dev-docflow-web.kedata.cloud"><b>Live demo</b></a> ·
+  <a href="https://github.com/Kedata-Indonesia/docflow-app"><b>docflow-app</b> (web UI + API server)</a> ·
+  <a href="./docs/PUBLISH.md"><b>Docs</b></a>
+</p>
+
+Built on [TipTap](https://tiptap.dev) / [ProseMirror](https://prosemirror.net) with a page pagination engine and Yjs-based collaboration.
 
 > This repository holds the **library packages** only. The deployable application
 > (web UI + API server + demo) lives in
 > [`Kedata-Indonesia/docflow-app`](https://github.com/Kedata-Indonesia/docflow-app).
 
-![License: Proprietary](https://img.shields.io/badge/license-Proprietary-blue)
-![Gov-friendly: offline + escrow](https://img.shields.io/badge/deployment-air--gapped--ready-green)
-![Built on: TipTap + Yjs + Vue](https://img.shields.io/badge/built%20on-TipTap%20%2B%20Yjs%20%2B%20Vue-blueviolet)
-
 ---
 
-## Packages
+## Why DocFlow?
 
-| Package | Description | Integration |
-|---------|-------------|-------------|
-| `@kedata-indonesia/docflow-core` | Headless editor factory + plugin system | Any framework |
-| `@kedata-indonesia/docflow-vue` | Vue 3 component + composables | Vue apps |
-| `@kedata-indonesia/docflow-element` | Web Component (`<docs-editor>`) | Any HTML/JS |
-| `@kedata-indonesia/docflow-plugins` | Built-in plugins (table, image, link, etc.) | Shared |
-| `@kedata-indonesia/docflow-layout-engine` | Page split / pagination engine | Internal |
-| `@kedata-indonesia/docflow-export` | DOCX / Markdown export | Shared |
+- **True page layout** — auto page-breaks, headers/footers with `{page}`/`{total}`, A4/Letter/Legal. TipTap does not offer this; CKEditor gates it behind a premium plugin; OnlyOffice is heavyweight and AGPL.
+- **Apache-2.0 license** — safe for commercial embedding and self-hosting. No copyleft anxiety, no premium gates. The core stays Apache-2.0 forever.
+- **Real-time collaboration built in** — Yjs CRDT out of the box, self-hostable. An alternative to TipTap Collab / Liveblocks without per-seat lock-in.
+- **Layout-aware AI** — AI drafts that respect A4 structure (e.g. prompt → paginated Indonesian formal letter) via the built-in `aiStream` / `aiDraft` ports.
+- **Built in Indonesia** — Bahasa-friendly, PDPA-friendly self-hosting.
+
+### Comparison
+
+| | DocFlow | TipTap | CKEditor 5 | OnlyOffice |
+|---|---------|--------|------------|------------|
+| A4 pagination / page breaks | ✅ Built-in | ❌ Not offered | 💰 Premium plugin | ✅ Full suite (heavy) |
+| Headers / footers with page numbers | ✅ Built-in | ❌ Not offered | 💰 Premium plugin | ✅ |
+| Real-time collaboration | ✅ Yjs, self-hostable | Hocuspocus (OSS backend); Collab cloud is paid | 💰 Premium | ✅ |
+| License | **Apache-2.0** | MIT | GPL / commercial | **AGPL** |
+| Embeddable npm packages | ✅ | ✅ | ✅ | iframe / heavy |
+| Layout-aware AI hooks | ✅ Ports included | 💰 Content AI (paid) | 💰 AI Assistant (paid) | ❌ |
+
+*Honest take: if you don't need pages, use TipTap. If you need Word-style documents inside your own app, that's us.*
+
+## Who is this for?
+
+| You build | DocFlow gives you |
+|-----------|-------------------|
+| Contract editors, report generators, CMS document features | Drop-in paginated editor, self-hosted collab, no per-seat fees |
+| Surat / HR / school document systems (agencies) | A4 layout + kop surat templates + Bahasa support, free under Apache-2.0 |
+| Internal document systems (enterprise, banks, SOEs, gov) | Self-hostable, PDPA-friendly, air-gapped deployment |
+| Legaltech / edtech / HR vertical apps | Compliance-friendly embedding with DOCX export |
 
 ---
 
 ## Quick Start
 
-### Instalasi
+### Installation
 
-Packages dipublikasikan ke **GitHub Packages**. Untuk menginstall:
+Packages are published to **GitHub Packages**. To install:
 
-**1 — Buat `.npmrc` di root project kamu**
+**1 — Create a `.npmrc` at your project root**
 
 ```
 @kedata-indonesia:registry=https://npm.pkg.github.com
 ```
 
-**2 — Buat GitHub Personal Access Token**
+**2 — Create a GitHub Personal Access Token**
 
-- Buka https://github.com/settings/tokens
-- Klik **Generate new token (classic)**
-- Beri scope `read:packages`
-- Copy token-nya
+- Go to https://github.com/settings/tokens
+- Click **Generate new token (classic)**
+- Grant the `read:packages` scope
+- Copy the token
 
-**3 — Autentikasi**
+**3 — Authenticate**
 
 ```bash
 npm login --registry=https://npm.pkg.github.com
-# Username: GitHub username
-# Password: token yang dibuat
-# Email: email GitHub
+# Username: your GitHub username
+# Password: the token you created
+# Email: your GitHub email
 ```
 
-Atau langsung di `~/.npmrc`:
+Or set it directly in `~/.npmrc`:
 
 ```
-//npm.pkg.github.com/:_authToken=TOKEN_KAMU
+//npm.pkg.github.com/:_authToken=YOUR_TOKEN
 ```
 
-**4 — Install packages**
+**4 — Install the packages**
 
 ```bash
 npm install @kedata-indonesia/docflow-vue @kedata-indonesia/docflow-plugins
@@ -96,7 +124,7 @@ function handleUpdate(json: object) {
 </template>
 ```
 
-### Web Component (framework apapun)
+### Web Component (any framework)
 
 ```bash
 npm install @kedata-indonesia/docflow-element @kedata-indonesia/docflow-plugins
@@ -132,7 +160,18 @@ const editor = createEditor({
 })
 ```
 
+---
 
+## Packages
+
+| Package | Description | Integration |
+|---------|-------------|-------------|
+| `@kedata-indonesia/docflow-core` | Headless editor factory + plugin system | Any framework |
+| `@kedata-indonesia/docflow-vue` | Vue 3 component + composables | Vue apps |
+| `@kedata-indonesia/docflow-element` | Web Component (`<docs-editor>`) | Any HTML/JS |
+| `@kedata-indonesia/docflow-plugins` | Built-in plugins (table, image, link, etc.) | Shared |
+| `@kedata-indonesia/docflow-layout-engine` | Page split / pagination engine | Internal |
+| `@kedata-indonesia/docflow-export` | DOCX / Markdown export | Shared |
 
 ---
 
@@ -155,11 +194,11 @@ const editor = createEditor({
 
 ### Page Layout
 
-- **Auto page break** — konten terbagi otomatis per halaman A4
-- **Manual page break** — sisipkan page break via toolbar
-- **Page size** — A4, Letter, Legal, atau custom
-- **Header / Footer** — dukungan variabel `{page}` dan `{total}`
-- **Dark mode** — theme toggle built-in
+- **Auto page break** — content is automatically split into A4 pages
+- **Manual page break** — insert a page break from the toolbar
+- **Page size** — A4, Letter, Legal, or custom
+- **Header / Footer** — supports the `{page}` and `{total}` variables
+- **Dark mode** — built-in theme toggle
 
 ### Real-time Collaboration
 
@@ -185,7 +224,11 @@ const collaboration = {
 | Provider | Setup | Use Case |
 |----------|-------|----------|
 | `webrtc` | Zero-config, P2P | Prototyping, small teams |
-| `websocket` | Butuh server (Hocuspocus) | Production, persistence |
+| `websocket` | Requires a server (Hocuspocus) | Production, persistence |
+
+### AI Hooks
+
+DocFlow ships injection ports (`aiStream`, `aiDraft`) so the host app can plug in layout-aware AI — drafts that respect A4 structure instead of dumping a wall of text. See `docs/LIBRARY_CONTRACT.md`.
 
 ---
 
@@ -197,9 +240,9 @@ const collaboration = {
 import { defaultPlugins } from '@kedata-indonesia/docflow-plugins'
 ```
 
-Mencakup: bold, italic, underline, strike, heading, bulletList, orderedList, taskList, blockquote, codeBlock, link, image, table, textAlign, placeholder, pageBreak.
+Includes: bold, italic, underline, strike, heading, bulletList, orderedList, taskList, blockquote, codeBlock, link, image, table, textAlign, placeholder, pageBreak.
 
-### Plugin kustom
+### Custom plugin
 
 ```ts
 import { definePlugin } from '@kedata-indonesia/docflow-core'
@@ -314,6 +357,26 @@ const { editorRef, editor, pluginActions, isReady } = useEditor({
 
 ---
 
+## Open-core model
+
+The editor engine is **free and open-source (Apache-2.0) — forever**. We monetize the services around it:
+
+- **Hosted collaboration** — managed Yjs sync on [kedata.cloud](https://kedata.cloud)
+- **Hosted AI** — managed layout-aware AI drafting
+- **Enterprise support & services** — SLAs, custom integrations, on-prem/air-gapped deployment help
+
+You are never locked in: everything above can be self-hosted with the code in this repo and [`docflow-app`](https://github.com/Kedata-Indonesia/docflow-app).
+
+## Community
+
+- [GitHub Discussions](https://github.com/Kedata-Indonesia/docflow/discussions) — questions, RFCs, showcase
+- [Issues](https://github.com/Kedata-Indonesia/docflow/issues) — bugs and feature requests
+- Live demo: https://dev-docflow-web.kedata.cloud
+
+## Contributing
+
+Contributions are welcome — bug reports, RFC discussions, and pull requests. Please open an issue first for anything non-trivial so we can align on direction.
+
 ## Development
 
 ```bash
@@ -349,41 +412,31 @@ docflow/
 └── docs/                  Documentation
 ```
 
-> The deployable application (web UI + API server + reference demo) lives in the
-> separate [`docflow-app`](https://github.com/Kedata-Indonesia/docflow-app) repository.
-
----
-
 ## Releasing
 
-Publish paket ke GitHub Packages di-trigger oleh git tag (`v*`), bukan setiap push ke main. Lihat [docs/PUBLISH.md](./docs/PUBLISH.md) untuk panduan lengkap.
+Packages are published to GitHub Packages triggered by a git tag (`v*`), not on every push to main. See [docs/PUBLISH.md](./docs/PUBLISH.md) for the full guide.
 
 ```bash
-# Setelah bump versi di packages/*/package.json:
+# After bumping versions in packages/*/package.json:
 git tag v0.0.5
 git push --tags
-# → GitHub Actions publish automatis ke GitHub Packages
+# → GitHub Actions publishes automatically to GitHub Packages
 ```
 
 ---
 
 ## License
 
-**Proprietary** — see [`LICENSE`](./LICENSE) at the repo root.
-
-DocFlow is **not open-source**. The source code is published for
-review, support, and source-code escrow (Government tier); no rights
-are granted to reuse, redistribute, or run the software without a
-signed End-User License Agreement (EULA) and Order Form.
-
-The docflow packages are intended to be installed by customers who
-have already accepted the EULA. The published npm packages on
-GitHub Packages are intentionally scoped to the organization
-`@kedata-indonesia` and require a GitHub PAT with `read:packages`
-from a licensed account.
+**Apache-2.0** — see [`LICENSE`](./LICENSE) at the repo root. The core editor stays Apache-2.0 forever.
 
 Bundled third-party components (TipTap, Yjs, Hocuspocus, Vue, etc.)
 keep their original MIT (or other) licenses — see [`NOTICE`](./NOTICE)
 for the full list and per-component pointers.
 
-For licensing questions (Indonesian / English): **legal@kedata.co**.
+For questions (Indonesian / English): **info@kedata.online**.
+
+---
+
+<p align="center">
+  Made with ♥ by <a href="https://kedata.cloud">Kedata</a> in Indonesia
+</p>
