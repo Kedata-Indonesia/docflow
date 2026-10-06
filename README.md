@@ -375,7 +375,7 @@ You are never locked in: everything above can be self-hosted with the code in th
 
 ## Contributing
 
-Contributions are welcome — bug reports, RFC discussions, and pull requests. Please open an issue first for anything non-trivial so we can align on direction.
+Contributions are welcome — bug reports, RFC discussions, and pull requests. `main` is protected: fork the repo, create a branch, and open a PR. Please read [CONTRIBUTING.md](./CONTRIBUTING.md) for the dev setup, verification steps, and PR expectations, and open an issue first for anything non-trivial so we can align on direction.
 
 ## Development
 
