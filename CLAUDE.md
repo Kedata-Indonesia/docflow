@@ -101,7 +101,7 @@ Full guides: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) (operator-facing, both mod
 
 ## Conventions
 
-- **Publishing:** packages ship to GitHub Packages (`npm.pkg.github.com`) under `@kedata-indonesia`. Internal deps use `workspace:*`. See [docs/PUBLISH.md](docs/PUBLISH.md).
+- **Publishing:** packages ship to the **public npm registry** (`registry.npmjs.org`) as `@kedataindo/docflow-*`; the in-repo source scope stays `@kedata-indonesia` and the CI workflow rewrites name/deps/dist on publish. Internal deps use `workspace:*`. See [docs/PUBLISH.md](docs/PUBLISH.md).
 - **Build tooling:** leaf/headless packages build with `tsup` (esm+cjs+dts); Vue/element packages build with `vite` + `vue-tsc` for declarations.
 - **Intra-source imports use `.js` extensions** (e.g. `import ... from './PluginSystem.js'`) even for TS files — required by ESM `moduleResolution: Bundler` / NodeNext-style output. Match this in new files.
 - TS path aliases in `tsconfig.base.json` map `@kedata-indonesia/docflow-*` to package `src/` for in-repo typechecking.

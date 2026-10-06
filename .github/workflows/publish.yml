@@ -1,20 +1,21 @@
-name: Publish to GitHub Packages & npm
+name: Publish to npm
 
+# Publishes the @kedataindo/* packages to the public npm registry.
+# GitHub Packages is intentionally NOT used (see docs/PUBLISH.md).
+#
+# Releases are tag-gated: bump versions -> commit -> tag vX.Y.Z -> push tag.
 on:
   push:
-    branches:
-      - main
     tags:
       - 'v*'
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   publish:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      packages: write
-
     steps:
       - uses: actions/checkout@v4
 
@@ -25,119 +26,18 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          registry-url: 'https://npm.pkg.github.com'
-          scope: '@kedata-indonesia'
+          registry-url: 'https://registry.npmjs.org'
+          scope: '@kedataindo'
 
       - run: pnpm install --frozen-lockfile
 
-      - name: Auto-bump version if already published
-        id: auto_bump
-        run: |
-          BUMPED=false
-          echo "//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}" >> .npmrc
-          for pkg in core layout-engine plugins vue element export; do
-            VERSION=$(node -e "console.log(require('./packages/$pkg/package.json').version)")
-            if npm view @kedata-indonesia/docflow-$pkg@$VERSION version --registry=https://npm.pkg.github.com &>/dev/null 2>&1; then
-              NEW_VERSION=$(node -e "
-                const fs = require('fs');
-                const fp = './packages/$pkg/package.json';
-                const p = JSON.parse(fs.readFileSync(fp, 'utf8'));
-                const parts = p.version.split('.').map(Number);
-                parts[2] = (parts[2] || 0) + 1;
-                p.version = parts.join('.');
-                fs.writeFileSync(fp, JSON.stringify(p, null, 2) + '\n');
-                console.log(p.version);
-              ")
-              echo "Auto-bumped @kedata-indonesia/docflow-$pkg from $VERSION to $NEW_VERSION"
-              BUMPED=true
-            else
-              echo "@kedata-indonesia/docflow-$pkg@$VERSION is new, using existing version"
-            fi
-          done
-          echo "bumped=$BUMPED" >> $GITHUB_OUTPUT
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
       - run: pnpm build
 
-      - name: Publish core (idempotent)
-        run: |
-          VERSION=$(node -e "console.log(require('./packages/core/package.json').version)")
-          if npm view @kedata-indonesia/docflow-core@$VERSION version &>/dev/null 2>&1; then
-            echo "@kedata-indonesia/docflow-core@$VERSION already published, skipping"
-          else
-            echo "Publishing @kedata-indonesia/docflow-core@$VERSION..."
-            pnpm publish --filter @kedata-indonesia/docflow-core --no-git-checks
-          fi
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Publish layout-engine (idempotent)
-        run: |
-          VERSION=$(node -e "console.log(require('./packages/layout-engine/package.json').version)")
-          if npm view @kedata-indonesia/docflow-layout-engine@$VERSION version &>/dev/null 2>&1; then
-            echo "@kedata-indonesia/docflow-layout-engine@$VERSION already published, skipping"
-          else
-            echo "Publishing @kedata-indonesia/docflow-layout-engine@$VERSION..."
-            pnpm publish --filter @kedata-indonesia/docflow-layout-engine --no-git-checks
-          fi
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Publish plugins (idempotent)
-        run: |
-          VERSION=$(node -e "console.log(require('./packages/plugins/package.json').version)")
-          if npm view @kedata-indonesia/docflow-plugins@$VERSION version &>/dev/null 2>&1; then
-            echo "@kedata-indonesia/docflow-plugins@$VERSION already published, skipping"
-          else
-            echo "Publishing @kedata-indonesia/docflow-plugins@$VERSION..."
-            pnpm publish --filter @kedata-indonesia/docflow-plugins --no-git-checks
-          fi
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Publish vue (idempotent)
-        run: |
-          VERSION=$(node -e "console.log(require('./packages/vue/package.json').version)")
-          if npm view @kedata-indonesia/docflow-vue@$VERSION version &>/dev/null 2>&1; then
-            echo "@kedata-indonesia/docflow-vue@$VERSION already published, skipping"
-          else
-            echo "Publishing @kedata-indonesia/docflow-vue@$VERSION..."
-            pnpm publish --filter @kedata-indonesia/docflow-vue --no-git-checks
-          fi
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Publish element (idempotent)
-        run: |
-          VERSION=$(node -e "console.log(require('./packages/element/package.json').version)")
-          if npm view @kedata-indonesia/docflow-element@$VERSION version &>/dev/null 2>&1; then
-            echo "@kedata-indonesia/docflow-element@$VERSION already published, skipping"
-          else
-            echo "Publishing @kedata-indonesia/docflow-element@$VERSION..."
-            pnpm publish --filter @kedata-indonesia/docflow-element --no-git-checks
-          fi
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Publish export (idempotent)
-        run: |
-          VERSION=$(node -e "console.log(require('./packages/export/package.json').version)")
-          if npm view @kedata-indonesia/docflow-export@$VERSION version &>/dev/null 2>&1; then
-            echo "@kedata-indonesia/docflow-export@$VERSION already published, skipping"
-          else
-            echo "Publishing @kedata-indonesia/docflow-export@$VERSION..."
-            pnpm publish --filter @kedata-indonesia/docflow-export --no-git-checks
-          fi
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      # ─── Public npm (@kedataindo/*) ───────────────────────────
-      - name: Publish @kedataindo/* to public npm
+      - name: Publish @kedataindo/* to npm
         run: |
           echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" >> .npmrc
 
-          # Step 1: Backup package.json and rewrite ALL package.json files (name + deps + workspace:* → actual version)
+          # Step 1: Backup package.json and rewrite ALL package.json files (name + deps + workspace:* -> actual version)
           for pkg in core layout-engine plugins vue element export; do
             cp "./packages/$pkg/package.json" "./packages/$pkg/package.json.bak"
             node -e "
@@ -174,7 +74,7 @@ jobs:
             fi
           done
 
-          # Step 3: Publish in dependency order
+          # Step 3: Publish in dependency order (idempotent)
           for pkg in core layout-engine plugins vue element export; do
             VERSION=$(node -e "console.log(JSON.parse(require('fs').readFileSync('./packages/$pkg/package.json.bak', 'utf8')).version)")
 
@@ -193,14 +93,3 @@ jobs:
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: Commit and push bumped versions
-        if: steps.auto_bump.outputs.bumped == 'true' && github.ref == 'refs/heads/main'
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add packages/*/package.json
-          git commit -m "chore(release): auto-bump package versions [skip ci]"
-          git push origin HEAD:main
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
