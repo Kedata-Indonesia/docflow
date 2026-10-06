@@ -5,5 +5,7 @@ export default defineConfig({
   plugins: [vue()],
   test: {
     environment: 'happy-dom',
+    // Restores browser storage globals on Node >= 26 (see test/setup.ts).
+    setupFiles: ['../../test/setup.ts'],
   },
 })

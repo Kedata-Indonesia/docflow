@@ -9,6 +9,7 @@
 | vue | `@kedata-indonesia/docflow-vue` | Vue 3 components + composables |
 | element | `@kedata-indonesia/docflow-element` | Web Component (`<docs-editor>`) |
 | plugins | `@kedata-indonesia/docflow-plugins` | Built-in editor plugins |
+| export | `@kedata-indonesia/docflow-export` | DOCX / ODT / RTF / Markdown export |
 
 ## Prerequisites
 
@@ -53,7 +54,7 @@ pnpm build
 
 # Verify dist outputs exist
 ls packages/*/dist/
-# → core/dist/, vue/dist/, element/dist/, layout-engine/dist/, plugins/dist/
+# → core/dist/, vue/dist/, element/dist/, layout-engine/dist/, plugins/dist/, export/dist/
 ```
 
 ## 4. Publish
@@ -65,6 +66,7 @@ pnpm --filter @kedata-indonesia/docflow-layout-engine publish --no-git-checks
 pnpm --filter @kedata-indonesia/docflow-plugins publish --no-git-checks
 pnpm --filter @kedata-indonesia/docflow-vue publish --no-git-checks
 pnpm --filter @kedata-indonesia/docflow-element publish --no-git-checks
+pnpm --filter @kedata-indonesia/docflow-export publish --no-git-checks
 ```
 
 > **Note**: `apps/server` is `"private": true` — not published. It's a backend service, not a library.
