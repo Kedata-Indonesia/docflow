@@ -7,11 +7,15 @@ import { useEditCommands } from '../composables/useEditCommands.js'
 import { usePageSetup } from '../composables/usePageSetup.js'
 import { useHeaderFooter } from '../composables/useHeaderFooter.js'
 import { useHeaderEdit } from '../composables/useHeaderEdit.js'
+import { useDocumentModel } from '../composables/useDocumentModel.js'
+import { useCitations } from '../composables/useCitations.js'
+import { useCommentAnchors } from '../composables/useCommentAnchors.js'
+import { useBubbleMenu } from '../composables/useBubbleMenu.js'
 import VirtualPageOverlay from './VirtualPageOverlay.vue'
 import { computed, onUnmounted, ref, watch } from 'vue'
 import { useEditor } from '../composables/useEditor.js'
 import SlashMenuVue from './SlashMenu.vue'
-import type { Collaborator, CommentItem, ConnectionState, DocumentMeta, DocumentSnapshot, SavingStatus, SidebarKey } from '../types.js'
+import type { Collaborator, CommentItem, ConnectionState, DocumentMeta, DocumentSnapshot, SidebarKey } from '../types.js'
 import HeaderBar from './HeaderBar.vue'
 import EditorToolbar from './EditorToolbar.vue'
 import BubbleMenu from './BubbleMenu.vue'
@@ -232,33 +236,36 @@ const paginationOptions = computed(() => ({
 
 // ─── Editor ───────────────────────────────────────────────────────────────────
 
-interface TabItem { id: string; label: string; content: object }
-interface TabbedDoc {
-  type: 'tabbed-doc'
-  activeTabId: string
-  tabs: TabItem[]
-  headerLeft?: string
-  headerRight?: string
-  footerLeft?: string
-  footerRight?: string
-}
+// ─── Document model ───────────────────────────────────────────────────────────
+// Created first: the editor, header/footer and edit-command composables all
+// consume the active tab content / persistence port it owns. Header/footer
+// slots live on a composable created later, so they are read lazily.
+const {
+  initialDoc,
+  tabContents,
+  activeTabId,
+  activeTabContent,
+  wordCount,
+  charCount,
+  savingStatus,
+  lastSaved,
+  saveTimer,
+  persistCurrentDoc,
+  updateCounts,
+  slashCommands,
+} = useDocumentModel({
+  modelValue: props.modelValue,
+  getPlugins: () => props.plugins,
+  emit,
+  getHeaderFooter: () => ({
+    headerLeft: userHeaderLeft.value,
+    headerRight: userHeaderRight.value,
+    footerLeft: userFooterLeft.value,
+    footerRight: userFooterRight.value,
+  }),
+  getEditor: () => editor.value,
+})
 
-const parseModelValue = (val: unknown): TabbedDoc => {
-  const obj = val as Record<string, unknown> | null
-  if (obj && typeof obj === 'object' && obj.type === 'tabbed-doc' && Array.isArray(obj.tabs)) return obj as unknown as TabbedDoc
-  return { type: 'tabbed-doc', activeTabId: 'tab-1', tabs: [{ id: 'tab-1', label: 'Tab 1', content: val || { type: 'doc', content: [{ type: 'paragraph' }] } }] }
-}
-
-const initialDoc = parseModelValue(props.modelValue)
-
-const tabs = ref<Array<{ id: string; label: string; active: boolean }>>(initialDoc.tabs.map(t => ({ id: t.id, label: t.label, active: t.id === initialDoc.activeTabId })))
-const tabContents = ref<Record<string, object>>({})
-initialDoc.tabs.forEach(t => { tabContents.value[t.id] = t.content })
-const activeTabId = ref(initialDoc.activeTabId)
-const activeTabContent = computed(() => tabContents.value[activeTabId.value])
-
-const showBubbleMenu = ref(false)
-const bubblePosition = ref<{ top: number; left: number } | null>(null)
 const activeSidebar = ref<SidebarKey | null>(null)
 // View menu toggles — ruler visibility persists across sessions, focus mode does not.
 // Guarded for SSR / environments without Web Storage (Node >= 26 exposes no
@@ -274,149 +281,33 @@ watch(showRuler, (next) => {
     localStorage.setItem('docflow:view:showRuler', next ? 'true' : 'false')
   }
 })
-const wordCount = ref(0)
-const charCount = ref(0)
-const savingStatus = ref<SavingStatus>('saved')
-const lastSaved = ref(Date.now())
-const saveTimer = ref<ReturnType<typeof setTimeout> | null>(null)
-
-// ─── Issue #133 — orphaned comment thread detection ────────────────────────
-// The doc-side anchor is a TipTap `comment` mark (threadId, pos) living
-// inside the ProseMirror document. When the anchored text is deleted the
-// mark vanishes with it — but the thread record lives in MongoDB and
-// nothing reconciled the two. We compute "orphaned" client-side: a thread
-// is orphaned when it is anchored (anchorIndex != null) and its id no
-// longer appears on any `comment` mark in the current document. Never
-// persisted — all peers derive the same state because marks replicate.
-const presentCommentThreadIds = ref<Set<string>>(new Set())
-let commentAnchorScanTimer: ReturnType<typeof setTimeout> | null = null
-// Guards the first scan in collab mode — until the Yjs doc has synced
-// (doc is non-empty) we skip, otherwise every anchored thread would
-// briefly flash orphaned while the room is still loading. Reactive so
-// the `orphanedCommentIds` computed stays empty until the first real
-// scan has run.
-const firstCommentScanDone = ref(false)
-
-function refreshCommentAnchors() {
-  if (!editor.value || !isReady.value) return
-  // Transient-empty-doc guard for collaboration: the first scan must
-  // wait until the provider has synced real content, otherwise all
-  // anchored threads flash orphaned during the Yjs load window. In
-  // non-collab mode the guard is a no-op (content is seeded eagerly).
-  const doc = editor.value.state.doc
-  if (props.collaboration && !firstCommentScanDone.value) {
-    // An empty ProseMirror doc is just its root paragraph node — size 2
-    // (open + close tokens). Anything above means real content loaded.
-    if (doc.content.size <= 2) return
-  }
-  firstCommentScanDone.value = true
-  const ids = new Set<string>()
-  doc.descendants((node) => {
-    for (const mark of node.marks) {
-      if (mark.type.name === 'comment' && mark.attrs.threadId) {
-        ids.add(mark.attrs.threadId as string)
-      }
-    }
-    return true
-  })
-  presentCommentThreadIds.value = ids
-}
-
-function scheduleCommentAnchorScan() {
-  if (commentAnchorScanTimer) clearTimeout(commentAnchorScanTimer)
-  commentAnchorScanTimer = setTimeout(refreshCommentAnchors, 200)
-}
-
-const orphanedCommentIds = computed(() => {
-  // Until the first scan has run we don't know which marks are present
-  // — returning empty avoids orphan false-positives during collab load.
-  if (!firstCommentScanDone.value) return []
-  const present = presentCommentThreadIds.value
-  return (props.comments ?? [])
-    .filter((c) => c.anchorIndex != null && !present.has(c.id))
-    .map((c) => c.id)
-})
-
-onUnmounted(() => {
-  if (commentAnchorScanTimer) clearTimeout(commentAnchorScanTimer)
-})
-
-// Collect slash commands from all plugins
-const slashCommands = computed(() => {
-  const cmds: Array<{ name: string; command: string }> = []
-  for (const plugin of props.plugins) {
-    for (const sc of plugin.slashCommands || []) {
-      cmds.push({ name: sc.name, command: sc.command })
-    }
-  }
-  return cmds
-})
-
-// Build the full tabbed document from current state and emit it to the host.
-// Persistence is the host's job (via update:modelValue / onUpdate) — the
-// library deliberately performs no storage writes (LIBRARY_CONTRACT rule 5).
-const persistCurrentDoc = () => {
-  const fullDoc: TabbedDoc = {
-    type: 'tabbed-doc',
-    activeTabId: activeTabId.value,
-    tabs: tabs.value.map(t => ({ id: t.id, label: t.label, content: tabContents.value[t.id] })),
-    headerLeft: userHeaderLeft.value,
-    headerRight: userHeaderRight.value,
-    footerLeft: userFooterLeft.value,
-    footerRight: userFooterRight.value,
-  }
-  emit('update:modelValue', fullDoc)
-  savingStatus.value = 'saving'
-  if (saveTimer.value) clearTimeout(saveTimer.value)
-  saveTimer.value = setTimeout(() => { savingStatus.value = 'saved'; lastSaved.value = Date.now() }, 800)
-}
-
 // ─── References / citations (Phase 6B) ────────────────────────────────────────
-
 // The host seeds the reference library through the CitationPort; the editor
 // then owns a live copy so sidebar CRUD re-renders citations immediately.
-// Hosts that persist (apps/web) listen to `citation-sources-change`.
-const citationSources = ref<CslItemData[]>(
-  (() => {
-    const s = props.citation?.sources
-    if (Array.isArray(s)) return [...s]
-    if (typeof s === 'function') return [...s()]
-    return []
-  })(),
-)
-const citationStyleId = ref(props.citation?.style || 'chicago-notes-bibliography')
-
-// Pending source pick (toolbar Citation → the references sidebar acts as the
-// picker). Resolved with a sourceId by the sidebar's Cite button, or with
-// null when the sidebar is closed without picking.
-let pendingSourceResolve: ((id: string | null) => void) | null = null
-const pendingSourceRequest = ref(false)
-
-const resolvePendingSource = (id: string | null) => {
-  pendingSourceResolve?.(id)
-  pendingSourceResolve = null
-  pendingSourceRequest.value = false
-}
-
-const defaultSourceRequest = (): Promise<string | null> =>
-  new Promise((resolve) => {
-    resolvePendingSource(null)
-    pendingSourceResolve = resolve
-    pendingSourceRequest.value = true
-    activeSidebar.value = 'references'
-  })
-
-// The port handed to the editor: live source getter (sidebar CRUD is always
-// reflected) + the sidebar picker as the default onSourceRequest when the
-// host does not provide its own.
-const citationPort = computed<CitationPort | undefined>(() => {
-  const port = props.citation
-  if (!port) return undefined
-  return {
-    ...port,
-    sources: () => citationSources.value,
-    onSourceRequest: port.onSourceRequest ?? defaultSourceRequest,
-  }
+// Hosts that persist (apps/web) listen to `citation-sources-change`. The
+// editor and plugin actions are created below, so they are read lazily.
+const {
+  citationSources,
+  citationStyleId,
+  pendingSourceRequest,
+  citationPort,
+  handleSourceCreate,
+  handleSourceUpdate,
+  handleSourceRemove,
+  handleCitationStyleChange,
+  handleReferenceInsert,
+  importBusy,
+  importMessage,
+  canImportSources,
+  handleImportDoi,
+  handleImportBibliography,
+} = useCitations({
+  getEditor: () => editor.value,
+  getPluginActions: () => pluginActions.value,
+  getCitation: () => props.citation,
+  emit,
+  t,
+  activeSidebar,
 })
 
 const { editorRef, editor, pluginActions, isReady, docsEditor: docEditor } = useEditor({
@@ -437,163 +328,26 @@ const { editorRef, editor, pluginActions, isReady, docsEditor: docEditor } = use
   },
 })
 
-// ─── Reference library CRUD + style switching (Phase 6B-3) ─────────────────
-
-interface CitationEngineLike {
-  updateSources: (sources: CslItemData[]) => void
-  setStyle: (styleId: string) => void
-}
-
-const getCitationEngineLike = (): CitationEngineLike | null =>
-  (((editor.value?.storage as Record<string, unknown> | undefined)?.citationEngine) as
-    | { engine?: CitationEngineLike | null }
-    | undefined)?.engine ?? null
-
-/** Push the live library into the engine (re-renders every citation) and let the host persist. */
-const syncCitationEngine = () => {
-  getCitationEngineLike()?.updateSources(citationSources.value)
-  emit('citation-sources-change', citationSources.value)
-}
-
-const handleSourceCreate = (source: CslItemData) => {
-  citationSources.value = [...citationSources.value, source]
-  syncCitationEngine()
-}
-
-const handleSourceUpdate = (source: CslItemData) => {
-  citationSources.value = citationSources.value.map((s) => (s.id === source.id ? source : s))
-  syncCitationEngine()
-}
-
-const handleSourceRemove = (id: string) => {
-  citationSources.value = citationSources.value.filter((s) => s.id !== id)
-  syncCitationEngine()
-}
-
-const handleCitationStyleChange = (styleId: string) => {
-  citationStyleId.value = styleId
-  getCitationEngineLike()?.setStyle(styleId)
-  emit('update:citation-style', styleId)
-}
-
-const handleReferenceInsert = (sourceId: string) => {
-  if (pendingSourceResolve) {
-    // Picker flow: the citation command performs the insertion on resolve.
-    resolvePendingSource(sourceId)
-    activeSidebar.value = null
-  } else {
-    pluginActions.value.insertCitation?.({ sourceId })
-  }
-}
-
-// Closing the references sidebar mid-pick cancels the pending citation insert.
-watch(activeSidebar, (key, prev) => {
-  if (prev === 'references' && key !== 'references') resolvePendingSource(null)
+// ─── Comment anchors (Issue #133) ─────────────────────────────────────────────
+// The scan walks ProseMirror `comment` marks, so it is wired here and triggered
+// from the `transaction` listener further down.
+const { orphanedCommentIds, scheduleCommentAnchorScan } = useCommentAnchors({
+  editor,
+  isReady,
+  getCollaboration: () => props.collaboration,
+  getComments: () => props.comments ?? [],
 })
 
-// ─── Importers (Phase 6C) ────────────────────────────────────────────────────
-// The library never calls CrossRef or parses files itself — the host's import
-// ports (CitationPort.onImportDoi / onImportBibliography) do that and return
-// persisted sources; we just merge them into the live list and re-render.
-
-const importBusy = ref(false)
-const importMessage = ref('')
-const canImportSources = computed(() =>
-  Boolean(props.citation?.onImportDoi || props.citation?.onImportBibliography),
-)
-
-const handleImportDoi = async (doi: string) => {
-  const port = props.citation
-  if (!port?.onImportDoi || importBusy.value) return
-  importBusy.value = true
-  importMessage.value = ''
-  try {
-    const source = await port.onImportDoi(doi)
-    if (!source) {
-      importMessage.value = t('sidebars.references.import.doiFailed')
-      return
-    }
-    const exists = citationSources.value.some((s) => s.id === source.id)
-    citationSources.value = exists
-      ? citationSources.value.map((s) => (s.id === source.id ? source : s))
-      : [...citationSources.value, source]
-    syncCitationEngine()
-    importMessage.value = t('sidebars.references.import.doiSuccess')
-  } catch {
-    importMessage.value = t('sidebars.references.import.doiFailed')
-  } finally {
-    importBusy.value = false
-  }
-}
-
-const handleImportBibliography = async (payload: { format: 'bibtex' | 'ris'; text: string }) => {
-  const port = props.citation
-  if (!port?.onImportBibliography || importBusy.value) return
-  importBusy.value = true
-  importMessage.value = ''
-  try {
-    const { imported, failed } = await port.onImportBibliography(payload)
-    if (imported.length > 0) {
-      const byId = new Map(citationSources.value.map((s) => [s.id, s]))
-      for (const s of imported) byId.set(s.id, s)
-      citationSources.value = [...byId.values()]
-      syncCitationEngine()
-    }
-    importMessage.value =
-      failed > 0
-        ? t('sidebars.references.import.partial')
-            .replace('{ok}', String(imported.length))
-            .replace('{failed}', String(failed))
-        : t('sidebars.references.import.batchSuccess').replace('{count}', String(imported.length))
-  } catch {
-    importMessage.value = t('sidebars.references.import.failed')
-  } finally {
-    importBusy.value = false
-  }
-}
-
-const updateCounts = () => {
-  const text = editor.value?.getText() ?? ''
-  charCount.value = text.length
-  wordCount.value = text.trim() ? text.trim().split(/\s+/).length : 0
-}
-
-const computeBubblePosition = (): { top: number; left: number } | null => {
-  if (!editor.value) return null
-  const { from, to, head } = editor.value.state.selection
-  if (from === to) return null
-  const coords = editor.value.view.coordsAtPos(head)
-  if (!coords) return null
-
-  const viewportMargin = 12
-  const estimatedMenuHalfWidth = 180
-  const top = coords.top - 48
-  const left = (coords.left + coords.right) / 2
-
-  if (typeof window === 'undefined') {
-    return { top: Math.max(viewportMargin, top), left }
-  }
-
-  const halfWidth = Math.min(
-    estimatedMenuHalfWidth,
-    Math.max(0, window.innerWidth / 2 - viewportMargin),
-  )
-  const minLeft = viewportMargin + halfWidth
-  const maxLeft = window.innerWidth - viewportMargin - halfWidth
-  const maxTop = Math.max(viewportMargin, window.innerHeight - 48)
-
-  return {
-    top: Math.min(maxTop, Math.max(viewportMargin, top)),
-    left: Math.min(maxLeft, Math.max(minLeft, left)),
-  }
-}
-
-const updateBubbleMenu = () => {
-  if (!editor.value) { showBubbleMenu.value = false; bubblePosition.value = null; return }
-  const { from, to } = editor.value.state.selection
-  showBubbleMenu.value = from !== to
-  bubblePosition.value = from !== to ? computeBubblePosition() : null
-}
+// ─── Bubble menu ──────────────────────────────────────────────────────────────
+const {
+  showBubbleMenu,
+  bubblePosition,
+  updateBubbleMenu,
+  computeBubblePosition,
+} = useBubbleMenu({ editor })
+// Kept as a top-level binding: the DocsEditor tests drive the anchor math
+// directly through `wrapper.vm.computeBubblePosition()`.
+void computeBubblePosition
 
 const scrollContainerRef = ref<HTMLDivElement | null>(null)
 let scrollTimeout: ReturnType<typeof setTimeout> | null = null
