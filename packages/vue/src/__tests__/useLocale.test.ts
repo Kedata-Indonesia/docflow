@@ -1,3 +1,4 @@
+/* eslint-disable vue/one-component-per-file -- test fixtures define several throwaway components */
 import { describe, expect, it, beforeEach, vi } from 'vitest'
 import { defineComponent, h, nextTick } from 'vue'
 import { mount } from '@vue/test-utils'

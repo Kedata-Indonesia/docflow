@@ -23,13 +23,21 @@ export interface UseAIProviderReturn {
   isAIAvailable: ComputedRef<boolean>
 }
 
+/** Shape of the host-injected AI ports kept on `editor.storage.editorContext`. */
+interface EditorContextStorage {
+  editorContext?: {
+    aiStream?: AIStreamFn
+    aiDraft?: AIDraftFn
+  }
+}
+
+function readEditorContext(editor: Editor | null): EditorContextStorage['editorContext'] {
+  return (editor?.storage as unknown as EditorContextStorage | undefined)?.editorContext
+}
+
 export function useAIProvider(editor: Ref<Editor | null>): UseAIProviderReturn {
-  const aiStream = computed<AIStreamFn | undefined>(
-    () => (editor.value?.storage as any)?.editorContext?.aiStream,
-  )
-  const aiDraft = computed<AIDraftFn | undefined>(
-    () => (editor.value?.storage as any)?.editorContext?.aiDraft,
-  )
+  const aiStream = computed(() => readEditorContext(editor.value)?.aiStream)
+  const aiDraft = computed(() => readEditorContext(editor.value)?.aiDraft)
   const isAIAvailable = computed(() => Boolean(aiStream.value))
   return { aiStream, aiDraft, isAIAvailable }
 }

@@ -1,4 +1,12 @@
 <template>
+  <!--
+    Header/footer templates come from the loaded document (DocsEditor seeds
+    them from `modelValue`) and are persisted back, so they are NOT trusted
+    input — in a shared doc they are a stored-XSS surface. `v-html` mirrors
+    PaginationPlus's own `innerHTML` rendering; sanitizing the values at the
+    source is tracked separately in #51.
+  -->
+  <!-- eslint-disable vue/no-v-html -->
   <div v-if="isReady" class="virtual-page-overlay" aria-hidden="true">
     <div
       v-for="p in visiblePages"
