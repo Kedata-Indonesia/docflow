@@ -1,8 +1,12 @@
-# DocsEditor
+# Docflow
 
 **Rich text editor with page layout & real-time collaboration** — modular, framework-agnostic, like Google Docs as a library.
 
 Built on [TipTap](https://tiptap.dev) / [ProseMirror](https://prosemirror.net) with page pagination engine and Yjs-based collaboration.
+
+> This repository holds the **library packages** only. The deployable application
+> (web UI + API server + demo) lives in
+> [`Kedata-Indonesia/docflow-app`](https://github.com/Kedata-Indonesia/docflow-app).
 
 ![License: Proprietary](https://img.shields.io/badge/license-Proprietary-blue)
 ![Gov-friendly: offline + escrow](https://img.shields.io/badge/deployment-air--gapped--ready-green)
@@ -19,6 +23,7 @@ Built on [TipTap](https://tiptap.dev) / [ProseMirror](https://prosemirror.net) w
 | `@kedata-indonesia/docflow-element` | Web Component (`<docs-editor>`) | Any HTML/JS |
 | `@kedata-indonesia/docflow-plugins` | Built-in plugins (table, image, link, etc.) | Shared |
 | `@kedata-indonesia/docflow-layout-engine` | Page split / pagination engine | Internal |
+| `@kedata-indonesia/docflow-export` | DOCX / Markdown export | Shared |
 
 ---
 
