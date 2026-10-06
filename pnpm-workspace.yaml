@@ -1,6 +1,5 @@
 packages:
   - 'packages/*'
-  - 'apps/*'
 allowBuilds:
   '@percy/core': false
   core-js: true

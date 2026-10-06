@@ -316,65 +316,36 @@ git clone git@github.com:Kedata-Indonesia/docflow.git
 cd docflow
 pnpm install
 pnpm build
-pnpm dev              # Demo app
 pnpm typecheck        # TypeScript
 pnpm test:unit        # Unit test
 pnpm lint             # ESLint
-pnpm test:e2e         # Playwright
 ```
+
+> The deployable application (web UI + API server) and its Docker stack live in the
+> separate [`docflow-app`](https://github.com/Kedata-Indonesia/docflow-app) repository.
 
 ### Docker
 
-Prerequisites: Docker (or Podman) + Docker Compose (Compose V2).
-
-```bash
-# Development — full stack: server + web app + MongoDB + MinIO
-cp .env.docker.example .env.docker   # fill the secrets (see below)
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
-```
-
-| Service | URL |
-|---------|-----|
-| Web app | http://localhost:8082 |
-| Server API (direct) | http://localhost:3001/api/health |
-| MongoDB | localhost:27017 |
-| MinIO console | http://localhost:9001 |
-
-The dev overlay (`docker-compose.dev.yml`) adds MinIO and exposes the server API on host port
-`:3001` for direct debugging. The web container's nginx proxies `/api`, `/auth`, and `/collab`
-to the server automatically.
-
-**Env setup:** the repo's `docker-compose.yml` bundles a Mongo container. For a quick local
-run, set the following in `.env.docker` (the `.env.docker.example` template already ships
-these values):
-
-```bash
-MONGODB_URI=mongodb://mongo:27017/docs-editor
-STORAGE_BACKEND=gridfs
-GOOGLE_ENABLED=false
-CLIENT_ORIGIN=http://localhost:8082
-BETTER_AUTH_URL=http://localhost:8082
-```
-
-> `CLIENT_ORIGIN` / `BETTER_AUTH_URL` must match the browser-facing origin — port **8082**
-> (the `web` container maps `8082:80`). See [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md) for
-> production setup (SSL, separate-domain, OAuth, AI config).
+The self-hosted Docker stack (server + web app + MongoDB) lives in the
+[`docflow-app`](https://github.com/Kedata-Indonesia/docflow-app) repository. This
+package repository only builds and publishes the `@kedata-indonesia/docflow-*` libraries.
 
 ### Project Structure
 
 ```
-docs-editor/
+docflow/
 ├── packages/
 │   ├── core/              @kedata-indonesia/docflow-core
 │   ├── vue/               @kedata-indonesia/docflow-vue
 │   ├── element/           @kedata-indonesia/docflow-element
 │   ├── plugins/           @kedata-indonesia/docflow-plugins
-│   └── layout-engine/     @kedata-indonesia/docflow-layout-engine
-├── apps/
-│   └── demo/              Demo app (Vite + Vue 3)
-├── e2e/                   Playwright E2E tests
+│   ├── layout-engine/     @kedata-indonesia/docflow-layout-engine
+│   └── export/            @kedata-indonesia/docflow-export
 └── docs/                  Documentation
 ```
+
+> The deployable application (web UI + API server + reference demo) lives in the
+> separate [`docflow-app`](https://github.com/Kedata-Indonesia/docflow-app) repository.
 
 ---
 

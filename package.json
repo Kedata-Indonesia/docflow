@@ -9,14 +9,9 @@
     "build": "pnpm -r run build",
     "typecheck": "pnpm -r run typecheck",
     "test:unit": "pnpm -r run test:unit",
-    "dev": "pnpm --filter @kedata-indonesia/docflow-demo dev",
-    "dev:web": "pnpm --filter @kedata-indonesia/docflow-web dev",
-    "dev:server": "pnpm --filter @kedata-indonesia/docflow-server dev",
-    "test:e2e": "playwright test",
     "lint": "eslint . --ext .ts,.vue"
   },
   "devDependencies": {
-    "@playwright/test": "^1.61.1",
     "@types/node": "^22.0.0",
     "@typescript-eslint/eslint-plugin": "^7.18.0",
     "@typescript-eslint/parser": "^7.18.0",
