@@ -282,10 +282,18 @@ const showBubbleMenu = ref(false)
 const bubblePosition = ref<{ top: number; left: number } | null>(null)
 const activeSidebar = ref<SidebarKey | null>(null)
 // View menu toggles — ruler visibility persists across sessions, focus mode does not.
-const showRuler = ref(localStorage.getItem('docflow:view:showRuler') !== 'false')
+// Guarded for SSR / environments without Web Storage (Node >= 26 exposes no
+// `localStorage` unless started with `--localstorage-file`).
+const showRuler = ref(
+  typeof localStorage !== 'undefined'
+    ? localStorage.getItem('docflow:view:showRuler') !== 'false'
+    : true,
+)
 const focusMode = ref(false)
 watch(showRuler, (next) => {
-  localStorage.setItem('docflow:view:showRuler', next ? 'true' : 'false')
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem('docflow:view:showRuler', next ? 'true' : 'false')
+  }
 })
 const wordCount = ref(0)
 const charCount = ref(0)

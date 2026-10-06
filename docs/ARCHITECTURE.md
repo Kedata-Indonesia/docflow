@@ -1,8 +1,15 @@
 # DocFlow — System Architecture
 
 > **Audience:** AI agents and engineers integrating with, operating, or extending DocFlow.
-> **Status:** as of `main` @ `a25e96d` (post Phase 9 P9-4 C1+C2+C3).
+> **Status:** historical / cross-repo. Documents the **full DocFlow product** (library `packages/*` **plus** the deployable app).
 > **Scope:** a complete map of how data flows between the browser, the apps, the server, and the data stores — enough that an agentic AI can write to or serve data on any layer without breaking the others.
+>
+> ⚠️ **Repository scope note (2026-10):** this repository is **library-only**. The
+> deployable application — `apps/web`, `apps/server`, `apps/demo`, `docker/`, `e2e/`
+> — was split into [`Kedata-Indonesia/docflow-app`](https://github.com/Kedata-Indonesia/docflow-app).
+> Every `apps/*`, `docker/*`, and `e2e/*` path referenced below therefore lives in that
+> sibling repo, **not** here. For the library boundary itself, prefer
+> [`LIBRARY_CONTRACT.md`](LIBRARY_CONTRACT.md) and the root `README.md`.
 
 ---
 
@@ -430,17 +437,20 @@ sequenceDiagram
 
 ## 9. Test surface
 
-| Layer | Command |
-|-------|---------|
-| All packages unit | `pnpm test:unit` (vitest) — **42 files / 325 tests** as of P9-4 |
-| Server only | `pnpm --filter @kedata-indonesia/docflow-server test:unit` |
-| Vue | `pnpm --filter @kedata-indonesia/docflow-vue test:unit` |
-| E2E | `pnpm test:e2e` — Playwright; auto-starts `apps/demo` |
-| Visual | `pnpm test:visual` — Percy + Playwright |
-| Typecheck | `pnpm typecheck` (per-package: `pnpm --filter <pkg> typecheck`) |
-| Lint | `pnpm lint` — eslint with `noUnusedLocals`/`noUnusedParameters` strict |
+> Rows marked **`docflow-app`** live in the sibling app repository, not here.
 
-Per-AGENTS.md gate order after any non-trivial change: **lint → typecheck → test:unit → test:e2e (if UI/layout changed) → build affected packages.**
+| Layer | Command | Where |
+|-------|---------|-------|
+| All packages unit | `pnpm test:unit` (vitest) | this repo |
+| Vue only | `pnpm --filter @kedata-indonesia/docflow-vue test:unit` | this repo |
+| Typecheck | `pnpm typecheck` (per-package: `pnpm --filter <pkg> typecheck`) | this repo |
+| Lint | `pnpm lint` — eslint with `noUnusedLocals`/`noUnusedParameters` strict | this repo |
+| Server only | `pnpm --filter @kedata-indonesia/docflow-server test:unit` | `docflow-app` |
+| E2E | `pnpm test:e2e` — Playwright; auto-starts `apps/demo` | `docflow-app` |
+| Visual | `pnpm test:visual` — Percy + Playwright | `docflow-app` |
+
+Per-AGENTS.md gate order after any non-trivial change: **lint → typecheck → test:unit → build affected packages**
+(E2E/visual, when UI/layout changed, run in `docflow-app`).
 
 ---
 
@@ -564,6 +574,6 @@ If `roles` is missing (pre-RO1 docs), fall back to the legacy `collaborators` ar
 | Phase plans | `docs/plans/phase-0..9-*.md` |
 | Sprint 9-10 status | `docs/plans/sprint-9-10-execution-plan.md` |
 | Third-party licenses | `NOTICE` |
-| License | `LICENSE` (proprietary EULA reference) |
+| License | `LICENSE` (Apache-2.0) |
 | Agent rules | `AGENTS.md` |
 | Library / agent / orchestration | `CLAUDE.md`, `.opencode/agents/*.md` |

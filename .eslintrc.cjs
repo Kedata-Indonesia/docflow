@@ -27,12 +27,13 @@ module.exports = {
   overrides: [
     {
       // Library boundary guardrail (Phase 0) — regression trap for future PRs.
-      // Ships as 'warn'; flip to 'error' once the Phase 7 AISidebar leak is removed.
+      // Enforced as 'error' since the Phase 7 AISidebar leak was removed and a
+      // full lint run reports zero violations.
       // See docs/LIBRARY_CONTRACT.md §5.1.
       files: ['packages/**/*.{ts,vue}'],
       rules: {
         'no-restricted-imports': [
-          'warn',
+          'error',
           {
             patterns: [
               {

@@ -54,8 +54,9 @@ export class DocsEditorElement extends HTMLElement {
     this._shadowRoot.appendChild(styleEl)
 
     const props = this._buildProps()
-    this._vueElement = new VueDocsEditorElement(props)
-    this._shadowRoot.appendChild(this._vueElement)
+    const vueElement = new VueDocsEditorElement(props)
+    this._vueElement = vueElement
+    this._shadowRoot.appendChild(vueElement)
   }
 
   disconnectedCallback() {

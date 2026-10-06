@@ -128,7 +128,7 @@ How each existing port flows through the layers (verified 2026-07-19):
 
 | Layer | Wiring |
 |-------|--------|
-| core | Declared on `EditorOptions` — [Editor.ts:122-124](../packages/core/src/Editor.ts); carried by the always-registered `EditorContextExtension` into `editor.storage.editorContext` — [EditorContext.ts](../packages/core/src/EditorContext.ts), forwarded in [Editor.ts:636-637](../packages/core/src/Editor.ts). Default transport + adapter ship in [packages/core/src/ai/](../packages/core/src/ai) (`openaiCompatibleProvider`, `toAIStreamFn`, `KeyStorage` impls) |
+| core | Declared on `EditorOptions` — [Editor.ts:61-63](../packages/core/src/Editor.ts); carried by the always-registered `EditorContextExtension` into `editor.storage.editorContext` — [EditorContext.ts](../packages/core/src/EditorContext.ts), forwarded in [Editor.ts:238-239](../packages/core/src/Editor.ts). Default transport + adapter ship in [packages/core/src/ai/](../packages/core/src/ai) (`openaiCompatibleProvider`, `toAIStreamFn`, `KeyStorage` impls) |
 | plugins | `aiPlugin` reads `editorContext.aiStream` for inline transforms / generation — [ai.ts](../packages/plugins/src/ai.ts); no shape change, no endpoint knowledge |
 | vue (component) | `AISidebar.vue` accepts `aiStream` / `aiDraft` props and falls back to `editor.storage.editorContext` — [AISidebar.vue:75-82](../packages/vue/src/components/sidebars/AISidebar.vue) |
 | vue (composable) | `useAIProvider(editor)` exposes the injected ports reactively — [useAIProvider.ts](../packages/vue/src/composables/useAIProvider.ts); provider + key-storage impls re-exported from [packages/vue/src/index.ts](../packages/vue/src/index.ts) |
@@ -142,7 +142,7 @@ How each existing port flows through the layers (verified 2026-07-19):
 
 1. ❌ No imports from `apps/*` (relative paths or workspace package names
    `@kedata-indonesia/docflow-server` / `@kedata-indonesia/docflow-demo`).
-   → *Enforced by ESLint `no-restricted-imports`, currently `warn` (§5).*
+   → *Enforced by ESLint `no-restricted-imports`, currently `error` (§5).*
 2. ❌ No backend-only dependencies: `mongoose`, `express`, `better-auth` (incl. `better-auth/*`).
    → *Same ESLint rule.*
 3. ❌ No direct backend HTTP calls (`fetch('/api/*')`, hardcoded API hosts).
@@ -188,14 +188,15 @@ resolved in Phase 2.
 
 The ESLint guardrail in [.eslintrc.cjs](../.eslintrc.cjs) (override scoped to
 `packages/**/*.{ts,vue}`, built-in `no-restricted-imports`, zero new dependencies) ships as
-**`warn`** — it is a regression trap for future PRs, not a fixer of today's tree.
+**`error`** — a regression trap for future PRs that now fails CI on a violation.
 
 - **Coverage:** import boundaries only (rules 1–2). String-based backend calls
   (`fetch('/api/*')`, rule 3) are not import statements and stay review-gated; a custom AST
   rule is out of scope.
-- **Escalation trigger:** once Phase 7 lands and deviation #1 is removed, flip the rule from
-  `'warn'` to `'error'` — the only edit needed is the severity string in `.eslintrc.cjs`.
-- **Baseline:** as of 2026-07-19 the boundary holds structurally —
+- **Escalation:** deviation #1 (the Phase 7 `AISidebar` leak) is resolved, so the severity was
+  raised from `'warn'` to `'error'` in `.eslintrc.cjs` (2026-10). Softening back to `'warn'`
+  is a one-line change if ever needed.
+- **Baseline:** as of 2026-10 the boundary holds structurally —
   `grep -rn "apps/" packages --include=*.ts --include=*.vue` returns no imports,
-  `pnpm lint` emits no `no-restricted-imports` warnings, and the only remaining
-  deviation is #1 (fetch-based, review-gated → Phase 7).
+  `pnpm lint` emits zero `no-restricted-imports` violations (0 errors), and all known
+  deviations (#1–#4) are resolved.

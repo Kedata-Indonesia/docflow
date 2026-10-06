@@ -35,7 +35,7 @@ jobs:
         run: |
           BUMPED=false
           echo "//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}" >> .npmrc
-          for pkg in core layout-engine plugins vue element; do
+          for pkg in core layout-engine plugins vue element export; do
             VERSION=$(node -e "console.log(require('./packages/$pkg/package.json').version)")
             if npm view @kedata-indonesia/docflow-$pkg@$VERSION version --registry=https://npm.pkg.github.com &>/dev/null 2>&1; then
               NEW_VERSION=$(node -e "
@@ -120,6 +120,18 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Publish export (idempotent)
+        run: |
+          VERSION=$(node -e "console.log(require('./packages/export/package.json').version)")
+          if npm view @kedata-indonesia/docflow-export@$VERSION version &>/dev/null 2>&1; then
+            echo "@kedata-indonesia/docflow-export@$VERSION already published, skipping"
+          else
+            echo "Publishing @kedata-indonesia/docflow-export@$VERSION..."
+            pnpm publish --filter @kedata-indonesia/docflow-export --no-git-checks
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       # ─── Public npm (@kedataindo/*) ───────────────────────────
       - name: Publish @kedataindo/* to public npm
         run: |
@@ -169,7 +181,7 @@ jobs:
             if npm view @kedataindo/docflow-$pkg@$VERSION version --registry=https://registry.npmjs.org &>/dev/null 2>&1; then
               echo "@kedataindo/docflow-$pkg@$VERSION already published, skipping"
             else
-              echo "Publishing @kedataindo/docflow-$pkg@\$VERSION..."
+              echo "Publishing @kedataindo/docflow-$pkg@$VERSION..."
               pnpm publish --filter @kedataindo/docflow-$pkg --no-git-checks --access public
             fi
           done
