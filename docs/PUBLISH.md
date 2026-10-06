@@ -1,33 +1,37 @@
 # Publishing Guide — DocsEditor Packages
 
+All packages are published to the **public npm registry** (`https://registry.npmjs.org`)
+under the `@kedataindo` scope. GitHub Packages is **not** used.
+
 ## Package List
 
-| Package | NPM Name | Description |
-|---------|----------|-------------|
-| core | `@kedata-indonesia/docflow-core` | Headless editor factory, plugin system, collaboration |
-| layout-engine | `@kedata-indonesia/docflow-layout-engine` | Page layout, pagination, auto page break |
-| vue | `@kedata-indonesia/docflow-vue` | Vue 3 components + composables |
-| element | `@kedata-indonesia/docflow-element` | Web Component (`<docs-editor>`) |
-| plugins | `@kedata-indonesia/docflow-plugins` | Built-in editor plugins |
-| export | `@kedata-indonesia/docflow-export` | DOCX / ODT / RTF / Markdown export |
+Source (workspace) packages are named `@kedata-indonesia/docflow-*`. The publish
+workflow rewrites names/deps/dist imports to the public `@kedataindo/*` scope:
+
+| Package | Source name | Published as | Description |
+|---------|-------------|--------------|-------------|
+| core | `@kedata-indonesia/docflow-core` | `@kedataindo/docflow-core` | Headless editor factory, plugin system, collaboration |
+| layout-engine | `@kedata-indonesia/docflow-layout-engine` | `@kedataindo/docflow-layout-engine` | Page layout, pagination, auto page break |
+| vue | `@kedata-indonesia/docflow-vue` | `@kedataindo/docflow-vue` | Vue 3 components + composables |
+| element | `@kedata-indonesia/docflow-element` | `@kedataindo/docflow-element` | Web Component (`<docs-editor>`) |
+| plugins | `@kedata-indonesia/docflow-plugins` | `@kedataindo/docflow-plugins` | Built-in editor plugins |
+| export | `@kedata-indonesia/docflow-export` | `@kedataindo/docflow-export` | DOCX / ODT / RTF / Markdown export |
 
 ## Prerequisites
 
 - Node.js >= 20, pnpm >= 10
-- GitHub account with access to `@kedata-indonesia` org
-- GitHub Personal Access Token with `write:packages` scope
+- npm account with **publish access to the `@kedataindo` scope/org**
+- An automation token stored as the `NPM_TOKEN` repository secret
+  (used by CI as both `NPM_TOKEN` and `NODE_AUTH_TOKEN`)
 
-## 1. Authenticate with GitHub Packages
+## 1. Authenticate (local, optional)
 
 ```bash
-# Login to GitHub Packages
-npm login --registry=https://npm.pkg.github.com
-# Username: your-github-username
-# Password: your-github-personal-access-token
+# Login to the public npm registry
+npm login --registry=https://registry.npmjs.org
 
 # Or set in .npmrc
-echo "@kedata-indonesia:registry=https://npm.pkg.github.com" >> ~/.npmrc
-echo "//npm.pkg.github.com/:_authToken=YOUR_TOKEN" >> ~/.npmrc
+echo "//registry.npmjs.org/:_authToken=YOUR_TOKEN" >> ~/.npmrc
 ```
 
 ## 2. Version Bump
@@ -36,14 +40,8 @@ echo "//npm.pkg.github.com/:_authToken=YOUR_TOKEN" >> ~/.npmrc
 # Check current versions
 grep '"version"' packages/*/package.json
 
-# Bump version in ALL package.json files
-# Example: bump from 0.0.1 to 0.1.0
-# Edit packages/core/package.json, packages/vue/package.json, etc.
-
-# Or use a script:
-for pkg in packages/*/package.json apps/server/package.json; do
-  # Update version field
-done
+# Bump version in ALL package.json files that changed
+# (edit packages/*/package.json; keep internal deps as "workspace:*")
 ```
 
 ## 3. Build All Packages
@@ -57,73 +55,55 @@ ls packages/*/dist/
 # → core/dist/, vue/dist/, element/dist/, layout-engine/dist/, plugins/dist/, export/dist/
 ```
 
-## 4. Publish
+## 4. CI/CD — Automated Publish
 
-```bash
-# Publish each package individually (pnpm converts workspace:* to versions)
-pnpm --filter @kedata-indonesia/docflow-core publish --no-git-checks
-pnpm --filter @kedata-indonesia/docflow-layout-engine publish --no-git-checks
-pnpm --filter @kedata-indonesia/docflow-plugins publish --no-git-checks
-pnpm --filter @kedata-indonesia/docflow-vue publish --no-git-checks
-pnpm --filter @kedata-indonesia/docflow-element publish --no-git-checks
-pnpm --filter @kedata-indonesia/docflow-export publish --no-git-checks
-```
+Publishing runs via GitHub Actions (`.github/workflows/publish.yml`) to the
+**public npm registry only**, and is **tag-gated**: it runs on `push` of a
+`v*` tag (or a manual `workflow_dispatch`) — never on a plain push to `main`.
+This is deliberate:
 
-> **Note**: `apps/server` is `"private": true` — not published. It's a backend service, not a library.
-
-## 5. Verify
-
-```bash
-# Check published versions
-npm view @kedata-indonesia/docflow-core versions
-npm view @kedata-indonesia/docflow-vue versions
-
-# Test install in a clean project
-mkdir test-install && cd test-install
-npm init -y
-echo "@kedata-indonesia:registry=https://npm.pkg.github.com" >> .npmrc
-npm install @kedata-indonesia/docflow-vue
-```
-
-## 6. CI/CD — Automated Publish
-
-Publish berjalan otomatis via GitHub Actions (`.github/workflows/publish.yml`) **hanya saat tag rilis dipush** — bukan setiap push ke main. Ini keputusan disengaja:
-
-- Setiap publish harus sadar: bump versi → tag → push → publish
-- Mencegah "cannot publish over existing version" yang terjadi kalau publish setiap merge tanpa bump
-- Versi terikat ke keputusan rilis, bukan ritme merge
+- Every release is conscious: bump version → tag → push → publish
+- Avoids "cannot publish over existing version" when a merge happens without a bump
+- The version is tied to a release decision, not to the merge rhythm
 
 ### Trigger
 
 ```yaml
 on:
   push:
-    tags: ['v*']   # hanya tag v0.1.0, v1.2.3, dst.
+    tags: ['v*']   # only tags like v0.1.0, v1.2.3, ...
+  workflow_dispatch:
 ```
 
-### Publish idempotent
+### What the workflow does
 
-Setiap step publish mengecek registry dulu — kalau versi sudah ada, skip. Ini memungkinkan kamu hanya menaikkan versi sebagian paket, dan workflow tidak hard-fail:
+1. Installs dependencies and runs `pnpm build`.
+2. Rewrites every `packages/*/package.json`: source name → `@kedataindo/docflow-*`,
+   internal `@kedata-indonesia/*` deps → `@kedataindo/*` (resolving
+   `workspace:*` to the local version), and sets
+   `publishConfig = { registry: 'https://registry.npmjs.org', access: 'public' }`.
+3. Rewrites `dist/**` files, which contain hardcoded `@kedata-indonesia/docflow-*`
+   import specifiers after the build.
+4. Publishes in dependency order (`core`, `layout-engine`, `plugins`, `vue`,
+   `element`, `export`), **idempotently**: if the version already exists on npm,
+   it is skipped instead of hard-failing.
+5. Restores the original `package.json` files from their `.bak` copies.
 
-```yaml
-- name: Publish core (idempotent)
-  run: |
-    VERSION=$(node -e "console.log(require('./packages/core/package.json').version)")
-    if npm view @kedata-indonesia/docflow-core@$VERSION version &>/dev/null 2>&1; then
-      echo "@kedata-indonesia/docflow-core@$VERSION already published, skipping"
-    else
-      echo "Publishing @kedata-indonesia/docflow-core@$VERSION..."
-      pnpm publish --filter @kedata-indonesia/docflow-core --no-git-checks
-    fi
-  env:
-    NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+### Publish idempotent (per package)
+
+```bash
+VERSION=$(node -e "console.log(JSON.parse(require('fs').readFileSync('./packages/core/package.json.bak','utf8')).version)")
+if npm view @kedataindo/docflow-core@$VERSION version --registry=https://registry.npmjs.org &>/dev/null 2>&1; then
+  echo "@kedataindo/docflow-core@$VERSION already published, skipping"
+else
+  pnpm publish --filter @kedataindo/docflow-core --no-git-checks --access public
+fi
 ```
 
 ### Cara rilis
 
 ```bash
 # 1. Bump versi paket yang berubah (edit packages/*/package.json)
-#    Cek versi saat ini:
 grep '"version"' packages/*/package.json
 
 # 2. Commit + push
@@ -136,9 +116,25 @@ git tag v0.0.5
 git push --tags
 ```
 
-### Kenapa tidak Changesets dulu?
+## 5. Verify
 
-Untuk jangka panjang, [Changesets](https://github.com/changesets/changesets) adalah standar industri untuk monorepo multi-paket. Kontributor menambah changeset per PR, lalu workflow otomatis bump + publish hanya paket yang berubah. Belum diperlukan sekarang—tag-gated + idempotent sudah cukup untuk skala saat ini.
+```bash
+# Check published versions on the public registry
+npm view @kedataindo/docflow-core versions
+npm view @kedataindo/docflow-vue versions
+
+# Test install in a clean project
+mkdir test-install && cd test-install
+npm init -y
+npm install @kedataindo/docflow-vue
+```
+
+## Why not Changesets yet?
+
+Long term, [Changesets](https://github.com/changesets/changesets) is the industry
+standard for multi-package monorepos: contributors add a changeset per PR, then a
+workflow bumps + publishes only the changed packages. Not needed yet — tag-gated
++ idempotent is enough at the current scale.
 
 ## Pre-publish Checklist
 

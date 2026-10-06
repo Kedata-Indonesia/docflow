@@ -6,7 +6,7 @@
 |----------|-------------|
 | [PRD.md](./PRD.md) | Product Requirements Document — fitur, arsitektur, tech stack |
 | [DEPLOYMENT.md](./DEPLOYMENT.md) | Cara deploy production (Docker, env, nginx, SSL, monitoring) |
-| [PUBLISH.md](./PUBLISH.md) | Cara publish packages ke GitHub Packages + CI/CD |
+| [PUBLISH.md](./PUBLISH.md) | Cara publish packages ke public npm + CI/CD |
 | [INTEGRATION.md](./INTEGRATION.md) | Cara integrasi di project Vue/React/Vanilla |
 
 ## Quick Links

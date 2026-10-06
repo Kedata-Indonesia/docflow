@@ -5,12 +5,8 @@
 ### Install
 
 ```bash
-# .npmrc — authenticate with GitHub Packages
-echo "@kedata-indonesia:registry=https://npm.pkg.github.com" >> .npmrc
-echo "//npm.pkg.github.com/:_authToken=YOUR_TOKEN" >> .npmrc
-
-# Install
-npm install @kedata-indonesia/docflow-vue @kedata-indonesia/docflow-plugins
+# Install from the public npm registry (no extra registry config needed)
+npm install @kedataindo/docflow-vue @kedataindo/docflow-plugins
 ```
 
 ### Basic Usage
@@ -18,10 +14,10 @@ npm install @kedata-indonesia/docflow-vue @kedata-indonesia/docflow-plugins
 ```vue
 <script setup lang="ts">
 import { ref } from 'vue'
-import { DocsEditor } from '@kedata-indonesia/docflow-vue'
-import { defaultPlugins } from '@kedata-indonesia/docflow-plugins'
+import { DocsEditor } from '@kedataindo/docflow-vue'
+import { defaultPlugins } from '@kedataindo/docflow-plugins'
 // Import CSS
-import '@kedata-indonesia/docflow-vue/style.css'
+import '@kedataindo/docflow-vue/style.css'
 
 const content = ref({
   type: 'doc',
@@ -90,7 +86,7 @@ const collaborationOptions = {
 
 ```html
 <script type="module">
-  import { registerDocsEditor } from '@kedata-indonesia/docflow-element'
+  import { registerDocsEditor } from '@kedataindo/docflow-element'
   registerDocsEditor()
 </script>
 
@@ -152,7 +148,7 @@ interface DocsEditorProps {
 ## Core API (Headless)
 
 ```ts
-import { createEditor } from '@kedata-indonesia/docflow-core'
+import { createEditor } from '@kedataindo/docflow-core'
 
 const editor = createEditor({
   target: document.getElementById('editor'),
@@ -182,7 +178,7 @@ editor.collab?.awareness   // → Awareness (cursors, presence)
 ## Custom Plugin
 
 ```ts
-import { definePlugin } from '@kedata-indonesia/docflow-core'
+import { definePlugin } from '@kedataindo/docflow-core'
 import { Extension } from '@tiptap/core'
 
 const MyPlugin = definePlugin({
@@ -218,13 +214,13 @@ const MyPlugin = definePlugin({
 
 ## React / Other Frameworks
 
-Use the **Web Component** (`@kedata-indonesia/docflow-element`) or the **Core API** (`@kedata-indonesia/docflow-core`).
+Use the **Web Component** (`@kedataindo/docflow-element`) or the **Core API** (`@kedataindo/docflow-core`).
 
 ### React Example
 
 ```tsx
 import { useEffect, useRef } from 'react'
-import { createEditor } from '@kedata-indonesia/docflow-core'
+import { createEditor } from '@kedataindo/docflow-core'
 
 function EditorComponent() {
   const ref = useRef<HTMLDivElement>(null)
