@@ -126,7 +126,7 @@ jobs:
           echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" >> .npmrc
 
           # Step 1: Backup package.json and rewrite ALL package.json files (name + deps + workspace:* → actual version)
-          for pkg in core layout-engine plugins vue element; do
+          for pkg in core layout-engine plugins vue element export; do
             cp "./packages/$pkg/package.json" "./packages/$pkg/package.json.bak"
             node -e "
               const fs = require('fs');
@@ -155,7 +155,7 @@ jobs:
           done
 
           # Step 2: Rewrite dist files (built JS still has @kedata-indonesia/* hardcoded)
-          for pkg in core layout-engine plugins vue element; do
+          for pkg in core layout-engine plugins vue element export; do
             if [ -d "./packages/$pkg/dist" ]; then
               find "./packages/$pkg/dist" -type f \( -name '*.js' -o -name '*.cjs' -o -name '*.mjs' -o -name '*.d.ts' -o -name '*.d.cts' -o -name '*.mts' \) -exec sed -i 's|@kedata-indonesia/docflow-|@kedataindo/docflow-|g' {} +
               echo "Rewrote dist imports for $pkg"
@@ -163,7 +163,7 @@ jobs:
           done
 
           # Step 3: Publish in dependency order
-          for pkg in core layout-engine plugins vue element; do
+          for pkg in core layout-engine plugins vue element export; do
             VERSION=$(node -e "console.log(JSON.parse(require('fs').readFileSync('./packages/$pkg/package.json.bak', 'utf8')).version)")
 
             if npm view @kedataindo/docflow-$pkg@$VERSION version --registry=https://registry.npmjs.org &>/dev/null 2>&1; then
@@ -175,7 +175,7 @@ jobs:
           done
 
           # Step 4: Restore package.json from backup
-          for pkg in core layout-engine plugins vue element; do
+          for pkg in core layout-engine plugins vue element export; do
             mv "./packages/$pkg/package.json.bak" "./packages/$pkg/package.json"
           done
         env:

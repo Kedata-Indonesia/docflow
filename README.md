@@ -4,8 +4,9 @@
 
 <p align="center">
   <a href="./LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-green" alt="License: Apache-2.0"></a>
+  <a href="https://www.npmjs.com/package/@kedataindo/docflow-core"><img src="https://img.shields.io/npm/v/@kedataindo/docflow-core" alt="npm version"></a>
+  <a href="https://www.npmjs.com/package/@kedataindo/docflow-core"><img src="https://img.shields.io/npm/dm/@kedataindo/docflow-core" alt="npm downloads"></a>
   <a href="https://github.com/Kedata-Indonesia/docflow/actions/workflows/publish.yml"><img src="https://github.com/Kedata-Indonesia/docflow/actions/workflows/publish.yml/badge.svg" alt="CI"></a>
-  <img src="https://img.shields.io/github/package-json/v/Kedata-Indonesia/docflow?filename=packages%2Fcore%2Fpackage.json" alt="Package version">
   <img src="https://img.shields.io/badge/built%20on-TipTap%20%2B%20Yjs%20%2B%20Vue-blueviolet" alt="Built on TipTap + Yjs + Vue">
 </p>
 
@@ -59,40 +60,10 @@ Built on [TipTap](https://tiptap.dev) / [ProseMirror](https://prosemirror.net) w
 
 ### Installation
 
-Packages are published to **GitHub Packages**. To install:
-
-**1 — Create a `.npmrc` at your project root**
-
-```
-@kedata-indonesia:registry=https://npm.pkg.github.com
-```
-
-**2 — Create a GitHub Personal Access Token**
-
-- Go to https://github.com/settings/tokens
-- Click **Generate new token (classic)**
-- Grant the `read:packages` scope
-- Copy the token
-
-**3 — Authenticate**
+Packages are published publicly on **npm** under the `@kedataindo` scope — no auth, no `.npmrc`, just install:
 
 ```bash
-npm login --registry=https://npm.pkg.github.com
-# Username: your GitHub username
-# Password: the token you created
-# Email: your GitHub email
-```
-
-Or set it directly in `~/.npmrc`:
-
-```
-//npm.pkg.github.com/:_authToken=YOUR_TOKEN
-```
-
-**4 — Install the packages**
-
-```bash
-npm install @kedata-indonesia/docflow-vue @kedata-indonesia/docflow-plugins
+npm install @kedataindo/docflow-vue @kedataindo/docflow-plugins
 ```
 
 ---
@@ -101,9 +72,9 @@ npm install @kedata-indonesia/docflow-vue @kedata-indonesia/docflow-plugins
 
 ```vue
 <script setup lang="ts">
-import { DocsEditor } from '@kedata-indonesia/docflow-vue'
-import { defaultPlugins } from '@kedata-indonesia/docflow-plugins'
-import '@kedata-indonesia/docflow-vue/dist/style.css'
+import { DocsEditor } from '@kedataindo/docflow-vue'
+import { defaultPlugins } from '@kedataindo/docflow-plugins'
+import '@kedataindo/docflow-vue/dist/style.css'
 
 const content = {
   type: 'doc',
@@ -127,13 +98,13 @@ function handleUpdate(json: object) {
 ### Web Component (any framework)
 
 ```bash
-npm install @kedata-indonesia/docflow-element @kedata-indonesia/docflow-plugins
+npm install @kedataindo/docflow-element @kedataindo/docflow-plugins
 ```
 
 ```html
 <script type="module">
-  import '@kedata-indonesia/docflow-element'
-  import { defaultPlugins } from '@kedata-indonesia/docflow-plugins'
+  import '@kedataindo/docflow-element'
+  import { defaultPlugins } from '@kedataindo/docflow-plugins'
 
   const editor = document.querySelector('docs-editor')
   editor.plugins = defaultPlugins
@@ -145,12 +116,12 @@ npm install @kedata-indonesia/docflow-element @kedata-indonesia/docflow-plugins
 ### Vanilla JS / Headless
 
 ```bash
-npm install @kedata-indonesia/docflow-core @kedata-indonesia/docflow-plugins
+npm install @kedataindo/docflow-core @kedataindo/docflow-plugins
 ```
 
 ```ts
-import { createEditor } from '@kedata-indonesia/docflow-core'
-import { defaultPlugins } from '@kedata-indonesia/docflow-plugins'
+import { createEditor } from '@kedataindo/docflow-core'
+import { defaultPlugins } from '@kedataindo/docflow-plugins'
 
 const editor = createEditor({
   target: document.getElementById('editor-root')!,
@@ -166,12 +137,12 @@ const editor = createEditor({
 
 | Package | Description | Integration |
 |---------|-------------|-------------|
-| `@kedata-indonesia/docflow-core` | Headless editor factory + plugin system | Any framework |
-| `@kedata-indonesia/docflow-vue` | Vue 3 component + composables | Vue apps |
-| `@kedata-indonesia/docflow-element` | Web Component (`<docs-editor>`) | Any HTML/JS |
-| `@kedata-indonesia/docflow-plugins` | Built-in plugins (table, image, link, etc.) | Shared |
-| `@kedata-indonesia/docflow-layout-engine` | Page split / pagination engine | Internal |
-| `@kedata-indonesia/docflow-export` | DOCX / Markdown export | Shared |
+| `@kedataindo/docflow-core` | Headless editor factory + plugin system | Any framework |
+| `@kedataindo/docflow-vue` | Vue 3 component + composables | Vue apps |
+| `@kedataindo/docflow-element` | Web Component (`<docs-editor>`) | Any HTML/JS |
+| `@kedataindo/docflow-plugins` | Built-in plugins (table, image, link, etc.) | Shared |
+| `@kedataindo/docflow-layout-engine` | Page split / pagination engine | Internal |
+| `@kedataindo/docflow-export` | DOCX / Markdown export | Shared |
 
 ---
 
@@ -206,8 +177,8 @@ Powered by Yjs (CRDT).
 
 ```vue
 <script setup lang="ts">
-import { DocsEditor } from '@kedata-indonesia/docflow-vue'
-import { defaultPlugins } from '@kedata-indonesia/docflow-plugins'
+import { DocsEditor } from '@kedataindo/docflow-vue'
+import { defaultPlugins } from '@kedataindo/docflow-plugins'
 
 const collaboration = {
   room: 'my-document-room',
@@ -237,7 +208,7 @@ DocFlow ships injection ports (`aiStream`, `aiDraft`) so the host app can plug i
 ### Built-in plugins
 
 ```ts
-import { defaultPlugins } from '@kedata-indonesia/docflow-plugins'
+import { defaultPlugins } from '@kedataindo/docflow-plugins'
 ```
 
 Includes: bold, italic, underline, strike, heading, bulletList, orderedList, taskList, blockquote, codeBlock, link, image, table, textAlign, placeholder, pageBreak.
@@ -245,7 +216,7 @@ Includes: bold, italic, underline, strike, heading, bulletList, orderedList, tas
 ### Custom plugin
 
 ```ts
-import { definePlugin } from '@kedata-indonesia/docflow-core'
+import { definePlugin } from '@kedataindo/docflow-core'
 import { Extension } from '@tiptap/core'
 
 const MyPlugin = definePlugin({
@@ -316,7 +287,7 @@ const MyPlugin = definePlugin({
 ### Headless Core API
 
 ```ts
-import { createEditor } from '@kedata-indonesia/docflow-core'
+import { createEditor } from '@kedataindo/docflow-core'
 
 const editor = createEditor({
   target: document.getElementById('root')!,
@@ -339,7 +310,7 @@ editor.pluginActions
 
 ```vue
 <script setup lang="ts">
-import { useEditor, EditorToolbar, BubbleMenu } from '@kedata-indonesia/docflow-vue'
+import { useEditor, EditorToolbar, BubbleMenu } from '@kedataindo/docflow-vue'
 
 const { editorRef, editor, pluginActions, isReady } = useEditor({
   content: { type: 'doc', content: [] },
@@ -396,31 +367,31 @@ pnpm lint             # ESLint
 
 The self-hosted Docker stack (server + web app + MongoDB) lives in the
 [`docflow-app`](https://github.com/Kedata-Indonesia/docflow-app) repository. This
-package repository only builds and publishes the `@kedata-indonesia/docflow-*` libraries.
+package repository only builds and publishes the `@kedataindo/docflow-*` libraries.
 
 ### Project Structure
 
 ```
 docflow/
 ├── packages/
-│   ├── core/              @kedata-indonesia/docflow-core
-│   ├── vue/               @kedata-indonesia/docflow-vue
-│   ├── element/           @kedata-indonesia/docflow-element
-│   ├── plugins/           @kedata-indonesia/docflow-plugins
-│   ├── layout-engine/     @kedata-indonesia/docflow-layout-engine
-│   └── export/            @kedata-indonesia/docflow-export
+│   ├── core/              @kedataindo/docflow-core
+│   ├── vue/               @kedataindo/docflow-vue
+│   ├── element/           @kedataindo/docflow-element
+│   ├── plugins/           @kedataindo/docflow-plugins
+│   ├── layout-engine/     @kedataindo/docflow-layout-engine
+│   └── export/            @kedataindo/docflow-export
 └── docs/                  Documentation
 ```
 
 ## Releasing
 
-Packages are published to GitHub Packages triggered by a git tag (`v*`), not on every push to main. See [docs/PUBLISH.md](./docs/PUBLISH.md) for the full guide.
+Packages are published triggered by a git tag (`v*`), not on every push to main: publicly to **npm** under `@kedataindo/docflow-*`, and to GitHub Packages under `@kedata-indonesia/docflow-*` for internal consumers. See [docs/PUBLISH.md](./docs/PUBLISH.md) for the full guide.
 
 ```bash
 # After bumping versions in packages/*/package.json:
 git tag v0.0.5
 git push --tags
-# → GitHub Actions publishes automatically to GitHub Packages
+# → GitHub Actions publishes automatically to npm + GitHub Packages
 ```
 
 ---
