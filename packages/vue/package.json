@@ -1,6 +1,6 @@
 {
   "name": "@kedata-indonesia/docflow-vue",
-  "license": "UNLICENSED",
+  "license": "Apache-2.0",
   "version": "0.0.63",
   "type": "module",
   "main": "./dist/index.js",
