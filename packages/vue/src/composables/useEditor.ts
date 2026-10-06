@@ -1,7 +1,11 @@
 import { createEditor, type DocsEditor, type EditorOptions } from '@kedata-indonesia/docflow-core'
 import { computed, onMounted, onUnmounted, ref, shallowRef, watch, type ComputedRef, type Ref, type ShallowRef, nextTick, unref } from 'vue'
 
-export type UseEditorOptions = Omit<EditorOptions, 'target'>
+export type UseEditorOptions = Omit<EditorOptions, 'target' | 'content' | 'collaboration'> & {
+  /** Plain value or ref — both are `unref`-ed at init. */
+  content?: EditorOptions['content'] | Ref<EditorOptions['content']>
+  collaboration?: EditorOptions['collaboration'] | Ref<EditorOptions['collaboration']>
+}
 
 export interface UseEditorReturn {
   editorRef: Ref<HTMLDivElement | null>
