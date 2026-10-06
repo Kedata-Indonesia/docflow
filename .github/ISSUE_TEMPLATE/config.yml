@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions & help
+    url: https://github.com/Kedata-Indonesia/docflow/discussions/categories/q-a
+    about: Please ask "how do I..." questions in Discussions Q&A, not in issues
+  - name: Ideas & RFCs
+    url: https://github.com/Kedata-Indonesia/docflow/discussions/categories/ideas
+    about: Discuss larger features and RFCs before opening an issue

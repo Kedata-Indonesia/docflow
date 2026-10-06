@@ -1,0 +1,58 @@
+name: Bug Report
+description: Report a bug in the DocFlow editor packages
+title: "fix: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug! Please fill in as much as you can.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+      placeholder: I did X, expected Y, but got Z.
+    validations:
+      required: true
+  - type: dropdown
+    id: package
+    attributes:
+      label: Affected package
+      options:
+        - docflow-core
+        - docflow-vue
+        - docflow-element
+        - docflow-plugins
+        - docflow-layout-engine
+        - docflow-export
+        - not sure
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Package version(s)
+      description: From your package.json, e.g. @kedataindo/docflow-vue 0.0.86
+      placeholder: "0.0.86"
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: Steps, a small content JSON, or a link to a fork of the demo that shows the bug
+      placeholder: |
+        1. Open editor with this content: ...
+        2. Click ...
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Browser / OS
+      placeholder: e.g. Chrome 126 / macOS 15
+  - type: textarea
+    id: logs
+    attributes:
+      label: Console errors / logs
+      description: Paste any browser console or build errors
+      render: shell
