@@ -13,13 +13,13 @@ import { fileURLToPath } from 'node:url';
 
 import {
   PUBLISH_ORDER,
-  bumpPatch,
   dependentsOf,
   isIgnored,
   packageOf,
   resolveBase,
   withDependents,
 } from '../bump-release-versions.mjs';
+import { bumpPatch } from '../lib/release-versions.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const SCRIPT = path.join(ROOT, 'scripts', 'bump-release-versions.mjs');
@@ -149,6 +149,8 @@ test('auto anchors the range on the newest release commit', (t) => {
       ...process.env,
       REPO_ROOT: dir,
       BASE_FALLBACK: 'unused-fallback',
+      // Nothing published yet: keeps the bump repo-relative and offline.
+      NPM_PUBLISHED_STUB: '{}',
       // Never append to a real GITHUB_OUTPUT from a test child.
       GITHUB_OUTPUT: '',
     },

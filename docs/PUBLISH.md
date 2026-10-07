@@ -69,7 +69,11 @@ Publishing runs via GitHub Actions (`.github/workflows/publish.yml`) to the
 - **manual run** — `workflow_dispatch` from the Actions tab
 
 Publishing is **idempotent**: a package whose exact version is already on npm is
-skipped, so re-running the workflow never hard-fails.
+skipped, so re-running the workflow never hard-fails. The version the bump picks
+is never one npm already has (see
+[Auto version bump](#auto-version-bump-push-to-main)), and a push to `main`
+re-checks npm after publishing: a version the bump deemed free but that never
+reached the registry fails the run before the bump is committed back.
 
 ### Trigger
 
@@ -103,8 +107,12 @@ on:
    it is skipped instead of hard-failing.
 8. Restores the original `package.json` files from their `.bak` copies — which
    already carry the bumped version.
-9. On a push to `main`, commits those bumped versions back to `main`
-   (`chore(release): bump … [skip ci]`), so the repo never drifts from npm.
+9. On a push to `main`, re-checks every bumped version with
+   `npm view @kedataindo/docflow-<pkg>@<version>` (retried for a few seconds,
+   since the registry can lag): a version that never landed fails the run
+   (`::error::`) before the bump is committed back.
+10. On a push to `main`, commits those bumped versions back to `main`
+    (`chore(release): bump … [skip ci]`), so the repo never drifts from npm.
 
 ### Publish idempotent (per package)
 
@@ -123,7 +131,8 @@ fi
 decides what to release from everything that changed **since the last
 `chore(release):` commit** (the one this pipeline itself pushes). Before the
 first automated release — or after a history rewrite that drops it — it falls
-back to the pushed range (`github.event.before..HEAD`):
+back to the pushed range (`github.event.before..HEAD`). The version arithmetic
+and the registry reads live in `scripts/lib/release-versions.mjs`:
 
 - A package is **changed** when the range touched its files, ignoring docs
   (`*.md`), tests (`__tests__/`, `*.test.*`, `*.spec.*`) and build output (`dist/`).
@@ -133,8 +142,24 @@ back to the pushed range (`github.event.before..HEAD`):
 - E.g. a change in `packages/core` bumps `core` **and** everything downstream:
   `layout-engine`, `plugins`, `vue`, `element`. (`export` has no internal deps,
   so it only moves when it changes itself.)
-- Versions move **independently** (each package owns its `version`) and always
-  by a **patch**: `0.0.60 → 0.0.61`.
+- Versions move **independently** (each package owns its `version`) and by a
+  **patch**: `0.0.60 → 0.0.61`. A registry that sits on a higher minor/major is
+  followed (`0.1.0` on npm → `0.1.1`), so numbers are skipped, never reused.
+- The patch is **registry-aware**: the script reads what npm already has
+  (`npm view @kedataindo/docflow-<name> versions --json
+  --registry=https://registry.npmjs.org`) and lands on a version above every
+  version npm already has (a prerelease of the next patch can push it one number
+  further). A repo that drifted behind the registry heals itself in a single run
+  (`0.0.60` → `0.0.84` while npm is at `0.0.83`) instead of re-bumping into
+  versions the publish step would silently skip. Versions npm already treats as
+  the same release — including build-metadata forms such as `0.0.2+build.7` — are
+  skipped too. If the registry cannot be read, the step **fails**: it never
+  assumes a version is free.
+- A base that cannot be resolved — the first push of a branch, or a history
+  rewrite that removes the release commit and the pushed range — **fails** the
+  run rather than reporting "nothing to release" while shipping nothing.
+- A package npm has never seen (`export` before its first release) keeps the
+  plain bump and is published for the first time.
 - Nothing publishable changed → nothing is bumped and nothing is published.
 
 Releasing the current tip of `main` (not the run's checkout) and anchoring on the
@@ -142,14 +167,18 @@ last release commit means a push that lands while a run is publishing — or a
 queued run that gets superseded — is still covered by the next run, as long as a
 release commit remains in the branch history.
 
-Preview the decision without touching anything:
+Preview the decision without writing any file (it does read the public registry,
+so it needs network access and fails when npm is unreachable):
 
 ```bash
 # `auto` = anchor on the last release commit
 node scripts/bump-release-versions.mjs auto HEAD --dry-run
 ```
 
-Unit tests: `pnpm test:scripts`.
+Unit tests: `pnpm test:scripts`. They never touch npm: `$NPM_PUBLISHED_STUB`
+(a JSON map such as `{"core":["0.0.60"]}`, with `"ERROR"` simulating an outage)
+answers the registry lookups instead of the network. The script refuses that
+variable outside `node --test`, so it cannot quietly disable the check in CI.
 
 > **Branch protection:** the commit-back pushes directly to `main`. If `main`
 > requires PRs / status checks, let `github-actions[bot]` bypass the rule, or
@@ -170,9 +199,11 @@ git tag v0.0.5
 git push origin v0.0.5
 ```
 
-> Bump versi manual yang di-push ke `main` tetap ikut terbit — langkah publish
-> bersifat *version-driven*: paket yang versinya belum ada di npm akan
-> di-publish. Tag `v*` hanya untuk **melewati** auto-bump.
+> Bump versi manual di `main` **tidak** terbit apa adanya: `package.json` yang
+> berubah dihitung sebagai perubahan paket, lalu di-patch lagi oleh auto-bump
+> (bukan `0.0.5`, melainkan versi bebas berikutnya di atas npm). Untuk merilis
+> versi yang persis kamu tulis, pakai tag `v*` — auto-bump dilewati, sehingga
+> versi di `package.json` terbit apa adanya.
 
 ## 5. Verify
 
