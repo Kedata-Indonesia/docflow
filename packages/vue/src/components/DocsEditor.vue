@@ -12,11 +12,14 @@ import { useCitations } from '../composables/useCitations.js'
 import { useCommentAnchors } from '../composables/useCommentAnchors.js'
 import { useBubbleMenu } from '../composables/useBubbleMenu.js'
 import { useEditorReady } from '../composables/useEditorReady.js'
+import { useEditorChrome } from '../composables/useEditorChrome.js'
+import { useLinkDialog } from '../composables/useLinkDialog.js'
+import { usePageStats } from '../composables/usePageStats.js'
 import VirtualPageOverlay from './VirtualPageOverlay.vue'
 import { computed, onUnmounted, ref, watch } from 'vue'
 import { useEditor } from '../composables/useEditor.js'
 import SlashMenuVue from './SlashMenu.vue'
-import type { Collaborator, CommentItem, ConnectionState, DocumentMeta, DocumentSnapshot, SidebarKey } from '../types.js'
+import type { Collaborator, CommentItem, ConnectionState, DocumentMeta, DocumentSnapshot } from '../types.js'
 import HeaderBar from './HeaderBar.vue'
 import EditorToolbar from './EditorToolbar.vue'
 import BubbleMenu from './BubbleMenu.vue'
@@ -267,20 +270,19 @@ const {
   getEditor: () => editor.value,
 })
 
-const activeSidebar = ref<SidebarKey | null>(null)
-// View menu toggles — ruler visibility persists across sessions, focus mode does not.
-// Guarded for SSR / environments without Web Storage (Node >= 26 exposes no
-// `localStorage` unless started with `--localstorage-file`).
-const showRuler = ref(
-  typeof localStorage !== 'undefined'
-    ? localStorage.getItem('docflow:view:showRuler') !== 'false'
-    : true,
-)
-const focusMode = ref(false)
-watch(showRuler, (next) => {
-  if (typeof localStorage !== 'undefined') {
-    localStorage.setItem('docflow:view:showRuler', next ? 'true' : 'false')
-  }
+// Chrome state is created before `useCitations` (activeSidebar) and
+// `useEditCommands` (focusMode). The editor instance is created later, so it is
+// passed as a lazy getter.
+const {
+  activeSidebar,
+  showRuler,
+  focusMode,
+  scrollContainerRef,
+  handleScroll,
+  toggleSidebar,
+  handlePrint,
+} = useEditorChrome({
+  getEditor: () => editor.value,
 })
 // ─── References / citations (Phase 6B) ────────────────────────────────────────
 // The host seeds the reference library through the CitationPort; the editor
@@ -349,19 +351,6 @@ const {
 // Kept as a top-level binding: the DocsEditor tests drive the anchor math
 // directly through `wrapper.vm.computeBubblePosition()`.
 void computeBubblePosition
-
-const scrollContainerRef = ref<HTMLDivElement | null>(null)
-let scrollTimeout: ReturnType<typeof setTimeout> | null = null
-
-const handleScroll = () => {
-  if (!editor.value) return
-  if (scrollTimeout) clearTimeout(scrollTimeout)
-  scrollTimeout = setTimeout(() => {
-    if (editor.value) {
-      editor.value.view.dispatch(editor.value.state.tr)
-    }
-  }, 150)
-}
 
 const pageCount = ref(1)
 const currentPage = ref(1)
@@ -513,137 +502,30 @@ watch(useVirtual, (enabled) => {
   }
 })
 
-const updatePageStats = () => {
-  if (!editor.value || !isReady.value) {
-    pageCount.value = 1
-    currentPage.value = 1
-    return
-  }
-
-  const editorDom = editor.value.view.dom
-  const paginationElement = editorDom.querySelector("[data-rm-pagination]")
-  if (paginationElement) {
-    pageCount.value = paginationElement.children.length || 1
-  } else {
-    pageCount.value = 1
-  }
-
-  try {
-    const { selection } = editor.value.state
-    const coords = editor.value.view.coordsAtPos(selection.head)
-    if (coords && paginationElement) {
-      const pageBreaks = Array.from(paginationElement.querySelectorAll(".rm-page-break"))
-      const editorRect = editorDom.getBoundingClientRect()
-      const selectionTopRelativeToEditor = coords.top - editorRect.top + editorDom.scrollTop
-
-      let pageIndex = 1
-      let found = false
-      for (let i = 0; i < pageBreaks.length; i++) {
-        const breaker = pageBreaks[i].querySelector(".breaker")
-        if (breaker instanceof HTMLElement) {
-          if (selectionTopRelativeToEditor < breaker.offsetTop) {
-            currentPage.value = pageIndex
-            found = true
-            break
-          }
-        }
-        pageIndex++
-      }
-      if (!found) {
-        currentPage.value = pageIndex
-      }
-    } else {
-      currentPage.value = 1
-    }
-  } catch {
-    currentPage.value = 1
-  }
-}
-
-watch(resolvedLayoutOptions, (newOptions) => {
-  if (!editor.value) return
-  
-  editor.value.commands.updatePageHeight(newOptions.pageHeight)
-  editor.value.commands.updatePageWidth(newOptions.pageWidth)
-  editor.value.commands.updateMargins({
-    top: newOptions.margins.top,
-    bottom: newOptions.margins.bottom,
-    left: newOptions.margins.left,
-    right: newOptions.margins.right,
-  })
-  
-  updatePageStats()
+const { updatePageStats, applyPageless } = usePageStats({
+  editor,
+  isReady,
+  resolvedLayoutOptions,
+  isPageless,
+  paginationOptions,
+  pageCount,
+  currentPage,
+  getUpdateFootnotes: () => updateFootnotes(),
+  getPagelessProp: () => props.pageless,
+  emit,
 })
 
-/**
- * Switch between paginated (paper) and pageless (continuous) layout.
- * Pageless is view state, not document content: we only flip the pagination
- * extension's runtime `enabled` flag — the ProseMirror document is never
- * touched, so switching back and forth preserves content exactly and is
- * safe in collaborative sessions (nothing flows into Yjs).
- */
-const applyPageless = (next: boolean) => {
-  if (next === isPageless.value) return
-  isPageless.value = next
-  emit('update:pageless', next)
-  if (!editor.value) return
-  if (next) {
-    editor.value.commands.disablePagination()
-  } else {
-    editor.value.commands.enablePagination()
-  }
-  // Page-break decorations are rebuilt asynchronously by the pagination
-  // plugin's view hook — refresh derived stats and footnotes after the
-  // DOM settles.
-  setTimeout(() => {
-    updatePageStats()
-    updateFootnotes()
-  }, 60)
-}
-
-watch(
-  () => props.pageless,
-  (next) => applyPageless(next ?? false),
-)
-
-// Reactively sync layout changes (margins, page size, orientation) to the
-// PaginationPlus extension storage so decoration rebuilds use current values.
-watch(paginationOptions, (opts) => {
-  if (!editor.value || !isReady.value) return
-  const storage = editor.value.storage.PaginationPlus
-  if (!storage) return
-
-  // Sync page dimensions & margins
-  const changed =
-    storage.pageHeight !== opts.pageHeight ||
-    storage.pageWidth !== opts.pageWidth ||
-    storage.marginTop !== opts.marginTop ||
-    storage.marginBottom !== opts.marginBottom ||
-    storage.marginLeft !== opts.marginLeft ||
-    storage.marginRight !== opts.marginRight ||
-    storage.pageGap !== opts.pageGap ||
-    storage.contentMarginTop !== opts.contentMarginTop ||
-    storage.contentMarginBottom !== opts.contentMarginBottom ||
-    storage.pageBreakBackground !== opts.pageBreakBackground ||
-    storage.enabled !== opts.enabled
-
-  if (!changed) return
-
-  storage.pageHeight = opts.pageHeight
-  storage.pageWidth = opts.pageWidth
-  storage.marginTop = opts.marginTop
-  storage.marginBottom = opts.marginBottom
-  storage.marginLeft = opts.marginLeft
-  storage.marginRight = opts.marginRight
-  storage.pageGap = opts.pageGap
-  storage.contentMarginTop = opts.contentMarginTop
-  storage.contentMarginBottom = opts.contentMarginBottom
-  storage.pageBreakBackground = opts.pageBreakBackground
-  storage.enabled = opts.enabled
-
-  // Dispatch empty transaction to trigger decoration rebuild
-  editor.value.view.dispatch(editor.value.state.tr)
-}, { deep: true })
+// Consumed by `useEditorReady` below (the ⌘K binding) and the insert-link menu
+// action, so it must be created before the ready hook.
+const {
+  showLinkDialog,
+  linkDialogInitialText,
+  linkDialogInitialUrl,
+  linkDialogIsEditing,
+  openLinkDialog,
+  applyLinkDialog,
+  removeLink,
+} = useLinkDialog({ editor })
 
 
 
@@ -672,91 +554,13 @@ watch(() => props.collaboration, () => {}, { deep: true })
 onUnmounted(() => {
   finishHeaderEdit(false)
   if (saveTimer.value) clearTimeout(saveTimer.value)
-  if (scrollTimeout) clearTimeout(scrollTimeout)
 })
 
 
 const showDetailsModal = ref(false)
 const showEmailModal = ref(false)
 const showFindReplace = ref(false)
-const showLinkDialog = ref(false)
-const linkDialogInitialText = ref('')
-const linkDialogInitialUrl = ref('')
-const linkDialogIsEditing = ref(false)
 
-// Hoisted by design: `useEditorReady` receives `openLinkDialog` by reference at
-// its call site above, so this must stay a function declaration — converting it
-// to a `const` arrow would throw a TDZ ReferenceError during setup.
-function openLinkDialog() {
-  if (!editor.value) return
-  const { state } = editor.value
-  const { from, to, empty } = state.selection
-  const attrs = editor.value.getAttributes('link')
-
-  if (attrs.href) {
-    linkDialogIsEditing.value = true
-    linkDialogInitialUrl.value = attrs.href
-    if (!empty) {
-      linkDialogInitialText.value = state.doc.textBetween(from, to, ' ')
-    } else {
-      linkDialogInitialText.value = ''
-    }
-  } else {
-    linkDialogIsEditing.value = false
-    linkDialogInitialUrl.value = 'https://'
-    linkDialogInitialText.value = empty ? '' : state.doc.textBetween(from, to, ' ')
-  }
-
-  showLinkDialog.value = true
-}
-
-function applyLinkDialog(payload: { text: string; url: string }) {
-  if (!editor.value) return
-  const { state } = editor.value
-  const { from, to, empty } = state.selection
-  const displayText = payload.text.trim()
-
-  const chain = editor.value.chain().focus() as unknown as {
-    setLink: (attrs: { href: string; target: string }) => { run: () => boolean }
-    unsetLink: () => { run: () => boolean }
-    insertContentAt: (range: { from: number; to: number }, content: unknown) => { run: () => boolean }
-    insertContent: (content: unknown) => { run: () => boolean }
-  }
-
-  if (linkDialogIsEditing.value || editor.value.isActive('link')) {
-    // Update existing link
-    chain.setLink({ href: payload.url, target: '_blank' }).run()
-    if (displayText && !empty) {
-      chain.insertContentAt({ from, to }, displayText).run()
-    }
-  } else if (displayText) {
-    // Replace selection with linked text
-    chain.insertContentAt({ from, to }, {
-      type: 'text',
-      text: displayText,
-      marks: [{ type: 'link', attrs: { href: payload.url, target: '_blank' } }],
-    }).run()
-  } else if (!empty) {
-    // Apply link to current selection
-    chain.setLink({ href: payload.url, target: '_blank' }).run()
-  } else {
-    // Insert link with URL as text
-    chain.insertContent({
-      type: 'text',
-      text: payload.url,
-      marks: [{ type: 'link', attrs: { href: payload.url, target: '_blank' } }],
-    }).run()
-  }
-
-  showLinkDialog.value = false
-}
-
-function removeLink() {
-  if (!editor.value) return
-  const chain = editor.value.chain().focus() as unknown as { unsetLink: () => { run: () => boolean } }
-  chain.unsetLink().run()
-  showLinkDialog.value = false
-}
 // ─── Edit / Format menu commands ─────────────────────────────────────────────
 
 const { editFormatMenuCommands } = useEditCommands({
@@ -835,8 +639,6 @@ let menuClick = (action: string) => {
     emit('menu-click', action)
   }
 }
-let toggleSidebar = (key: SidebarKey) => { activeSidebar.value = activeSidebar.value === key ? null : key }
-let handlePrint = () => window.print()
 
 // ─── Footnote (Catatan Kaki) ──────────────────────────────────────────────────
 
