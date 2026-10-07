@@ -58,26 +58,31 @@ ls packages/*/dist/
 ## 4. CI/CD — Automated Publish
 
 Publishing runs via GitHub Actions (`.github/workflows/publish.yml`) to the
-**public npm registry only**, and is **tag-gated**: it runs on `push` of a
-`v*` tag (or a manual `workflow_dispatch`) — never on a plain push to `main`.
-This is deliberate:
+**public npm registry only**. It is triggered by:
 
-- Every release is conscious: bump version → tag → push → publish
-- Avoids "cannot publish over existing version" when a merge happens without a bump
-- The version is tied to a release decision, not to the merge rhythm
+- **push to `main`** — verify + build + publish, unattended (the default path)
+- **push of a `v*` tag** — same flow, kept for explicit/forced releases
+- **manual run** — `workflow_dispatch` from the Actions tab
+
+Publishing is **idempotent**: a package whose exact version is already on npm is
+skipped. A push therefore publishes only packages that carry a *new* `version`
+— bump those in the PR that introduces the change.
 
 ### Trigger
 
 ```yaml
 on:
   push:
-    tags: ['v*']   # only tags like v0.1.0, v1.2.3, ...
+    branches: [main]   # auto-publish on merge
+    tags: ['v*']       # ...or an explicit release tag
   workflow_dispatch:
 ```
 
 ### What the workflow does
 
-1. Installs dependencies and runs `pnpm build`.
+1. Installs dependencies, then gates the release on `pnpm docs:api:check`,
+   `pnpm lint`, `pnpm typecheck` and `pnpm test:unit` (broken code is never
+   published), and finally runs `pnpm build`.
 2. Rewrites every `packages/*/package.json`: source name → `@kedataindo/docflow-*`,
    internal `@kedata-indonesia/*` deps → `@kedataindo/*` (resolving
    `workspace:*` to the local version), and sets
@@ -106,15 +111,17 @@ fi
 # 1. Bump versi paket yang berubah (edit packages/*/package.json)
 grep '"version"' packages/*/package.json
 
-# 2. Commit + push
+# 2. Commit + push ke main → workflow publish jalan otomatis
 git add packages/*/package.json
-git commit -m "chore: bump versions for release"
+git commit -m "chore: release vX.Y.Z"
 git push
 
-# 3. Tag + push tag → trigger publish
-git tag v0.0.5
-git push --tags
+# (Opsional) paksa rilis lewat tag:
+# git tag v0.0.5 && git push --tags
 ```
+
+Push tanpa perubahan versi tetap aman: semua paket akan di-skip karena
+versinya sudah ada di npm.
 
 ## 5. Verify
 
@@ -133,8 +140,8 @@ npm install @kedataindo/docflow-vue
 
 Long term, [Changesets](https://github.com/changesets/changesets) is the industry
 standard for multi-package monorepos: contributors add a changeset per PR, then a
-workflow bumps + publishes only the changed packages. Not needed yet — tag-gated
-+ idempotent is enough at the current scale.
+workflow bumps + publishes only the changed packages. Not needed yet —
+idempotent + push-triggered is enough at the current scale.
 
 ## Pre-publish Checklist
 
@@ -145,4 +152,4 @@ workflow bumps + publishes only the changed packages. Not needed yet — tag-gat
 - [ ] `exports` field includes CSS path (vue package)
 - [ ] Version bumped di `package.json` paket yang berubah
 - [ ] CHANGELOG updated (if exists)
-- [ ] Git tag dibuat: `git tag v0.1.0 && git push --tags`
+- [ ] Versi di-`bump` pada paket yang berubah & di-push ke `main` (tag `v*` opsional)

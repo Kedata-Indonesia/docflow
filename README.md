@@ -475,13 +475,13 @@ docflow/
 
 ## Releasing
 
-Packages are published triggered by a git tag (`v*`), not on every push to main: publicly to **npm** under `@kedataindo/docflow-*` (the in-repo source scope stays `@kedata-indonesia`). See [docs/PUBLISH.md](./docs/PUBLISH.md) for the full guide.
+Packages are published **automatically when `main` is updated**: a push (e.g. a merged PR) verifies, builds, and publishes any package whose `version` is new to the public **npm** registry under `@kedataindo/docflow-*` (the in-repo source scope stays `@kedata-indonesia`). Pushing a `v*` tag runs the same flow. See [docs/PUBLISH.md](./docs/PUBLISH.md) for the full guide.
 
 ```bash
-# After bumping versions in packages/*/package.json:
-git tag v0.0.5
-git push --tags
-# → GitHub Actions publishes automatically to the public npm registry
+# 1. Bump versions in packages/*/package.json (in your PR)
+# 2. Push / merge to main → GitHub Actions publishes automatically
+git push
+# → packages whose version is already on npm are skipped (idempotent)
 ```
 
 ---

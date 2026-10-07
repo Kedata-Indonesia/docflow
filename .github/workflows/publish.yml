@@ -3,15 +3,29 @@ name: Publish to npm
 # Publishes the @kedataindo/* packages to the public npm registry.
 # GitHub Packages is intentionally NOT used (see docs/PUBLISH.md).
 #
-# Releases are tag-gated: bump versions -> commit -> tag vX.Y.Z -> push tag.
+# Triggers:
+#   - push to `main`     -> verify + build + publish (unattended)
+#   - push of a `v*` tag -> same flow (kept for explicit releases)
+#   - manual run         -> Actions tab (`workflow_dispatch`)
+#
+# Publishing is idempotent: a package whose exact version is already on npm is
+# skipped, so a push only publishes packages that carry a *new* version. Bump
+# the version of the packages you changed in the PR that introduces the change.
 on:
   push:
+    branches:
+      - main
     tags:
       - 'v*'
   workflow_dispatch:
 
 permissions:
   contents: read
+
+concurrency:
+  # Never let two pushes race to publish the same registry packages.
+  group: publish-npm
+  cancel-in-progress: false
 
 jobs:
   publish:
@@ -30,6 +44,16 @@ jobs:
           scope: '@kedataindo'
 
       - run: pnpm install --frozen-lockfile
+
+      # Never publish code that fails its own checks.
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Unit tests
+        run: pnpm test:unit
 
       # The README API tables are generated from the public component contract;
       # a stale README must never reach npm. Regenerate with `pnpm docs:api`.
