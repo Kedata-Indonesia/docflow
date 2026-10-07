@@ -19,7 +19,7 @@ From the repository root:
 
 ```bash
 pnpm install
-pnpm build          # builds the library packages (required for dist mode)
+pnpm build          # builds the library packages + this example (dist mode needs dist/)
 pnpm dev            # http://localhost:5200
 ```
 

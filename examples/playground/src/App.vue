@@ -53,12 +53,15 @@ function log(name: string, detail?: string | number): void {
   events.value = [{ id: eventSeq, name, detail: text }, ...events.value].slice(0, 50)
 }
 
+/** Captured once: `Date.now()` inside the computed would drift on every recompute. */
+const fixtureNow = Date.now()
+
 const documentMeta = computed(() => ({
   id: 'playground-doc-1',
   title: title.value,
   owner: { userId: 'user-1', name: userName.value, email: 'reviewer@example.com' },
-  createdAt: Date.now() - 86_400_000,
-  updatedAt: Date.now(),
+  createdAt: fixtureNow - 86_400_000,
+  updatedAt: fixtureNow,
   wordCount: 0,
   charCount: 0,
   pageCount: pageCount.value,

@@ -12,7 +12,6 @@
     "typecheck": "vue-tsc --noEmit"
   },
   "dependencies": {
-    "@kedata-indonesia/docflow-core": "workspace:*",
     "@kedata-indonesia/docflow-plugins": "workspace:*",
     "@kedata-indonesia/docflow-vue": "workspace:*",
     "vue": "^3.5.41"
