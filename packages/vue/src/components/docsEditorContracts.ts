@@ -20,8 +20,16 @@ import type { Locale } from '../composables/useLocale.js'
 export interface DocsEditorProps {
   modelValue?: object | string
   plugins?: DocsEditorPlugin[]
+  /**
+   * Let the user edit the document. Reactive after mount: toggling it calls
+   * `editor.setEditable()` instead of requiring a remount.
+   */
   editable?: boolean
   collaboration?: NonNullable<EditorOptions['collaboration']>
+  /**
+   * Page size id (`a4`, `f4`, `letter`, `legal`, `a5`). Reactive after mount:
+   * changing it re-lays out the paper instead of requiring a remount.
+   */
   pageSize?: string
   pageless?: boolean
   /**
@@ -47,6 +55,8 @@ export interface DocsEditorProps {
    * Enable the debug overlay (CPU + RAM monitor) pinned to the bottom-right
    * corner of the viewport. Pure debug view — never touches document state.
    * Defaults to `false`, so production consumers are unaffected.
+   * Read once at mount: the monitor is created together with the editor, so
+   * changing this prop later requires a remount (`:key`).
    */
   debug?: boolean
   // Phase 9 P9-4 — comment threads. The library stays free of REST;
