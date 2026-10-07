@@ -19,7 +19,7 @@ workflow rewrites names/deps/dist imports to the public `@kedataindo/*` scope:
 
 ## Prerequisites
 
-- Node.js >= 20, pnpm >= 10
+- Node.js >= 20, pnpm >= 9
 - npm account with **publish access to the `@kedataindo` scope/org**
 - An automation token stored as the `NPM_TOKEN` repository secret
   (used by CI as both `NPM_TOKEN` and `NODE_AUTH_TOKEN`)
@@ -36,12 +36,16 @@ echo "//registry.npmjs.org/:_authToken=YOUR_TOKEN" >> ~/.npmrc
 
 ## 2. Version Bump
 
+Versions are **bumped automatically** by CI when a change lands on `main` — see
+[Auto version bump](#auto-version-bump-push-to-main). You normally never edit
+them by hand; manual bumping is only needed for an explicit release.
+
 ```bash
-# Check current versions
+# Inspect current versions
 grep '"version"' packages/*/package.json
 
-# Bump version in ALL package.json files that changed
-# (edit packages/*/package.json; keep internal deps as "workspace:*")
+# Manual bump (explicit release only): edit the version, but keep internal
+# dependency specifiers as "workspace:*" — CI resolves them at publish time.
 ```
 
 ## 3. Build All Packages
@@ -58,36 +62,49 @@ ls packages/*/dist/
 ## 4. CI/CD — Automated Publish
 
 Publishing runs via GitHub Actions (`.github/workflows/publish.yml`) to the
-**public npm registry only**, and is **tag-gated**: it runs on `push` of a
-`v*` tag (or a manual `workflow_dispatch`) — never on a plain push to `main`.
-This is deliberate:
+**public npm registry only**. It is triggered by:
 
-- Every release is conscious: bump version → tag → push → publish
-- Avoids "cannot publish over existing version" when a merge happens without a bump
-- The version is tied to a release decision, not to the merge rhythm
+- **push to `main`** — verify + auto-bump + build + publish, fully unattended
+- **push of a `v*` tag** — same flow, minus the auto-bump (tag = explicit release)
+- **manual run** — `workflow_dispatch` from the Actions tab
+
+Publishing is **idempotent**: a package whose exact version is already on npm is
+skipped, so re-running the workflow never hard-fails.
 
 ### Trigger
 
 ```yaml
 on:
   push:
-    tags: ['v*']   # only tags like v0.1.0, v1.2.3, ...
+    branches: [main]   # auto-publish on merge
+    tags: ['v*']       # ...or an explicit release tag
   workflow_dispatch:
 ```
 
 ### What the workflow does
 
-1. Installs dependencies and runs `pnpm build`.
-2. Rewrites every `packages/*/package.json`: source name → `@kedataindo/docflow-*`,
+1. On a push to `main`, pins the job to the **current tip of `main`** (a run can
+   start after `main` advanced further, and the concurrency group drops
+   superseded queued runs), so every later step acts on that one revision.
+2. Installs dependencies, then gates the release on `pnpm lint`,
+   `pnpm typecheck`, `pnpm test:unit`, `pnpm test:scripts` and
+   `pnpm docs:api:check` (broken code is never published).
+3. On a push to `main`, patch-bumps the affected packages — see
+   [Auto version bump](#auto-version-bump-push-to-main).
+4. Runs `pnpm build`.
+5. Rewrites every `packages/*/package.json`: source name → `@kedataindo/docflow-*`,
    internal `@kedata-indonesia/*` deps → `@kedataindo/*` (resolving
    `workspace:*` to the local version), and sets
    `publishConfig = { registry: 'https://registry.npmjs.org', access: 'public' }`.
-3. Rewrites `dist/**` files, which contain hardcoded `@kedata-indonesia/docflow-*`
+6. Rewrites `dist/**` files, which contain hardcoded `@kedata-indonesia/docflow-*`
    import specifiers after the build.
-4. Publishes in dependency order (`core`, `layout-engine`, `plugins`, `vue`,
+7. Publishes in dependency order (`core`, `layout-engine`, `plugins`, `vue`,
    `element`, `export`), **idempotently**: if the version already exists on npm,
    it is skipped instead of hard-failing.
-5. Restores the original `package.json` files from their `.bak` copies.
+8. Restores the original `package.json` files from their `.bak` copies — which
+   already carry the bumped version.
+9. On a push to `main`, commits those bumped versions back to `main`
+   (`chore(release): bump … [skip ci]`), so the repo never drifts from npm.
 
 ### Publish idempotent (per package)
 
@@ -100,21 +117,62 @@ else
 fi
 ```
 
+### Auto version bump (push to `main`)
+
+`scripts/bump-release-versions.mjs` runs on the **current tip of `main`** and
+decides what to release from everything that changed **since the last
+`chore(release):` commit** (the one this pipeline itself pushes). Before the
+first automated release — or after a history rewrite that drops it — it falls
+back to the pushed range (`github.event.before..HEAD`):
+
+- A package is **changed** when the range touched its files, ignoring docs
+  (`*.md`), tests (`__tests__/`, `*.test.*`, `*.spec.*`) and build output (`dist/`).
+- A package is **bumped** when it changed **or** when it depends on a bumped
+  package — dependents must be re-released because internal deps are published
+  as exact versions (`workspace:*` → the sibling's real version).
+- E.g. a change in `packages/core` bumps `core` **and** everything downstream:
+  `layout-engine`, `plugins`, `vue`, `element`. (`export` has no internal deps,
+  so it only moves when it changes itself.)
+- Versions move **independently** (each package owns its `version`) and always
+  by a **patch**: `0.0.60 → 0.0.61`.
+- Nothing publishable changed → nothing is bumped and nothing is published.
+
+Releasing the current tip of `main` (not the run's checkout) and anchoring on the
+last release commit means a push that lands while a run is publishing — or a
+queued run that gets superseded — is still covered by the next run, as long as a
+release commit remains in the branch history.
+
+Preview the decision without touching anything:
+
+```bash
+# `auto` = anchor on the last release commit
+node scripts/bump-release-versions.mjs auto HEAD --dry-run
+```
+
+Unit tests: `pnpm test:scripts`.
+
+> **Branch protection:** the commit-back pushes directly to `main`. If `main`
+> requires PRs / status checks, let `github-actions[bot]` bypass the rule, or
+> remove the "Commit version bumps to main" step and bump versions manually.
+
+> **After a release, pull before your next push.** The bot's bump commit adds a
+> commit to `main`, so a stale local `main` is rejected — `git pull --rebase`
+> fixes it.
+
 ### Cara rilis
 
 ```bash
-# 1. Bump versi paket yang berubah (edit packages/*/package.json)
-grep '"version"' packages/*/package.json
+# Default: cukup merge perubahanmu ke `main`.
+#   → CI verify, patch-bump paket terdampak, publish, lalu commit bump balik.
 
-# 2. Commit + push
-git add packages/*/package.json
-git commit -m "chore: bump versions for release"
-git push
-
-# 3. Tag + push tag → trigger publish
+# Rilis eksplisit / paksa (tanpa auto-bump):
 git tag v0.0.5
-git push --tags
+git push origin v0.0.5
 ```
+
+> Bump versi manual yang di-push ke `main` tetap ikut terbit — langkah publish
+> bersifat *version-driven*: paket yang versinya belum ada di npm akan
+> di-publish. Tag `v*` hanya untuk **melewati** auto-bump.
 
 ## 5. Verify
 
@@ -133,8 +191,9 @@ npm install @kedataindo/docflow-vue
 
 Long term, [Changesets](https://github.com/changesets/changesets) is the industry
 standard for multi-package monorepos: contributors add a changeset per PR, then a
-workflow bumps + publishes only the changed packages. Not needed yet — tag-gated
-+ idempotent is enough at the current scale.
+workflow bumps + publishes only the changed packages. Not needed yet — the
+push-triggered workflow already patch-bumps affected packages from the commit
+range (`scripts/bump-release-versions.mjs`), which is enough at this scale.
 
 ## Pre-publish Checklist
 
@@ -143,6 +202,6 @@ workflow bumps + publishes only the changed packages. Not needed yet — tag-gat
 - [ ] `pnpm build` produces dist/ in all packages
 - [ ] `peerDependencies` are correct (no version conflicts)
 - [ ] `exports` field includes CSS path (vue package)
-- [ ] Version bumped di `package.json` paket yang berubah
+- [ ] Perubahan sudah merge ke `main` (versi di-`bump` otomatis oleh CI)
 - [ ] CHANGELOG updated (if exists)
-- [ ] Git tag dibuat: `git tag v0.1.0 && git push --tags`
+- [ ] Tag `v*` dibuat hanya untuk rilis eksplisit (opsional)

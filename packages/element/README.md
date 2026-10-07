@@ -10,21 +10,28 @@ Framework-agnostic: works in any HTML page, React, Angular, Svelte, or plain JS.
 npm install @kedataindo/docflow-element @kedataindo/docflow-plugins
 ```
 
+> Peers: also add `y-webrtc` and `y-websocket` (`npm install y-webrtc y-websocket`).
+> The core barrel imports them at load time, so strict ESM bundlers fail to
+> resolve it even when `collaboration` is off.
+
 ## Usage
 
 ```html
 <script type="module">
-  import '@kedataindo/docflow-element'
+  import { registerDocsEditor } from '@kedataindo/docflow-element'
   import { defaultPlugins } from '@kedataindo/docflow-plugins'
 
-  const editor = document.querySelector('docs-editor')
-  editor.plugins = defaultPlugins
+  registerDocsEditor() // defines <docs-editor>; auto-registration is intentionally off
+
+  // module scripts are deferred, so the element below is already in the DOM
+  document.querySelector('docs-editor').plugins = defaultPlugins
 </script>
 
 <docs-editor
   room="my-doc"
   theme="light"
   editable="true"
+  content='{"type":"doc","content":[]}'
   websocket-url="wss://your-collab-server"
 ></docs-editor>
 ```

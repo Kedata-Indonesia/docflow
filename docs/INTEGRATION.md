@@ -285,9 +285,16 @@ Your project must also install these:
     "tiptap-pagination-plus": "3.1.0",
     "yjs": "^13.6.0",
     "y-prosemirror": "^1.2.0",
-    "y-webrtc": "^10.3.0"
+    "y-webrtc": "^10.3.0",
+    "y-websocket": "^2.0.4"
   }
 }
 ```
 
-Or just install the vue package — peer deps will be auto-installed by pnpm/npm.
+Or just install the vue package — npm 7+ and pnpm auto-install its *required* peers.
+The optional peers that are **not** also regular dependencies (`y-webrtc`,
+`y-websocket`) are not auto-installed, so add them yourself:
+
+```bash
+npm install y-webrtc y-websocket
+```

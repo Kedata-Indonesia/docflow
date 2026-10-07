@@ -2,6 +2,10 @@
 
 Document export for [DocFlow](https://github.com/Kedata-Indonesia/docflow) — DOCX, ODT, RTF, Markdown, and print-ready HTML from ProseMirror JSON.
 
+> **Status:** not published on npm yet — `npm install @kedataindo/docflow-export`
+> returns 404 until the next tagged release. Build it from source in the meantime:
+> `pnpm --filter @kedata-indonesia/docflow-export build`.
+
 ## Install
 
 ```bash
