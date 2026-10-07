@@ -31,6 +31,11 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # The README API tables are generated from the public component contract;
+      # a stale README must never reach npm. Regenerate with `pnpm docs:api`.
+      - name: Verify generated API docs are up to date
+        run: pnpm docs:api:check
+
       # Only the publishable packages: `examples/*` must never be able to block
       # a release if its own build breaks.
       - run: pnpm -r --filter "./packages/*" run build

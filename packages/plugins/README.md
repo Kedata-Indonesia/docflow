@@ -15,7 +15,9 @@ import { defaultPlugins } from '@kedataindo/docflow-plugins'
 // pass to <DocsEditor :plugins="defaultPlugins">, createEditor(), or <docs-editor>
 ```
 
-`defaultPlugins` includes: bold, italic, underline, strike, heading, bulletList, orderedList, taskList, blockquote, codeBlock, link, image, table, textAlign, placeholder, pageBreak, fontSize, slashMenu, footnote, and more.
+`defaultPlugins` is the 21-plugin built-in set: underline, headings, lists (bullet, ordered, task), text alignment, link, image, tables, table page splitting, blockquote, code block, placeholder, page break, footnotes, table of contents, font size, text color, highlight, citations, AI, comments, and smart elements. Bold, italic, and strike come from the core StarterKit base schema, not from a plugin.
+
+`slashMenuPlugin` (the `/` command menu) is exported separately and is **not** part of `defaultPlugins` — add it explicitly if you want it in the toolbar set.
 
 A second entrypoint, `@kedataindo/docflow-plugins/citations`, provides the citations & references engine (DOI/CrossRef + BibTeX/RIS import, CSL styles).
 
