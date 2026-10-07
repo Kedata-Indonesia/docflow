@@ -27,6 +27,11 @@ only (no backend, no database) and is the recommended way to review UI changes. 
 `pnpm build && pnpm dev` (http://localhost:5200). Use `pnpm dev:source` to edit
 `packages/*` with HMR instead of rebuilding after every change.
 
+> `pnpm-lock.yaml` still records an `examples/playground` importer. Without the folder a
+> plain `pnpm install` prunes it, so `git checkout -- pnpm-lock.yaml` rather than
+> committing that churn — or install with `pnpm install --frozen-lockfile`, which
+> tolerates the missing project.
+
 ## Repository layout
 
 This repo contains the **library packages only** (`packages/*`). The deployable app (web UI + API server) lives in [`docflow-app`](https://github.com/Kedata-Indonesia/docflow-app).
