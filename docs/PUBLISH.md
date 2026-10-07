@@ -108,9 +108,10 @@ on:
 8. Restores the original `package.json` files from their `.bak` copies — which
    already carry the bumped version.
 9. On a push to `main`, re-checks every bumped version with
-   `npm view @kedataindo/docflow-<pkg>@<version>` (retried for a few seconds,
-   since the registry can lag): a version that never landed fails the run
-   (`::error::`) before the bump is committed back.
+   `npm view @kedataindo/docflow-<pkg>@<version>`. Reads travel through npm's
+   CDN/read replicas, which can lag several minutes behind an accepted publish,
+   so this polls for up to 15 minutes (20s interval): a version that never
+   landed fails the run (`::error::`) before the bump is committed back.
 10. On a push to `main`, commits those bumped versions back to `main`
     (`chore(release): bump … [skip ci]`), so the repo never drifts from npm.
 

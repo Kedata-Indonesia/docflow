@@ -167,28 +167,32 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       # The bump only ever picks a version npm does not have, so a version that
-      # is still missing here means the publish did not actually land. Retry a
-      # few times first: `npm view` can lag behind a successful publish.
+      # is still missing here means the publish did not actually land. `npm
+      # view` reads through npm's CDN and read replicas, which can lag several
+      # minutes behind an accepted publish (observed: 1.5-7 min for this
+      # scope), so poll with a bounded budget instead of a handful of retries.
       - name: Verify the bumped versions are live on npm
         if: steps.bump.outputs.bumped != ''
+        env:
+          VERIFY_TIMEOUT_SECONDS: "900"
+          VERIFY_POLL_SECONDS: "20"
         run: |
+          deadline=$((SECONDS + VERIFY_TIMEOUT_SECONDS))
           for pkg in $(echo "${{ steps.bump.outputs.bumped }}" | tr ',' ' '); do
             version=$(node -e "console.log(require('./packages/${pkg}/package.json').version)")
-            live=""
-            for attempt in 1 2 3 4 5; do
+            while :; do
               if npm view "@kedataindo/docflow-${pkg}@${version}" version \
                 --registry=https://registry.npmjs.org >/dev/null 2>&1; then
-                live="yes"
+                echo "@kedataindo/docflow-${pkg}@${version} is live"
                 break
               fi
-              echo "attempt $attempt: @kedataindo/docflow-${pkg}@${version} not visible yet"
-              sleep 5
+              if [ "$SECONDS" -ge "$deadline" ]; then
+                echo "::error::@kedataindo/docflow-${pkg}@${version} was not published"
+                exit 1
+              fi
+              echo "@kedataindo/docflow-${pkg}@${version} not visible yet, waiting..."
+              sleep "$VERIFY_POLL_SECONDS"
             done
-            if [ -z "$live" ]; then
-              echo "::error::@kedataindo/docflow-${pkg}@${version} was not published"
-              exit 1
-            fi
-            echo "@kedataindo/docflow-${pkg}@${version} is live"
           done
 
       # Keep the repo in sync with what was just published: the publish step
