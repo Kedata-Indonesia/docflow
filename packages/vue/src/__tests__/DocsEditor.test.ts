@@ -290,6 +290,39 @@ describe('DocsEditor', () => {
     wrapper.unmount()
   })
 
+  it('syncs the controlled pageless prop into the pagination extension', async () => {
+    const wrapper = mount(DocsEditor, {
+      props: { plugins: defaultPlugins, pageless: false },
+    })
+    await new Promise((resolve) => setTimeout(resolve, 50))
+
+    const vm = wrapper.vm as unknown as {
+      editor?: {
+        getJSON: () => object
+        storage: { PaginationPlus?: { enabled: boolean } }
+      }
+    }
+    expect(vm.editor?.storage.PaginationPlus?.enabled).toBe(true)
+    const contentBefore = JSON.stringify(vm.editor?.getJSON() ?? {})
+
+    // The host owns the flag here — the prop changes, not the menu command.
+    await wrapper.setProps({ pageless: true })
+    await new Promise((resolve) => setTimeout(resolve, 150))
+
+    expect(wrapper.emitted('update:pageless')?.[0]).toEqual([true])
+    expect(vm.editor?.storage.PaginationPlus?.enabled).toBe(false)
+    expect(JSON.stringify(vm.editor?.getJSON() ?? {})).toBe(contentBefore)
+
+    await wrapper.setProps({ pageless: false })
+    await new Promise((resolve) => setTimeout(resolve, 150))
+
+    expect(wrapper.emitted('update:pageless')?.[1]).toEqual([false])
+    expect(vm.editor?.storage.PaginationPlus?.enabled).toBe(true)
+    expect(JSON.stringify(vm.editor?.getJSON() ?? {})).toBe(contentBefore)
+
+    wrapper.unmount()
+  })
+
   it('toggles the outline sidebar via menuClick(\'toggle-left-sidebar\')', async () => {
     const wrapper = mount(DocsEditor, {
       props: { plugins: defaultPlugins },
