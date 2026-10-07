@@ -35,6 +35,10 @@ import DetailsDialog from './DetailsDialog.vue'
 import EmailDialog from './EmailDialog.vue'
 import FindReplaceDialog from './FindReplaceDialog.vue'
 import LinkDialog from './LinkDialog.vue'
+import FooterDialog from './FooterDialog.vue'
+import HeaderFormatDialog from './HeaderFormatDialog.vue'
+import PageNumberDialog from './PageNumberDialog.vue'
+import PageSetupDialog from './PageSetupDialog.vue'
 import { Menu, Minimize2 } from 'lucide-vue-next'
 import { useTheme } from '../composables/useTheme.js'
 import { provideLocale, type Locale } from '../composables/useLocale.js'
@@ -778,149 +782,39 @@ v-if="!focusMode"
       @update:page-size="pageSizeId = $event; emit('update:pageSize', $event)" />
 
     <!-- Dialog Footer Customization -->
-    <div v-if="showFooterModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm px-4">
-      <div class="w-full max-w-lg rounded-xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-800 dark:bg-[#0e1525] text-slate-800 dark:text-slate-200">
-        <h2 class="text-lg font-bold mb-4">{{ t('editor.headerFooter.footer') }}</h2>
-        
-        <!-- Footer Section -->
-        <div class="mb-6">
-          <div class="flex justify-between items-center mb-2">
-            <h3 class="text-sm font-semibold text-slate-500 dark:text-slate-400">{{ t('editor.headerFooter.footer') }}</h3>
-            <button type="button" class="text-[11px] text-red-500 hover:text-red-600 font-medium transition-colors" @click="footerLeftInput = ''; footerRightInput = ''">{{ t('editor.headerFooter.clear') }}</button>
-          </div>
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="text-[11px] font-medium block mb-1">{{ t('editor.headerFooter.left') }}</label>
-              <input v-model="footerLeftInput" type="text" class="w-full rounded-md border border-slate-200 bg-transparent px-3 py-1.5 text-xs focus:outline-none dark:border-slate-700" :placeholder="t('editor.headerFooter.footerLeftPlaceholder')">
-            </div>
-            <div>
-              <label class="text-[11px] font-medium block mb-1">{{ t('editor.headerFooter.right') }}</label>
-              <input v-model="footerRightInput" type="text" class="w-full rounded-md border border-slate-200 bg-transparent px-3 py-1.5 text-xs focus:outline-none dark:border-slate-700" :placeholder="t('editor.headerFooter.footerRightPlaceholder')">
-            </div>
-          </div>
-        </div>
-
-        <!-- Variables Info -->
-        <div class="rounded-lg bg-slate-50 p-3 text-[11px] text-slate-500 dark:bg-white/5 dark:text-slate-400 mb-6">
-          {{ t('editor.headerFooter.variableInfo') }}
-        </div>
-
-        <!-- Actions -->
-        <div class="flex justify-end gap-2">
-          <button type="button" class="rounded-md px-3 py-1.5 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-white/5" @click="showFooterModal = false">
-            {{ t('editor.headerFooter.cancel') }}
-          </button>
-          <button type="button" class="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700" @click="saveFooter">
-            {{ t('editor.headerFooter.save') }}
-          </button>
-        </div>
-      </div>
-    </div>
+    <FooterDialog
+      v-model:left="footerLeftInput"
+      v-model:right="footerRightInput"
+      :is-open="showFooterModal"
+      @clear="footerLeftInput = ''; footerRightInput = ''"
+      @close="showFooterModal = false"
+      @save="saveFooter"
+    />
 
     <!-- Dialog Header & Footer Format (Google Docs Style) -->
-    <div v-if="showHeaderFormatModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm px-4 select-none">
-      <div class="w-full max-w-sm rounded-3xl border border-slate-100 bg-white p-7 shadow-2xl dark:border-slate-800 dark:bg-[#0e1525] text-slate-800 dark:text-slate-200">
-        <h2 class="text-xl font-medium mb-6 text-slate-900 dark:text-white">{{ t('editor.headerFooter.headerFooterFormatTitle') }}</h2>
-        
-        <!-- Margin Section -->
-        <div class="mb-6">
-          <h3 class="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-3">{{ t('editor.headerFooter.marginSection') }}</h3>
-          <div class="space-y-4">
-            <div>
-              <label class="text-xs font-medium text-slate-600 dark:text-slate-400 block mb-1.5">
-                {{ t('editor.headerFooter.headerTopMargin') }} (cm)
-              </label>
-              <input v-model.number="draftHeaderMarginCm" type="number" :min="HEADER_MARGIN_CM_MIN" :max="HEADER_MARGIN_CM_MAX" :step="HEADER_MARGIN_CM_STEP" class="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a2332] px-3.5 py-2 text-sm text-slate-800 dark:text-slate-100 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 focus:outline-none transition-all" />
-            </div>
-            <div>
-              <label class="text-xs font-medium text-slate-600 dark:text-slate-400 block mb-1.5">
-                {{ t('editor.headerFooter.footerBottomMargin') }} (cm)
-              </label>
-              <input v-model.number="draftFooterMarginCm" type="number" :min="HEADER_MARGIN_CM_MIN" :max="HEADER_MARGIN_CM_MAX" :step="HEADER_MARGIN_CM_STEP" class="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a2332] px-3.5 py-2 text-sm text-slate-800 dark:text-slate-100 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 focus:outline-none transition-all" />
-            </div>
-          </div>
-        </div>
-
-        <!-- Tata Letak Section -->
-        <div class="mb-8">
-          <h3 class="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-3">{{ t('editor.headerFooter.layoutSection') }}</h3>
-          <div class="space-y-3">
-            <label class="flex items-center gap-3 cursor-pointer text-xs font-medium text-slate-700 dark:text-slate-300 select-none">
-              <input v-model="draftDifferentFirstPage" type="checkbox" class="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
-              <span>{{ t('editor.headerFooter.differentFirstPage') }}</span>
-            </label>
-            <label class="flex items-center gap-3 cursor-pointer text-xs font-medium text-slate-700 dark:text-slate-300 select-none">
-              <input v-model="draftDifferentOddEven" type="checkbox" class="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
-              <span>{{ t('editor.headerFooter.differentOddEven') }}</span>
-            </label>
-          </div>
-        </div>
-
-        <!-- Actions -->
-        <div class="flex justify-end items-center gap-3">
-          <button type="button" class="rounded-full px-5 py-2 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors" @click="showHeaderFormatModal = false">
-            {{ t('editor.headerFooter.cancel') }}
-          </button>
-          <button type="button" class="rounded-full bg-blue-600 hover:bg-blue-700 px-6 py-2 text-xs font-semibold text-white shadow-md transition-colors" @click="applyHeaderFormat">
-            {{ t('editor.headerFooter.apply') }}
-          </button>
-        </div>
-      </div>
-    </div>
+    <HeaderFormatDialog
+      v-model:header-margin-cm="draftHeaderMarginCm"
+      v-model:footer-margin-cm="draftFooterMarginCm"
+      v-model:different-first-page="draftDifferentFirstPage"
+      v-model:different-odd-even="draftDifferentOddEven"
+      :is-open="showHeaderFormatModal"
+      :margin-min="HEADER_MARGIN_CM_MIN"
+      :margin-max="HEADER_MARGIN_CM_MAX"
+      :margin-step="HEADER_MARGIN_CM_STEP"
+      @close="showHeaderFormatModal = false"
+      @apply="applyHeaderFormat"
+    />
 
     <!-- Dialog Nomor Halaman (Google Docs Style) -->
-    <div v-if="showPageNumberModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm px-4 select-none">
-      <div class="w-full max-w-sm rounded-3xl border border-slate-100 bg-white p-7 shadow-2xl dark:border-slate-800 dark:bg-[#0e1525] text-slate-800 dark:text-slate-200">
-        <h2 class="text-xl font-medium mb-6 text-slate-900 dark:text-white">{{ t('editor.headerFooter.pageNumberTitle') }}</h2>
-        
-        <!-- Posisi Section -->
-        <div class="mb-6">
-          <h3 class="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-3">{{ t('editor.headerFooter.positionSection') }}</h3>
-          <div class="space-y-3">
-            <label class="flex items-center gap-3 cursor-pointer text-xs font-medium text-slate-700 dark:text-slate-300 select-none">
-              <input v-model="draftPageNumberPosition" type="radio" value="header" class="w-4 h-4 text-blue-600 focus:ring-blue-500" />
-              <span>{{ t('editor.headerFooter.positionHeader') }}</span>
-            </label>
-            <label class="flex items-center gap-3 cursor-pointer text-xs font-medium text-slate-700 dark:text-slate-300 select-none">
-              <input v-model="draftPageNumberPosition" type="radio" value="footer" class="w-4 h-4 text-blue-600 focus:ring-blue-500" />
-              <span>{{ t('editor.headerFooter.positionFooter') }}</span>
-            </label>
-            <label class="flex items-center gap-3 cursor-pointer text-xs font-medium text-slate-700 dark:text-slate-300 select-none pt-1">
-              <input v-model="draftShowPageNumberOnFirstPage" type="checkbox" class="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
-              <span>{{ t('editor.headerFooter.showOnFirstPage') }}</span>
-            </label>
-          </div>
-        </div>
-
-        <!-- Penomoran Section -->
-        <div class="mb-8">
-          <h3 class="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-3">{{ t('editor.headerFooter.numberingSection') }}</h3>
-          <div class="space-y-3">
-            <div class="flex items-center gap-3">
-              <label class="flex items-center gap-3 cursor-pointer text-xs font-medium text-slate-700 dark:text-slate-300 select-none">
-                <input v-model="draftPageNumberMode" type="radio" value="startAt" class="w-4 h-4 text-blue-600 focus:ring-blue-500" />
-                <span>{{ t('editor.headerFooter.startAt') }}</span>
-              </label>
-              <input v-model="draftPageNumberStartAt" type="number" min="1" class="w-16 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a2332] px-2.5 py-1 text-xs text-slate-800 dark:text-slate-100 focus:border-blue-600 focus:outline-none" />
-            </div>
-            <label class="flex items-center gap-3 cursor-pointer text-xs font-medium text-slate-700 dark:text-slate-300 select-none">
-              <input v-model="draftPageNumberMode" type="radio" value="continue" class="w-4 h-4 text-blue-600 focus:ring-blue-500" />
-              <span>{{ t('editor.headerFooter.continueFromPrevious') }}</span>
-            </label>
-          </div>
-        </div>
-
-        <!-- Actions -->
-        <div class="flex justify-end items-center gap-3">
-          <button type="button" class="rounded-full px-5 py-2 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors" @click="showPageNumberModal = false">
-            {{ t('editor.headerFooter.cancel') }}
-          </button>
-          <button type="button" class="rounded-full bg-blue-600 hover:bg-blue-700 px-6 py-2 text-xs font-semibold text-white shadow-md transition-colors" @click="applyPageNumberSettings">
-            {{ t('editor.headerFooter.apply') }}
-          </button>
-        </div>
-      </div>
-    </div>
+    <PageNumberDialog
+      v-model:position="draftPageNumberPosition"
+      v-model:show-on-first-page="draftShowPageNumberOnFirstPage"
+      v-model:mode="draftPageNumberMode"
+      v-model:start-at="draftPageNumberStartAt"
+      :is-open="showPageNumberModal"
+      @close="showPageNumberModal = false"
+      @apply="applyPageNumberSettings"
+    />
 
     <!-- Dialog Email -->
     <EmailDialog
@@ -946,75 +840,19 @@ v-if="!focusMode"
     />
 
     <!-- Dialog Page Setup -->
-    <div v-if="showPageSetupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm px-4">
-      <div class="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-800 dark:bg-[#0e1525] text-slate-800 dark:text-slate-200">
-        <h2 class="text-lg font-bold mb-4">{{ t('editor.pageSetup.title') }}</h2>
-
-        <!-- Paper size -->
-        <div class="mb-4">
-          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{{ t('editor.pageSetup.paperSize') }}</label>
-          <select v-model="pageSetupSize" class="w-full rounded-md border border-slate-200 bg-transparent px-3 py-2 text-xs focus:outline-none dark:border-slate-700">
-            <option v-for="size in PAGE_SIZES" :key="size.id" :value="size.id">{{ size.name }}</option>
-          </select>
-        </div>
-
-        <!-- Orientation -->
-        <div class="mb-4">
-          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{{ t('editor.pageSetup.orientation') }}</label>
-          <div class="flex gap-2">
-            <button
-              type="button"
-              class="flex-1 rounded-md border px-3 py-2 text-xs font-medium transition-colors"
-              :class="pageSetupOrientation === 'portrait' ? 'border-cyan-500 bg-cyan-50 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300' : 'border-slate-200 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-white/5'"
-              @click="pageSetupOrientation = 'portrait'"
-            >
-              {{ t('editor.pageSetup.portrait') }}
-            </button>
-            <button
-              type="button"
-              class="flex-1 rounded-md border px-3 py-2 text-xs font-medium transition-colors"
-              :class="pageSetupOrientation === 'landscape' ? 'border-cyan-500 bg-cyan-50 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300' : 'border-slate-200 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-white/5'"
-              @click="pageSetupOrientation = 'landscape'"
-            >
-              {{ t('editor.pageSetup.landscape') }}
-            </button>
-          </div>
-        </div>
-
-        <!-- Margins -->
-        <div class="mb-6">
-          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{{ t('editor.pageSetup.margins') }} (cm)</label>
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="text-[11px] text-slate-500 dark:text-slate-400 block mb-1">{{ t('editor.pageSetup.top') }}</label>
-              <input v-model.number="pageSetupMarginsCm.top" type="number" :min="PAGE_MARGIN_CM_MIN" :max="PAGE_MARGIN_CM_MAX" step="0.1" class="w-full rounded-md border border-slate-200 bg-transparent px-3 py-1.5 text-xs focus:outline-none dark:border-slate-700">
-            </div>
-            <div>
-              <label class="text-[11px] text-slate-500 dark:text-slate-400 block mb-1">{{ t('editor.pageSetup.bottom') }}</label>
-              <input v-model.number="pageSetupMarginsCm.bottom" type="number" :min="PAGE_MARGIN_CM_MIN" :max="PAGE_MARGIN_CM_MAX" step="0.1" class="w-full rounded-md border border-slate-200 bg-transparent px-3 py-1.5 text-xs focus:outline-none dark:border-slate-700">
-            </div>
-            <div>
-              <label class="text-[11px] text-slate-500 dark:text-slate-400 block mb-1">{{ t('editor.pageSetup.left') }}</label>
-              <input v-model.number="pageSetupMarginsCm.left" type="number" :min="PAGE_MARGIN_CM_MIN" :max="PAGE_MARGIN_CM_MAX" step="0.1" class="w-full rounded-md border border-slate-200 bg-transparent px-3 py-1.5 text-xs focus:outline-none dark:border-slate-700">
-            </div>
-            <div>
-              <label class="text-[11px] text-slate-500 dark:text-slate-400 block mb-1">{{ t('editor.pageSetup.right') }}</label>
-              <input v-model.number="pageSetupMarginsCm.right" type="number" :min="PAGE_MARGIN_CM_MIN" :max="PAGE_MARGIN_CM_MAX" step="0.1" class="w-full rounded-md border border-slate-200 bg-transparent px-3 py-1.5 text-xs focus:outline-none dark:border-slate-700">
-            </div>
-          </div>
-        </div>
-
-        <!-- Actions -->
-        <div class="flex justify-end gap-2">
-          <button type="button" class="rounded-md px-3 py-1.5 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-white/5" @click="showPageSetupModal = false">
-            {{ t('editor.pageSetup.cancel') }}
-          </button>
-          <button type="button" class="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700" @click="applyPageSetup">
-            {{ t('editor.pageSetup.apply') }}
-          </button>
-        </div>
-      </div>
-    </div>
+    <PageSetupDialog
+      v-model:paper-size="pageSetupSize"
+      v-model:orientation="pageSetupOrientation"
+      v-model:margin-top="pageSetupMarginsCm.top"
+      v-model:margin-bottom="pageSetupMarginsCm.bottom"
+      v-model:margin-left="pageSetupMarginsCm.left"
+      v-model:margin-right="pageSetupMarginsCm.right"
+      :is-open="showPageSetupModal"
+      :margin-min="PAGE_MARGIN_CM_MIN"
+      :margin-max="PAGE_MARGIN_CM_MAX"
+      @close="showPageSetupModal = false"
+      @apply="applyPageSetup"
+    />
   </div>
 </template>
 
