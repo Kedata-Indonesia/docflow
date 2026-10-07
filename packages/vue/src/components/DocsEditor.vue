@@ -684,6 +684,9 @@ const linkDialogInitialText = ref('')
 const linkDialogInitialUrl = ref('')
 const linkDialogIsEditing = ref(false)
 
+// Hoisted by design: `useEditorReady` receives `openLinkDialog` by reference at
+// its call site above, so this must stay a function declaration — converting it
+// to a `const` arrow would throw a TDZ ReferenceError during setup.
 function openLinkDialog() {
   if (!editor.value) return
   const { state } = editor.value
