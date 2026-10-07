@@ -15,3 +15,8 @@ playwright-report
 # Tenant AI config (issue #119) — holds LLM credentials, never commit
 apps/server/data/
 *.bak
+
+# Local-only UI review harness (examples/playground), deliberately untracked:
+# the folder stays on each machine and `pnpm dev` keeps working locally, but a
+# fresh clone has no examples/ tree. See examples/playground/README.md.
+examples/
