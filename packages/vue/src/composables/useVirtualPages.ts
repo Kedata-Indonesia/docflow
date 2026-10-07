@@ -1,10 +1,14 @@
-import { ref, onMounted, onUnmounted, watch, computed, type Ref } from 'vue'
+import { ref, onMounted, onUnmounted, unref, watch, computed, type Ref } from 'vue'
 import { VirtualPageOverlay, type PageOverlayConfig, type PageOverlayData } from '@kedata-indonesia/docflow-layout-engine'
 
 export interface UseVirtualPagesOptions {
   editorRef: Ref<{ view: { dom: HTMLElement } } | null>
   scrollRef: Ref<HTMLElement | null>
-  config: PageOverlayConfig
+  /**
+   * Plain config or ref — `unref`-ed at init. Pass a ref (or computed) so a live
+   * page size / margin change reaches `VirtualPageOverlay.updateConfig()`.
+   */
+  config: PageOverlayConfig | Ref<PageOverlayConfig>
   bufferPages?: number
 }
 
@@ -22,7 +26,7 @@ export function useVirtualPages(options: UseVirtualPagesOptions) {
     const scrollEl = options.scrollRef.value
     if (!editor?.view?.dom || !scrollEl) return
 
-    overlay = new VirtualPageOverlay(editor.view.dom, options.config, scrollEl, options.bufferPages ?? 2)
+    overlay = new VirtualPageOverlay(editor.view.dom, unref(options.config), scrollEl, options.bufferPages ?? 2)
     overlay.observe()
 
     data.value = await overlay.layout()
@@ -67,8 +71,8 @@ export function useVirtualPages(options: UseVirtualPagesOptions) {
     if (!isReady.value) init()
   }, { immediate: true })
 
-  // Re-layout when config changes
-  watch(() => options.config, (newConfig) => {
+  // Re-layout when config changes (plain object or ref, see `UseVirtualPagesOptions`)
+  watch(() => unref(options.config), (newConfig) => {
     if (isReady.value) updateConfig(newConfig)
   }, { deep: true })
 

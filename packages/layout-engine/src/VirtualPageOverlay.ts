@@ -24,6 +24,16 @@ export interface PageOverlayData {
   config: Required<PageOverlayConfig> & { pageSize: PageSize }
 }
 
+/** Ids can be reused, so compare the resolved geometry rather than the reference. */
+const samePageSize = (a: PageSize, b: PageSize): boolean =>
+  a.id === b.id && a.pageWidth === b.pageWidth && a.pageHeight === b.pageHeight
+
+const sameMargins = (
+  a: { top: number; bottom: number; left: number; right: number },
+  b: { top: number; bottom: number; left: number; right: number },
+): boolean =>
+  a.top === b.top && a.bottom === b.bottom && a.left === b.left && a.right === b.right
+
 /**
  * Manages virtualized page overlays for a ProseMirror editor.
  *
@@ -119,21 +129,34 @@ export class VirtualPageOverlay {
 
   /** Update configuration (page size, margins, etc.) — triggers re-layout. */
   async updateConfig(config: Partial<PageOverlayConfig>): Promise<PageOverlayData> {
-    if (config.pageSize) {
-      const ps = typeof config.pageSize === 'string'
+    // Snapshot before mutating: `this.config` is edited in place, so the
+    // "previous" values have to be captured first.
+    const previousPageSize = this.config.pageSize
+    const previousMargins = this.config.margins
+
+    if (config.pageSize !== undefined) {
+      this.config.pageSize = typeof config.pageSize === 'string'
         ? (getPageSize(config.pageSize) ?? this.config.pageSize)
         : config.pageSize
-      this.config.pageSize = ps
-      this.pageLayout.destroy()
-      this.pageLayout = new PageLayout(this.editorEl, {
-        pageHeight: ps.pageHeight,
-        pageWidth: ps.pageWidth,
-        margins: this.config.margins,
-      }, 150)
     }
     if (config.margins) {
       this.config.margins = { ...this.config.margins, ...config.margins }
     }
+
+    // `PageLayout` reads page size and margins once, in its constructor, so it
+    // only has to be rebuilt when one of them actually changed. Rebuilding on
+    // presence alone would re-create the layout for header/footer-only updates.
+    const sizeChanged = !samePageSize(this.config.pageSize, previousPageSize)
+    const marginsChanged = !sameMargins(this.config.margins, previousMargins)
+    if (sizeChanged || marginsChanged) {
+      this.pageLayout.destroy()
+      this.pageLayout = new PageLayout(this.editorEl, {
+        pageHeight: this.config.pageSize.pageHeight,
+        pageWidth: this.config.pageSize.pageWidth,
+        margins: this.config.margins,
+      }, 150)
+    }
+
     if (config.pageGap !== undefined) this.config.pageGap = config.pageGap
     if (config.headerLeft !== undefined) this.config.headerLeft = config.headerLeft
     if (config.headerRight !== undefined) this.config.headerRight = config.headerRight
