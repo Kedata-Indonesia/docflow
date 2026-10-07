@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { type DocsEditor, type DocsEditorPlugin, type EditorOptions, type ImageUploadHandler, type CitationPort, type CslItemData, type AIStreamFn, type AIDraftFn } from '@kedata-indonesia/docflow-core'
 import { PAGE_SIZES, getPageSize } from '@kedata-indonesia/docflow-layout-engine'
 import { useVirtualPages } from '../composables/useVirtualPages.js'
 import { useFootnotes } from '../composables/useFootnotes.js'
 import { useEditCommands } from '../composables/useEditCommands.js'
+import { useDocsEditorMenu } from '../composables/useDocsEditorMenu.js'
 import { usePageSetup } from '../composables/usePageSetup.js'
 import { useHeaderFooter } from '../composables/useHeaderFooter.js'
 import { useHeaderEdit } from '../composables/useHeaderEdit.js'
@@ -19,7 +19,6 @@ import VirtualPageOverlay from './VirtualPageOverlay.vue'
 import { computed, onUnmounted, ref, watch } from 'vue'
 import { useEditor } from '../composables/useEditor.js'
 import SlashMenuVue from './SlashMenu.vue'
-import type { Collaborator, CommentItem, ConnectionState, DocumentMeta, DocumentSnapshot } from '../types.js'
 import HeaderBar from './HeaderBar.vue'
 import EditorToolbar from './EditorToolbar.vue'
 import BubbleMenu from './BubbleMenu.vue'
@@ -41,139 +40,12 @@ import PageNumberDialog from './PageNumberDialog.vue'
 import PageSetupDialog from './PageSetupDialog.vue'
 import { Menu, Minimize2 } from 'lucide-vue-next'
 import { useTheme } from '../composables/useTheme.js'
-import { provideLocale, type Locale } from '../composables/useLocale.js'
+import { provideLocale } from '../composables/useLocale.js'
+import { docsEditorPropDefaults, type DocsEditorEmits, type DocsEditorProps } from './docsEditorContracts.js'
 
-const props = withDefaults(
-  defineProps<{
-    modelValue?: object | string
-    plugins?: DocsEditorPlugin[]
-    /**
-     * Let the user edit the document. Reactive after mount: toggling it calls
-     * `editor.setEditable()` instead of requiring a remount.
-     */
-    editable?: boolean
-    collaboration?: NonNullable<EditorOptions['collaboration']>
-    /**
-     * Page size id (`a4`, `f4`, `letter`, `legal`, `a5`). Reactive after mount:
-     * changing it re-lays out the paper instead of requiring a remount.
-     */
-    pageSize?: string
-    pageless?: boolean
-    /**
-     * Enable virtual page overlay (experimental).
-     * When true, only visible pages are rendered in DOM instead of all pages.
-     * Uses PageLayout for measurement + viewport-based visibility tracking.
-     */
-    virtualPages?: boolean
-    title?: string
-    collaborators?: Collaborator[]
-    starred?: boolean
-    connectionState?: ConnectionState
-    userName?: string
-    userAvatar?: string
-    locale?: Locale
-    documentMeta?: DocumentMeta
-    shareUrl?: string
-    onImageUpload?: ImageUploadHandler
-    citation?: CitationPort
-    aiStream?: AIStreamFn
-    aiDraft?: AIDraftFn
-    /**
-     * Enable the debug overlay (CPU + RAM monitor) pinned to the bottom-right
-     * corner of the viewport. Pure debug view — never touches document state.
-     * Defaults to `false`, so production consumers are unaffected.
-     * Read once at mount: the monitor is created together with the editor, so
-     * changing this prop later requires a remount (`:key`).
-     */
-    debug?: boolean
-    // Phase 9 P9-4 — comment threads. The library stays free of REST;
-    // the host feeds the threads + handles the events.
-    comments?: CommentItem[]
-    /** Currently-selected text snippet. */
-    selectedTextSnippet?: string
-    /** Currently-selected start position (Phase 9 P9-4 anchor). */
-    selectedTextIndex?: number
-    // Phase 9 — version history. The host feeds the version list +
-    // handles save/restore/preview events (it owns the REST surface).
-    snapshots?: DocumentSnapshot[]
-    activePreviewIndex?: number | null
-    /** Page orientation: 'portrait' or 'landscape'. Persisted by the host. */
-    orientation?: 'portrait' | 'landscape'
-    /** Page margins in points. Persisted by the host. */
-    margins?: { top: number; bottom: number; left: number; right: number }
-    /** Distance from the paper edge to the header/footer content, in cm. */
-    headerMarginCm?: number
-    footerMarginCm?: number
-  }>(),
-  {
-    editable: true,
-    modelValue: undefined,
-    plugins: () => [],
-    collaboration: undefined,
-    pageSize: 'a4',
-    pageless: false,
-    virtualPages: false,
-    title: 'Untitled Document',
-    collaborators: () => [],
-    starred: false,
-    connectionState: 'connected',
-    userName: '',
-    userAvatar: '',
-    locale: undefined,
-    documentMeta: undefined,
-    shareUrl: '',
-    onImageUpload: undefined,
-    citation: undefined,
-    aiStream: undefined,
-    aiDraft: undefined,
-    debug: false,
-    comments: () => [],
-    selectedTextSnippet: '',
-    selectedTextIndex: undefined,
-    snapshots: () => [],
-    activePreviewIndex: null,
-    orientation: 'portrait',
-    margins: () => ({ top: 94, bottom: 94, left: 94, right: 94 }),
-    headerMarginCm: 0.5,
-    footerMarginCm: 0.5,
-  },
-)
+const props = withDefaults(defineProps<DocsEditorProps>(), docsEditorPropDefaults)
 
-const emit = defineEmits<{
-  'update:modelValue': [value: object]
-  'update:title': [title: string]
-  'update:pageSize': [pageSize: string]
-  'update:orientation': [orientation: 'portrait' | 'landscape']
-  'update:margins': [margins: { top: number; bottom: number; left: number; right: number }]
-  'update:header-footer-margins': [margins: { headerMarginCm: number; footerMarginCm: number }]
-  'update:pageless': [pageless: boolean]
-  'update:pageCount': [pageCount: number]
-  'update:locale': [locale: Locale]
-  'citation-sources-change': [sources: CslItemData[]]
-  'update:citation-style': [style: string]
-  'toggle-star': []
-  back: []
-  share: []
-  'menu-click': [menu: string]
-  export: [format: 'markdown' | 'html' | 'html-zip' | 'txt' | 'docx' | 'pdf' | 'odt' | 'rtf']
-  ready: [docsEditor: DocsEditor]
-  // Phase 9 P9-4 — comment-thread events. The host owns the REST
-  // surface; the editor just re-emits what the CommentsSidebar
-  // collects from the user.
-  'add-comment': [content: string, anchorText?: string, anchorIndex?: number]
-  'add-reply': [threadId: string, content: string]
-  'resolve-comment': [threadId: string]
-  // Issue #133 — orphaned comment threads. The sidebar re-emits a
-  // delete request for threads whose anchored text is gone; the host
-  // owns the REST surface (the existing DELETE endpoint + the
-  // `comment:deleted` WS broadcast handles peer fan-out).
-  'delete-comment': [threadId: string]
-  // Phase 9 — version-history events. The host owns the REST surface;
-  // the editor just re-emits what the HistorySidebar collects.
-  'save-snapshot': [name: string]
-  'restore-snapshot': [versionIndex: number]
-  'preview-snapshot': [snapshot: DocumentSnapshot | null]
-}>()
+const emit = defineEmits<DocsEditorEmits>()
 
 // Provide locale context for all editor chrome components.
 const { locale: currentLocale, setLocale, t } = provideLocale(props.locale)
@@ -595,71 +467,27 @@ const { editFormatMenuCommands } = useEditCommands({
   persistCurrentDoc,
 })
 
-let menuClick = (action: string) => {
-  if (action === 'page-setup') {
-    openPageSetupModal()
-  } else if (action === 'print') {
-    handlePrint()
-  } else if (action === 'version-history') {
-    toggleSidebar('history')
-  } else if (action === 'details') {
-    showDetailsModal.value = true
-  } else if (action === 'email') {
-    showEmailModal.value = true
-  } else if (action === 'find-replace') {
-    showFindReplace.value = true
-  } else if (action === 'insert-link') {
-    openLinkDialog()
-  } else if (action === 'security') {
-    emit('share')
-  } else if (action === 'insert-header') {
-    startInlineHeaderEdit()
-  } else if (action === 'insert-footer') {
-    openFooterModal()
-  } else if (action === 'toggle-pageless') {
-    applyPageless(!isPageless.value)
-  } else if (action === 'toggle-left-sidebar') {
-    toggleSidebar('toc')
-  } else if (action === 'toggle-ruler') {
-    showRuler.value = !showRuler.value
-  } else if (action === 'toggle-focus-mode') {
-    focusMode.value = !focusMode.value
-    if (focusMode.value) activeSidebar.value = null
-  } else if (action === 'new-help-me-create') {
-    toggleSidebar('ai')
-  } else if (action === 'insert-footnote') {
-    // Use ProseMirror's transaction API directly — more reliable than chain()
-    // because chain().focus() can fail when focus has left the editor via menu click.
-    if (!editor.value) return
-    const { state, view } = editor.value
-    const footnoteType = state.schema.nodes['footnote']
-    if (!footnoteType) {
-      console.error('[DocsEditor] footnote node type not registered in schema')
-      return
-    }
-    // Insert at the last known cursor position
-    const insertPos = state.selection.head
-    const footnoteNode = footnoteType.create({ content: '' })
-    const tr = state.tr.insert(insertPos, footnoteNode)
-    view.dispatch(tr)
-    view.focus()
-
-    // After DOM settles: build footnote list and focus the new text area
-    setTimeout(() => {
-      updateFootnotes()
-      const items = document.querySelectorAll<HTMLElement>('.docs-footnote-item-text')
-      const last = items[items.length - 1]
-      if (last) {
-        last.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
-        last.focus()
-      }
-    }, 160)
-  } else if (editFormatMenuCommands[action]) {
-    editFormatMenuCommands[action]()
-  } else {
-    emit('menu-click', action)
-  }
-}
+const { menuClick } = useDocsEditorMenu({
+  editor,
+  focusMode,
+  showFindReplace,
+  editFormatMenuCommands,
+  isPageless,
+  showRuler,
+  activeSidebar,
+  getUpdateFootnotes: () => updateFootnotes(),
+  openPageSetupModal,
+  handlePrint,
+  toggleSidebar,
+  startInlineHeaderEdit,
+  openFooterModal,
+  openLinkDialog,
+  applyPageless,
+  showDetailsModal,
+  showEmailModal,
+  onShare: () => emit('share'),
+  onMenuClick: (action) => emit('menu-click', action),
+})
 
 // ─── Footnote (Catatan Kaki) ──────────────────────────────────────────────────
 
