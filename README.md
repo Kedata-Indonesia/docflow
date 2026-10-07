@@ -475,13 +475,12 @@ docflow/
 
 ## Releasing
 
-Packages are published **automatically when `main` is updated**: a push (e.g. a merged PR) verifies, builds, and publishes any package whose `version` is new to the public **npm** registry under `@kedataindo/docflow-*` (the in-repo source scope stays `@kedata-indonesia`). Pushing a `v*` tag runs the same flow. See [docs/PUBLISH.md](./docs/PUBLISH.md) for the full guide.
+Packages are published **automatically when `main` is updated**: a push (e.g. a merged PR) verifies, patch-bumps the packages it touched — plus their dependents — builds, and publishes them to the public **npm** registry under `@kedataindo/docflow-*` (the in-repo source scope stays `@kedata-indonesia`). The bump is committed back to `main` automatically, so merging is all it takes. A `v*` tag runs the same flow without the auto-bump. See [docs/PUBLISH.md](./docs/PUBLISH.md) for the full guide.
 
 ```bash
-# 1. Bump versions in packages/*/package.json (in your PR)
-# 2. Push / merge to main → GitHub Actions publishes automatically
+# Merge your change into main — that's it.
 git push
-# → packages whose version is already on npm are skipped (idempotent)
+# → CI verifies, patch-bumps what changed, publishes, and commits the bump back
 ```
 
 ---

@@ -4,13 +4,15 @@ name: Publish to npm
 # GitHub Packages is intentionally NOT used (see docs/PUBLISH.md).
 #
 # Triggers:
-#   - push to `main`     -> verify + build + publish (unattended)
-#   - push of a `v*` tag -> same flow (kept for explicit releases)
+#   - push to `main`     -> verify + auto-bump + build + publish (unattended)
+#   - push of a `v*` tag -> same flow, without the auto-bump
 #   - manual run         -> Actions tab (`workflow_dispatch`)
 #
-# Publishing is idempotent: a package whose exact version is already on npm is
-# skipped, so a push only publishes packages that carry a *new* version. Bump
-# the version of the packages you changed in the PR that introduces the change.
+# On a push to `main`, scripts/bump-release-versions.mjs patch-bumps everything
+# changed since the last `chore(release):` commit (plus their dependents) on the
+# current tip of `main`, and the new versions are committed back, so merging is
+# all it takes to release. Publishing itself stays idempotent: a version already
+# on npm is skipped, never a hard failure.
 on:
   push:
     branches:
@@ -20,7 +22,8 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  # `write` is required to commit the auto-bumped versions back to `main`.
+  contents: write
 
 concurrency:
   # Never let two pushes race to publish the same registry packages.
@@ -32,6 +35,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history: the release bump diffs against the last release commit.
+          fetch-depth: 0
+          # The write-scoped token must exist only for the final push step.
+          persist-credentials: false
+
+      # Publish the CURRENT tip of `main`, not the checkout: a run can start
+      # after `main` advanced further, and the concurrency group drops superseded
+      # queued runs, so working on a stale sha would leave changes unreleased.
+      # Pinned BEFORE install so the gates, build and publish all act on this
+      # same revision — never on a newer, unverified tip.
+      - name: Pin to the current tip of main
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          # `origin` is credential-free here (`persist-credentials: false`); the
+          # repository is public, so an anonymous fetch is enough.
+          git fetch --quiet origin main
+          git reset --hard FETCH_HEAD
 
       - uses: pnpm/action-setup@v4
         with:
@@ -55,10 +76,23 @@ jobs:
       - name: Unit tests
         run: pnpm test:unit
 
+      - name: Release-script unit tests
+        run: pnpm test:scripts
+
       # The README API tables are generated from the public component contract;
       # a stale README must never reach npm. Regenerate with `pnpm docs:api`.
       - name: Verify generated API docs are up to date
         run: pnpm docs:api:check
+
+      # Patch-bump every package changed since the last release commit, so `main`
+      # ships a fresh version without a manual bump. No-op on tag pushes.
+      - name: Bump versions for changed packages
+        id: bump
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          # Base used only before the first automated release exists.
+          BASE_FALLBACK: ${{ github.event.before }}
+        run: node scripts/bump-release-versions.mjs auto HEAD
 
       # Only the publishable packages: `examples/*` must never be able to block
       # a release if its own build breaks.
@@ -78,7 +112,7 @@ jobs:
               p.name = '@kedataindo/docflow-$pkg';
 
               // Rewrite internal dep names AND resolve workspace:* to actual version
-              ['dependencies', 'devDependencies', 'peerDependencies'].forEach(section => {
+              ['dependencies', 'devDependencies', 'peerDependencies', 'optionalDependencies'].forEach(section => {
                 if (!p[section]) return;
                 Object.keys(p[section]).forEach(k => {
                   if (k.startsWith('@kedata-indonesia/docflow-')) {
@@ -124,3 +158,46 @@ jobs:
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      # Keep the repo in sync with what was just published: the publish step
+      # restores each package.json from its `.bak`, which already carries the
+      # bumped version. Pushed with GITHUB_TOKEN, so it cannot re-trigger this
+      # workflow (`[skip ci]` documents that intent).
+      - name: Commit version bumps to main
+        if: steps.bump.outputs.bumped != ''
+        env:
+          # Injected here only — checkout sets `persist-credentials: false`, so
+          # install/build never hold a repo-write token.
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          REMOTE="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add packages/*/package.json
+
+          if git diff --cached --quiet; then
+            echo "No version changes to commit."
+            exit 0
+          fi
+
+          git commit -m "chore(release): bump ${{ steps.bump.outputs.bumped }} [skip ci]"
+
+          # A human push can land while this run publishes (the concurrency group
+          # only serialises workflow runs). Rebase and retry, then verify.
+          for attempt in 1 2 3; do
+            if git pull --rebase "$REMOTE" main && git push "$REMOTE" HEAD:main; then
+              break
+            fi
+            git rebase --abort 2>/dev/null || true
+            if [ "$attempt" -lt 3 ]; then
+              echo "Attempt ${attempt} could not land the bump; retrying..."
+              sleep 5
+            fi
+          done
+
+          # Never stay green while the repo drifts behind npm.
+          git fetch --quiet "$REMOTE" main
+          if ! git merge-base --is-ancestor HEAD FETCH_HEAD; then
+            echo "::error::version bump did not reach main — repo and npm may drift"
+            exit 1
+          fi
