@@ -80,6 +80,12 @@ watch(() => props.margins, (v) => {
   if (v !== undefined) margins.value = { ...v }
 })
 
+// The prop wins over the internal status-bar state, so a host that persists the
+// page size gets a live re-layout instead of a stale paper until remount.
+watch(() => props.pageSize, (v) => {
+  if (v !== undefined) pageSizeId.value = v
+})
+
 const resolvedLayoutOptions = computed(() => {
   const size = getPageSize(pageSizeId.value) ?? PAGE_SIZES[0]
   let w = size.pageWidth
@@ -202,7 +208,9 @@ const {
 const { editorRef, editor, pluginActions, isReady, docsEditor: docEditor } = useEditor({
   content: activeTabContent,
   plugins: props.plugins,
-  editable: props.editable,
+  // A computed ref so `useEditor`'s editable watch stays live — passing the
+  // plain `props.editable` snapshot froze the editor's editable state at mount.
+  editable: computed(() => props.editable),
   collaboration: props.collaboration,
   onImageUpload: props.onImageUpload,
   citation: citationPort.value,
@@ -371,7 +379,9 @@ const {
 } = useVirtualPages({
   editorRef: computed(() => editor.value as { view: { dom: HTMLElement } } | null),
   scrollRef: scrollContainerRef,
-  config: virtualConfig.value,
+  // The computed itself (not `.value`) so the overlay follows live page size
+  // and margin changes instead of freezing the mount-time snapshot.
+  config: virtualConfig,
   bufferPages: 2,
 })
 
