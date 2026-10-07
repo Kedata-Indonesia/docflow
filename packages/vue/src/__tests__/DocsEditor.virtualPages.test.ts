@@ -1,12 +1,12 @@
 import { mount } from '@vue/test-utils'
-import { defineComponent, h, nextTick, ref } from 'vue'
+import { nextTick } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { PageOverlayConfig, PageOverlayData } from '@kedata-indonesia/docflow-layout-engine'
+import DocsEditor from '../components/DocsEditor.vue'
 
 const mocks = vi.hoisted(() => ({
   constructed: [] as PageOverlayConfig[],
   updateConfig: vi.fn(),
-  resolvedWidths: [] as number[],
 }))
 
 vi.mock('@kedata-indonesia/docflow-layout-engine', async (importOriginal) => {
@@ -38,14 +38,13 @@ vi.mock('@kedata-indonesia/docflow-layout-engine', async (importOriginal) => {
     observe(): void {}
 
     async layout(): Promise<PageOverlayData> {
-      return { totalPages: 1, visiblePages: [], config: this.config }
+      return this.getData()
     }
 
     async updateConfig(next: Partial<PageOverlayConfig>): Promise<PageOverlayData> {
       mocks.updateConfig(next)
       this.config = resolveConfig({ ...this.config, ...next })
-      mocks.resolvedWidths.push(this.config.pageSize.pageWidth)
-      return { totalPages: 1, visiblePages: [], config: this.config }
+      return this.getData()
     }
 
     getData(): PageOverlayData {
@@ -58,48 +57,30 @@ vi.mock('@kedata-indonesia/docflow-layout-engine', async (importOriginal) => {
   return { ...actual, VirtualPageOverlay: FakeOverlay }
 })
 
-const makeConfig = (pageWidth: number, pageHeight: number): PageOverlayConfig => ({
-  pageSize: { id: 'a4', name: 'A4', pageWidth, pageHeight },
-  margins: { top: 20, bottom: 20, left: 50, right: 50 },
-  pageGap: 40,
-  headerLeft: '',
-  headerRight: '',
-  footerLeft: '',
-  footerRight: '',
-})
+/** `init()` awaits `layout()` before flipping `isReady`, hence the second tick. */
+const flush = async (): Promise<void> => {
+  await nextTick()
+  await nextTick()
+}
 
-describe('useVirtualPages', () => {
+describe('DocsEditor virtual page wiring', () => {
   beforeEach(() => {
-    mocks.constructed.length = 0
-    mocks.resolvedWidths.length = 0
     mocks.updateConfig.mockClear()
   })
 
-  it('pushes a live config ref into updateConfig()', async () => {
-    const { useVirtualPages } = await import('../composables/useVirtualPages.js')
-
-    const config = ref(makeConfig(794, 1123))
-    const editorRef = ref({ view: { dom: document.createElement('div') } })
-    const scrollRef = ref<HTMLElement | null>(document.createElement('div'))
-
-    const TestComponent = defineComponent({
-      setup() {
-        useVirtualPages({ editorRef, scrollRef, config })
-        return () => h('div')
-      },
-    })
-
-    const wrapper = mount(TestComponent)
+  it('hands the live page size to VirtualPageOverlay.updateConfig()', async () => {
+    const wrapper = mount(DocsEditor, { props: { pageSize: 'a4', virtualPages: true } })
     try {
-      await nextTick()
+      await flush()
       expect(mocks.constructed).toHaveLength(1)
       expect(mocks.updateConfig).not.toHaveBeenCalled()
 
-      // A new page size must reach the overlay instead of being ignored.
-      config.value = makeConfig(816, 1204)
-      await nextTick()
+      await wrapper.setProps({ pageSize: 'f4' })
+      await flush()
       expect(mocks.updateConfig).toHaveBeenCalledTimes(1)
-      expect(mocks.resolvedWidths).toEqual([816])
+
+      const forwarded = mocks.updateConfig.mock.calls[0]?.[0]?.pageSize
+      expect(typeof forwarded === 'object' ? forwarded?.pageWidth : undefined).toBe(816)
     } finally {
       wrapper.unmount()
     }
