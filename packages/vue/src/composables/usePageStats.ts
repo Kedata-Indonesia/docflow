@@ -15,6 +15,8 @@ export interface ResolvedLayoutOptions {
 }
 
 export interface PaginationOptionsSnapshot {
+  /** Subset of the component's `paginationOptions` computed that this composable
+   *  reads and writes back into `editor.storage.PaginationPlus`. */
   enabled: boolean
   pageHeight: number
   pageWidth: number

@@ -527,8 +527,6 @@ const {
   removeLink,
 } = useLinkDialog({ editor })
 
-
-
 useEditorReady({
   isReady,
   editor,
@@ -555,7 +553,6 @@ onUnmounted(() => {
   finishHeaderEdit(false)
   if (saveTimer.value) clearTimeout(saveTimer.value)
 })
-
 
 const showDetailsModal = ref(false)
 const showEmailModal = ref(false)
