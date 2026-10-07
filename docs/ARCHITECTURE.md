@@ -11,10 +11,11 @@
 > sibling repo, **not** here. For the library boundary itself, prefer
 > [`LIBRARY_CONTRACT.md`](LIBRARY_CONTRACT.md) and the root `README.md`.
 >
-> This repo does ship one runnable app for local review:
-> [`examples/playground`](../examples/playground) — a backend-free Vite app that mounts
-> `<DocsEditor>` through the public API. It is **not published** and never imports a
-> backend package.
+> This repo ships one runnable app for local UI review: `examples/playground` — a
+> backend-free Vite app that mounts `<DocsEditor>` through the public API. It is
+> **local-only and untracked** (`.gitignore`, PR #62): restore it with
+> `git archive 0861b95 examples | tar -x -C .`. It is **not published** and never
+> imports a backend package.
 
 ---
 
