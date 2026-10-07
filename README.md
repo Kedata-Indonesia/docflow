@@ -355,7 +355,6 @@ git clone git@github.com:Kedata-Indonesia/docflow.git
 cd docflow
 pnpm install
 pnpm build
-pnpm dev              # playground — http://localhost:5200
 pnpm typecheck        # TypeScript
 pnpm test:unit        # Unit test
 pnpm lint             # ESLint
@@ -364,20 +363,27 @@ pnpm lint             # ESLint
 > The deployable application (web UI + API server) and its Docker stack live in the
 > separate [`docflow-app`](https://github.com/Kedata-Indonesia/docflow-app) repository.
 
-### Playground (local review)
+### Playground (local-only)
 
-[`examples/playground`](./examples/playground) is a small backend-free Vite app that
-mounts `<DocsEditor>` **through the public API only** (`defaultPlugins`, props,
-events). Use it to review UI changes, compare branches, or copy a working setup:
+`examples/playground` is a small backend-free Vite app that mounts `<DocsEditor>`
+**through the public API only** (`defaultPlugins`, props, events). Use it to review
+UI changes, compare branches, or copy a working setup.
+
+It is **not tracked in this repo** (`.gitignore`, PR #62) — keep it on your own
+machine. Restore the last tracked revision once after cloning or pulling:
 
 ```bash
-pnpm build && pnpm dev
+git archive 0861b95 examples | tar -x -C .   # 0861b95 = last commit tracking examples/
+pnpm install
+
+pnpm build && pnpm dev                       # dist mode — http://localhost:5200
 # edit packages/* with HMR instead of rebuilding:
 pnpm dev:source
 ```
 
 It owns its fixtures (documents, comment threads, versions, collaborators) in
-memory — no server, no database, nothing published.
+memory — no server, no database, nothing published. Without the folder, `pnpm dev`
+and `pnpm dev:source` simply find no project to run.
 
 ### Docker
 
@@ -397,7 +403,7 @@ docflow/
 │   ├── layout-engine/     @kedataindo/docflow-layout-engine
 │   └── export/            @kedataindo/docflow-export
 ├── examples/
-│   └── playground/        backend-free demo app (not published)
+│   └── playground/        backend-free demo app (local-only, untracked)
 └── docs/                  Documentation
 ```
 

@@ -18,13 +18,14 @@ git clone git@github.com:Kedata-Indonesia/docflow.git
 cd docflow
 pnpm install
 pnpm build        # build the library packages once
-pnpm dev          # run the playground — http://localhost:5200
 ```
 
-The playground in [`examples/playground`](./examples/playground) mounts `<DocsEditor>`
-through the public API only (no backend, no database) and is the recommended way to
-review UI changes. Use `pnpm dev:source` to edit `packages/*` with HMR instead of
-rebuilding after every change.
+The playground in `examples/playground` mounts `<DocsEditor>` through the public API
+only (no backend, no database) and is the recommended way to review UI changes. It is
+**not tracked** in this repo (`.gitignore`, PR #62): restore it locally once with
+`git archive 0861b95 examples | tar -x -C .` and `pnpm install`, then run
+`pnpm build && pnpm dev` (http://localhost:5200). Use `pnpm dev:source` to edit
+`packages/*` with HMR instead of rebuilding after every change.
 
 ## Repository layout
 
@@ -38,7 +39,7 @@ This repo contains the **library packages only** (`packages/*`). The deployable 
 | `packages/plugins` | Built-in plugins (exported as `defaultPlugins`) |
 | `packages/layout-engine` | Page split / pagination engine |
 | `packages/export` | DOCX / Markdown export |
-| `examples/playground` | Backend-free demo app that mounts `<DocsEditor>` via the public API (not published) |
+| `examples/playground` | Backend-free demo app that mounts `<DocsEditor>` via the public API (local-only, untracked, not published) |
 
 ### Architectural invariants (please don't violate)
 
