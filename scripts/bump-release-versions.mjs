@@ -17,14 +17,29 @@
  * commit keeps the range correct even when a queued run gets cancelled by a
  * newer push.
  *
+ * Versions are registry-aware: an affected package gets the first patch version
+ * that is still free on npm (`npm view @kedataindo/docflow-<name> versions`), so
+ * a repo that drifted behind the registry self-heals instead of re-bumping into
+ * a version that already exists — which the publish step would silently skip,
+ * leaving a green run that ships nothing. An unreachable registry is a hard
+ * error, never "assume free", for the same reason.
+ *
+ * The version arithmetic and the registry reads live in
+ * `scripts/lib/release-versions.mjs`. That module also reads the test-only
+ * `$NPM_PUBLISHED_STUB` (JSON map of `<name>` -> version(s), with `"ERROR"`
+ * simulating an outage) so tests never touch the network — and refuses it
+ * outside `node --test`.
+ *
  * Writes the new version into `packages/<name>/package.json` and reports the
  * affected packages on stdout (plus a `bumped=<csv>` line on `$GITHUB_OUTPUT`).
  * Exits 0 with an empty list when there is nothing to release.
  */
 import { execFileSync } from 'node:child_process';
-import { readFileSync, writeFileSync, appendFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, appendFileSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+import { highestVersion, nextFreeVersion, publishedVersions } from './lib/release-versions.mjs';
 
 /** Publish order is also dependency order (dependency-first). */
 export const PUBLISH_ORDER = ['core', 'layout-engine', 'plugins', 'vue', 'element', 'export'];
@@ -128,17 +143,15 @@ export function withDependents(changed, packages) {
   return PUBLISH_ORDER.filter((name) => affected.has(name));
 }
 
-export function bumpPatch(version) {
-  const match = /^(\d+)\.(\d+)\.(\d+)(?:[-+].+)?$/.exec(version);
-  if (!match) throw new Error(`unsupported version "${version}"`);
-  return `${match[1]}.${match[2]}.${Number(match[3]) + 1}`;
-}
-
 function release(requestedBefore, after, dryRun) {
   const before = resolveBase(requestedBefore);
   if (!before || /^0+$/.test(before) || !gitRefExists(before) || !gitRefExists(after)) {
-    console.log(`No usable commit range (${before || '<none>'}..${after}); nothing to release.`);
-    return [];
+    // A push whose range cannot be resolved (first push of a branch, history
+    // rewrite) must fail: exiting "successfully" without releasing is the exact
+    // failure mode this pipeline is meant to rule out.
+    throw new Error(
+      `no usable commit range (${before || '<none>'}..${after}): cannot tell what changed`,
+    );
   }
   console.log(`Release range: ${before}..${after}`);
 
@@ -155,9 +168,12 @@ function release(requestedBefore, after, dryRun) {
   for (const name of affected) {
     const file = path.join(PKG_ROOT, name, 'package.json');
     const current = packages[name];
-    const next = bumpPatch(current.version);
+    const published = publishedVersions(name);
+    const latest = highestVersion(published);
+    const next = nextFreeVersion(current.version, published);
     const reason = changed.has(name) ? 'changed' : 'dependency of changed package';
-    console.log(`${name}: ${current.version} -> ${next} (${reason})`);
+    const note = latest === null ? '' : `; npm has ${latest}`;
+    console.log(`${name}: ${current.version} -> ${next} (${reason}${note})`);
     if (!dryRun) {
       writeFileSync(file, `${JSON.stringify({ ...current, version: next }, null, 2)}\n`);
     }
@@ -178,12 +194,35 @@ function main() {
     process.exit(1);
   }
 
-  const released = release(before, after, dryRun);
+  let released;
+  try {
+    released = release(before, after, dryRun);
+  } catch (error) {
+    // Never bump on a guess: a version that is already taken would be skipped
+    // by the publish step, so the run would go green without releasing.
+    console.error(`release bump failed: ${error.message}`);
+    process.exit(1);
+  }
+
   const csv = released.join(',');
   if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, `bumped=${csv}\n`);
   console.log(`bumped=${csv}${dryRun ? ' (dry-run)' : ''}`);
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+/**
+ * True when this file was invoked directly. Both sides are resolved through
+ * symlinks: a bin shim that hides the real path would otherwise exit 0 without
+ * releasing anything — the failure mode this pipeline exists to rule out.
+ */
+function isDirectRun() {
+  if (!process.argv[1]) return false;
+  try {
+    return realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url));
+  } catch {
+    return false;
+  }
+}
+
+if (isDirectRun()) {
   main();
 }

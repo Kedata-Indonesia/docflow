@@ -13,6 +13,11 @@ name: Publish to npm
 # current tip of `main`, and the new versions are committed back, so merging is
 # all it takes to release. Publishing itself stays idempotent: a version already
 # on npm is skipped, never a hard failure.
+#
+# The bump is registry-aware: it raises each affected package above everything
+# npm already has, so a repo that drifted behind the registry self-heals instead
+# of re-bumping into taken versions — which the idempotent publish would skip,
+# leaving a green run that ships nothing.
 on:
   push:
     branches:
@@ -85,7 +90,9 @@ jobs:
         run: pnpm docs:api:check
 
       # Patch-bump every package changed since the last release commit, so `main`
-      # ships a fresh version without a manual bump. No-op on tag pushes.
+      # ships a fresh version without a manual bump. Versions are raised above
+      # whatever npm already has, and an unreachable registry fails this step
+      # rather than guessing. No-op on tag pushes.
       - name: Bump versions for changed packages
         id: bump
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -158,6 +165,31 @@ jobs:
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      # The bump only ever picks a version npm does not have, so a version that
+      # is still missing here means the publish did not actually land. Retry a
+      # few times first: `npm view` can lag behind a successful publish.
+      - name: Verify the bumped versions are live on npm
+        if: steps.bump.outputs.bumped != ''
+        run: |
+          for pkg in $(echo "${{ steps.bump.outputs.bumped }}" | tr ',' ' '); do
+            version=$(node -e "console.log(require('./packages/${pkg}/package.json').version)")
+            live=""
+            for attempt in 1 2 3 4 5; do
+              if npm view "@kedataindo/docflow-${pkg}@${version}" version \
+                --registry=https://registry.npmjs.org >/dev/null 2>&1; then
+                live="yes"
+                break
+              fi
+              echo "attempt $attempt: @kedataindo/docflow-${pkg}@${version} not visible yet"
+              sleep 5
+            done
+            if [ -z "$live" ]; then
+              echo "::error::@kedataindo/docflow-${pkg}@${version} was not published"
+              exit 1
+            fi
+            echo "@kedataindo/docflow-${pkg}@${version} is live"
+          done
 
       # Keep the repo in sync with what was just published: the publish step
       # restores each package.json from its `.bak`, which already carries the
