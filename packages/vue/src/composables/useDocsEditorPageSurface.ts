@@ -47,6 +47,12 @@ export function useDocsEditorPageSurface(options: UseDocsEditorPageSurfaceOption
   const pageSizeId = ref(options.getPageSize() ?? 'a4')
   const isPageless = ref(options.getPageless() ?? false)
 
+  // The prop wins over the internal status-bar state, so a host that persists the
+  // page size gets a live re-layout instead of a stale paper until remount.
+  watch(() => options.getPageSize(), (v) => {
+    if (v !== undefined) pageSizeId.value = v
+  })
+
   watch(() => options.getOrientation(), (v) => {
     if (v !== undefined) orientation.value = v
   })

@@ -82,7 +82,9 @@ export function useDocsEditorPaging(options: UseDocsEditorPagingOptions) {
   } = useVirtualPages({
     editorRef: computed(() => editor.value as { view: { dom: HTMLElement } } | null),
     scrollRef: scrollContainerRef,
-    config: virtualConfig.value,
+    // The computed itself (not `.value`) so the overlay follows live page size
+    // and margin changes instead of freezing the mount-time snapshot.
+    config: virtualConfig,
     bufferPages: 2,
   })
 

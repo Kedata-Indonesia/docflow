@@ -1,4 +1,4 @@
-import type { EmitFn } from 'vue'
+import type { EmitFn, Ref } from 'vue'
 import type {
   CitationPort,
   DocsEditorPlugin,
@@ -22,7 +22,7 @@ export interface UseDocsEditorSessionOptions {
   modelValue: object | string | undefined
   /** Plugin list is read lazily so slash-command changes stay reactive. */
   getPlugins: () => DocsEditorPlugin[]
-  editable: boolean
+  editable: boolean | Ref<boolean>
   collaboration: NonNullable<EditorOptions['collaboration']> | undefined
   onImageUpload: EditorOptions['onImageUpload']
   /** The host citation port is read lazily so the port stays current. */

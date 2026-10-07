@@ -9,7 +9,7 @@ import { useFootnotes } from '../composables/useFootnotes.js'
 import { useEditCommands } from '../composables/useEditCommands.js'
 import { useDocsEditorMenu } from '../composables/useDocsEditorMenu.js'
 import VirtualPageOverlay from './VirtualPageOverlay.vue'
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import SlashMenuVue from './SlashMenu.vue'
 import HeaderBar from './HeaderBar.vue'
 import EditorToolbar from './EditorToolbar.vue'
@@ -71,7 +71,9 @@ const {
   computeBubblePosition, showLinkDialog, linkDialogInitialText, linkDialogInitialUrl, linkDialogIsEditing,
   openLinkDialog, applyLinkDialog, removeLink,
 } = useDocsEditorSession({
-  emit, t, modelValue: props.modelValue, getPlugins: () => props.plugins, editable: props.editable,
+  emit, t, modelValue: props.modelValue, getPlugins: () => props.plugins,   // A computed ref so `useEditor`'s editable watch stays live — passing the
+  // plain `props.editable` snapshot froze the editor's editable state at mount.
+  editable: computed(() => props.editable),
   collaboration: props.collaboration, onImageUpload: props.onImageUpload, getCitation: () => props.citation,
   aiStream: props.aiStream, aiDraft: props.aiDraft, debug: props.debug,
   getComments: () => props.comments ?? [], getCollaboration: () => props.collaboration,

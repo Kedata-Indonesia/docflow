@@ -1,10 +1,16 @@
 import { createEditor, type DocsEditor, type EditorOptions } from '@kedata-indonesia/docflow-core'
 import { computed, onMounted, onUnmounted, ref, shallowRef, watch, type ComputedRef, type Ref, type ShallowRef, nextTick, unref } from 'vue'
 
-export type UseEditorOptions = Omit<EditorOptions, 'target' | 'content' | 'collaboration'> & {
+export type UseEditorOptions = Omit<EditorOptions, 'target' | 'content' | 'collaboration' | 'editable'> & {
   /** Plain value or ref — both are `unref`-ed at init. */
   content?: EditorOptions['content'] | Ref<EditorOptions['content']>
   collaboration?: EditorOptions['collaboration'] | Ref<EditorOptions['collaboration']>
+  /**
+   * Plain value or ref — `unref`-ed at init, then watched, so a live toggle
+   * (e.g. `<DocsEditor :editable="flag">`) reaches `editor.setEditable()`
+   * instead of being frozen into the editor at mount time.
+   */
+  editable?: boolean | Ref<boolean>
 }
 
 export interface UseEditorReturn {
@@ -32,7 +38,7 @@ export function useEditor(options: UseEditorOptions): UseEditorReturn {
       target: editorRef.value,
       content: contentVal,
       plugins: options.plugins,
-      editable: options.editable ?? true,
+      editable: unref(options.editable) ?? true,
       collaboration: collabVal,
       onUpdate: options.onUpdate,
       getPageMap: options.getPageMap,
@@ -66,7 +72,7 @@ export function useEditor(options: UseEditorOptions): UseEditorReturn {
   })
 
   watch(
-    () => options.editable,
+    () => unref(options.editable),
     (value) => {
       if (editor.value) {
         editor.value.setEditable(value ?? true)
