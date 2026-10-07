@@ -181,7 +181,9 @@ jobs:
           for pkg in $(echo "${{ steps.bump.outputs.bumped }}" | tr ',' ' '); do
             version=$(node -e "console.log(require('./packages/${pkg}/package.json').version)")
             while :; do
-              if npm view "@kedataindo/docflow-${pkg}@${version}" version \
+              # `timeout` bounds each read: a stalled registry must not stretch
+              # the budget (it then just counts as "not visible yet").
+              if timeout 60 npm view "@kedataindo/docflow-${pkg}@${version}" version \
                 --registry=https://registry.npmjs.org >/dev/null 2>&1; then
                 echo "@kedataindo/docflow-${pkg}@${version} is live"
                 break
