@@ -355,6 +355,7 @@ git clone git@github.com:Kedata-Indonesia/docflow.git
 cd docflow
 pnpm install
 pnpm build
+pnpm dev              # playground — http://localhost:5200
 pnpm typecheck        # TypeScript
 pnpm test:unit        # Unit test
 pnpm lint             # ESLint
@@ -362,6 +363,21 @@ pnpm lint             # ESLint
 
 > The deployable application (web UI + API server) and its Docker stack live in the
 > separate [`docflow-app`](https://github.com/Kedata-Indonesia/docflow-app) repository.
+
+### Playground (local review)
+
+[`examples/playground`](./examples/playground) is a small backend-free Vite app that
+mounts `<DocsEditor>` **through the public API only** (`defaultPlugins`, props,
+events). Use it to review UI changes, compare branches, or copy a working setup:
+
+```bash
+pnpm build && pnpm dev
+# edit packages/* with HMR instead of rebuilding:
+pnpm dev:source
+```
+
+It owns its fixtures (documents, comment threads, versions, collaborators) in
+memory — no server, no database, nothing published.
 
 ### Docker
 
@@ -380,6 +396,8 @@ docflow/
 │   ├── plugins/           @kedataindo/docflow-plugins
 │   ├── layout-engine/     @kedataindo/docflow-layout-engine
 │   └── export/            @kedataindo/docflow-export
+├── examples/
+│   └── playground/        backend-free demo app (not published)
 └── docs/                  Documentation
 ```
 
