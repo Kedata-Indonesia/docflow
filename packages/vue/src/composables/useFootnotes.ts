@@ -1,5 +1,5 @@
 import { onUnmounted, watch, type Ref } from 'vue'
-import type { DocsEditor } from '@kedata-indonesia/docflow-core'
+import { sanitizeInlineHTML, type DocsEditor } from '@kedata-indonesia/docflow-core'
 
 export interface UseFootnotesOptions {
   editor: Ref<DocsEditor['editor'] | null>
@@ -68,9 +68,13 @@ export function useFootnotes(options: UseFootnotesOptions) {
         } else {
           // Fall back to persisted content when the engine hasn't synced yet
           // (e.g. immediately after document load).
+          // `data-footnote-content` is a document node attribute, so in a
+          // collab session / imported document it is attacker-controlled:
+          // sanitize before innerHTML (issue #71). The engine branch above is
+          // citeproc output, covered by the engine escaping invariant (#72).
           const persisted = ref.getAttribute('data-footnote-content') ?? ''
           if (persisted) {
-            textDiv.innerHTML = persisted
+            textDiv.innerHTML = sanitizeInlineHTML(persisted)
           } else {
             textDiv.setAttribute('data-empty', 'true')
           }
