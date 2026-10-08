@@ -1,6 +1,6 @@
 # Library Contract — DocsEditor
 
-**Status:** Living document · **Owner:** Kedata Indonesia · **Last updated:** 2026-07-31
+**Status:** Living document · **Owner:** Kedata Indonesia · **Last updated:** 2026-10-08
 
 > This file is the **single source of truth for the library/app boundary**. It catalogues
 > every injection port through which the library (`packages/*`) may reach backend concerns,
@@ -53,6 +53,7 @@ A change that respects this principle touches either the library *or* the app �
 | `onImageUpload` | `(file: File) => Promise<ImageUploadResult>` (`{ src, alt?, title? }`) | `EditorOptions` — [Editor.ts:33](../packages/core/src/Editor.ts); type — [ports.ts](../packages/core/src/ports.ts); carried in `editor.storage.editorContext` ([EditorContext.ts](../packages/core/src/EditorContext.ts)) | Store the user's picked file (object storage — Phase 4) and resolve its URL. With no handler, `insertImage` falls back to a URL prompt; the library never names a storage host. |
 | `aiStream` | `AIStreamFn` — `(req: AIActionRequest, signal: AbortSignal) => AsyncIterable<string>` | `EditorOptions` — [Editor.ts:122](../packages/core/src/Editor.ts); type — [ai/types.ts](../packages/core/src/ai/types.ts); carried in `editor.storage.editorContext` ([EditorContext.ts](../packages/core/src/EditorContext.ts)) | Provide the AI completion transport (Phase 7; promoted to a declared port by [PLUGGABLE_AI_PROVIDER](plans/PLUGGABLE_AI_PROVIDER.md)). The library never names an LLM endpoint: hosts inject `toAIStreamFn(openaiCompatibleProvider({ baseUrl, auth, model }))` or a custom function wrapping their own backend/agent. With no port injected, AI actions are inert (one-time `console.warn`). |
 | `aiDraft` | `AIDraftFn` — `(req: { prompt, context?, k? }, signal: AbortSignal) => AsyncIterable<AIDraftEvent>` | `EditorOptions` — [Editor.ts:124](../packages/core/src/Editor.ts); type — [ai/types.ts](../packages/core/src/ai/types.ts); carried in `editor.storage.editorContext` | Opt-in RAG-cited drafting transport (Phase 7E): streams text with `[n]` markers plus a terminal citation table. Hosts plug their own corpus/RAG backend; the library only maps markers to citation nodes. Disabled when not injected. |
+| `citation` | `CitationPort` — see field table below | `EditorOptions` — [Editor.ts:58-59](../packages/core/src/Editor.ts); interface — [ports.ts:67](../packages/core/src/ports.ts); carried in `editor.storage.editorContext` | Supply the reference library (CSL-JSON) and own all citation persistence. The library never fetches, stores, or looks up sources itself — no CrossRef call, no DOI resolution, no storage. Mirrors the `onImageUpload` injection pattern. Without the port, citation UI stays hidden/inert. |
 
 **`CollaborationOptions` fields** ([Collaboration.ts:15-23](../packages/core/src/Collaboration.ts)):
 
@@ -65,6 +66,26 @@ A change that respects this principle touches either the library *or* the app �
 | `user` | `{ name: string; color: string }` | Required. Identity shown to collaborators. |
 | `onAwarenessChange` | `(states: AwarenessState[]) => void` | Optional presence/cursor callback. |
 | `initialStorageState` | `Uint8Array` | Optional Yjs state to seed the room (e.g. from host persistence). |
+
+**`CitationPort` fields** ([ports.ts:67](../packages/core/src/ports.ts)):
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `sources` | `CslItemData[] \| (() => CslItemData[])` | Required. CSL-JSON snapshot of the host's reference library — an array or a getter for live data. ⚠️ **Read once at setup, not reactive** — see integration rules below. |
+| `style` | `string` | Optional CSL style id; defaults to `'chicago-notes-bibliography'`. |
+| `onSourceRequest` | `() => Promise<string \| null>` | Optional. Opens the host's source picker when the user inserts a citation. Must resolve with the chosen **`sourceId`**, or `null` when cancelled. When absent, the Vue component falls back to the built-in references sidebar picker. |
+| `onSourcesChange` | `(ids: string[]) => void` | Optional. Fires with the list of **source ids cited in the document** (`engine.getCitedSourceIds()`) — *not* the source objects and *not* a library-snapshot event (for that, see `citation-sources-change` in §2.3). |
+| `onImportDoi` | `(doi: string) => Promise<CslItemData \| null>` | Optional. Resolve a DOI via the host backend (e.g. CrossRef) and return the persisted source (`null` on failure). Enables the DOI importer UI. |
+| `onImportBibliography` | `(payload: { format: 'bibtex' \| 'ris'; text: string }) => Promise<{ imported: CslItemData[]; failed: number }>` | Optional. Parse + persist a BibTeX/RIS blob via the host backend. Enables the file importer UI. |
+
+**Citation integration rules** (learned the hard way — violate these and the reference library silently misbehaves):
+
+1. **Gate the mount on loaded sources.** `citation.sources` is snapshotted once when the editor is created (`useCitations.ts:38-45`) — later updates to the prop do **not** propagate. Hosts must render `<DocsEditor v-if="sourcesLoaded">` (as `apps/web` does) or the references sidebar stays permanently empty until a remount.
+2. **Updates are pushed through the engine, not the prop.** Source CRUD flows `syncCitationEngine()` → `CiteEngine.updateSources()` → recompute → `emitChange()`; the component re-renders citations from the live internal copy, so hosts don't re-feed `sources` after mount.
+3. **The `footnotePlugin` is required.** The default style `chicago-notes-bibliography` is a note style, so `buildCitationNodes()` emits `type: 'footnote'` and insertion **fails silently** (`return false`) when `editor.schema.nodes['footnote']` is missing. Register `footnotePlugin` alongside `citationPlugin` (both are in `defaultPlugins`).
+4. **`onSourceRequest` returns `Promise<string | null>`** — resolve with a `sourceId`, or `null` to cancel. A `void` promise leaves the pending citation hanging.
+5. **`onSourcesChange` receives ids, not objects.** It is the *document-level* cited-id set, useful for embedding a per-document snapshot. Library-level CRUD persistence uses the `citation-sources-change` emit (§2.3).
+6. **Insert citations via `pluginActions.insertCitation({ sourceId })`.** The internal `insertCitationWithSource` is not exported — `packages/plugins` public surface is `citationPlugin`, `CitationNode`, `CitationEngineExtension`, `getCitationEngine`, `buildCitationNodes`.
 
 > **Seeding rule (Phase 1):** in collab mode the `content` option is **not**
 > auto-seeded into the room — an unguarded local seed races with other clients
@@ -85,6 +106,19 @@ they are listed here so reviewers don't mistake them for leaks:
 - `export` emit — [DocsEditor.vue:67](../packages/vue/src/components/DocsEditor.vue):
   `export: [format: 'markdown' | 'html' | 'html-zip' | 'txt' | 'docx' | 'pdf' | 'odt' | 'rtf']`.
   The host (or the component's built-in print path for PDF) produces the file.
+- `citation-sources-change` emit — [docsEditorContracts.ts:154](../packages/vue/src/components/docsEditorContracts.ts), fired from [useCitations.ts:91](../packages/vue/src/composables/useCitations.ts):
+  `[sources: CslItemData[]]`. **Full snapshot of the reference library after every source CRUD** (create / update / remove / import). This is the persistence channel — hosts that store sources (e.g. `apps/web`) listen to it and write the array back.
+  ⚠️ Do not confuse with `CitationPort.onSourcesChange` (§2.1), which carries **only the ids of sources cited in the document** — a document-level event, not library persistence.
+- `update:citation-style` emit — [docsEditorContracts.ts:156](../packages/vue/src/components/docsEditorContracts.ts), fired from [useCitations.ts:112](../packages/vue/src/composables/useCitations.ts):
+  `[style: string]`. Fired when the user picks a different CSL style; hosts persist the preference and can re-supply it via `citation.style` on next mount.
+
+  ```vue
+  <DocsEditor
+    :citation="citationPort"
+    @citation-sources-change="persistSources"
+    @update:citation-style="persistStyle"
+  />
+  ```
 - `share`, `toggle-star`, `back`, `menu-click`, `update:title`, `update:pageSize`,
   `update:pageCount`, `update:locale` emits — pure UI intent signals.
 - `shareUrl`, `documentMeta`, `collaborators`, `connectionState`, `userName`, `userAvatar`
@@ -133,6 +167,16 @@ How each existing port flows through the layers (verified 2026-07-19):
 | vue (component) | `AISidebar.vue` accepts `aiStream` / `aiDraft` props and falls back to `editor.storage.editorContext` — [AISidebar.vue:75-82](../packages/vue/src/components/sidebars/AISidebar.vue) |
 | vue (composable) | `useAIProvider(editor)` exposes the injected ports reactively — [useAIProvider.ts](../packages/vue/src/composables/useAIProvider.ts); provider + key-storage impls re-exported from [packages/vue/src/index.ts](../packages/vue/src/index.ts) |
 | element | Not wired — embedded hosts using the Web Component inject transports via JS properties (planned; see [PLUGGABLE_AI_PROVIDER](plans/PLUGGABLE_AI_PROVIDER.md)) |
+
+### `citation`
+
+| Layer | Wiring |
+|-------|--------|
+| core | Declared on `EditorOptions` — [Editor.ts:58-59](../packages/core/src/Editor.ts); carried into `editor.storage.editorContext` — [Editor.ts:233-237](../packages/core/src/Editor.ts) |
+| plugins | `citationPlugin` reads the port at init and creates the `CiteEngine` ([citation.ts:280](../packages/plugins/src/citation.ts)); citations render as footnote-backed nodes, so `footnotePlugin` is required (integration rule 3) |
+| vue (composable) | `useCitations` snapshots the port's sources once, owns the live copy, and re-emits CRUD as `citation-sources-change` / `update:citation-style` — [useCitations.ts](../packages/vue/src/composables/useCitations.ts) |
+| vue (component) | `citation` prop — [docsEditorContracts.ts:66](../packages/vue/src/components/docsEditorContracts.ts) |
+| element | Not wired — embedded hosts pass the port as a JS property. |
 
 ---
 
