@@ -1,0 +1,81 @@
+name: probe bot self-merge
+
+# Disposable experiment. It answers one question: under the live
+# `protect-default-branch` ruleset (0 required approvals,
+# require_extra_approval_for_unattributed_changes: true), may a workflow using
+# GITHUB_TOKEN open AND merge its own PR into `main`?
+#
+# It never merges: it creates a bot-authored PR, records what GitHub says about
+# its merge state, then closes it. Delete this branch afterwards.
+
+on:
+  push:
+    branches:
+      - probe/bot-self-merge
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Create a bot-authored PR, record its merge state, close it
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          REMOTE="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git checkout -b probe/bot-head
+          git commit --allow-empty -m "probe: bot-authored empty commit"
+          git push "$REMOTE" "HEAD:refs/heads/probe/bot-head"
+
+          PR=$(gh pr create --base main --head probe/bot-head \
+            --title "probe: can the Actions bot merge its own PR?" \
+            --body "Disposable probe opened by the publish-bot identity. Never merged; closed by the same workflow." \
+            | tail -n 1)
+          echo "PR=$PR"
+          NUM=${PR##*/}
+
+          # GitHub computes mergeability asynchronously.
+          state=""
+          for attempt in 1 2 3 4 5 6 7 8 9 10; do
+            state=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${NUM}" --jq '.mergeable_state')
+            echo "attempt ${attempt}: mergeable_state=${state}"
+            [ "$state" != "unknown" ] && break
+            sleep 6
+          done
+
+          echo "==================== EVIDENCE ===================="
+          echo "PR author:"
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/${NUM}" \
+            --jq '{author: .user.login, head: .head.ref, base: .base.ref, state: .state}'
+          echo "commit attribution (author/committer):"
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/${NUM}/commits" \
+            --jq '.[] | {author: .author.login, committer: .committer.login, email: .commit.author.email}'
+          echo "merge state as gh reports it:"
+          gh pr view "$NUM" --json mergeable,mergeStateStatus,reviewDecision,author
+          echo "effective rules on main (ordinary read):"
+          gh api "repos/${GITHUB_REPOSITORY}/rules/branches/main" \
+            --jq '[.[] | {type, ruleset: .ruleset_id, params: (.parameters // null)}]'
+          echo "FINAL_STATE=${state}"
+
+          gh pr close "$NUM" --comment "Probe finished: recorded merge state, never merged." --delete-branch
+          echo "================== END EVIDENCE =================="
+
+      - name: Delete the probe branch
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" \
+            --delete probe/bot-self-merge || true
