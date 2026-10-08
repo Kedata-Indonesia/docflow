@@ -98,11 +98,12 @@ Common scopes: `core`, `vue`, `element`, `plugins`, `layout-engine`, `export`, `
 5. We aim to respond to every PR and issue **within 24 hours**.
 
 CI reads your PR **title**: the Conventional Commit type (`feat`, `fix`, `docs`,
-`perf`, `deps`) auto-applies the matching label (`feature`, `fix`,
-`documentation`, `performance`, `dependencies`), and a `!` before the `:`
-(e.g. `feat(core)!: …`) also adds `breaking`. Those labels are exactly what
-GitHub groups release notes by (`.github/release.yml`), so a conventional title
-keeps the notes tidy — no manual labelling needed.
+`perf`) auto-applies the matching label (`feature`, `fix`, `documentation`,
+`performance`), a dependency scope (`chore(deps)`, `build(deps)`) adds
+`dependencies`, and a `!` right before the `:` (e.g. `feat(core)!: …`) also adds
+`breaking`. Those labels are exactly what GitHub groups release notes by
+(`.github/release.yml`), so a conventional title keeps the notes tidy — no manual
+labelling needed.
 
 ## Branch & release flow
 

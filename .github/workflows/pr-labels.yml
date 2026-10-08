@@ -21,7 +21,26 @@ jobs:
   label:
     runs-on: ubuntu-latest
     steps:
-      - name: Label the PR from its conventional-commit title
+      - name: Ensure the release-note labels exist
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          existing="$(gh label list --limit 100 --json name --jq '.[].name')"
+          while read -r name color description; do
+            if ! grep -qx "$name" <<<"$existing"; then
+              gh label create "$name" --color "$color" --description "$description"
+            fi
+          done <<'LABELS'
+          breaking B60205 Breaking change
+          feature 0E8A16 New feature
+          fix D93F0B Bug fix
+          documentation 0075ca Documentation
+          performance 5319E7 Performance improvement
+          dependencies 0366d6 Dependencies
+          LABELS
+
+      - name: Reconcile the PR's release-note label
         env:
           GH_TOKEN: ${{ github.token }}
           TITLE: ${{ github.event.pull_request.title }}
@@ -32,7 +51,7 @@ jobs:
           # "type(scope)!: subject" -> the bare, lowercased type.
           head="${TITLE%%:*}"
           breaking=false
-          case "$head" in *'!'*) breaking=true ;; esac
+          case "$head" in *'!') breaking=true ;; esac
           type="${head%%(*}"
           type="${type%!}"
           type="$(printf '%s' "$type" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')"
@@ -45,10 +64,32 @@ jobs:
             fix)          labels+=('fix') ;;
             docs)         labels+=('documentation') ;;
             perf)         labels+=('performance') ;;
-            deps)         labels+=('dependencies') ;;
           esac
           # `chore(deps):` / `build(deps):` are the common dependency-bump shapes.
-          case "$head_lc" in *'(deps)'*|*'(dependencies)'*) labels+=('dependencies') ;; esac
+          case "$type" in
+            chore|build|deps|ci)
+              case "$head_lc" in
+                *'(deps)'*|*'(dependencies)'*) labels+=('dependencies') ;;
+              esac
+              ;;
+          esac
+
+          # Labels this workflow owns; anything else on the PR is left alone.
+          managed=('breaking' 'feature' 'fix' 'documentation' 'performance' 'dependencies')
+
+          current="$(gh api "repos/${GITHUB_REPOSITORY}/issues/${PR}/labels" --jq '.[].name')"
+
+          # Drop stale managed labels, e.g. a title edit from `feat:` to `fix:`.
+          for label in "${managed[@]}"; do
+            wanted=false
+            for want in ${labels[@]+"${labels[@]}"}; do
+              if [ "$want" = "$label" ]; then wanted=true; fi
+            done
+            if [ "$wanted" = false ] && grep -qx "$label" <<<"$current"; then
+              gh api -X DELETE \
+                "repos/${GITHUB_REPOSITORY}/issues/${PR}/labels/${label}" >/dev/null
+            fi
+          done
 
           if [ "${#labels[@]}" -eq 0 ]; then
             echo "No release-note label for title: ${TITLE}"
