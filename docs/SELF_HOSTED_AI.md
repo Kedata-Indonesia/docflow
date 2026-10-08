@@ -1,5 +1,7 @@
 # Self-Hosted AI — Operator Guide
 
+> **Catatan Cakupan Repositori:** Dokumen ini adalah panduan operator untuk server host di [`Kedata-Indonesia/docflow-app`](https://github.com/Kedata-Indonesia/docflow-app). Untuk integrasi library AI, lihat [`EMBEDDING_AI.md`](EMBEDDING_AI.md).
+>
 > For operators deploying the DocFlow SaaS stack (Docker / Dokploy).
 > Architecture: [`plans/PLUGGABLE_AI_PROVIDER.md`](plans/PLUGGABLE_AI_PROVIDER.md).
 > Embedding the library in your own app: [`EMBEDDING_AI.md`](EMBEDDING_AI.md).

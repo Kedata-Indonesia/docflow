@@ -377,10 +377,10 @@ Tanpa persistence, data kolaborasi **hilang** saat semua user disconnect. Ada op
 
 ### Opsi A: Pakai Persistence Bawaan (MongoDB)
 
-Server docflow (`apps/server`) sudah punya `createMongoPersistence()`. Kamu bisa pakai langsung:
+Server docflow di repositori host (`Kedata-Indonesia/docflow-app`, path `apps/server`) sudah memiliki implementasi `createMongoPersistence()` yang bisa dijadikan referensi atau disalin ke server kamu:
 
 ```ts
-import { createMongoPersistence } from '@kedata-indonesia/docflow-server/y-websocket/mongoPersistence'
+import { createMongoPersistence } from './y-websocket/mongoPersistence'
 
 setPersistence(createMongoPersistence())
 ```

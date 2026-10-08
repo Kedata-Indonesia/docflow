@@ -1,5 +1,7 @@
 # Deployment Guide — DocFlow
 
+> **Catatan Cakupan Repositori:** Dokumen ini memandu deployment aplikasi host DocFlow (`apps/web` + `apps/server`). Kode aplikasi, Dockerfiles, dan docker-compose berada di repositori host: [`Kedata-Indonesia/docflow-app`](https://github.com/Kedata-Indonesia/docflow-app). Repositori ini (`docflow`) adalah library-only (`packages/*`).
+>
 > **Product:** `@kedata-indonesia/docflow-web` (frontend) + `@kedata-indonesia/docflow-server`
 > (Express + Yjs websocket + Better Auth + AI proxy) + MongoDB + optional S3/MinIO + optional local LLM.
 > Built on TipTap/ProseMirror + Yjs. Same-domain mode is the default and the path the reference

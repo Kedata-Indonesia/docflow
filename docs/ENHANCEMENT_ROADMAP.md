@@ -1,11 +1,8 @@
 # Enhancement Roadmap — DocsEditor
 
-**Status:** Draft · **Owner:** Kedata Indonesia · **Last updated:** 2026-07-17
+**Status:** Historical Roadmap · **Owner:** Kedata Indonesia
 
-This document is the phased plan for evolving DocsEditor from "a library + a demo" into
-**(1)** an embeddable, framework-agnostic editor library *and* **(2)** a first-party,
-self-hostable web app ("our on-prem Google Docs"). It records the decisions behind the
-plan so future work stays on the same track.
+> **Catatan Cakupan Repositori (2026-10):** Dokumen roadmap historis ini mendokumentasikan evolusi DocFlow sebelum pemisahan monorepo. Repositori ini (`docflow`) adalah **library-only** (`packages/*`), sedangkan aplikasi web dan server (`apps/*`) kini berada di repositori [`Kedata-Indonesia/docflow-app`](https://github.com/Kedata-Indonesia/docflow-app).
 
 **Task-level plans** — each phase has a detailed, code-grounded implementation plan in [docs/plans/](plans/):
 
