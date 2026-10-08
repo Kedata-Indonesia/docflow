@@ -198,8 +198,9 @@ export function useHeaderFooter(options: UseHeaderFooterOptions) {
 
   const openFooterModal = () => {
     if (!editor.value) return
-    footerLeftInput.value = userFooterLeft.value || editor.value.storage.PaginationPlus?.appliedConfig?.footerLeft || ''
-    footerRightInput.value = userFooterRight.value || editor.value.storage.PaginationPlus?.appliedConfig?.footerRight || ''
+    const applied = editor.value.storage.PaginationPlus?.appliedConfig
+    footerLeftInput.value = userFooterLeft.value || applied?.footerLeft || ''
+    footerRightInput.value = userFooterRight.value || applied?.footerRight || ''
     showFooterModal.value = true
   }
 

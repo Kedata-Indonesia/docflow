@@ -50,6 +50,7 @@ export function jsonToMarkdown(schema: Schema, json: Record<string, unknown>): s
 }
 
 export function plainTextFromHtml(html: string): string {
+  if (!html || typeof html !== 'string') return ''
   const div = document.createElement('div')
   div.innerHTML = html
   return div.innerText || div.textContent || ''

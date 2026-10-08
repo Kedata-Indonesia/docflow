@@ -19,8 +19,8 @@
 
       <!-- Header -->
       <div class="vp-header" :style="headerStyle">
-        <span class="vp-header-left" v-html="safeHeaderLeft" />
-        <span class="vp-header-right" v-html="safeHeaderRight" />
+        <span class="vp-header-left" v-html="resolveFooter(safeHeaderLeft, p.index)" />
+        <span class="vp-header-right" v-html="resolveFooter(safeHeaderRight, p.index)" />
       </div>
 
       <!-- Footer -->
