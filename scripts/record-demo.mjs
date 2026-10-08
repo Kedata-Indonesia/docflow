@@ -99,19 +99,19 @@ async function recordDemo() {
   await page.keyboard.press('Control+End')
   await page.keyboard.press('Enter')
   const paragraph =
-    'Melalui rapat ini kami berharap setiap unit menyiapkan bahan paparan ' +
-    'dan data pendukung terbaru, sehingga keputusan triwulan IV dapat diambil ' +
-    'secara cepat, terukur, dan tetap selaras dengan sasaran strategis ' +
-    'organisasi sepanjang tahun anggaran berjalan.'
+    'Through this meeting we expect every unit to prepare presentation materials ' +
+    'and the latest supporting data, so that fourth-quarter decisions can be taken ' +
+    'quickly, measurably, and in line with the strategic objectives of the ' +
+    'organisation for the current fiscal year.'
   await page.keyboard.type(paragraph, { delay: 60 })
   await beat(page, 3500)
 
-  // Export: Berkas → Unduh → Word. The editor only *emits* an `export` event
+  // Export: File → Download → Word. The editor only *emits* an `export` event
   // (the host writes the file), so no browser download ever fires — hold the
   // frame so the menu choice stays readable in the GIF.
-  await page.getByRole('button', { name: 'Berkas' }).click()
+  await page.getByRole('button', { name: 'File' }).click()
   await beat(page, 1000)
-  await page.getByRole('button', { name: 'Unduh' }).hover()
+  await page.getByRole('button', { name: 'Download' }).hover()
   await beat(page, 2200)
   const docx = page.getByRole('button', { name: /word|docx/i }).first()
   if (await docx.count()) {
