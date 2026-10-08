@@ -85,6 +85,60 @@ describe('footnote content sanitization (issue #71)', () => {
     }
   })
 
+  it('preserves citation inline formatting (sup/sub/nobr) from persisted content', () => {
+    // Issue #73 item 7: `<sup>`/`<sub>`/`<nobr>` are part of the shared inline
+    // allowlist now, so the transient persisted fallback keeps citeproc shape
+    // without letting any attribute/handler through.
+    const payload = '<sup>1</sup> note <sub>x</sub> <nobr>nb</nobr><img src=x onerror="alert(1)">'
+    const { wrapper, api, dom } = setup({
+      a: {
+        'data-footnote-source-id': 'src-1',
+        'data-citation-id': 'cit-1',
+        'data-footnote-content': payload,
+      },
+    })
+    try {
+      api.updateFootnotes()
+
+      const textDiv = dom.querySelector<HTMLElement>('.docs-footnote-item-text')
+      expect(textDiv).not.toBeNull()
+      expect(textDiv!.innerHTML).toBe('<sup>1</sup> note <sub>x</sub> <nobr>nb</nobr>')
+      expect(textDiv!.innerHTML).not.toContain('onerror')
+      expect(textDiv!.querySelector('img')).toBeNull()
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  it('numbers paged footnotes continuously and anchors them in the breaker (refactor parity)', () => {
+    const { wrapper, api, dom } = setup({
+      a: { 'data-footnote-content': 'first' },
+      b: { 'data-footnote-content': 'second' },
+    })
+    try {
+      api.updateFootnotes()
+
+      const breaker = dom.querySelector('.breaker')
+      expect(breaker).not.toBeNull()
+      const container = breaker!.querySelector<HTMLElement>('.docs-page-footnotes')
+      expect(container).not.toBeNull()
+      // Prepend so the footnote area sits above the footer inside the breaker.
+      expect(breaker!.firstElementChild).toBe(container)
+
+      const rows = container!.querySelectorAll<HTMLElement>('.docs-footnote-item')
+      expect(Array.from(rows).map((r) => r.id)).toEqual(['fn-0-0', 'fn-0-1'])
+      expect(
+        Array.from(rows).map((r) => r.querySelector('.docs-footnote-item-num')?.textContent),
+      ).toEqual(['1', '2'])
+
+      const refs = dom.querySelectorAll<HTMLElement>('.docs-footnote-ref')
+      expect(Array.from(refs).map((r) => r.textContent)).toEqual(['1', '2'])
+      expect(refs[0].dataset.footnoteItemId).toBe('fn-0-0')
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
   it('renders free-text footnote content as inert plain text', () => {
     const { wrapper, api, dom } = setup({
       a: {

@@ -19,14 +19,14 @@
 
       <!-- Header -->
       <div class="vp-header" :style="headerStyle">
-        <span class="vp-header-left" v-html="safeHeaderLeft" />
-        <span class="vp-header-right" v-html="safeHeaderRight" />
+        <span class="vp-header-left" v-html="resolveTokens(safeHeaderLeft, p.index)" />
+        <span class="vp-header-right" v-html="resolveTokens(safeHeaderRight, p.index)" />
       </div>
 
       <!-- Footer -->
       <div class="vp-footer" :style="footerStyle">
-        <span class="vp-footer-left" v-html="resolveFooter(safeFooterLeft, p.index)" />
-        <span class="vp-footer-right" v-html="resolveFooter(safeFooterRight, p.index)" />
+        <span class="vp-footer-left" v-html="resolveTokens(safeFooterLeft, p.index)" />
+        <span class="vp-footer-right" v-html="resolveTokens(safeFooterRight, p.index)" />
       </div>
     </div>
   </div>
@@ -78,7 +78,7 @@ function pageStyle(p: VisiblePage) {
   }
 }
 
-function resolveFooter(template: string, pageIndex: number): string {
+function resolveTokens(template: string, pageIndex: number): string {
   return template
     .replace(/\{page\}/g, String(pageIndex + 1))
     .replace(/\{total\}/g, String(props.data.totalPages))

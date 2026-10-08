@@ -1,5 +1,5 @@
 import { ref, watch, type Ref } from 'vue'
-import type { DocsEditor } from '@kedata-indonesia/docflow-core'
+import { sanitizeInlineHTML, type DocsEditor } from '@kedata-indonesia/docflow-core'
 import { paintHeaderFooter } from './headerFooterPainter.js'
 import { sanitizedTextRef } from './sanitizedTextRef.js'
 
@@ -198,8 +198,13 @@ export function useHeaderFooter(options: UseHeaderFooterOptions) {
 
   const openFooterModal = () => {
     if (!editor.value) return
-    footerLeftInput.value = userFooterLeft.value || editor.value.storage.PaginationPlus?.appliedConfig?.footerLeft || ''
-    footerRightInput.value = userFooterRight.value || editor.value.storage.PaginationPlus?.appliedConfig?.footerRight || ''
+    // The PaginationPlus `appliedConfig` fallback is document-derived; route it
+    // through the same sanitizer choke point as every other slot write (#73).
+    const appliedConfig = editor.value.storage.PaginationPlus?.appliedConfig
+    footerLeftInput.value =
+      userFooterLeft.value || sanitizeInlineHTML(appliedConfig?.footerLeft ?? '')
+    footerRightInput.value =
+      userFooterRight.value || sanitizeInlineHTML(appliedConfig?.footerRight ?? '')
     showFooterModal.value = true
   }
 

@@ -1,5 +1,7 @@
 import { onUnmounted, watch, type Ref } from 'vue'
-import { sanitizeInlineHTML, type DocsEditor } from '@kedata-indonesia/docflow-core'
+import type { DocsEditor } from '@kedata-indonesia/docflow-core'
+import { buildFootnoteTextDiv, type FootnoteItemDeps } from './footnoteItems.js'
+import { paintPagelessFootnotes, paintPagedFootnotes } from './footnotePaint.js'
 
 export interface UseFootnotesOptions {
   editor: Ref<DocsEditor['editor'] | null>
@@ -33,11 +35,8 @@ export function useFootnotes(options: UseFootnotesOptions) {
 
   /**
    * Build / refresh the inline footnote area at the bottom of each page.
-   * ─ Numbers the inline <sup> refs CONTINUOUSLY through the document (Word /
-   *   Google Docs behavior): page N continues from the last number on page
-   *   N-1. This also matches the citation engine's sequential noteIndex.
-   * ─ Creates contenteditable footnote items that sync back to ProseMirror on blur.
-   * ─ Skips rebuilding any page whose footnote area is currently focused.
+   * The two paint branches live in `footnotePaint.ts`; this function only
+   * resolves the host elements and the item-builder ports the branches need.
    */
   const updateFootnotes = () => {
     if (!editor.value || !isReady.value) return
@@ -47,176 +46,32 @@ export function useFootnotes(options: UseFootnotesOptions) {
     const paginationEl = editorDom.querySelector('[data-rm-pagination]')
     if (!paginationEl) return
 
-    /**
-     * Build one footnote row body. Free-text footnotes stay editable and sync
-     * back to the PM node on blur (existing behavior). Citation-backed
-     * footnotes (Phase 6, `data-footnote-source-id`) are citeproc-rendered and
-     * read-only — their text is derived, never typed.
-     */
-    const buildFootnoteTextDiv = (ref: HTMLElement): HTMLDivElement => {
-      const textDiv = document.createElement('div')
-      textDiv.className = 'docs-footnote-item-text'
-
-      if (ref.hasAttribute('data-footnote-source-id')) {
-        const citationId = ref.getAttribute('data-citation-id') ?? ''
-        const engine = (editor.value?.storage as Record<string, unknown> | undefined)?.citationEngine as
-          { engine?: { renderCluster: (id: string) => string } | null } | undefined
-        const html = engine?.engine?.renderCluster(citationId) ?? ''
-        textDiv.classList.add('docs-footnote-item-text--citation')
-        if (html) {
-          textDiv.innerHTML = html
-        } else {
-          // Fall back to persisted content when the engine hasn't synced yet
-          // (e.g. immediately after document load).
-          // `data-footnote-content` is a document node attribute, so in a
-          // collab session / imported document it is attacker-controlled:
-          // sanitize before innerHTML (issue #71). The engine branch above is
-          // citeproc output, covered by the engine escaping invariant (#72).
-          const persisted = ref.getAttribute('data-footnote-content') ?? ''
-          if (persisted) {
-            textDiv.innerHTML = sanitizeInlineHTML(persisted)
-          } else {
-            textDiv.setAttribute('data-empty', 'true')
-          }
-        }
-        return textDiv
-      }
-
-      const content = ref.getAttribute('data-footnote-content') ?? ''
-      textDiv.contentEditable = 'true'
-      textDiv.textContent = content
-      if (!content) textDiv.setAttribute('data-empty', 'true')
-
-      textDiv.addEventListener('input', () => {
-        textDiv.removeAttribute('data-empty')
-        if (!textDiv.textContent) textDiv.setAttribute('data-empty', 'true')
-      })
-
-      textDiv.addEventListener('blur', () => {
-        const newContent = textDiv.textContent?.trim() ?? ''
-        saveFootnoteItemContent(ref, newContent)
-      })
-      return textDiv
+    const citationEngine = (editor.value.storage as Record<string, unknown> | undefined)?.citationEngine as
+      { engine?: { renderCluster: (id: string) => string } | null } | undefined
+    const deps: FootnoteItemDeps = {
+      renderCitation: (citationId) => citationEngine?.engine?.renderCluster(citationId) ?? '',
+      saveContent: saveFootnoteItemContent,
     }
+    const buildItem = (ref: HTMLElement) => buildFootnoteTextDiv(ref, deps)
 
     const pageBreaks = Array.from(paginationEl.querySelectorAll<HTMLElement>('.rm-page-break'))
     const allRefs = Array.from(editorDom.querySelectorAll<HTMLElement>('.docs-footnote-ref'))
 
     if (pageBreaks.length === 0) {
-      // Pageless mode or layout not computed yet: render footnotes at the very bottom of the paper
-      allRefs.forEach((ref, i) => { ref.textContent = String(i + 1) })
-
-      // Find paper container
+      // Pageless mode or layout not computed yet: render footnotes at the very
+      // bottom of the paper.
       const paper = editorRef.value
-      if (!paper) return
-
-      // Remove existing pageless container
-      paper.querySelector('.docs-pageless-footnotes')?.remove()
-
-      if (allRefs.length === 0) return
-
-      // Skip if a footnote text input inside this container is currently focused
-      const existing = paper.querySelector<HTMLElement>('.docs-pageless-footnotes')
-      if (existing?.querySelector<HTMLElement>('.docs-footnote-item-text:focus')) return
-
-      const container = document.createElement('div')
-      container.className = 'docs-page-footnotes docs-pageless-footnotes'
-
-      const sep = document.createElement('div')
-      sep.className = 'docs-footnotes-sep'
-      container.appendChild(sep)
-
-      allRefs.forEach((ref, n) => {
-        const row = document.createElement('div')
-        row.className = 'docs-footnote-item'
-
-        const num = document.createElement('sup')
-        num.className = 'docs-footnote-item-num'
-        num.textContent = String(n + 1)
-
-        const textDiv = buildFootnoteTextDiv(ref)
-
-        ref.dataset.footnoteItemId = `fn-pageless-${n}`
-        row.id = `fn-pageless-${n}`
-
-        row.appendChild(num)
-        row.appendChild(textDiv)
-        container.appendChild(row)
-      })
-
-      paper.appendChild(container)
+      if (!paper) {
+        // Number the inline refs even when the host is not mounted, matching
+        // the original inline flow.
+        allRefs.forEach((ref, i) => { ref.textContent = String(i + 1) })
+        return
+      }
+      paintPagelessFootnotes(paper, allRefs, buildItem)
       return
     }
 
-    // Map page index → footnote refs on that page
-    const pageRefs = new Map<number, HTMLElement[]>()
-    pageBreaks.forEach((_, i) => pageRefs.set(i, []))
-
-    allRefs.forEach(ref => {
-      const top = ref.getBoundingClientRect().top
-      let assigned = pageBreaks.length - 1
-      for (let i = 0; i < pageBreaks.length - 1; i++) {
-        const breaker = pageBreaks[i].querySelector<HTMLElement>('.breaker')
-        if (breaker && top < breaker.getBoundingClientRect().top) { assigned = i; break }
-      }
-      pageRefs.get(assigned)!.push(ref)
-    })
-
-    // Footnotes are numbered continuously through the document — the first
-    // footnote on a page continues from the last number of the previous page.
-    let nextFootnoteNumber = 1
-    pageBreaks.forEach((pb, pageIdx) => {
-      const refs = pageRefs.get(pageIdx) ?? []
-      const pageStartNumber = nextFootnoteNumber
-      nextFootnoteNumber += refs.length
-
-      // Number inline refs (continuous across pages)
-      refs.forEach((ref, n) => { ref.textContent = String(pageStartNumber + n) })
-
-      // Skip rebuild if a footnote item on this page has focus
-      const existing = pb.querySelector<HTMLElement>('.docs-page-footnotes')
-      if (existing?.querySelector<HTMLElement>('.docs-footnote-item-text:focus')) return
-
-      existing?.remove()
-      if (refs.length === 0) return
-
-      // Build inline footnote area
-      const container = document.createElement('div')
-      container.className = 'docs-page-footnotes'
-
-      // Separator line
-      const sep = document.createElement('div')
-      sep.className = 'docs-footnotes-sep'
-      container.appendChild(sep)
-
-      refs.forEach((ref, n) => {
-        const row = document.createElement('div')
-        row.className = 'docs-footnote-item'
-
-        const num = document.createElement('sup')
-        num.className = 'docs-footnote-item-num'
-        num.textContent = String(pageStartNumber + n)
-
-        const textDiv = buildFootnoteTextDiv(ref)
-
-        // Clicking the sup ref in the text jumps here
-        ref.dataset.footnoteItemId = `fn-${pageIdx}-${n}`
-        row.id = `fn-${pageIdx}-${n}`
-
-        row.appendChild(num)
-        row.appendChild(textDiv)
-        container.appendChild(row)
-      })
-
-      // Find the page breaker (the layout divider which contains the footer)
-      const breaker = pb.querySelector('.breaker')
-      if (breaker) {
-        // Prepend so it sits exactly above the footer content inside the breaker
-        breaker.insertBefore(container, breaker.firstChild)
-      } else {
-        pb.appendChild(container)
-      }
-    })
+    paintPagedFootnotes(pageBreaks, allRefs, buildItem)
   }
 
   // Click on sup ref → scroll to + focus corresponding footnote item

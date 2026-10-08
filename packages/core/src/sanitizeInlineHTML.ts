@@ -10,7 +10,8 @@
  * surface, e.g. `<img src=x onerror=alert(document.cookie)>`.
  *
  * Policy (inline-only allowlist):
- * - Keep text and the tags `b`, `strong`, `i`, `em`, `u`, `br`; strip EVERY
+ * - Keep text and the tags `b`, `strong`, `i`, `em`, `u`, `br`, `sup`, `sub`,
+ *   `nobr` (the last three carry citation-backed footnote markup); strip EVERY
  *   attribute from those tags (no `style`, no event handlers).
  * - Drop these elements together with their whole subtree: script, style,
  *   template, noscript, iframe, frame, frameset, object, embed, applet, svg,
@@ -24,7 +25,7 @@
  * never throws, and treats nullish/empty input as `''`. Plain text without a
  * `<` takes a fast path so page-number tokens stay byte-identical.
  */
-const ALLOWED_TAGS = new Set(['b', 'strong', 'i', 'em', 'u', 'br'])
+const ALLOWED_TAGS = new Set(['b', 'strong', 'i', 'em', 'u', 'br', 'sup', 'sub', 'nobr'])
 
 const DROP_TAGS = new Set([
   'script', 'style', 'template', 'noscript', 'iframe', 'frame', 'frameset',

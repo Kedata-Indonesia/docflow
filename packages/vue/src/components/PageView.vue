@@ -109,6 +109,62 @@ const findBlockElement = (block: BlockInfo): HTMLElement | null => {
   )
 }
 
+/**
+ * Defense in depth for the `v-html` sink below (issue #73 item 1): the cloned
+ * range is schema-serialized but the sink keeps no guarantee of its own, so
+ * drop dangerous elements/attributes while preserving structure, classes and
+ * `data-*`.
+ *
+ * The URL scheme check removes ASCII controls/whitespace before matching so
+ * obfuscated variants (e.g. `java\tscript:`) cannot slip past — browsers strip
+ * those same characters when resolving a URL. `src` is kept (images need it,
+ * including `data:image/*`); `data:text/html` hrefs are not image sources and
+ * are stripped.
+ */
+const DANGEROUS_ELEMENTS = new Set([
+  'script', 'style', 'iframe', 'object', 'embed', 'applet',
+  'link', 'meta', 'base', 'frame', 'frameset', 'noscript', 'template',
+  'svg', 'math',
+])
+
+const DANGEROUS_SCHEME = /^(?:javascript|vbscript|data:text\/html)/
+
+// Drop ASCII controls and spaces the way browsers do when resolving a URL, so
+// obfuscated schemes (e.g. `java\tscript:`) are normalized before matching.
+const stripUrlControls = (value: string): string => {
+  let normalized = ''
+  for (const char of value) {
+    if (char.charCodeAt(0) > 0x20) normalized += char
+  }
+  return normalized
+}
+
+const hasDangerousScheme = (value: string): boolean =>
+  DANGEROUS_SCHEME.test(stripUrlControls(value).toLowerCase())
+
+const stripUnsafeAttributes = (root: HTMLElement): void => {
+  root.querySelectorAll('*').forEach((el) => {
+    const tag = el.tagName.toLowerCase()
+    if (DANGEROUS_ELEMENTS.has(tag)) {
+      el.remove()
+      return
+    }
+    Array.from(el.attributes).forEach((attr) => {
+      const name = attr.name.toLowerCase()
+      if (name.startsWith('on')) {
+        el.removeAttribute(attr.name)
+        return
+      }
+      if (
+        (name === 'href' || name === 'xlink:href') &&
+        hasDangerousScheme(attr.value)
+      ) {
+        el.removeAttribute(attr.name)
+      }
+    })
+  })
+}
+
 const extractBlockHTML = (block: BlockInfo): string | null => {
   if (!props.editor || !editorElement.value) return null
   const element = findBlockElement(block)
@@ -126,6 +182,7 @@ const extractBlockHTML = (block: BlockInfo): string | null => {
     const fragment = range.cloneContents()
     const wrapper = document.createElement('div')
     wrapper.appendChild(fragment)
+    stripUnsafeAttributes(wrapper)
     return wrapper.innerHTML
   } catch {
     return null

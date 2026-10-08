@@ -103,6 +103,81 @@ describe('header/footer sanitization (issue #51)', () => {
     }
   })
 
+  it('VirtualPageOverlay resolves {page}/{total} tokens in the header (issue #73 item 6)', () => {
+    const data: PageOverlayData = {
+      totalPages: 3,
+      visiblePages: [{ index: 1, top: 0, height: 100 }],
+      config: {
+        pageSize: { id: 'a4', name: 'A4', pageWidth: 794, pageHeight: 1123 },
+        margins: { top: 20, bottom: 20, left: 50, right: 50 },
+        pageGap: 40,
+        headerLeft: 'H{page}/{total}',
+        headerRight: 'R{page}',
+        footerLeft: '',
+        footerRight: '',
+      },
+    }
+
+    const wrapper = mount(VirtualPageOverlay, { props: { data, isReady: true } })
+    try {
+      const html = wrapper.html()
+      expect(html).toContain('H2/3')
+      expect(html).toContain('R2')
+      expect(html).not.toContain('{page}')
+      expect(html).not.toContain('{total}')
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  it('openFooterModal sanitizes the raw PaginationPlus appliedConfig fallback (#73)', () => {
+    const mockEditor = {
+      storage: {
+        PaginationPlus: {
+          appliedConfig: {
+            footerLeft: `${IMG_XSS}Raw`,
+            footerRight: `${SCRIPT_XSS}R`,
+          },
+        },
+      },
+    } as unknown as DocsEditor['editor']
+
+    let api!: ReturnType<typeof useHeaderFooter>
+    // eslint-disable-next-line vue/one-component-per-file -- test-only composable harness
+    const TestComponent = defineComponent({
+      setup() {
+        api = useHeaderFooter({
+          editor: shallowRef<DocsEditor['editor'] | null>(mockEditor),
+          isReady: ref(false),
+          pageCount: ref(1),
+          isDark: ref(false),
+          initialContent: { headerLeft: '', headerRight: '', footerLeft: '', footerRight: '' },
+          headerMarginCmProp: ref<number | undefined>(undefined),
+          footerMarginCmProp: ref<number | undefined>(undefined),
+          pageNumber: {
+            position: ref<'header' | 'footer'>('header'),
+            showOnFirstPage: ref(true),
+            mode: ref<'startAt' | 'continue'>('startAt'),
+            startAt: ref(1),
+          },
+          persistCurrentDoc: () => {},
+          onUpdatePageCount: () => {},
+          onUpdateHeaderFooterMargins: () => {},
+        })
+        return () => h('div')
+      },
+    })
+    const wrapper = mount(TestComponent)
+    try {
+      api.openFooterModal()
+      expect(api.footerLeftInput.value).toBe('Raw')
+      expect(api.footerRightInput.value).toBe('R')
+      expect(api.showFooterModal.value).toBe(true)
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
   it('paintHeaderFooter hands sanitized content to commands and DOM (header + footer)', async () => {
     const dom = document.createElement('div')
     const header = document.createElement('div')
