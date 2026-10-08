@@ -23,7 +23,7 @@ pnpm build        # build the library packages once
 The playground in `examples/playground` mounts `<DocsEditor>` through the public API
 only (no backend, no database) and is the recommended way to review UI changes. It is
 **not tracked** in this repo (`.gitignore`, PR #62): restore it locally once with
-`git archive 0861b95 examples | tar -x -C .` and `pnpm install`, then run
+`pnpm playground:restore` and `pnpm install`, then run
 `pnpm build && pnpm dev` (http://localhost:5200). Use `pnpm dev:source` to edit
 `packages/*` with HMR instead of rebuilding after every change.
 

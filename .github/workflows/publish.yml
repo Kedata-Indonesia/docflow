@@ -5,7 +5,8 @@ name: Publish to npm
 #
 # Triggers:
 #   - push to `main`     -> verify + auto-bump + build + publish (unattended)
-#   - push of a `v*` tag -> same flow, without the auto-bump
+#   - push of a `v*` tag -> same flow without the auto-bump, then a GitHub
+#                           Release (generated notes + the demo GIF)
 #   - manual run         -> Actions tab (`workflow_dispatch`)
 #
 # On a push to `main`, scripts/bump-release-versions.mjs patch-bumps everything
@@ -293,3 +294,59 @@ jobs:
 
           # Disposable once merged.
           git push "$REMOTE" --delete "$BRANCH" || true
+
+  # A `v*` tag is the deliberate "ship it" marker. The publish job above has
+  # already sent the packages to npm, so this job only announces the release:
+  # generated notes (grouped by label in `.github/release.yml`) with the demo
+  # GIF attached, so the announcement is self-contained (docs/RELEASING.md).
+  # Runs only for tags — never for a push to `main`, which is noise.
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: publish
+    runs-on: ubuntu-latest
+    # Least privilege: this job only writes a Release, so it needs no more than
+    # `contents: write` (the workflow-level grant also carries package/PR scopes).
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The tag's own tree (and its GIF) must be what gets announced.
+          fetch-depth: 0
+
+      - name: Create GitHub Release for the tag
+        env:
+          # `contents: write` at the workflow level lets this token cut releases.
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+
+          # A re-run (or a retried publish) must never fail on an announced tag.
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists — nothing to do."
+            exit 0
+          fi
+
+          # The GitHub API prepends this body to the automatically generated notes.
+          cat > "$RUNNER_TEMP/release-notes.md" <<EOF
+          DocFlow **$TAG** — published to npm as \`@kedataindo/docflow-*\`.
+
+          Human-written history: [CHANGELOG.md](https://github.com/${GITHUB_REPOSITORY}/blob/main/CHANGELOG.md).
+          EOF
+
+          # Attach the demo GIF when the tagged tree carries it; older tags may
+          # predate the asset, which must not break the release.
+          assets=()
+          if [ -f docs/assets/docflow-demo.gif ]; then
+            assets+=('docs/assets/docflow-demo.gif#Demo GIF')
+          fi
+
+          # `--verify-tag` refuses to invent a tag: the release must describe an
+          # already-pushed ref, never a tag created from a moving branch tip.
+          gh release create "$TAG" \
+            --title "DocFlow $TAG" \
+            --notes-file "$RUNNER_TEMP/release-notes.md" \
+            --generate-notes \
+            --verify-tag \
+            ${assets[@]+"${assets[@]}"}

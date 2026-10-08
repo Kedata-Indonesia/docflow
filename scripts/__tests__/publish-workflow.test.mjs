@@ -26,13 +26,16 @@ const yaml = readFileSync(WORKFLOW, 'utf8')
 
 const COMMIT_BACK_STEP = 'Land version bumps on main via PR'
 
-/** Body of a `- name: <name>` step, up to the next step at the same depth. */
+/** Body of a `- name: <name>` step, up to the next step or the next job. */
 function stepBody(name) {
   const start = yaml.indexOf(`- name: ${name}`)
   assert.notEqual(start, -1, `workflow step not found: ${name}`)
   const rest = yaml.slice(start)
-  const next = rest.indexOf('\n      - ')
-  return next === -1 ? rest : rest.slice(0, next)
+  // A step body ends at the next step (6-space `- `) or, failing that, at the
+  // next job key (2-space `name:`), so one job never bleeds into the next.
+  const ends = [rest.indexOf('\n      - '), rest.search(/\n  \S/)]
+    .filter((at) => at !== -1)
+  return ends.length ? rest.slice(0, Math.min(...ends)) : rest
 }
 
 test('publish step does not write the npm token into the tracked .npmrc', () => {
@@ -131,4 +134,55 @@ test('commit-back verifies the bump is on main instead of trusting the merge', (
     /::error::version bump did not reach main/,
     'the drift guard must fail loudly',
   )
+})
+
+const RELEASE_STEP = 'Create GitHub Release for the tag'
+
+test('a tag push cuts a GitHub Release — and only a tag push', () => {
+  const at = yaml.indexOf('\n  release:')
+  assert.notEqual(at, -1, 'the release job is missing from publish.yml')
+  const job = yaml.slice(at)
+  assert.match(
+    job,
+    /if:\s*startsWith\(github\.ref, 'refs\/tags\/v'\)/,
+    'the release must be tag-guarded so a push to main stays quiet',
+  )
+  assert.match(
+    job,
+    /needs:\s*publish/,
+    'the release must wait until the packages have reached npm',
+  )
+  assert.match(
+    job,
+    /permissions:\s*\n\s*contents:\s*write/,
+    'the release job needs `contents: write` to cut a Release',
+  )
+})
+
+test('the release carries generated notes plus the demo GIF', () => {
+  const body = stepBody(RELEASE_STEP)
+  assert.ok(body.length > 0, 'release step body is empty')
+  assert.match(body, /gh release create "\$TAG"/, 'the tag must get a Release')
+  assert.match(body, /--generate-notes/, 'notes come from .github/release.yml')
+  assert.match(body, /--notes-file/, 'a short header is prepended to the notes')
+  assert.match(body, /--verify-tag/, 'the release must not invent a tag')
+  assert.match(
+    body,
+    /docs\/assets\/docflow-demo\.gif/,
+    'the demo GIF must ride along with the announcement',
+  )
+  assert.ok(
+    body.includes('${assets[@]+"${assets[@]}"}'),
+    'the assets array must expand safely under `set -u` when it is empty',
+  )
+})
+
+test('the release step is idempotent and holds a write token', () => {
+  const body = stepBody(RELEASE_STEP)
+  const guard = body.indexOf('gh release view "$TAG"')
+  const create = body.indexOf('gh release create')
+  assert.notEqual(guard, -1, 'a re-run must detect an already-announced tag')
+  assert.notEqual(create, -1, 'the release must actually be created')
+  assert.ok(guard < create, 'the existence check must run before creating')
+  assert.match(body, /GH_TOKEN/, 'creating a Release needs a write-scoped token')
 })
