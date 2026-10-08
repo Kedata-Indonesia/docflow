@@ -1,0 +1,104 @@
+name: PR labels
+
+# GitHub builds each Release's automatic notes by grouping merged PRs by label
+# (`.github/release.yml`). Without this, every PR falls into "Other changes".
+# This workflow maps a PR's conventional-commit title to the label that seeds the
+# right category, so grouping works without anyone labelling by hand.
+#
+# `pull_request_target` (not `pull_request`) is required so fork PRs can still be
+# labelled with a write token. The job only reads the PR *title* and the base
+# repo's token — it never checks out or runs the PR's code.
+on:
+  pull_request_target:
+    types: [opened, edited, reopened]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ensure the release-note labels exist
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          existing="$(gh label list --limit 100 --json name --jq '.[].name')"
+          while read -r name color description; do
+            if ! grep -qx "$name" <<<"$existing"; then
+              gh label create "$name" --color "$color" --description "$description"
+            fi
+          done <<'LABELS'
+          breaking B60205 Breaking change
+          feature 0E8A16 New feature
+          fix D93F0B Bug fix
+          documentation 0075ca Documentation
+          performance 5319E7 Performance improvement
+          dependencies 0366d6 Dependencies
+          LABELS
+
+      - name: Reconcile the PR's release-note label
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TITLE: ${{ github.event.pull_request.title }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+
+          # "type(scope)!: subject" -> the bare, lowercased type.
+          head="${TITLE%%:*}"
+          breaking=false
+          case "$head" in *'!') breaking=true ;; esac
+          type="${head%%(*}"
+          type="${type%!}"
+          type="$(printf '%s' "$type" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')"
+          head_lc="$(printf '%s' "$head" | tr '[:upper:]' '[:lower:]')"
+
+          labels=()
+          if [ "$breaking" = true ]; then labels+=('breaking'); fi
+          case "$type" in
+            feat|feature) labels+=('feature') ;;
+            fix)          labels+=('fix') ;;
+            docs)         labels+=('documentation') ;;
+            perf)         labels+=('performance') ;;
+          esac
+          # `chore(deps):` / `build(deps):` are the common dependency-bump shapes.
+          case "$type" in
+            chore|build|deps|ci)
+              case "$head_lc" in
+                *'(deps)'*|*'(dependencies)'*) labels+=('dependencies') ;;
+              esac
+              ;;
+          esac
+
+          # Labels this workflow owns; anything else on the PR is left alone.
+          managed=('breaking' 'feature' 'fix' 'documentation' 'performance' 'dependencies')
+
+          current="$(gh api "repos/${GITHUB_REPOSITORY}/issues/${PR}/labels" --jq '.[].name')"
+
+          # Drop stale managed labels, e.g. a title edit from `feat:` to `fix:`.
+          for label in "${managed[@]}"; do
+            wanted=false
+            for want in ${labels[@]+"${labels[@]}"}; do
+              if [ "$want" = "$label" ]; then wanted=true; fi
+            done
+            if [ "$wanted" = false ] && grep -qx "$label" <<<"$current"; then
+              gh api -X DELETE \
+                "repos/${GITHUB_REPOSITORY}/issues/${PR}/labels/${label}" >/dev/null
+            fi
+          done
+
+          if [ "${#labels[@]}" -eq 0 ]; then
+            echo "No release-note label for title: ${TITLE}"
+            exit 0
+          fi
+
+          # Hit the REST API directly: `gh pr edit --add-label` trips over this
+          # repo's Projects-classic GraphQL deprecation.
+          body="$(printf '%s\n' "${labels[@]}" | jq -R . | jq -s '{labels: .}')"
+          printf '%s' "$body" | \
+            gh api -X POST "repos/${GITHUB_REPOSITORY}/issues/${PR}/labels" --input -
+          echo "Labelled #${PR} with: ${labels[*]}"
