@@ -1,6 +1,7 @@
 import { ref, watch, type Ref } from 'vue'
 import type { DocsEditor } from '@kedata-indonesia/docflow-core'
 import { paintHeaderFooter } from './headerFooterPainter.js'
+import { sanitizedTextRef } from './sanitizedTextRef.js'
 
 const HEADER_MARGIN_CM_MIN = 0
 const HEADER_MARGIN_CM_MAX = 5
@@ -69,17 +70,20 @@ export function useHeaderFooter(options: UseHeaderFooterOptions) {
   }
 
   // ─── Header & footer content slots ─────────────────────────────────────────
-  const userHeaderLeft = ref(initialContent.headerLeft)
-  const userHeaderRight = ref(initialContent.headerRight)
-  const userFooterLeft = ref(initialContent.footerLeft)
-  const userFooterRight = ref(initialContent.footerRight)
+  // All eight slots are document-derived and rendered as HTML, so they use a
+  // sanitizing ref: every write (initial load, PaginationPlus seeding, modal
+  // save, page-number tokens, inline edit commit) is allowlisted (issue #51).
+  const userHeaderLeft = sanitizedTextRef(initialContent.headerLeft)
+  const userHeaderRight = sanitizedTextRef(initialContent.headerRight)
+  const userFooterLeft = sanitizedTextRef(initialContent.footerLeft)
+  const userFooterRight = sanitizedTextRef(initialContent.footerRight)
 
   const isDifferentFirstPage = ref(false)
   const isDifferentOddEven = ref(false)
-  const userFirstPageHeaderLeft = ref('')
-  const userFirstPageHeaderRight = ref('')
-  const userEvenPageHeaderLeft = ref('')
-  const userEvenPageHeaderRight = ref('')
+  const userFirstPageHeaderLeft = sanitizedTextRef('')
+  const userFirstPageHeaderRight = sanitizedTextRef('')
+  const userEvenPageHeaderLeft = sanitizedTextRef('')
+  const userEvenPageHeaderRight = sanitizedTextRef('')
 
   const headerMarginCm = ref(normalizeMarginCm(headerMarginCmProp.value))
   const footerMarginCm = ref(normalizeMarginCm(footerMarginCmProp.value))

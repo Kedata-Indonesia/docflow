@@ -1,5 +1,5 @@
 import { type Ref } from 'vue'
-import type { DocsEditor } from '@kedata-indonesia/docflow-core'
+import { sanitizeInlineHTML, type DocsEditor } from '@kedata-indonesia/docflow-core'
 import { positionHeaderOverlay, type HeaderOverlaySession } from './headerEditOverlay.js'
 
 export interface UseHeaderEditOptions {
@@ -67,7 +67,9 @@ export function useHeaderEdit(options: UseHeaderEditOptions) {
     const session = headerEditSession.value
     if (!session) return
 
-    const value = session.input.innerHTML.trim()
+    // Never commit document-derived HTML: allowlist it before it reaches the
+    // slot ref (and the PaginationPlus/v-html sinks) — issue #51.
+    const value = sanitizeInlineHTML(session.input.innerHTML).trim()
     document.removeEventListener('mousedown', session.onOutsideMouseDown)
     window.removeEventListener('resize', session.onResize)
     window.removeEventListener('scroll', session.onWindowScroll)
@@ -138,7 +140,9 @@ export function useHeaderEdit(options: UseHeaderEditOptions) {
     input.setAttribute('role', 'textbox')
     input.setAttribute('aria-label', t('editor.headerFooter.header') || 'Header')
     input.dataset.placeholder = t('editor.headerFooter.headerPlaceholder') || 'Header'
-    input.innerHTML = getHeaderEditValue(pageNumber)
+    // Sanitize the seed too: the slot value is document-derived and writing it
+    // unsanitized into this contenteditable would execute the payload (#51).
+    input.innerHTML = sanitizeInlineHTML(getHeaderEditValue(pageNumber))
 
     const overlay = document.createElement('div')
     overlay.className = 'rm-header-edit-overlay'

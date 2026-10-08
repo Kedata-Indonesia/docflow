@@ -1,5 +1,5 @@
 import { type Ref } from 'vue'
-import type { DocsEditor } from '@kedata-indonesia/docflow-core'
+import { sanitizeInlineHTML, type DocsEditor } from '@kedata-indonesia/docflow-core'
 import { CM_TO_PX } from './usePageSetup.js'
 
 /**
@@ -38,10 +38,23 @@ export function paintHeaderFooter(state: HeaderFooterPaintState): void {
   const totalStr = String(pageCount.value)
   const root = editor.value.view.dom
 
-  const defaultHLeft = state.userHeaderLeft.value.replace(/{total}/g, totalStr)
-  const defaultHRight = state.userHeaderRight.value.replace(/{total}/g, totalStr)
-  const defaultFLeft = state.userFooterLeft.value.replace(/{total}/g, totalStr)
-  const defaultFRight = state.userFooterRight.value.replace(/{total}/g, totalStr)
+  // Sanitize the document-derived templates ONCE here rather than per page: a
+  // 100-page document would otherwise pay for 100 DOMParser calls. Every
+  // per-page value below is derived from these sanitized strings by numeric
+  // `{page}`/`{total}` substitution only, which cannot introduce markup.
+  const safeHLeft = sanitizeInlineHTML(state.userHeaderLeft.value)
+  const safeHRight = sanitizeInlineHTML(state.userHeaderRight.value)
+  const safeFLeft = sanitizeInlineHTML(state.userFooterLeft.value)
+  const safeFRight = sanitizeInlineHTML(state.userFooterRight.value)
+  const safeFirstHLeft = sanitizeInlineHTML(state.userFirstPageHeaderLeft.value)
+  const safeFirstHRight = sanitizeInlineHTML(state.userFirstPageHeaderRight.value)
+  const safeEvenHLeft = sanitizeInlineHTML(state.userEvenPageHeaderLeft.value)
+  const safeEvenHRight = sanitizeInlineHTML(state.userEvenPageHeaderRight.value)
+
+  const defaultHLeft = safeHLeft.replace(/{total}/g, totalStr)
+  const defaultHRight = safeHRight.replace(/{total}/g, totalStr)
+  const defaultFLeft = safeFLeft.replace(/{total}/g, totalStr)
+  const defaultFRight = safeFRight.replace(/{total}/g, totalStr)
 
   editor.value.commands.updateHeaderContent(defaultHLeft, defaultHRight)
   editor.value.commands.updateFooterContent(defaultFLeft, defaultFRight)
@@ -63,11 +76,11 @@ export function paintHeaderFooter(state: HeaderFooterPaintState): void {
         let left = defaultHLeft
         let right = defaultHRight
         if (firstPage && state.isDifferentFirstPage.value) {
-          left = state.userFirstPageHeaderLeft.value.replace(/{total}/g, totalStr)
-          right = state.userFirstPageHeaderRight.value.replace(/{total}/g, totalStr)
+          left = safeFirstHLeft.replace(/{total}/g, totalStr)
+          right = safeFirstHRight.replace(/{total}/g, totalStr)
         } else if (state.isDifferentOddEven.value && pageNum % 2 === 0) {
-          left = state.userEvenPageHeaderLeft.value.replace(/{total}/g, totalStr)
-          right = state.userEvenPageHeaderRight.value.replace(/{total}/g, totalStr)
+          left = safeEvenHLeft.replace(/{total}/g, totalStr)
+          right = safeEvenHRight.replace(/{total}/g, totalStr)
         }
         return {
           left: left.replace(/{page}/g, state.resolvePageNumber(pageNum - 1)),
