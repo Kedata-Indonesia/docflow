@@ -31,6 +31,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `docs/COMMUNITY.md` (channels + code of conduct) and `docs/RELEASING.md`
   (changelog discipline + GitHub Releases), plus `.github/release.yml` to group
   generated release notes by label.
+- Pushing a `v*` tag now cuts a GitHub Release automatically — label-grouped
+  notes with the demo GIF attached (`.github/workflows/publish.yml`).
 
 ### Changed
 

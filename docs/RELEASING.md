@@ -28,8 +28,8 @@ or PR (`(#123)`) so readers can follow the trail.
 ## GitHub Releases
 
 Releases are cut from `main` and tagged so consumers can pin a point in time.
-Creating a Release is also where the demo GIF gets attached — treat every release
-as a small launch.
+A `v*` tag also becomes a GitHub Release automatically — with label-grouped
+notes and the demo GIF attached — so treat every release as a small launch.
 
 1. Make sure `[Unreleased]` is up to date, then move its entries under a new
    dated heading (`## [YYYY-MM-DD]`) and commit.
@@ -41,11 +41,20 @@ as a small launch.
    git push origin v0.0.86
    ```
 
-3. Open a Release for the tag and let GitHub generate the notes
-   (`.github/release.yml` groups them by label). Add a one-line summary at the
-   top and paste the corresponding changelog section.
-4. Attach the current `docs/assets/docflow-demo.gif` to the Release so the
-   announcement is self-contained.
+3. The workflow takes it from there: once the packages reach npm, its `release`
+   job creates the Release for the tag — notes generated from
+   [`.github/release.yml`](../.github/release.yml) (grouped by label), a
+   changelog pointer prepended, and `docs/assets/docflow-demo.gif` attached. The
+   step is idempotent, so re-running the workflow on an announced tag is a no-op.
+
+   A maintainer can still **edit** the Release afterwards to add a human summary
+   or extra assets. To create one manually (e.g. for a tag that predates the
+   automation), attach the GIF the same way:
+
+   ```bash
+   gh release create v0.0.86 --generate-notes \
+     "docs/assets/docflow-demo.gif#Demo GIF"
+   ```
 
 > **Never** tag or publish from a local, unpushed branch. The workflow verifies
 > the tree before it publishes.
