@@ -159,8 +159,8 @@ and the registry reads live in `scripts/lib/release-versions.mjs`:
 - A base that cannot be resolved — the first push of a branch, or a history
   rewrite that removes the release commit and the pushed range — **fails** the
   run rather than reporting "nothing to release" while shipping nothing.
-- A package npm has never seen (`export` before its first release) keeps the
-  plain bump and is published for the first time.
+- A package npm has never seen (a brand-new package) keeps the plain bump and
+  is published for the first time.
 - Nothing publishable changed → nothing is bumped and nothing is published.
 
 Releasing the current tip of `main` (not the run's checkout) and anchoring on the
