@@ -290,6 +290,39 @@ describe('DocsEditor', () => {
     wrapper.unmount()
   })
 
+  it('syncs the controlled pageless prop into the pagination extension', async () => {
+    const wrapper = mount(DocsEditor, {
+      props: { plugins: defaultPlugins, pageless: false },
+    })
+    await new Promise((resolve) => setTimeout(resolve, 50))
+
+    const vm = wrapper.vm as unknown as {
+      editor?: {
+        getJSON: () => object
+        storage: { PaginationPlus?: { enabled: boolean } }
+      }
+    }
+    expect(vm.editor?.storage.PaginationPlus?.enabled).toBe(true)
+    const contentBefore = JSON.stringify(vm.editor?.getJSON() ?? {})
+
+    // The host owns the flag here — the prop changes, not the menu command.
+    await wrapper.setProps({ pageless: true })
+    await new Promise((resolve) => setTimeout(resolve, 150))
+
+    expect(wrapper.emitted('update:pageless')?.[0]).toEqual([true])
+    expect(vm.editor?.storage.PaginationPlus?.enabled).toBe(false)
+    expect(JSON.stringify(vm.editor?.getJSON() ?? {})).toBe(contentBefore)
+
+    await wrapper.setProps({ pageless: false })
+    await new Promise((resolve) => setTimeout(resolve, 150))
+
+    expect(wrapper.emitted('update:pageless')?.[1]).toEqual([false])
+    expect(vm.editor?.storage.PaginationPlus?.enabled).toBe(true)
+    expect(JSON.stringify(vm.editor?.getJSON() ?? {})).toBe(contentBefore)
+
+    wrapper.unmount()
+  })
+
   it('toggles the outline sidebar via menuClick(\'toggle-left-sidebar\')', async () => {
     const wrapper = mount(DocsEditor, {
       props: { plugins: defaultPlugins },
@@ -925,6 +958,114 @@ describe('DocsEditor', () => {
 
     const before = (wrapper.vm as unknown as { orphanedCommentIds: string[] }).orphanedCommentIds
     expect(before).toEqual([])
+
+    wrapper.unmount()
+  })
+
+  it('round-trips dialog edits through Clear, Cancel, Apply and Save', async () => {
+    const wrapper = mount(DocsEditor, {
+      props: { plugins: defaultPlugins },
+    })
+    await new Promise((resolve) => setTimeout(resolve, 80))
+
+    const vm = wrapper.vm as unknown as {
+      showFooterModal: boolean
+      footerLeftInput: string
+      footerRightInput: string
+      userFooterLeft: string
+      openFooterModal: () => void
+      showHeaderFormatModal: boolean
+      draftHeaderMarginCm: number
+      headerMarginCm: number
+      draftDifferentOddEven: boolean
+      isDifferentOddEven: boolean
+      openHeaderFormatModal: () => void
+      showPageNumberModal: boolean
+      draftPageNumberPosition: 'header' | 'footer'
+      draftPageNumberMode: 'startAt' | 'continue'
+      pageNumberPosition: 'header' | 'footer'
+      pageNumberMode: 'startAt' | 'continue'
+      openPageNumberModal: () => void
+      showPageSetupModal: boolean
+      pageSetupOrientation: 'portrait' | 'landscape'
+      pageSetupMarginsCm: { top: number }
+      openPageSetupModal: () => void
+    }
+
+    // Only one extracted dialog is open at a time, so it is the only overlay
+    // rendered and its primary action is the last button in the markup.
+    const dialog = () => wrapper.find('.fixed.inset-0.z-50')
+    const buttons = () => dialog().findAll('button')
+    const primary = () => buttons()[buttons().length - 1]
+    const cancel = () => buttons()[buttons().length - 2]
+
+    // Footer: two-way text fields, Clear resets both, Save persists.
+    vm.openFooterModal()
+    await wrapper.vm.$nextTick()
+    const footerInputs = dialog().findAll('input')
+    await footerInputs[0].setValue('Confidential')
+    await footerInputs[1].setValue('Draft')
+    expect(vm.footerLeftInput).toBe('Confidential')
+    expect(vm.footerRightInput).toBe('Draft')
+
+    await buttons()[0].trigger('click') // Clear
+    expect(vm.footerLeftInput).toBe('')
+    expect(vm.footerRightInput).toBe('')
+
+    await footerInputs[0].setValue('Confidential')
+    await primary().trigger('click') // Save
+    await wrapper.vm.$nextTick()
+    expect(vm.showFooterModal).toBe(false)
+    expect(vm.userFooterLeft).toBe('Confidential')
+
+    // Header format: number + checkbox drafts, Apply clamps out-of-range input.
+    vm.openHeaderFormatModal()
+    await wrapper.vm.$nextTick()
+    await dialog().find('input[type="number"]').setValue('9')
+    await dialog().findAll('input[type="checkbox"]')[1].setValue(true)
+    expect(vm.draftHeaderMarginCm).toBe(9)
+    expect(vm.draftDifferentOddEven).toBe(true)
+
+    await primary().trigger('click') // Apply
+    await wrapper.vm.$nextTick()
+    expect(vm.showHeaderFormatModal).toBe(false)
+    expect(vm.headerMarginCm).toBe(5)
+    expect(vm.isDifferentOddEven).toBe(true)
+
+    // Page number: Cancel discards the draft, reopening + Apply persists it.
+    vm.openPageNumberModal()
+    await wrapper.vm.$nextTick()
+    await dialog().findAll('input[type="radio"]')[1].setValue() // position: footer
+    expect(vm.draftPageNumberPosition).toBe('footer')
+    await cancel().trigger('click')
+    await wrapper.vm.$nextTick()
+    expect(vm.showPageNumberModal).toBe(false)
+    expect(vm.pageNumberPosition).toBe('header')
+
+    vm.openPageNumberModal()
+    await wrapper.vm.$nextTick()
+    await dialog().findAll('input[type="radio"]')[1].setValue() // position: footer
+    await dialog().find('input[type="radio"][value="continue"]').setValue()
+    expect(vm.draftPageNumberMode).toBe('continue')
+
+    await primary().trigger('click') // Apply
+    await wrapper.vm.$nextTick()
+    expect(vm.showPageNumberModal).toBe(false)
+    expect(vm.pageNumberPosition).toBe('footer')
+    expect(vm.pageNumberMode).toBe('continue')
+
+    // Page setup: orientation button + margin input, then Apply.
+    vm.openPageSetupModal()
+    await wrapper.vm.$nextTick()
+    await buttons()[1].trigger('click') // Landscape
+    expect(vm.pageSetupOrientation).toBe('landscape')
+    await dialog().find('input[type="number"]').setValue('3.5')
+    expect(vm.pageSetupMarginsCm.top).toBe(3.5)
+
+    await primary().trigger('click') // Apply
+    await wrapper.vm.$nextTick()
+    expect(vm.showPageSetupModal).toBe(false)
+    expect(vm.pageSetupMarginsCm.top).toBe(3.5)
 
     wrapper.unmount()
   })

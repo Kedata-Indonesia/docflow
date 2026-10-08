@@ -1,13 +1,16 @@
 import { createEditor, type DocsEditor, type EditorOptions } from '@kedata-indonesia/docflow-core'
 import { computed, onMounted, onUnmounted, ref, shallowRef, watch, type ComputedRef, type Ref, type ShallowRef, nextTick, unref } from 'vue'
 
-export interface UseEditorOptions extends Omit<EditorOptions, 'target' | 'onUpdate' | 'content' | 'collaboration'> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  content?: any
-  onUpdate?: (json: object) => void
-  collaboration?: any
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  paginationOptions?: any
+export type UseEditorOptions = Omit<EditorOptions, 'target' | 'content' | 'collaboration' | 'editable'> & {
+  /** Plain value or ref — both are `unref`-ed at init. */
+  content?: EditorOptions['content'] | Ref<EditorOptions['content']>
+  collaboration?: EditorOptions['collaboration'] | Ref<EditorOptions['collaboration']>
+  /**
+   * Plain value or ref — `unref`-ed at init, then watched, so a live toggle
+   * (e.g. `<DocsEditor :editable="flag">`) reaches `editor.setEditable()`
+   * instead of being frozen into the editor at mount time.
+   */
+  editable?: boolean | Ref<boolean>
 }
 
 export interface UseEditorReturn {
@@ -35,7 +38,7 @@ export function useEditor(options: UseEditorOptions): UseEditorReturn {
       target: editorRef.value,
       content: contentVal,
       plugins: options.plugins,
-      editable: options.editable ?? true,
+      editable: unref(options.editable) ?? true,
       collaboration: collabVal,
       onUpdate: options.onUpdate,
       getPageMap: options.getPageMap,
@@ -69,7 +72,7 @@ export function useEditor(options: UseEditorOptions): UseEditorReturn {
   })
 
   watch(
-    () => options.editable,
+    () => unref(options.editable),
     (value) => {
       if (editor.value) {
         editor.value.setEditable(value ?? true)
@@ -80,7 +83,13 @@ export function useEditor(options: UseEditorOptions): UseEditorReturn {
   watch(
     () => {
       const collab = unref(options.collaboration)
-      return collab ? { room: collab.room, provider: collab.provider } : null
+      if (!collab) return null
+      // A `CollaborationSetup` is an already-created instance (provider +
+      // ydoc), not re-creatable config, so only `CollaborationOptions` can
+      // drive a re-init. Narrowing this way also avoids stringifying the
+      // provider object below.
+      if (!('room' in collab)) return null
+      return { room: collab.room, provider: collab.provider ?? null }
     },
     async (newVal, oldVal) => {
       if (JSON.stringify(newVal) !== JSON.stringify(oldVal)) {

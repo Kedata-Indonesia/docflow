@@ -1,7 +1,7 @@
 {
   "name": "@kedata-indonesia/docflow-core",
   "license": "Apache-2.0",
-  "version": "0.0.60",
+  "version": "0.0.85",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -19,7 +19,8 @@
     }
   },
   "publishConfig": {
-    "registry": "https://npm.pkg.github.com"
+    "registry": "https://registry.npmjs.org",
+    "access": "public"
   },
   "files": [
     "dist"

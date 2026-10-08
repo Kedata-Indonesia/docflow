@@ -9,7 +9,12 @@
     "build": "pnpm -r run build",
     "typecheck": "pnpm -r run typecheck",
     "test:unit": "pnpm -r run test:unit",
-    "lint": "eslint . --ext .ts,.vue"
+    "test:scripts": "node --test scripts/__tests__/*.test.mjs",
+    "lint": "eslint . --ext .ts,.vue",
+    "docs:api": "node scripts/generate-api-docs.mjs",
+    "docs:api:check": "node scripts/generate-api-docs.mjs --check",
+    "dev": "pnpm --filter @kedata-indonesia/docflow-playground dev",
+    "dev:source": "pnpm --filter @kedata-indonesia/docflow-playground dev:source"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

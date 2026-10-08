@@ -1,5 +1,24 @@
-name: Publish to GitHub Packages & npm
+name: Publish to npm
 
+# Publishes the @kedataindo/* packages to the public npm registry.
+# GitHub Packages is intentionally NOT used (see docs/PUBLISH.md).
+#
+# Triggers:
+#   - push to `main`     -> verify + auto-bump + build + publish (unattended)
+#   - push of a `v*` tag -> same flow, without the auto-bump
+#   - manual run         -> Actions tab (`workflow_dispatch`)
+#
+# On a push to `main`, scripts/bump-release-versions.mjs patch-bumps everything
+# changed since the last `chore(release):` commit (plus their dependents) on the
+# current tip of `main`, and the new versions are landed back on `main` as a pull
+# request that this workflow opens and merges itself, so merging is all it takes
+# to release. Publishing itself stays idempotent: a version already on npm is
+# skipped, never a hard failure.
+#
+# The bump is registry-aware: it raises each affected package above everything
+# npm already has, so a repo that drifted behind the registry self-heals instead
+# of re-bumping into taken versions — which the idempotent publish would skip,
+# leaving a green run that ships nothing.
 on:
   push:
     branches:
@@ -8,15 +27,41 @@ on:
       - 'v*'
   workflow_dispatch:
 
+permissions:
+  # `write` is required to push the auto-bump branch and to merge its PR back
+  # into `main` (a ruleset on `main` requires every change to go through a pull
+  # request, so a direct push is rejected with GH013).
+  contents: write
+  pull-requests: write
+
+concurrency:
+  # Never let two pushes race to publish the same registry packages.
+  group: publish-npm
+  cancel-in-progress: false
+
 jobs:
   publish:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      packages: write
-
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history: the release bump diffs against the last release commit.
+          fetch-depth: 0
+          # The write-scoped token must exist only for the final push step.
+          persist-credentials: false
+
+      # Publish the CURRENT tip of `main`, not the checkout: a run can start
+      # after `main` advanced further, and the concurrency group drops superseded
+      # queued runs, so working on a stale sha would leave changes unreleased.
+      # Pinned BEFORE install so the gates, build and publish all act on this
+      # same revision — never on a newer, unverified tip.
+      - name: Pin to the current tip of main
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          # `origin` is credential-free here (`persist-credentials: false`); the
+          # repository is public, so an anonymous fetch is enough.
+          git fetch --quiet origin main
+          git reset --hard FETCH_HEAD
 
       - uses: pnpm/action-setup@v4
         with:
@@ -25,107 +70,58 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          registry-url: 'https://npm.pkg.github.com'
-          scope: '@kedata-indonesia'
+          registry-url: 'https://registry.npmjs.org'
+          scope: '@kedataindo'
 
       - run: pnpm install --frozen-lockfile
 
-      - name: Auto-bump version if already published
-        id: auto_bump
-        run: |
-          BUMPED=false
-          echo "//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}" >> .npmrc
-          for pkg in core layout-engine plugins vue element; do
-            VERSION=$(node -e "console.log(require('./packages/$pkg/package.json').version)")
-            if npm view @kedata-indonesia/docflow-$pkg@$VERSION version --registry=https://npm.pkg.github.com &>/dev/null 2>&1; then
-              NEW_VERSION=$(node -e "
-                const fs = require('fs');
-                const fp = './packages/$pkg/package.json';
-                const p = JSON.parse(fs.readFileSync(fp, 'utf8'));
-                const parts = p.version.split('.').map(Number);
-                parts[2] = (parts[2] || 0) + 1;
-                p.version = parts.join('.');
-                fs.writeFileSync(fp, JSON.stringify(p, null, 2) + '\n');
-                console.log(p.version);
-              ")
-              echo "Auto-bumped @kedata-indonesia/docflow-$pkg from $VERSION to $NEW_VERSION"
-              BUMPED=true
-            else
-              echo "@kedata-indonesia/docflow-$pkg@$VERSION is new, using existing version"
-            fi
-          done
-          echo "bumped=$BUMPED" >> $GITHUB_OUTPUT
+      # Never publish code that fails its own checks.
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Unit tests
+        run: pnpm test:unit
+
+      - name: Release-script unit tests
+        run: pnpm test:scripts
+
+      # The README API tables are generated from the public component contract;
+      # a stale README must never reach npm. Regenerate with `pnpm docs:api`.
+      - name: Verify generated API docs are up to date
+        run: pnpm docs:api:check
+
+      # Patch-bump every package changed since the last release commit, so `main`
+      # ships a fresh version without a manual bump. Versions are raised above
+      # whatever npm already has, and an unreachable registry fails this step
+      # rather than guessing. No-op on tag pushes.
+      - name: Bump versions for changed packages
+        id: bump
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Base used only before the first automated release exists.
+          BASE_FALLBACK: ${{ github.event.before }}
+        run: node scripts/bump-release-versions.mjs auto HEAD
 
-      - run: pnpm build
+      # Only the publishable packages: `examples/*` must never be able to block
+      # a release if its own build breaks.
+      - run: pnpm -r --filter "./packages/*" run build
 
-      - name: Publish core (idempotent)
+      - name: Publish @kedataindo/* to npm
         run: |
-          VERSION=$(node -e "console.log(require('./packages/core/package.json').version)")
-          if npm view @kedata-indonesia/docflow-core@$VERSION version &>/dev/null 2>&1; then
-            echo "@kedata-indonesia/docflow-core@$VERSION already published, skipping"
-          else
-            echo "Publishing @kedata-indonesia/docflow-core@$VERSION..."
-            pnpm publish --filter @kedata-indonesia/docflow-core --no-git-checks
-          fi
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # `.npmrc` in this repo is TRACKED, so appending the token there leaves
+          # the working tree dirty — which made the old commit-back step abort
+          # ("cannot pull with rebase: You have unstaged changes") and strand the
+          # bump commit, drifting repo versions behind npm (incident: run
+          # 37709011366). setup-node already points NPM_CONFIG_USERCONFIG outside
+          # the checkout, so write the token there (falling back to npm's default
+          # user config).
+          NPMRC="${NPM_CONFIG_USERCONFIG:-$HOME/.npmrc}"
+          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" >> "$NPMRC"
 
-      - name: Publish layout-engine (idempotent)
-        run: |
-          VERSION=$(node -e "console.log(require('./packages/layout-engine/package.json').version)")
-          if npm view @kedata-indonesia/docflow-layout-engine@$VERSION version &>/dev/null 2>&1; then
-            echo "@kedata-indonesia/docflow-layout-engine@$VERSION already published, skipping"
-          else
-            echo "Publishing @kedata-indonesia/docflow-layout-engine@$VERSION..."
-            pnpm publish --filter @kedata-indonesia/docflow-layout-engine --no-git-checks
-          fi
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Publish plugins (idempotent)
-        run: |
-          VERSION=$(node -e "console.log(require('./packages/plugins/package.json').version)")
-          if npm view @kedata-indonesia/docflow-plugins@$VERSION version &>/dev/null 2>&1; then
-            echo "@kedata-indonesia/docflow-plugins@$VERSION already published, skipping"
-          else
-            echo "Publishing @kedata-indonesia/docflow-plugins@$VERSION..."
-            pnpm publish --filter @kedata-indonesia/docflow-plugins --no-git-checks
-          fi
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Publish vue (idempotent)
-        run: |
-          VERSION=$(node -e "console.log(require('./packages/vue/package.json').version)")
-          if npm view @kedata-indonesia/docflow-vue@$VERSION version &>/dev/null 2>&1; then
-            echo "@kedata-indonesia/docflow-vue@$VERSION already published, skipping"
-          else
-            echo "Publishing @kedata-indonesia/docflow-vue@$VERSION..."
-            pnpm publish --filter @kedata-indonesia/docflow-vue --no-git-checks
-          fi
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Publish element (idempotent)
-        run: |
-          VERSION=$(node -e "console.log(require('./packages/element/package.json').version)")
-          if npm view @kedata-indonesia/docflow-element@$VERSION version &>/dev/null 2>&1; then
-            echo "@kedata-indonesia/docflow-element@$VERSION already published, skipping"
-          else
-            echo "Publishing @kedata-indonesia/docflow-element@$VERSION..."
-            pnpm publish --filter @kedata-indonesia/docflow-element --no-git-checks
-          fi
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      # ─── Public npm (@kedataindo/*) ───────────────────────────
-      - name: Publish @kedataindo/* to public npm
-        run: |
-          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" >> .npmrc
-
-          # Step 1: Backup package.json and rewrite ALL package.json files (name + deps + workspace:* → actual version)
+          # Step 1: Backup package.json and rewrite ALL package.json files (name + deps + workspace:* -> actual version)
           for pkg in core layout-engine plugins vue element export; do
             cp "./packages/$pkg/package.json" "./packages/$pkg/package.json.bak"
             node -e "
@@ -135,7 +131,7 @@ jobs:
               p.name = '@kedataindo/docflow-$pkg';
 
               // Rewrite internal dep names AND resolve workspace:* to actual version
-              ['dependencies', 'devDependencies', 'peerDependencies'].forEach(section => {
+              ['dependencies', 'devDependencies', 'peerDependencies', 'optionalDependencies'].forEach(section => {
                 if (!p[section]) return;
                 Object.keys(p[section]).forEach(k => {
                   if (k.startsWith('@kedata-indonesia/docflow-')) {
@@ -162,14 +158,14 @@ jobs:
             fi
           done
 
-          # Step 3: Publish in dependency order
+          # Step 3: Publish in dependency order (idempotent)
           for pkg in core layout-engine plugins vue element export; do
             VERSION=$(node -e "console.log(JSON.parse(require('fs').readFileSync('./packages/$pkg/package.json.bak', 'utf8')).version)")
 
             if npm view @kedataindo/docflow-$pkg@$VERSION version --registry=https://registry.npmjs.org &>/dev/null 2>&1; then
               echo "@kedataindo/docflow-$pkg@$VERSION already published, skipping"
             else
-              echo "Publishing @kedataindo/docflow-$pkg@\$VERSION..."
+              echo "Publishing @kedataindo/docflow-$pkg@$VERSION..."
               pnpm publish --filter @kedataindo/docflow-$pkg --no-git-checks --access public
             fi
           done
@@ -182,13 +178,118 @@ jobs:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: Commit and push bumped versions
-        if: steps.auto_bump.outputs.bumped == 'true' && github.ref == 'refs/heads/main'
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add packages/*/package.json
-          git commit -m "chore(release): auto-bump package versions [skip ci]"
-          git push origin HEAD:main
+      # The bump only ever picks a version npm does not have, so a version that
+      # is still missing here means the publish did not actually land. `npm
+      # view` reads through npm's CDN and read replicas, which can lag several
+      # minutes behind an accepted publish (observed: 1.5-7 min for this
+      # scope), so poll with a bounded budget instead of a handful of retries.
+      - name: Verify the bumped versions are live on npm
+        if: steps.bump.outputs.bumped != ''
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERIFY_TIMEOUT_SECONDS: "900"
+          VERIFY_POLL_SECONDS: "20"
+        run: |
+          deadline=$((SECONDS + VERIFY_TIMEOUT_SECONDS))
+          for pkg in $(echo "${{ steps.bump.outputs.bumped }}" | tr ',' ' '); do
+            version=$(node -e "console.log(require('./packages/${pkg}/package.json').version)")
+            while :; do
+              # `timeout` bounds each read: a stalled registry must not stretch
+              # the budget (it then just counts as "not visible yet").
+              if timeout 60 npm view "@kedataindo/docflow-${pkg}@${version}" version \
+                --registry=https://registry.npmjs.org >/dev/null 2>&1; then
+                echo "@kedataindo/docflow-${pkg}@${version} is live"
+                break
+              fi
+              if [ "$SECONDS" -ge "$deadline" ]; then
+                echo "::error::@kedataindo/docflow-${pkg}@${version} was not published"
+                exit 1
+              fi
+              echo "@kedataindo/docflow-${pkg}@${version} not visible yet, waiting..."
+              sleep "$VERIFY_POLL_SECONDS"
+            done
+          done
+
+      # Keep the repo in sync with what was just published: the publish step
+      # restores each package.json from its `.bak`, which already carries the
+      # bumped version. `main` is protected by a ruleset that routes every change
+      # through a pull request — a direct push is rejected with GH013 and the bump
+      # is stranded (incident: run 37713844249), so the bump is pushed to a
+      # throwaway branch and merged as a PR by this step itself. It runs with
+      # GITHUB_TOKEN, which cannot re-trigger this workflow (`[skip ci]` documents
+      # the same intent).
+      - name: Land version bumps on main via PR
+        if: steps.bump.outputs.bumped != ''
+        env:
+          # Injected here only — checkout sets `persist-credentials: false`, so
+          # install/build never hold a repo-write token.
+          GH_TOKEN: ${{ github.token }}
+          BUMPED: ${{ steps.bump.outputs.bumped }}
+        run: |
+          set -euo pipefail
+          REMOTE="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          # GITHUB_RUN_ID is stable across "Re-run jobs" and a failed run leaves
+          # its branch behind, which would reject the next push (non-fast-forward)
+          # before the PR is even opened — the attempt number keeps re-runs clear.
+          BRANCH="release/bump-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add packages/*/package.json
+
+          if git diff --cached --quiet; then
+            echo "No version changes to commit."
+            exit 0
+          fi
+
+          git checkout -b "$BRANCH"
+          git commit -m "chore(release): bump ${BUMPED} [skip ci]"
+
+          # The bump commit above is the only tree change that must reach main;
+          # anything else is an ephemeral side effect of the build/publish steps.
+          git reset --hard HEAD
+          git push "$REMOTE" "HEAD:refs/heads/${BRANCH}"
+
+          cat > "$RUNNER_TEMP/bump-pr-body.md" <<EOF
+          Automated release commit for \`${BUMPED}\`.
+
+          Produced by the push-to-main publish workflow
+          (\`.github/workflows/publish.yml\`). \`main\` routes every change through a
+          pull request, so the workflow opens and merges this one itself: the repo
+          must not drift behind the versions already published to npm.
+          EOF
+
+          # A human merge can land while this run publishes (the concurrency group
+          # only serialises workflow runs) and GitHub can take a moment to report a
+          # brand-new PR as mergeable, so retry — then verify the commit is really
+          # on main instead of trusting the exit code.
+          PR=""
+          for attempt in 1 2 3 4 5 6; do
+            if [ -z "$PR" ]; then
+              PR=$(gh pr list --head "$BRANCH" --state open --json url \
+                --jq '.[0].url // ""' 2>/dev/null || echo "")
+            fi
+            if [ -z "$PR" ]; then
+              PR=$(gh pr create --base main --head "$BRANCH" \
+                --title "chore(release): bump ${BUMPED} [skip ci]" \
+                --body-file "$RUNNER_TEMP/bump-pr-body.md" | tail -n 1) || PR=""
+            fi
+            if [ -n "$PR" ] && gh pr merge "$PR" --merge; then
+              break
+            fi
+            # Drop our handle so the next attempt re-lists (or re-creates) the PR:
+            # the one we held may have been closed without being merged.
+            PR=""
+            if [ "$attempt" -lt 6 ]; then
+              echo "Attempt ${attempt} could not land the bump PR; retrying..."
+              sleep 10
+            fi
+          done
+
+          # Never stay green while the repo drifts behind npm.
+          git fetch --quiet "$REMOTE" main
+          if ! git merge-base --is-ancestor HEAD FETCH_HEAD; then
+            echo "::error::version bump did not reach main — repo and npm may drift. If the ruleset blocked the merge as well, let the GitHub Actions app bypass it or keep syncing manually (docs/PUBLISH.md)."
+            exit 1
+          fi
+
+          # Disposable once merged.
+          git push "$REMOTE" --delete "$BRANCH" || true

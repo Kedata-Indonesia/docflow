@@ -1,8 +1,21 @@
 # DocFlow — System Architecture
 
 > **Audience:** AI agents and engineers integrating with, operating, or extending DocFlow.
-> **Status:** as of `main` @ `a25e96d` (post Phase 9 P9-4 C1+C2+C3).
+> **Status:** historical / cross-repo. Documents the **full DocFlow product** (library `packages/*` **plus** the deployable app).
 > **Scope:** a complete map of how data flows between the browser, the apps, the server, and the data stores — enough that an agentic AI can write to or serve data on any layer without breaking the others.
+>
+> ⚠️ **Repository scope note (2026-10):** this repository is **library-only**. The
+> deployable application — `apps/web`, `apps/server`, `apps/demo`, `docker/`, `e2e/`
+> — was split into [`Kedata-Indonesia/docflow-app`](https://github.com/Kedata-Indonesia/docflow-app).
+> Every `apps/*`, `docker/*`, and `e2e/*` path referenced below therefore lives in that
+> sibling repo, **not** here. For the library boundary itself, prefer
+> [`LIBRARY_CONTRACT.md`](LIBRARY_CONTRACT.md) and the root `README.md`.
+>
+> This repo ships one runnable app for local UI review: `examples/playground` — a
+> backend-free Vite app that mounts `<DocsEditor>` through the public API. It is
+> **local-only and untracked** (`.gitignore`, PR #62): restore it with
+> `git archive 0861b95 examples | tar -x -C .`. It is **not published** and never
+> imports a backend package.
 
 ---
 
@@ -147,6 +160,36 @@ flowchart LR
 | `comments` + `selectedTextSnippet` + `selectedTextIndex` + emits | host → library (in) | library → host (events: `add-comment`, `add-reply`, `resolve-comment`) |
 
 The library knows nothing about REST, Mongo, AI providers, auth, or storage. This is what makes the library shippable to customers who bring their own backend.
+
+### 2.1 Pagination model (one derived model, three renderers)
+
+There is exactly **one page model**, and it is **derived — never editable**:
+
+```
+ProseMirror state (doc)
+   │  measure DOM: getBoundingClientRect / getComputedStyle / posAtDOM (read-only)
+   ▼
+BlockInfo[]  ──PageBreaker.computePages()──▶  Page[]  ──▶  renderer (view layer only)
+```
+
+- `Page[]` (`packages/layout-engine/src/types.ts`) is a block-range read model — `from`/`to` plus per-block geometry. The offsets are real ProseMirror positions when the DOM exposes them (`data-from`/`data-to`, or an editor `view` with `posAtDOM`); otherwise `PageLayout` falls back to synthetic text-length offsets. The current virtual-page wiring passes the bare `editor.view.dom` and `getPageMap: () => new Map()`, so it takes the fallback. Either way the model stays **derived**.
+- `BlockInfo[]` is measured by `PageLayout` (read-only *for document state*: it clones the editor DOM into an off-screen hidden container — a plain `<div data-layout-shadow>` on `body`, not a real Shadow DOM) and broken into pages by `PageBreaker` (pure: no DOM, no ProseMirror imports — guard in `packages/layout-engine/src/__tests__/purity.test.ts`).
+- Data flows **one way**: `state → measurement → Page[] → renderer`. Nothing in the layout engine ever feeds back into the document, so it can never become a second editable model.
+
+The Vue layer picks **exactly one renderer** per editor instance (`packages/vue/src/components/DocsEditor.vue`):
+
+| Mode | Selected by | Renderer | Writes |
+|------|-------------|----------|--------|
+| Pageless | `<DocsEditor pageless>` | none — continuous surface | — |
+| Paginated (default) | neither flag | `tiptap-pagination-plus` (patched, see `patches/tiptap-pagination-plus@3.1.0.patch`) | page-break **ProseMirror decorations** + `[data-rm-pagination]` DOM; its only transaction is `setMeta(PAGE_COUNT_META_KEY)` — no doc change |
+| Virtual pages (experimental) | `<DocsEditor :virtual-pages="true">` (ignored while `pageless`) | `VirtualPageOverlay` + `PageLayout` (`packages/layout-engine`) | absolutely-positioned overlay frames; PaginationPlus is switched **off** (`paginationOptions.enabled = false`) |
+
+The modes are mutually exclusive, so there is no "two competing pagination systems" at runtime: **`layout-engine` owns the derived `Page[]` read model**, **`PaginationPlus` owns the live paginated rendering**. A new renderer must (a) be selected by prop, (b) read the derived model, (c) never write the document.
+
+Two operations *outside* this model do mutate the document, driven by the geometry it produces — they are ordinary, undoable, collaborative edits, not layout writes:
+
+- `tablePageSplitPlugin` (`packages/plugins/src/tablePageSplit.ts`, in `defaultPlugins`) splits an over-tall table across pages via `appendTransaction` → `tr.replaceWith(…)`, so it runs inside the normal TipTap transaction cycle.
+- The Vue layer dispatches *empty* transactions (`view.dispatch(view.state.tr)`) to force a decoration rebuild after a page-size change — no steps, no doc change.
 
 ---
 
@@ -417,6 +460,7 @@ sequenceDiagram
 ## 8. Failure modes & invariants
 
 - **Single source of truth:** ProseMirror state. Mutate via TipTap commands. Page layout and collab are derived views — never a second editable model.
+- **Pagination is derived:** one `Page[]` read model (`packages/layout-engine`) feeds three mutually-exclusive renderers (pageless / PaginationPlus / virtual overlay). Layout only measures and writes view artifacts (decorations, shadow DOM) — it never dispatches a document transaction. See §2.1; guarded by `packages/layout-engine/src/__tests__/purity.test.ts`.
 - **ProseMirror migration:** `migrateContent` in `packages/core/src/Editor.ts` flattens legacy `page`-wrapped / `tabbed-doc` docs on load — preserve when touching content ingestion.
 - **No double-registration:** Extensions that could double-register (e.g. `FontSize`) are registered only via their plugin, not also in `Editor.ts`. Watch for duplicate-name errors when adding extensions.
 - **Server `rebuildEditor`:** `createEditor` rebuilds the whole TipTap editor when `.use(plugin)` is called at runtime. Adding a plugin is a full teardown/recreate, not a hot patch.
@@ -430,17 +474,20 @@ sequenceDiagram
 
 ## 9. Test surface
 
-| Layer | Command |
-|-------|---------|
-| All packages unit | `pnpm test:unit` (vitest) — **42 files / 325 tests** as of P9-4 |
-| Server only | `pnpm --filter @kedata-indonesia/docflow-server test:unit` |
-| Vue | `pnpm --filter @kedata-indonesia/docflow-vue test:unit` |
-| E2E | `pnpm test:e2e` — Playwright; auto-starts `apps/demo` |
-| Visual | `pnpm test:visual` — Percy + Playwright |
-| Typecheck | `pnpm typecheck` (per-package: `pnpm --filter <pkg> typecheck`) |
-| Lint | `pnpm lint` — eslint with `noUnusedLocals`/`noUnusedParameters` strict |
+> Rows marked **`docflow-app`** live in the sibling app repository, not here.
 
-Per-AGENTS.md gate order after any non-trivial change: **lint → typecheck → test:unit → test:e2e (if UI/layout changed) → build affected packages.**
+| Layer | Command | Where |
+|-------|---------|-------|
+| All packages unit | `pnpm test:unit` (vitest) | this repo |
+| Vue only | `pnpm --filter @kedata-indonesia/docflow-vue test:unit` | this repo |
+| Typecheck | `pnpm typecheck` (per-package: `pnpm --filter <pkg> typecheck`) | this repo |
+| Lint | `pnpm lint` — eslint with `noUnusedLocals`/`noUnusedParameters` strict | this repo |
+| Server only | `pnpm --filter @kedata-indonesia/docflow-server test:unit` | `docflow-app` |
+| E2E | `pnpm test:e2e` — Playwright; auto-starts `apps/demo` | `docflow-app` |
+| Visual | `pnpm test:visual` — Percy + Playwright | `docflow-app` |
+
+Per-AGENTS.md gate order after any non-trivial change: **lint → typecheck → test:unit → build affected packages**
+(E2E/visual, when UI/layout changed, run in `docflow-app`).
 
 ---
 
@@ -471,7 +518,7 @@ Per-AGENTS.md gate order after any non-trivial change: **lint → typecheck → 
 | Comments REST surface | `apps/server/src/routes/comments.ts` |
 | Comment broadcast | `apps/server/src/utils/broadcast.ts` + WS upgrade in `apps/server/src/index.ts` (`registerConnection`) |
 | Citation render | `packages/plugins/src/citation.ts` + `packages/plugins/src/bibliography.ts` + `packages/plugins/src/citeEngine.ts` |
-| Pagination / page size | `packages/layout-engine/src/PageLayout.ts` + `PageBreaker.ts` |
+| Pagination / page size | Model: `packages/layout-engine/src/PageLayout.ts` + `PageBreaker.ts`; renderers: §2.1 |
 | Dashboard routing / list | `apps/web/src/views/Dashboard.vue` + `apps/web/src/api.ts` |
 | Cursor / selection plumbing | `apps/web/src/components/EditorView.vue` (`captureSelection`, `selectedTextSnippet`, `selectedTextIndex`) + `packages/vue/src/components/DocsEditor.vue` |
 | Heartbeat presence (REST, 15s) | `apps/server/src/routes/collab.ts` (`POST /heartbeat`, `GET /online/:room`) |
@@ -564,6 +611,6 @@ If `roles` is missing (pre-RO1 docs), fall back to the legacy `collaborators` ar
 | Phase plans | `docs/plans/phase-0..9-*.md` |
 | Sprint 9-10 status | `docs/plans/sprint-9-10-execution-plan.md` |
 | Third-party licenses | `NOTICE` |
-| License | `LICENSE` (proprietary EULA reference) |
+| License | `LICENSE` (Apache-2.0) |
 | Agent rules | `AGENTS.md` |
 | Library / agent / orchestration | `CLAUDE.md`, `.opencode/agents/*.md` |

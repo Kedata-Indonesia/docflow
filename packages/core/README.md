@@ -21,7 +21,7 @@ const editor = createEditor({
   plugins: defaultPlugins,
   content: { type: 'doc', content: [] },
   onUpdate: (json) => console.log(json),
-  collaboration: { room: 'my-doc', provider: 'webrtc' },
+  collaboration: { room: 'my-doc', provider: 'webrtc', user: { name: 'Alice', color: '#3b82f6' } },
 })
 
 editor.getJSON()

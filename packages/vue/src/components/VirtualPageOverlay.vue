@@ -1,4 +1,12 @@
 <template>
+  <!--
+    Header/footer templates come from the loaded document (DocsEditor seeds
+    them from `modelValue`) and are persisted back, so they are NOT trusted
+    input — in a shared doc they are a stored-XSS surface. The values rendered
+    below are passed through `sanitizeInlineHTML` (inline allowlist, issue
+    #51), so `v-html` only ever receives sanitized markup.
+  -->
+  <!-- eslint-disable vue/no-v-html -->
   <div v-if="isReady" class="virtual-page-overlay" aria-hidden="true">
     <div
       v-for="p in visiblePages"
@@ -11,14 +19,14 @@
 
       <!-- Header -->
       <div class="vp-header" :style="headerStyle">
-        <span class="vp-header-left" v-html="config.headerLeft" />
-        <span class="vp-header-right" v-html="config.headerRight" />
+        <span class="vp-header-left" v-html="safeHeaderLeft" />
+        <span class="vp-header-right" v-html="safeHeaderRight" />
       </div>
 
       <!-- Footer -->
       <div class="vp-footer" :style="footerStyle">
-        <span class="vp-footer-left" v-html="resolveFooter(config.footerLeft, p.index)" />
-        <span class="vp-footer-right" v-html="resolveFooter(config.footerRight, p.index)" />
+        <span class="vp-footer-left" v-html="resolveFooter(safeFooterLeft, p.index)" />
+        <span class="vp-footer-right" v-html="resolveFooter(safeFooterRight, p.index)" />
       </div>
     </div>
   </div>
@@ -26,6 +34,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { sanitizeInlineHTML } from '@kedata-indonesia/docflow-core'
 import type { VisiblePage, PageOverlayData } from '@kedata-indonesia/docflow-layout-engine'
 
 const props = defineProps<{
@@ -36,6 +45,13 @@ const props = defineProps<{
 const visiblePages = computed(() => props.data.visiblePages)
 const config = computed(() => props.data.config)
 const ps = computed(() => config.value.pageSize)
+
+// Defense in depth: the templates are also sanitized at the source, but the
+// overlay never writes raw document HTML into the DOM (issue #51).
+const safeHeaderLeft = computed(() => sanitizeInlineHTML(config.value.headerLeft))
+const safeHeaderRight = computed(() => sanitizeInlineHTML(config.value.headerRight))
+const safeFooterLeft = computed(() => sanitizeInlineHTML(config.value.footerLeft))
+const safeFooterRight = computed(() => sanitizeInlineHTML(config.value.footerRight))
 
 const gapStyle = computed(() => ({
   height: `${config.value.pageGap}px`,

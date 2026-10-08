@@ -4,6 +4,7 @@ import Table from '@tiptap/extension-table'
 import TableRow from '@tiptap/extension-table-row'
 import TableCell from '@tiptap/extension-table-cell'
 import TableHeader from '@tiptap/extension-table-header'
+import type { DOMOutputSpec } from '@tiptap/pm/model'
 
 const CustomTable = Table.extend({
   addAttributes() {
@@ -29,7 +30,7 @@ const CustomTable = Table.extend({
       })
     }
 
-    const cols: any[] = []
+    const cols: DOMOutputSpec[] = []
     let totalWidth = 0
     let hasExplicitWidths = false
     if (colCount > 0) {
@@ -114,7 +115,7 @@ const CustomTableCell = TableCell.extend({
           if (!attributes.colwidth || !Array.isArray(attributes.colwidth) || attributes.colwidth.length === 0) {
             return {}
           }
-          const validWidths = attributes.colwidth.filter((w: any) => typeof w === 'number' && w > 0)
+          const validWidths = attributes.colwidth.filter((w: unknown) => typeof w === 'number' && w > 0)
           if (validWidths.length === 0) {
             return {}
           }
@@ -149,7 +150,7 @@ const CustomTableHeader = TableHeader.extend({
           if (!attributes.colwidth || !Array.isArray(attributes.colwidth) || attributes.colwidth.length === 0) {
             return {}
           }
-          const validWidths = attributes.colwidth.filter((w: any) => typeof w === 'number' && w > 0)
+          const validWidths = attributes.colwidth.filter((w: unknown) => typeof w === 'number' && w > 0)
           if (validWidths.length === 0) {
             return {}
           }

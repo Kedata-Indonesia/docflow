@@ -2,7 +2,14 @@
 
 **Dokumen**: Product Requirements Document
 **Versi**: 1.0
-**Status**: Draft
+**Status**: Historical draft — tetap menjadi acuan ruang lingkup fitur
+
+> **Catatan (2026-10):** Dokumen ini adalah draf produk awal (v1.0). Branding
+> produk kini **DocFlow**. Repositori ini **library-only**: host app
+> (`apps/*`, server, Docker, E2E) berada di
+> [`Kedata-Indonesia/docflow-app`](https://github.com/Kedata-Indonesia/docflow-app).
+> Untuk arsitektur & batas library, lihat `ARCHITECTURE.md` dan
+> `LIBRARY_CONTRACT.md`.
 
 ---
 
@@ -105,11 +112,11 @@ Auto page break dijalankan oleh **Layout Engine** sebagai *derived view* dari Pr
 | Fitur | Prioritas | Keterangan |
 |-------|-----------|------------|
 | Web Component (`<docs-editor>`) | P0 | Framework-agnostic |
-| NPM package (`@kedata-indonesia/docflow-core`) | P0 | |
+| NPM package (`@kedataindo/docflow-core`) | P0 | |
 | CDN distribution | P1 | unpkg, jsdelivr, esm.sh |
 | Plugin system API | P0 | `definePlugin()` |
-| Vue binding (`@kedata-indonesia/docflow-vue`) | P1 | |
-| React binding (`@kedata-indonesia/docflow-react`) | P2 | |
+| Vue binding (`@kedataindo/docflow-vue`) | P1 | |
+| React binding (`@kedataindo/docflow-react`) | P2 | |
 
 ---
 
@@ -120,18 +127,18 @@ Auto page break dijalankan oleh **Layout Engine** sebagai *derived view* dari Pr
 ```
 ┌──────────────────────────────────────┐
 │         Framework Bindings            │
-│  @kedata-indonesia/docflow-vue, @kedata-indonesia/docflow-react  │
+│  @kedataindo/docflow-vue, @kedataindo/docflow-react  │
 ├──────────────────────────────────────┤
 │         Web Component                 │
-│  @kedata-indonesia/docflow-element (<docs-editor>)  │
+│  @kedataindo/docflow-element (<docs-editor>)  │
 ├──────────────────────────────────────┤
 │              Core                     │
-│  @kedata-indonesia/docflow-core                    │
+│  @kedataindo/docflow-core                    │
 │  └─ createEditor()                   │
 │  └─ PluginSystem                     │
 ├──────────────────────────────────────┤
 │         Layout Engine                │
-│  @kedata-indonesia/docflow-layout-engine           │
+│  @kedataindo/docflow-layout-engine           │
 │  └─ PageLayout (page split)          │
 │  └─ PageBreaker (overflow calc)      │
 ├──────────────────────────────────────┤
@@ -184,26 +191,26 @@ docs-editor/
 ├── docs/
 │   └── PRD.md
 ├── packages/
-│   ├── core/                     ← @kedata-indonesia/docflow-core
+│   ├── core/                     ← @kedataindo/docflow-core
 │   │   ├── src/
 │   │   │   ├── Editor.ts         ← TipTap wrapper
 │   │   │   ├── PluginSystem.ts   ← definePlugin()
 │   │   │   ├── Collaboration.ts  ← Yjs setup
 │   │   │   └── index.ts
 │   │   └── package.json
-│   ├── layout-engine/            ← @kedata-indonesia/docflow-layout-engine
+│   ├── layout-engine/            ← @kedataindo/docflow-layout-engine
 │   │   ├── src/
 │   │   │   ├── PageLayout.ts     ← Split content ke halaman
 │   │   │   ├── PageBreaker.ts    ← Overflow calculation
 │   │   │   ├── types.ts
 │   │   │   └── index.ts
 │   │   └── package.json
-│   ├── element/                  ← @kedata-indonesia/docflow-element
+│   ├── element/                  ← @kedataindo/docflow-element
 │   │   ├── src/
 │   │   │   ├── DocsEditor.ts     ← Custom Element
 │   │   │   └── index.ts
 │   │   └── package.json
-│   ├── vue/                      ← @kedata-indonesia/docflow-vue
+│   ├── vue/                      ← @kedataindo/docflow-vue
 │   │   ├── src/
 │   │   │   ├── components/
 │   │   │   │   ├── DocsEditor.vue
@@ -213,7 +220,7 @@ docs-editor/
 │   │   │   │   └── useEditor.ts
 │   │   │   └── index.ts
 │   │   └── package.json
-│   └── plugins/                  ← @kedata-indonesia/docflow-plugins
+│   └── plugins/                  ← @kedataindo/docflow-plugins
 │       ├── src/
 │       │   ├── image/
 │       │   ├── table/
@@ -232,7 +239,7 @@ docs-editor/
 
 ```ts
 // API desain
-import { definePlugin } from '@kedata-indonesia/docflow-core'
+import { definePlugin } from '@kedataindo/docflow-core'
 
 const ImagePlugin = definePlugin({
   id: 'image',
@@ -320,14 +327,14 @@ GOOGLE_CALLBACK_URL=https://api.example.com/api/auth/callback/google
 ### Web Component (CDN)
 
 ```html
-<script type="module" src="https://esm.sh/@kedata-indonesia/docflow-element"></script>
+<script type="module" src="https://esm.sh/@kedataindo/docflow-element"></script>
 <docs-editor room="doc-123" theme="light"></docs-editor>
 ```
 
 ### NPM
 
 ```bash
-npm install @kedata-indonesia/docflow-vue
+npm install @kedataindo/docflow-vue
 ```
 
 ```vue
@@ -336,7 +343,7 @@ npm install @kedata-indonesia/docflow-vue
 </template>
 
 <script setup>
-import { DocsEditor } from '@kedata-indonesia/docflow-vue'
+import { DocsEditor } from '@kedataindo/docflow-vue'
 </script>
 ```
 
@@ -344,7 +351,7 @@ import { DocsEditor } from '@kedata-indonesia/docflow-vue'
 
 ```html
 <script type="module">
-import { createEditor } from 'https://esm.sh/@kedata-indonesia/docflow-core'
+import { createEditor } from 'https://esm.sh/@kedataindo/docflow-core'
 const editor = createEditor({ target: document.body })
 </script>
 ```
