@@ -17,7 +17,7 @@
  * `PLAYWRIGHT_PATH=/abs/path/to/playwright/index.mjs`.
  */
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdirSync } from 'node:fs'
+import { existsSync, mkdirSync, rmSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { pathToFileURL, fileURLToPath } from 'node:url'
 
@@ -106,17 +106,17 @@ async function recordDemo() {
   await page.keyboard.type(paragraph, { delay: 60 })
   await beat(page, 3500)
 
-  // Export: File → Download → Word, demonstrating DOCX export.
+  // Export: Berkas → Unduh → Word. The editor only *emits* an `export` event
+  // (the host writes the file), so no browser download ever fires — hold the
+  // frame so the menu choice stays readable in the GIF.
   await page.getByRole('button', { name: 'Berkas' }).click()
   await beat(page, 1000)
   await page.getByRole('button', { name: 'Unduh' }).hover()
   await beat(page, 2200)
   const docx = page.getByRole('button', { name: /word|docx/i }).first()
   if (await docx.count()) {
-    const download = page.waitForEvent('download', { timeout: 5000 }).catch(() => null)
     await docx.click()
-    await download
-    await beat(page, 2500)
+    await beat(page, 7500)
   }
   await beat(page, 2500)
 
@@ -141,5 +141,10 @@ async function toGif(videoPath) {
 }
 
 const videoPath = await recordDemo()
-const gif = await toGif(videoPath)
-console.log(`\nWrote ${gif}`)
+try {
+  const gif = await toGif(videoPath)
+  console.log(`\nWrote ${gif}`)
+} finally {
+  // The raw recording is scratch; the GIF is the only artifact worth keeping.
+  rmSync(VIDEO_DIR, { recursive: true, force: true })
+}

@@ -304,6 +304,10 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
     needs: publish
     runs-on: ubuntu-latest
+    # Least privilege: this job only writes a Release, so it needs no more than
+    # `contents: write` (the workflow-level grant also carries package/PR scopes).
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -324,7 +328,7 @@ jobs:
             exit 0
           fi
 
-          # `gh` prepends this body to the automatically generated notes.
+          # The GitHub API prepends this body to the automatically generated notes.
           cat > "$RUNNER_TEMP/release-notes.md" <<EOF
           DocFlow **$TAG** — published to npm as \`@kedataindo/docflow-*\`.
 

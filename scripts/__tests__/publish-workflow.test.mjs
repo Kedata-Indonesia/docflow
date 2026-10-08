@@ -152,6 +152,11 @@ test('a tag push cuts a GitHub Release — and only a tag push', () => {
     /needs:\s*publish/,
     'the release must wait until the packages have reached npm',
   )
+  assert.match(
+    job,
+    /permissions:\s*\n\s*contents:\s*write/,
+    'the release job needs `contents: write` to cut a Release',
+  )
 })
 
 test('the release carries generated notes plus the demo GIF', () => {
@@ -165,6 +170,10 @@ test('the release carries generated notes plus the demo GIF', () => {
     body,
     /docs\/assets\/docflow-demo\.gif/,
     'the demo GIF must ride along with the announcement',
+  )
+  assert.ok(
+    body.includes('${assets[@]+"${assets[@]}"}'),
+    'the assets array must expand safely under `set -u` when it is empty',
   )
 })
 

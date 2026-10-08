@@ -9,11 +9,11 @@
  *
  * Usage:
  *   pnpm playground:restore            # unpack from the pinned revision
- *   pnpm playground:restore --force    # overwrite an existing examples/
+ *   pnpm playground:restore --force    # replace an existing examples/
  *   node scripts/restore-playground.mjs --ref <commit-ish> [--root <dir>]
  */
 import { execFileSync } from 'node:child_process'
-import { existsSync } from 'node:fs'
+import { existsSync, rmSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -30,7 +30,12 @@ const valueOf = (flag) => {
   return index === -1 ? undefined : args[index + 1]
 }
 // `--root` exists so the script can be exercised against a scratch repo in tests.
-const ROOT = resolve(valueOf('--root') ?? REPO_ROOT)
+const rawRoot = valueOf('--root')
+if (args.includes('--root') && !rawRoot) {
+  console.error('error: --root needs a directory value')
+  process.exit(1)
+}
+const ROOT = resolve(rawRoot ?? REPO_ROOT)
 const rawRef = valueOf('--ref')
 if (args.includes('--ref') && !rawRef) {
   console.error('error: --ref needs a commit-ish value')
@@ -47,17 +52,25 @@ if (existsSync(join(ROOT, TARGET)) && !force) {
 
 try {
   // `git archive` streams a tar of the tree; hand it to `tar` on stdin so the
-  // script never shells out and works the same on Linux/macOS.
+  // script never shells out and works the same on Linux/macOS. Fetching the
+  // archive first means a bad ref aborts before `--force` deletes anything.
   const archive = execFileSync('git', ['archive', ref, TARGET], {
     cwd: ROOT,
     maxBuffer: 64 * 1024 * 1024,
   })
+  // `--force` replaces the folder rather than merging into it, so stale files
+  // (`dist/`, local edits) cannot survive a "restore".
+  if (force) rmSync(join(ROOT, TARGET), { recursive: true, force: true })
   execFileSync('tar', ['-x', '-C', ROOT], { input: archive })
   console.log(`Restored ${TARGET}/ from ${ref}. Next: pnpm install`)
 } catch (error) {
-  console.error(
-    `error: could not restore ${TARGET}/ from "${ref}" — is this a git clone?\n` +
-      String(error.stderr ?? error.message),
+  const detail = String(error.stderr ?? error.message)
+  // A typo'd ref is the likeliest cause, so say so instead of blaming the clone.
+  const hint = /not a valid object name|unknown revision|bad revision|bad object|not a tree object/i.test(
+    detail,
   )
+    ? `no such revision "${ref}" — check the --ref value`
+    : 'is this a git clone?'
+  console.error(`error: could not restore ${TARGET}/ — ${hint}\n${detail}`)
   process.exit(1)
 }

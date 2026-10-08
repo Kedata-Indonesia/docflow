@@ -65,7 +65,9 @@ Publishing runs via GitHub Actions (`.github/workflows/publish.yml`) to the
 **public npm registry only**. It is triggered by:
 
 - **push to `main`** — verify + auto-bump + build + publish, fully unattended
-- **push of a `v*` tag** — same flow, minus the auto-bump (tag = explicit release)
+- **push of a `v*` tag** — same flow, minus the auto-bump (tag = explicit release);
+  the tag also gets a GitHub Release with the demo GIF attached (see
+  [RELEASING.md](./RELEASING.md))
 - **manual run** — `workflow_dispatch` from the Actions tab
 
 Publishing is **idempotent**: a package whose exact version is already on npm is

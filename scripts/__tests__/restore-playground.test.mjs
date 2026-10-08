@@ -36,6 +36,10 @@ const run = (dir, ...extra) =>
     encoding: 'utf8',
   })
 
+/** Direct invocation for argument-parsing and error-path tests. */
+const runRaw = (...args) =>
+  execFileSync('node', [SCRIPT, ...args], { encoding: 'utf8' })
+
 test('restores examples/ from the requested revision', (t) => {
   const dir = makeScratchRepo()
   t.after(() => rmSync(dir, { recursive: true, force: true }))
@@ -65,6 +69,7 @@ test('--force overwrites an existing examples/', (t) => {
   t.after(() => rmSync(dir, { recursive: true, force: true }))
 
   writeFileSync(join(dir, 'examples', 'playground', 'README.md'), 'stale\n')
+  writeFileSync(join(dir, 'examples', 'playground', 'stale.txt'), 'leftover\n')
   run(dir, '--force')
 
   const restored = readFileSync(
@@ -72,4 +77,55 @@ test('--force overwrites an existing examples/', (t) => {
     'utf8',
   )
   assert.equal(restored, '# playground\n')
+  assert.ok(
+    !existsSync(join(dir, 'examples', 'playground', 'stale.txt')),
+    '--force must replace the folder, not merge into it',
+  )
+})
+
+test('--root without a value fails loudly', () => {
+  assert.throws(
+    () => runRaw('--root'),
+    (error) => {
+      assert.match(String(error.stderr), /--root needs a directory value/)
+      return true
+    },
+  )
+})
+
+test('--ref without a value fails loudly', (t) => {
+  const dir = makeScratchRepo()
+  t.after(() => rmSync(dir, { recursive: true, force: true }))
+
+  assert.throws(
+    () => runRaw('--root', dir, '--ref'),
+    (error) => {
+      assert.match(String(error.stderr), /--ref needs a commit-ish value/)
+      return true
+    },
+  )
+})
+
+test('an unknown --ref is reported as a bad revision and deletes nothing', (t) => {
+  const dir = makeScratchRepo()
+  t.after(() => rmSync(dir, { recursive: true, force: true }))
+
+  assert.throws(
+    () =>
+      runRaw(
+        '--root',
+        dir,
+        '--force',
+        '--ref',
+        'deadbeefdeadbeefdeadbeefdeadbeefdeadbeef',
+      ),
+    (error) => {
+      assert.match(String(error.stderr), /no such revision/)
+      return true
+    },
+  )
+  assert.ok(
+    existsSync(join(dir, 'examples', 'playground', 'README.md')),
+    'a bad ref must abort before --force removes anything',
+  )
 })

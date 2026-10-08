@@ -23,7 +23,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 
 - Demo GIF above the fold in the README — typing → auto page break →
-  header/footer page numbers → collaborator presence → DOCX export — with a
+  header/footer page numbers → collaborator presence → the export menu — with a
   reproducible recorder (`scripts/record-demo.mjs`).
   _([#17](https://github.com/Kedata-Indonesia/docflow/issues/17))_
 - `pnpm playground:restore` (`scripts/restore-playground.mjs`) — one command to

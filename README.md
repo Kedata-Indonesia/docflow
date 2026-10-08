@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <img src="./docs/assets/docflow-demo.gif" alt="DocFlow demo — A4 pagination with auto page breaks, live {page}/{total} footers, real-time collaborators, and DOCX export" width="900">
+  <img src="./docs/assets/docflow-demo.gif" alt="DocFlow demo — A4 pagination with auto page breaks, live {page}/{total} footers, collaborator presence avatars, and the export menu" width="900">
 </p>
 
 Built on [TipTap](https://tiptap.dev) / [ProseMirror](https://prosemirror.net) with a page pagination engine and Yjs-based collaboration.

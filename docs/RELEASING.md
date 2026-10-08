@@ -47,6 +47,9 @@ notes and the demo GIF attached — so treat every release as a small launch.
    changelog pointer prepended, and `docs/assets/docflow-demo.gif` attached. The
    step is idempotent, so re-running the workflow on an announced tag is a no-op.
 
+   GitHub reads `.github/release.yml` from the **default branch**, so make sure it
+   is merged before the first `v*` tag — otherwise the notes come out ungrouped.
+
    A maintainer can still **edit** the Release afterwards to add a human summary
    or extra assets. To create one manually (e.g. for a tag that predates the
    automation), attach the GIF the same way:
