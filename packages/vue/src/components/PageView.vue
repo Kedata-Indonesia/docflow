@@ -2,6 +2,7 @@
 import type { BlockInfo, LayoutOptions, Page } from '@kedata-indonesia/docflow-layout-engine'
 import type { DocsEditor } from '@kedata-indonesia/docflow-core'
 import { computed, ref, watch, onUnmounted } from 'vue'
+import { sanitizeInlineHTML } from '@kedata-indonesia/docflow-core'
 
 type Editor = DocsEditor['editor']
 
@@ -182,7 +183,7 @@ const getBlockContent = (block: BlockInfo): string | null => {
           <div
             v-if="getBlockContent(block) !== null"
             class="docs-editor-page__block-content"
-            v-html="getBlockContent(block)"
+            v-html="sanitizeInlineHTML(getBlockContent(block) ?? '')"
           />
           <div v-else class="docs-editor-page__block-fallback flex justify-between text-sm text-slate-700">
             <span class="docs-editor-page__block-type font-medium">{{ block.nodeType }}</span>

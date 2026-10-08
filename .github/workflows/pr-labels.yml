@@ -24,6 +24,10 @@ jobs:
       - name: Ensure the release-note labels exist
         env:
           GH_TOKEN: ${{ github.token }}
+          # Without repository context, `gh` shells out to `git` to infer the
+          # repo — and there is no checkout, so it fails with "not a git
+          # repository".
+          GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
           existing="$(gh label list --limit 100 --json name --jq '.[].name')"
