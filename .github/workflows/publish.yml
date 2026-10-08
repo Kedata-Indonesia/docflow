@@ -10,9 +10,10 @@ name: Publish to npm
 #
 # On a push to `main`, scripts/bump-release-versions.mjs patch-bumps everything
 # changed since the last `chore(release):` commit (plus their dependents) on the
-# current tip of `main`, and the new versions are committed back, so merging is
-# all it takes to release. Publishing itself stays idempotent: a version already
-# on npm is skipped, never a hard failure.
+# current tip of `main`, and the new versions are landed back on `main` as a pull
+# request that this workflow opens and merges itself, so merging is all it takes
+# to release. Publishing itself stays idempotent: a version already on npm is
+# skipped, never a hard failure.
 #
 # The bump is registry-aware: it raises each affected package above everything
 # npm already has, so a repo that drifted behind the registry self-heals instead
@@ -27,8 +28,11 @@ on:
   workflow_dispatch:
 
 permissions:
-  # `write` is required to commit the auto-bumped versions back to `main`.
+  # `write` is required to push the auto-bump branch and to merge its PR back
+  # into `main` (a ruleset on `main` requires every change to go through a pull
+  # request, so a direct push is rejected with GH013).
   contents: write
+  pull-requests: write
 
 concurrency:
   # Never let two pushes race to publish the same registry packages.
@@ -108,11 +112,12 @@ jobs:
       - name: Publish @kedataindo/* to npm
         run: |
           # `.npmrc` in this repo is TRACKED, so appending the token there leaves
-          # the working tree dirty and the commit-back step's `git pull --rebase`
-          # then aborts ("cannot pull with rebase: You have unstaged changes"),
-          # stranding the bump commit and drifting repo versions behind npm.
-          # setup-node already points NPM_CONFIG_USERCONFIG outside the checkout,
-          # so write the token there (falling back to npm's default user config).
+          # the working tree dirty — which made the old commit-back step abort
+          # ("cannot pull with rebase: You have unstaged changes") and strand the
+          # bump commit, drifting repo versions behind npm (incident: run
+          # 37709011366). setup-node already points NPM_CONFIG_USERCONFIG outside
+          # the checkout, so write the token there (falling back to npm's default
+          # user config).
           NPMRC="${NPM_CONFIG_USERCONFIG:-$HOME/.npmrc}"
           echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" >> "$NPMRC"
 
@@ -206,16 +211,26 @@ jobs:
 
       # Keep the repo in sync with what was just published: the publish step
       # restores each package.json from its `.bak`, which already carries the
-      # bumped version. Pushed with GITHUB_TOKEN, so it cannot re-trigger this
-      # workflow (`[skip ci]` documents that intent).
-      - name: Commit version bumps to main
+      # bumped version. `main` is protected by a ruleset that routes every change
+      # through a pull request — a direct push is rejected with GH013 and the bump
+      # is stranded (incident: run 37713844249), so the bump is pushed to a
+      # throwaway branch and merged as a PR by this step itself. It runs with
+      # GITHUB_TOKEN, which cannot re-trigger this workflow (`[skip ci]` documents
+      # the same intent).
+      - name: Land version bumps on main via PR
         if: steps.bump.outputs.bumped != ''
         env:
           # Injected here only — checkout sets `persist-credentials: false`, so
           # install/build never hold a repo-write token.
           GH_TOKEN: ${{ github.token }}
+          BUMPED: ${{ steps.bump.outputs.bumped }}
         run: |
+          set -euo pipefail
           REMOTE="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          # GITHUB_RUN_ID is stable across "Re-run jobs" and a failed run leaves
+          # its branch behind, which would reject the next push (non-fast-forward)
+          # before the PR is even opened — the attempt number keeps re-runs clear.
+          BRANCH="release/bump-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add packages/*/package.json
@@ -225,29 +240,56 @@ jobs:
             exit 0
           fi
 
-          git commit -m "chore(release): bump ${{ steps.bump.outputs.bumped }} [skip ci]"
+          git checkout -b "$BRANCH"
+          git commit -m "chore(release): bump ${BUMPED} [skip ci]"
 
           # The bump commit above is the only tree change that must reach main;
-          # anything else is an ephemeral side effect of the build/publish steps
-          # and would only make the rebase below abort on a dirty tree.
+          # anything else is an ephemeral side effect of the build/publish steps.
           git reset --hard HEAD
+          git push "$REMOTE" "HEAD:refs/heads/${BRANCH}"
 
-          # A human push can land while this run publishes (the concurrency group
-          # only serialises workflow runs). Rebase and retry, then verify.
-          for attempt in 1 2 3; do
-            if git pull --rebase "$REMOTE" main && git push "$REMOTE" HEAD:main; then
+          cat > "$RUNNER_TEMP/bump-pr-body.md" <<EOF
+          Automated release commit for \`${BUMPED}\`.
+
+          Produced by the push-to-main publish workflow
+          (\`.github/workflows/publish.yml\`). \`main\` routes every change through a
+          pull request, so the workflow opens and merges this one itself: the repo
+          must not drift behind the versions already published to npm.
+          EOF
+
+          # A human merge can land while this run publishes (the concurrency group
+          # only serialises workflow runs) and GitHub can take a moment to report a
+          # brand-new PR as mergeable, so retry — then verify the commit is really
+          # on main instead of trusting the exit code.
+          PR=""
+          for attempt in 1 2 3 4 5 6; do
+            if [ -z "$PR" ]; then
+              PR=$(gh pr list --head "$BRANCH" --state open --json url \
+                --jq '.[0].url // ""' 2>/dev/null || echo "")
+            fi
+            if [ -z "$PR" ]; then
+              PR=$(gh pr create --base main --head "$BRANCH" \
+                --title "chore(release): bump ${BUMPED} [skip ci]" \
+                --body-file "$RUNNER_TEMP/bump-pr-body.md" | tail -n 1) || PR=""
+            fi
+            if [ -n "$PR" ] && gh pr merge "$PR" --merge; then
               break
             fi
-            git rebase --abort 2>/dev/null || true
-            if [ "$attempt" -lt 3 ]; then
-              echo "Attempt ${attempt} could not land the bump; retrying..."
-              sleep 5
+            # Drop our handle so the next attempt re-lists (or re-creates) the PR:
+            # the one we held may have been closed without being merged.
+            PR=""
+            if [ "$attempt" -lt 6 ]; then
+              echo "Attempt ${attempt} could not land the bump PR; retrying..."
+              sleep 10
             fi
           done
 
           # Never stay green while the repo drifts behind npm.
           git fetch --quiet "$REMOTE" main
           if ! git merge-base --is-ancestor HEAD FETCH_HEAD; then
-            echo "::error::version bump did not reach main — repo and npm may drift"
+            echo "::error::version bump did not reach main — repo and npm may drift. If the ruleset blocked the merge as well, let the GitHub Actions app bypass it or keep syncing manually (docs/PUBLISH.md)."
             exit 1
           fi
+
+          # Disposable once merged.
+          git push "$REMOTE" --delete "$BRANCH" || true
