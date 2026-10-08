@@ -148,12 +148,13 @@ export function mapBlockNode(
       return [new Paragraph({ children: [new PageBreak()] })]
     }
     case 'footnote': {
-      // Footnotes are collected separately by the assembly; render as reference text here.
-      const content = node.attrs?.content as string | undefined
-      if (content) {
-        return [new Paragraph({ children: [new TextRun({ text: `[1] ${content}` })] })]
-      }
-      return []
+      // A footnote that arrives as a block (e.g. pasted/imported content, or a
+      // top-level insert) must behave exactly like an inline one: emit a
+      // numbered reference in the body and collect the body into the document's
+      // real footnotes. Never write the footnote text into the body.
+      if (!walkCtx?.footnotes) return []
+      const id = walkCtx.footnotes.add(footnoteBodyRuns(node, walkCtx.citation))
+      return [new Paragraph({ children: [new FootnoteReferenceRun(id)] })]
     }
     case 'listItem': {
       const children = inlineNodesToRuns(node, walkCtx)

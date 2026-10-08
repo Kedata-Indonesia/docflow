@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import JSZip from 'jszip'
 import { citeHtmlToRuns, footnoteBodyRuns, FootnoteCollector } from '../docx/citation.js'
-import { inlineNodesToRuns, type WalkContext } from '../docx/nodes.js'
+import { inlineNodesToRuns, mapBlockNode, type WalkContext } from '../docx/nodes.js'
 import { exportDocx } from '../docx/index.js'
 import type { CitationExportPort } from '../types.js'
 
@@ -52,6 +52,17 @@ describe('inlineNodesToRuns with walk context', () => {
       walkCtx,
     )
     expect(runs[0].constructor.name).toBe('FootnoteReferenceRun')
+    expect(Object.keys(walkCtx.footnotes!.toDocumentOption())).toHaveLength(1)
+  })
+})
+
+describe('mapBlockNode with a block-level footnote', () => {
+  it('emits a real footnote reference instead of writing the footnote text into the body', () => {
+    const walkCtx: WalkContext = { citation: citationPort, footnotes: new FootnoteCollector() }
+    const paragraphs = mapBlockNode({ type: 'footnote', attrs: { content: 'sadasdasd' } }, undefined, walkCtx)
+    expect(paragraphs).toHaveLength(1)
+    expect(paragraphs[0].constructor.name).toBe('Paragraph')
+    // The body is collected as a real footnote; it must not be rendered inline.
     expect(Object.keys(walkCtx.footnotes!.toDocumentOption())).toHaveLength(1)
   })
 })
