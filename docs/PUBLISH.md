@@ -112,8 +112,10 @@ on:
    CDN/read replicas, which can lag several minutes behind an accepted publish,
    so this polls for up to 15 minutes (20s interval): a version that never
    landed fails the run (`::error::`) before the bump is committed back.
-10. On a push to `main`, commits those bumped versions back to `main`
-    (`chore(release): bump … [skip ci]`), so the repo never drifts from npm.
+10. On a push to `main`, lands those bumped versions on `main` as a pull request
+    (`chore(release): bump … [skip ci]`) that it opens and merges itself, so the
+    repo never drifts from npm. See
+    [Landing the bump](#landing-the-bump-main-ruleset).
 
 ### Publish idempotent (per package)
 
@@ -181,12 +183,35 @@ Unit tests: `pnpm test:scripts`. They never touch npm: `$NPM_PUBLISHED_STUB`
 answers the registry lookups instead of the network. The script refuses that
 variable outside `node --test`, so it cannot quietly disable the check in CI.
 
-> **Branch protection:** the commit-back pushes directly to `main`. If `main`
-> requires PRs / status checks, let `github-actions[bot]` bypass the rule, or
-> remove the "Commit version bumps to main" step and bump versions manually.
+### Landing the bump (`main` ruleset)
 
-> **After a release, pull before your next push.** The bot's bump commit adds a
-> commit to `main`, so a stale local `main` is rejected — `git pull --rebase`
+`main` is protected by the ruleset `protect-default-branch`: every change must go
+through a **pull request**, so a direct `git push` from CI is rejected with
+`GH013: Changes must be made through a pull request` (incidents: runs
+`37709011366` and `37713844249` — both stranded the bump while npm had already
+been updated).
+
+The commit-back step therefore:
+
+1. pushes the bump commit to a throwaway branch `release/bump-<run-id>`;
+2. opens a PR titled `chore(release): bump <packages> [skip ci]` and merges it
+   with `GITHUB_TOKEN` — that route satisfies the ruleset, and a `GITHUB_TOKEN`
+   merge cannot re-trigger this workflow;
+3. re-checks that the bump commit is an ancestor of `main`, and fails the run
+   (`::error::version bump did not reach main`) if it is not — a green run never
+   means "published but the repo drifted".
+
+If that self-merge is ever blocked (for example by a ruleset that requires an
+approval, or `require_extra_approval_for_unattributed_changes`), either let the
+GitHub Actions app (`Integration`, id `15368`) bypass the ruleset, or keep
+syncing versions manually as before.
+
+> **Branch protection alternative:** removing the commit-back step and bumping
+> versions by hand is still supported — the publish step stays idempotent, so a
+> manual version bump is published on the next merge to `main`.
+
+> **After a release, pull before your next push.** The bot's merge lands a commit
+> on `main`, so a stale local `main` is rejected — `git pull --rebase`
 > fixes it.
 
 ### Cara rilis
