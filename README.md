@@ -16,6 +16,10 @@
   <a href="./docs/PUBLISH.md"><b>Docs</b></a>
 </p>
 
+<p align="center">
+  <img src="./docs/assets/docflow-demo.gif" alt="DocFlow demo — A4 pagination with auto page breaks, live {page}/{total} footers, real-time collaborators, and DOCX export" width="900">
+</p>
+
 Built on [TipTap](https://tiptap.dev) / [ProseMirror](https://prosemirror.net) with a page pagination engine and Yjs-based collaboration.
 
 > This repository holds the **library packages** only. The deployable application
@@ -404,9 +408,11 @@ You are never locked in: everything above can be self-hosted with the code in th
 
 ## Community
 
-- [GitHub Discussions](https://github.com/Kedata-Indonesia/docflow/discussions) — questions, RFCs, showcase
+- [GitHub Discussions](https://github.com/Kedata-Indonesia/docflow/discussions) — questions, RFCs, and **showcase** what you built
 - [Issues](https://github.com/Kedata-Indonesia/docflow/issues) — bugs and feature requests
 - Live demo: https://dev-docflow-web.kedata.cloud
+
+Full channel list and our code of conduct: [docs/COMMUNITY.md](./docs/COMMUNITY.md).
 
 ## Contributing
 
@@ -437,13 +443,16 @@ It is **not tracked in this repo** (`.gitignore`, PR #62) — keep it on your ow
 machine. Restore the last tracked revision once after cloning or pulling:
 
 ```bash
-git archive 0861b95 examples | tar -x -C .   # 0861b95 = last commit tracking examples/
+pnpm playground:restore                      # unpacks examples/ from 0861b95
 pnpm install
 
 pnpm build && pnpm dev                       # dist mode — http://localhost:5200
 # edit packages/* with HMR instead of rebuilding:
 pnpm dev:source
 ```
+
+Regenerate the README demo GIF from a running playground with
+`node scripts/record-demo.mjs` (writes `docs/assets/docflow-demo.gif`).
 
 It owns its fixtures (documents, comment threads, versions, collaborators) in
 memory — no server, no database, nothing published. Without the folder, `pnpm dev`

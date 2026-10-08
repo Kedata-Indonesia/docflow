@@ -14,7 +14,8 @@
     "docs:api": "node scripts/generate-api-docs.mjs",
     "docs:api:check": "node scripts/generate-api-docs.mjs --check",
     "dev": "pnpm --filter @kedata-indonesia/docflow-playground dev",
-    "dev:source": "pnpm --filter @kedata-indonesia/docflow-playground dev:source"
+    "dev:source": "pnpm --filter @kedata-indonesia/docflow-playground dev:source",
+    "playground:restore": "node scripts/restore-playground.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

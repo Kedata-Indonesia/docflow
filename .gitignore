@@ -19,5 +19,8 @@ apps/server/data/
 # Local-only UI review harness (examples/playground), deliberately untracked:
 # the folder stays on each machine and `pnpm dev` keeps working locally, but a
 # fresh clone has no examples/ tree. Restore it with:
-#   git archive 0861b95 examples | tar -x -C .
+#   pnpm playground:restore
 examples/
+
+# Scratch footage from `node scripts/record-demo.mjs` (the GIF is committed).
+.demo-recording/

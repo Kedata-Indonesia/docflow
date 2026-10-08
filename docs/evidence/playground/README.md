@@ -5,7 +5,7 @@
 
 > **Status:** the playground app is no longer tracked (PR #62, `.gitignore`). This
 > screenshot documents the revision reviewed in PR #60; restore it locally with
-> `git archive 0861b95 examples | tar -x -C .`.
+> `pnpm playground:restore`.
 
 What it shows: the letter sample (`Surat Undangan Rapat Koordinasi`) on A4 paper,
 the review panel with the public props (document preset, title, page size,
