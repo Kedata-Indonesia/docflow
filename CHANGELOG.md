@@ -20,6 +20,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2026-10-08]
+
 ### Added
 
 - Demo GIF above the fold in the README — typing → auto page break →
@@ -33,16 +35,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   generated release notes by label.
 - Pushing a `v*` tag now cuts a GitHub Release automatically — label-grouped
   notes with the demo GIF attached (`.github/workflows/publish.yml`).
-
-### Changed
-
-- README links the community doc and documents the new playground restore
-  command; `CONTRIBUTING.md` and `docs/ARCHITECTURE.md` follow suit.
-
-## [2026-10-08]
-
-### Added
-
 - `CHANGELOG.md` discipline: notable library changes are recorded here and
   mirrored to GitHub Releases.
 - DOCX table export with darker borders and explicit widths.
@@ -53,6 +45,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- README links the community doc and documents the new playground restore
+  command; `CONTRIBUTING.md` and `docs/ARCHITECTURE.md` follow suit.
 - Split the repository into a **library-only** repo (`packages/*`); the app moved
   to [`docflow-app`](https://github.com/Kedata-Indonesia/docflow-app).
 - Decomposed the Vue `DocsEditor` monolith into focused composables
@@ -148,4 +142,5 @@ The foundation the launch builds on, accumulated before the repo split.
   painting first (#117).
 - DOM-based paste normalization for Google Docs compatibility.
 
-[Unreleased]: https://github.com/Kedata-Indonesia/docflow/compare/main...HEAD
+[Unreleased]: https://github.com/Kedata-Indonesia/docflow/compare/v0.0.90...HEAD
+[2026-10-08]: https://github.com/Kedata-Indonesia/docflow/releases/tag/v0.0.90
