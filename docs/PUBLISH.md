@@ -193,7 +193,8 @@ been updated).
 
 The commit-back step therefore:
 
-1. pushes the bump commit to a throwaway branch `release/bump-<run-id>`;
+1. pushes the bump commit to a throwaway branch
+   `release/bump-<run-id>-<attempt>`;
 2. opens a PR titled `chore(release): bump <packages> [skip ci]` and merges it
    with `GITHUB_TOKEN` — that route satisfies the ruleset, and a `GITHUB_TOKEN`
    merge cannot re-trigger this workflow;
@@ -201,10 +202,19 @@ The commit-back step therefore:
    (`::error::version bump did not reach main`) if it is not — a green run never
    means "published but the repo drifted".
 
-If that self-merge is ever blocked (for example by a ruleset that requires an
-approval, or `require_extra_approval_for_unattributed_changes`), either let the
-GitHub Actions app (`Integration`, id `15368`) bypass the ruleset, or keep
-syncing versions manually as before.
+Does a `GITHUB_TOKEN` PR survive the ruleset's
+`require_extra_approval_for_unattributed_changes: true`? **Yes, verified** (probe
+PR #76, 2026-10-08): a PR opened by `app/github-actions` carrying a
+`github-actions[bot]` commit reported `mergeable: MERGEABLE` and
+`mergeStateStatus: CLEAN` with an empty `reviewDecision` — no extra approval was
+demanded. GitHub's docs say that setting has no effect while the ruleset requires
+zero approvals (it targets Copilot-authored PRs, and GitHub defaults it to `true`
+when a ruleset body omits it). Weakening the ruleset is therefore unnecessary.
+
+The self-merge would only need help if `required_approving_review_count` were
+raised above zero — on a single-maintainer repo nobody could supply that approval.
+In that case either let the GitHub Actions app (`Integration`, id `15368`) bypass
+the ruleset, or keep syncing versions manually as before.
 
 > **Branch protection alternative:** removing the commit-back step and bumping
 > versions by hand is still supported — the publish step stays idempotent, so a
