@@ -26,7 +26,7 @@ Built on [TipTap](https://tiptap.dev) / [ProseMirror](https://prosemirror.net) w
 
 ## Why DocFlow?
 
-- **True page layout** — auto page-breaks, headers/footers with `{page}`/`{total}`, A4/Letter/Legal. TipTap does not offer this; CKEditor gates it behind a premium plugin; OnlyOffice is heavyweight and AGPL.
+- **True page layout** — auto page-breaks, headers/footers with `{page}`/`{total}`, A4/Letter/Legal. TipTap offers this only via the paid Pages Pro extension; CKEditor gates it behind a premium plugin; OnlyOffice is heavyweight and AGPL.
 - **Apache-2.0 license** — safe for commercial embedding and self-hosting. No copyleft anxiety, no premium gates. The core stays Apache-2.0 forever.
 - **Real-time collaboration built in** — Yjs CRDT out of the box, self-hostable. An alternative to TipTap Collab / Liveblocks without per-seat lock-in.
 - **Layout-aware AI** — AI drafts that respect A4 structure (e.g. prompt → paginated Indonesian formal letter) via the built-in `aiStream` / `aiDraft` ports.
@@ -36,12 +36,12 @@ Built on [TipTap](https://tiptap.dev) / [ProseMirror](https://prosemirror.net) w
 
 | | DocFlow | TipTap | CKEditor 5 | OnlyOffice |
 |---|---------|--------|------------|------------|
-| A4 pagination / page breaks | ✅ Built-in | ❌ Not offered | 💰 Premium plugin | ✅ Full suite (heavy) |
-| Headers / footers with page numbers | ✅ Built-in | ❌ Not offered | 💰 Premium plugin | ✅ |
+| A4 pagination / page breaks | ✅ Built-in | 💰 Pages (Pro extension) | 💰 Premium plugin | ✅ Full suite (heavy) |
+| Headers / footers with page numbers | ✅ Built-in | 💰 Pages (Pro extension) | 💰 Premium plugin | ✅ |
 | Real-time collaboration | ✅ Yjs, self-hostable | Hocuspocus (OSS backend); Collab cloud is paid | 💰 Premium | ✅ |
-| License | **Apache-2.0** | MIT | GPL / commercial | **AGPL** |
+| License | **Apache-2.0** | MIT (core); Pro extensions require a paid plan | GPL / commercial | **AGPL** |
 | Embeddable npm packages | ✅ | ✅ | ✅ | iframe / heavy |
-| Layout-aware AI hooks | ✅ Ports included | 💰 Content AI (paid) | 💰 AI Assistant (paid) | ❌ |
+| Layout-aware AI hooks | ✅ Ports included | 💰 Content AI (paid add-on) | 💰 AI Assistant (paid add-on) | AI plugin exists; no layout-aware hooks |
 
 *Honest take: if you don't need pages, use TipTap. If you need Word-style documents inside your own app, that's us.*
 
