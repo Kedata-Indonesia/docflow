@@ -154,9 +154,7 @@ const editor = createEditor({
 | `@kedataindo/docflow-element` | Web Component (`<docs-editor>`) | Any HTML/JS |
 | `@kedataindo/docflow-plugins` | Built-in plugins (table, image, link, etc.) | Shared |
 | `@kedataindo/docflow-layout-engine` | Page split / pagination engine | Internal |
-| `@kedataindo/docflow-export` | DOCX / ODT / RTF / Markdown export — **not on npm yet** | Source only |
-
-> `docflow-export` builds from `packages/export` and ships with the next release; every other package above is installable from npm today.
+| `@kedataindo/docflow-export` | DOCX / ODT / RTF / Markdown export | Any framework |
 
 ---
 
