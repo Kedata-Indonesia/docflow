@@ -107,7 +107,14 @@ jobs:
 
       - name: Publish @kedataindo/* to npm
         run: |
-          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" >> .npmrc
+          # `.npmrc` in this repo is TRACKED, so appending the token there leaves
+          # the working tree dirty and the commit-back step's `git pull --rebase`
+          # then aborts ("cannot pull with rebase: You have unstaged changes"),
+          # stranding the bump commit and drifting repo versions behind npm.
+          # setup-node already points NPM_CONFIG_USERCONFIG outside the checkout,
+          # so write the token there (falling back to npm's default user config).
+          NPMRC="${NPM_CONFIG_USERCONFIG:-$HOME/.npmrc}"
+          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" >> "$NPMRC"
 
           # Step 1: Backup package.json and rewrite ALL package.json files (name + deps + workspace:* -> actual version)
           for pkg in core layout-engine plugins vue element export; do
@@ -219,6 +226,11 @@ jobs:
           fi
 
           git commit -m "chore(release): bump ${{ steps.bump.outputs.bumped }} [skip ci]"
+
+          # The bump commit above is the only tree change that must reach main;
+          # anything else is an ephemeral side effect of the build/publish steps
+          # and would only make the rebase below abort on a dirty tree.
+          git reset --hard HEAD
 
           # A human push can land while this run publishes (the concurrency group
           # only serialises workflow runs). Rebase and retry, then verify.
