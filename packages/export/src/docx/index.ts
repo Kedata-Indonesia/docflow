@@ -1,9 +1,55 @@
-import { Document, Packer, Paragraph, TextRun, ExternalHyperlink, convertInchesToTwip } from 'docx'
-import type { ExportContext } from '../types.js'
-import { mapBlockNode, mapAlignment, inlineNodesToRuns, type PmNode, type WalkContext } from './nodes.js'
+import { Document, Packer, Paragraph, TextRun, ExternalHyperlink, PageOrientation, convertInchesToTwip } from 'docx'
+import type { ExportContext, PageGeometry } from '../types.js'
+import { listToParagraphs, mapBlockNode, mapAlignment, inlineNodesToRuns, type PmNode, type WalkContext } from './nodes.js'
 import { tableToDocxTable } from './table.js'
 import { imageToDocxParagraph } from './image.js'
 import { FootnoteCollector, bibliographyToParagraphs } from './citation.js'
+
+/** CSS pixels → twips (1440 twips per inch ÷ 96 px per inch). */
+const twipsFromPx = (px: number): number => Math.round(px * 15)
+
+/**
+ * Section page properties. `ctx.geometry` is optional and uses **CSS pixels** —
+ * the unit the editor's page surface works in (94 px = 1 in, A4 = 794×1123) —
+ * so a host that knows the page setup gets a page that matches the editor.
+ * Without geometry we keep the historical default (no explicit page size,
+ * 1-inch margins on all four sides) so existing output is unchanged.
+ */
+function pageProperties(geometry?: PageGeometry) {
+  if (!geometry) {
+    return {
+      page: {
+        margin: {
+          top: convertInchesToTwip(1),
+          right: convertInchesToTwip(1),
+          bottom: convertInchesToTwip(1),
+          left: convertInchesToTwip(1),
+        },
+      },
+    }
+  }
+  const landscape = geometry.orientation === 'landscape'
+  // `PageGeometry` carries the page's actual dimensions, already swapped for
+  // landscape by the editor's page surface. docx expects the *portrait* pair and
+  // performs the swap itself when `orientation` is landscape, so un-swap here.
+  const width = landscape ? geometry.pageHeight : geometry.pageWidth
+  const height = landscape ? geometry.pageWidth : geometry.pageHeight
+  return {
+    page: {
+      size: {
+        width: twipsFromPx(width),
+        height: twipsFromPx(height),
+        orientation: landscape ? PageOrientation.LANDSCAPE : PageOrientation.PORTRAIT,
+      },
+      margin: {
+        top: twipsFromPx(geometry.margins.top),
+        right: twipsFromPx(geometry.margins.right),
+        bottom: twipsFromPx(geometry.margins.bottom),
+        left: twipsFromPx(geometry.margins.left),
+      },
+    },
+  }
+}
 
 async function docToDocxDocument(title: string, doc: PmNode, ctx: ExportContext): Promise<Document> {
   const children: (Paragraph | ReturnType<typeof tableToDocxTable>)[] = []
@@ -13,17 +59,11 @@ async function docToDocxDocument(title: string, doc: PmNode, ctx: ExportContext)
   // attached to the Document below.
   const walkCtx: WalkContext = { citation: ctx.citation, footnotes: new FootnoteCollector() }
 
-  async function processBlock(node: PmNode, list?: { type: 'bullet' | 'ordered'; level: number }) {
+  async function processBlock(node: PmNode) {
     if (!node.content) return
 
     if (node.type === 'bulletList' || node.type === 'orderedList') {
-      let level = 0
-      for (const item of node.content) {
-        if (item.type === 'listItem') {
-          children.push(...mapBlockNode(item, { type: node.type === 'orderedList' ? 'ordered' : 'bullet', level }, walkCtx))
-          level++
-        }
-      }
+      children.push(...listToParagraphs(node, walkCtx))
       return
     }
 
@@ -40,7 +80,7 @@ async function docToDocxDocument(title: string, doc: PmNode, ctx: ExportContext)
       } else if (child.type === 'footnote') {
         children.push(...mapBlockNode(child, undefined, walkCtx))
       } else if (child.type === 'bulletList' || child.type === 'orderedList') {
-        await processBlock(child, { type: child.type === 'orderedList' ? 'ordered' : 'bullet', level: 0 })
+        children.push(...listToParagraphs(child, walkCtx))
       } else if (child.type === 'paragraph') {
         // Split inline images out of the paragraph so they can be embedded.
         const runs: (TextRun | ExternalHyperlink)[] = []
@@ -63,7 +103,7 @@ async function docToDocxDocument(title: string, doc: PmNode, ctx: ExportContext)
           if (img) children.push(img)
         }
       } else {
-        children.push(...mapBlockNode(child, list, walkCtx))
+        children.push(...mapBlockNode(child, undefined, walkCtx))
       }
     }
   }
@@ -95,16 +135,7 @@ async function docToDocxDocument(title: string, doc: PmNode, ctx: ExportContext)
     // backed (Chicago notes-bib) and free-text footnotes alike.
     footnotes: walkCtx.footnotes?.toDocumentOption(),
     sections: [{
-      properties: {
-        page: {
-          margin: {
-            top: convertInchesToTwip(1),
-            right: convertInchesToTwip(1),
-            bottom: convertInchesToTwip(1),
-            left: convertInchesToTwip(1),
-          },
-        },
-      },
+      properties: pageProperties(ctx.geometry),
       children: fileChildren,
     }],
   })

@@ -113,9 +113,22 @@ export function inlineNodesToRuns(node: PmNode, walkCtx?: WalkContext): (TextRun
   return runs
 }
 
+/** Paragraphs for a bullet/ordered list, nested lists included. */
+export function listToParagraphs(node: PmNode, walkCtx?: WalkContext, depth = 0): Paragraph[] {
+  const type = node.type === 'orderedList' ? 'ordered' : 'bullet'
+  const paragraphs: Paragraph[] = []
+  let level = 0
+  for (const item of node.content ?? []) {
+    if (item.type !== 'listItem') continue
+    paragraphs.push(...mapBlockNode(item, { type, level, depth }, walkCtx))
+    level++
+  }
+  return paragraphs
+}
+
 export function mapBlockNode(
   node: PmNode,
-  listContext?: { type: 'bullet' | 'ordered'; level: number },
+  listContext?: { type: 'bullet' | 'ordered'; level: number; depth?: number },
   walkCtx?: WalkContext,
 ): Paragraph[] {
   const align = mapAlignment(node.attrs?.textAlign)
@@ -157,13 +170,32 @@ export function mapBlockNode(
       return [new Paragraph({ children: [new FootnoteReferenceRun(id)] })]
     }
     case 'listItem': {
-      const children = inlineNodesToRuns(node, walkCtx)
-      if (!listContext) return [new Paragraph({ children, alignment: align })]
+      // A list item's children are blocks (a paragraph, plus optional nested
+      // lists). The inline mapper only walks inline nodes, so reading the item
+      // with it silently drops the item's entire text.
+      const runs: (TextRun | ExternalHyperlink | FootnoteReferenceRun)[] = []
+      const nested: Paragraph[] = []
+      for (const child of node.content ?? []) {
+        if (child.type === 'bulletList' || child.type === 'orderedList') {
+          nested.push(...listToParagraphs(child, walkCtx, (listContext?.depth ?? 0) + 1))
+        } else if (child.type === 'paragraph') {
+          runs.push(...inlineNodesToRuns(child, walkCtx))
+        } else {
+          nested.push(...mapBlockNode(child, undefined, walkCtx))
+        }
+      }
+      if (!listContext) {
+        return runs.length > 0 ? [new Paragraph({ children: runs, alignment: align }), ...nested] : nested
+      }
       const prefix = listContext.type === 'ordered' ? `${listContext.level + 1}. ` : '• '
-      return [new Paragraph({
-        children: [new TextRun({ text: prefix }), ...children],
-        alignment: align,
-      })]
+      return [
+        new Paragraph({
+          children: [new TextRun({ text: prefix }), ...runs],
+          alignment: align,
+          indent: listContext.depth ? { left: 720 * (listContext.depth + 1) } : undefined,
+        }),
+        ...nested,
+      ]
     }
     default: {
       const children = inlineNodesToRuns(node, walkCtx)
