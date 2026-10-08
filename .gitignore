@@ -16,6 +16,10 @@ playwright-report
 apps/server/data/
 *.bak
 
+# Agent configuration (local only)
+AGENTS.md
+CLAUDE.md
+
 # Local-only UI review harness (examples/playground), deliberately untracked:
 # the folder stays on each machine and `pnpm dev` keeps working locally, but a
 # fresh clone has no examples/ tree. Restore it with:
