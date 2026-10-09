@@ -22,15 +22,13 @@ pnpm build        # build the library packages once
 
 The playground in `examples/playground` mounts `<DocsEditor>` through the public API
 only (no backend, no database) and is the recommended way to review UI changes. It is
-**not tracked** in this repo (`.gitignore`, PR #62): restore it locally once with
-`pnpm playground:restore` and `pnpm install`, then run
+tracked in-repo, so a fresh `pnpm install` is enough — then run
 `pnpm build && pnpm dev` (http://localhost:5200). Use `pnpm dev:source` to edit
 `packages/*` with HMR instead of rebuilding after every change.
 
-> `pnpm-lock.yaml` still records an `examples/playground` importer. Without the folder a
-> plain `pnpm install` prunes it, so `git checkout -- pnpm-lock.yaml` rather than
-> committing that churn — or install with `pnpm install --frozen-lockfile`, which
-> tolerates the missing project.
+> `pnpm playground:restore` resets `examples/` to a committed revision — `HEAD` by
+> default, or the legacy Indonesian snapshot via `--ref 0861b95`. It only needs
+> `--force` to overwrite an existing folder.
 
 ## Repository layout
 
@@ -44,7 +42,7 @@ This repo contains the **library packages only** (`packages/*`). The deployable 
 | `packages/plugins` | Built-in plugins (exported as `defaultPlugins`) |
 | `packages/layout-engine` | Page split / pagination engine |
 | `packages/export` | DOCX / Markdown export |
-| `examples/playground` | Backend-free demo app that mounts `<DocsEditor>` via the public API (local-only, untracked, not published) |
+| `examples/playground` | Backend-free demo app that mounts `<DocsEditor>` via the public API (tracked, not published) |
 
 ### Architectural invariants (please don't violate)
 
