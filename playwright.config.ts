@@ -3,7 +3,11 @@ import { defineConfig } from '@playwright/test'
 // Showcase e2e: library behaviors exercised against the backend-free demo
 // app in this repo (the playground / demo that mounts <DocsEditor>).
 // Product flows (auth/collab/sharing) are e2e-tested in the docflow-app repo.
-const demoPort = Number(process.env.DEMO_PORT) || 5173
+//
+// The playground serves on :5200 (see examples/playground/vite.config.ts —
+// strictPort, "every doc points at 5200"). Override with DEMO_PORT if the demo
+// runs elsewhere.
+const demoPort = Number(process.env.DEMO_PORT) || 5200
 const demoURL = `http://localhost:${demoPort}`
 
 export default defineConfig({
