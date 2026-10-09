@@ -15,7 +15,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 >
 > Scope: only the reusable packages are covered. The deployable application
 > (web UI + API server) lives in
-> [`Kedata-Indonesia/docflow-app`](https://github.com/Kedata-Indonesia/docflow-app)
+> `Kedata-Indonesia/docflow-app`
 > and has its own history.
 
 ## [Unreleased]
@@ -48,7 +48,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - README links the community doc and documents the new playground restore
   command; `CONTRIBUTING.md` and `docs/ARCHITECTURE.md` follow suit.
 - Split the repository into a **library-only** repo (`packages/*`); the app moved
-  to [`docflow-app`](https://github.com/Kedata-Indonesia/docflow-app).
+  to `docflow-app`.
 - Decomposed the Vue `DocsEditor` monolith into focused composables
   (page surface, session, paging, header/footer, footnotes, citations, comments,
   bubble menu, document model) and separate dialog/sidebar children (#44).

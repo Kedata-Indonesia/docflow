@@ -2,7 +2,7 @@
 
 **Status:** Historical Roadmap · **Owner:** Kedata Indonesia
 
-> **Catatan Cakupan Repositori (2026-10):** Dokumen roadmap historis ini mendokumentasikan evolusi DocFlow sebelum pemisahan monorepo. Repositori ini (`docflow`) adalah **library-only** (`packages/*`), sedangkan aplikasi web dan server (`apps/*`) kini berada di repositori [`Kedata-Indonesia/docflow-app`](https://github.com/Kedata-Indonesia/docflow-app).
+> **Catatan Cakupan Repositori (2026-10):** Dokumen roadmap historis ini mendokumentasikan evolusi DocFlow sebelum pemisahan monorepo. Repositori ini (`docflow`) adalah **library-only** (`packages/*`), sedangkan aplikasi web dan server (`apps/*`) kini berada di repositori `Kedata-Indonesia/docflow-app`.
 
 **Task-level plans** — each phase has a detailed, code-grounded implementation plan in [docs/plans/](plans/):
 

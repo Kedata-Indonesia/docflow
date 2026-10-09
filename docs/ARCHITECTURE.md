@@ -6,7 +6,7 @@
 >
 > ⚠️ **Repository scope note (2026-10):** this repository is **library-only**. The
 > deployable application — `apps/web`, `apps/server`, `apps/demo`, `docker/`, `e2e/`
-> — was split into [`Kedata-Indonesia/docflow-app`](https://github.com/Kedata-Indonesia/docflow-app).
+> — was split into `Kedata-Indonesia/docflow-app`.
 > Every `apps/*`, `docker/*`, and `e2e/*` path referenced below therefore lives in that
 > sibling repo, **not** here. For the library boundary itself, prefer
 > [`LIBRARY_CONTRACT.md`](LIBRARY_CONTRACT.md) and the root `README.md`.
