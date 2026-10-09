@@ -179,7 +179,7 @@ function addSampleSnapshot(): void {
 <template>
   <div class="pg">
     <DocsEditor
-      :key="`${presetId}-${pageSize}-${editable}-${debug}`"
+      :key="`${presetId}-${debug}`"
       :model-value="content"
       :plugins="defaultPlugins"
       :editable="editable"
@@ -220,21 +220,20 @@ function addSampleSnapshot(): void {
       @delete-comment="onDeleteComment"
       @save-snapshot="onSaveSnapshot"
       @restore-snapshot="log('restore-snapshot', $event)"
-      @preview-snapshot="log('preview-snapshot', $event ? $event.versionId : 'bersih')"
+      @preview-snapshot="log('preview-snapshot', $event ? $event.versionId : 'clear')"
     />
 
     <!--
-      The key remounts the editor when a mount-only prop changes. Four props are
-      read once at setup and never watched:
+      The key remounts the editor when a mount-only prop changes. Only two props
+      are read once at setup and never watched:
         modelValue  - useDocumentModel parses it in setup(), so a new document
                       (the preset select) needs a fresh mount;
-        pageSize    - DocsEditor.vue copies it into a plain ref, while
-                      orientation, margins, locale and pageless are watched;
-        editable    - useEditor({ editable }) receives a frozen options object,
-                      so its watch(() => options.editable) never fires;
         debug       - core creates the performance monitor together with the
                       editor.
-      Drop the key once the library watches those props.
+      pageSize and editable are reactive (watched in useDocsEditorPageSurface /
+      useEditor), so they must NOT be part of the key: remounting would throw
+      away undo history and selection just to re-read a prop the library already
+      follows.
     -->
     <ReviewPanel
       v-model:preset-id="presetId"

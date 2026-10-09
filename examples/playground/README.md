@@ -42,7 +42,7 @@ the library sources; see `tailwind.config.js` and `postcss.config.js`.
 
 | Area | Prop / event |
 |------|--------------|
-| Document | `modelValue`, `update:modelValue`, sample docs (surat / kontrak / laporan) |
+| Document | `modelValue`, `update:modelValue`, sample docs (letter / contract / report) |
 | Layout | `pageSize`, `orientation`, `pageless`, `virtualPages`, `margins`, `update:margins` |
 | Chrome | `title`, `userName`, `locale`, `editable`, `debug`, `connectionState`, `collaborators` |
 | Comments | `comments`, `update:modelValue` anchors, `add-comment`, `add-reply`, `resolve-comment`, `delete-comment` |
