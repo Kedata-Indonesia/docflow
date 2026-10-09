@@ -1,10 +1,9 @@
 #!/usr/bin/env node
 /**
- * Restores `examples/playground`, the local-only UI review harness, from git.
+ * Restores `examples/playground`, the UI review harness, from git.
  *
- * The playground is deliberately untracked (`.gitignore`, PR #62) so a fresh
- * clone ships a clean library tree, but the folder is still useful for UI work.
- * This script unpacks the last revision that tracked it, replacing the cryptic
+ * The playground is tracked in-repo, so this script is only needed to reset a
+ * locally modified harness back to the pinned snapshot — replacing the cryptic
  * `git archive … | tar -x` incantation with one command.
  *
  * Usage:
@@ -19,7 +18,7 @@ import { fileURLToPath } from 'node:url'
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 
-/** Last commit that tracked `examples/` (see README → Development → Playground). */
+/** Pinned snapshot of the harness (the revision listed in README → Playground). */
 const DEFAULT_REF = '0861b95'
 const TARGET = 'examples'
 

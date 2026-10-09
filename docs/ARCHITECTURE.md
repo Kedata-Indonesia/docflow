@@ -13,8 +13,7 @@
 >
 > This repo ships one runnable app for local UI review: `examples/playground` — a
 > backend-free Vite app that mounts `<DocsEditor>` through the public API. It is
-> **local-only and untracked** (`.gitignore`, PR #62): restore it with
-> `pnpm playground:restore`. It is **not published** and never
+> tracked in-repo but **not published** and never
 > imports a backend package.
 
 ---

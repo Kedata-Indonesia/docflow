@@ -20,11 +20,9 @@ apps/server/data/
 AGENTS.md
 CLAUDE.md
 
-# Local-only UI review harness (examples/playground), deliberately untracked:
-# the folder stays on each machine and `pnpm dev` keeps working locally, but a
-# fresh clone has no examples/ tree. Restore it with:
-#   pnpm playground:restore
-examples/
+# The UI review harness (examples/playground) is tracked in-repo so a fresh
+# clone can run `pnpm dev` directly. Its build output and dependencies stay
+# ignored via the `node_modules`/`dist` rules above.
 
 # Scratch footage from `node scripts/record-demo.mjs` (the GIF is committed).
 .demo-recording/
