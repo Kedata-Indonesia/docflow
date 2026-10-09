@@ -471,6 +471,33 @@ this repository. This package repository only builds and publishes the
 
 ### Project Structure
 
+How the packages fit together — everything in the `LIB` box is published from this repository:
+
+```mermaid
+flowchart TB
+    HOST["Your application<br/>docflow-app, or anything you build"]
+
+    subgraph LIB["this repository — packages/* · Apache-2.0"]
+        direction TB
+        UI["@kedataindo/docflow-vue<br/>Vue 3 components + composables"]
+        EL["@kedataindo/docflow-element<br/>Web Component"]
+        CORE["@kedataindo/docflow-core<br/>headless editor + plugin system"]
+        SIB["@kedataindo/docflow-layout-engine · -plugins · -export"]
+    end
+
+    UP["TipTap · ProseMirror · Yjs<br/>upstream foundations — MIT"]
+    PORTS["injection ports, provided by the host<br/>storage · auth · aiStream / aiDraft · collaboration"]
+
+    HOST --> UI
+    HOST --> EL
+    UI --> CORE
+    EL --> CORE
+    CORE --> SIB
+    CORE --> UP
+    HOST -.-> PORTS
+    PORTS -.-> CORE
+```
+
 ```
 docflow/
 ├── packages/
