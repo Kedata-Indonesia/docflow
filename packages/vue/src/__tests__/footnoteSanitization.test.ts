@@ -45,6 +45,7 @@ describe('footnote content sanitization (issue #71)', () => {
           editor: shallowRef(editor),
           editorRef: ref<HTMLElement | null>(dom),
           isReady: ref(true),
+          pageCount: ref(1),
         })
         return () => h('div')
       },

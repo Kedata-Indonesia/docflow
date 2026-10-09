@@ -1,17 +1,23 @@
 import { onUnmounted, watch, type Ref } from 'vue'
 import { sanitizeInlineHTML, type DocsEditor } from '@kedata-indonesia/docflow-core'
+import { assignFootnotePages, DEFERRED_PAGE } from '../utils/footnotePages.js'
 
 export interface UseFootnotesOptions {
   editor: Ref<DocsEditor['editor'] | null>
   editorRef: Ref<HTMLElement | null>
   isReady: Ref<boolean>
+  pageCount: Ref<number>
 }
 
 export function useFootnotes(options: UseFootnotesOptions) {
-  const { editor, editorRef, isReady } = options
+  const { editor, editorRef, isReady, pageCount } = options
 
   let updateFootnotesTimer: ReturnType<typeof setTimeout> | null = null
   let resizeTimer: ReturnType<typeof setTimeout> | null = null
+  // How many times the footnote pass may re-run while waiting for pagination to
+  // cover the whole document (#19) before falling back to the last page.
+  let footnoteRetryCount = 0
+  const FOOTNOTE_MAX_RETRIES = 3
 
   /**
    * Save edited footnote content from a contenteditable div back to the
@@ -148,18 +154,39 @@ export function useFootnotes(options: UseFootnotesOptions) {
       return
     }
 
-    // Map page index → footnote refs on that page
+    // Map page index → footnote refs on that page.
+    //
+    // Refs that sit past the last page break mean pagination has not covered the
+    // whole document yet (#19). They are reported as deferred instead of being
+    // clamped onto the last page — that clamp is what stacked every footnote on
+    // the final page. We retry a bounded number of times for pagination to catch
+    // up, and only then fall back to the last page so no footnote disappears.
+    const breakerTops: number[] = []
+    const breakerBottoms: number[] = []
+    pageBreaks.forEach((pb) => {
+      const breaker = pb.querySelector<HTMLElement>('.breaker')
+      const rect = breaker?.getBoundingClientRect()
+      breakerTops.push(rect ? rect.top : Number.POSITIVE_INFINITY)
+      breakerBottoms.push(rect ? rect.bottom : Number.NEGATIVE_INFINITY)
+    })
+    const { pages: assignedPages, deferred } = assignFootnotePages(
+      allRefs.map((ref) => ref.getBoundingClientRect().top),
+      breakerTops,
+      breakerBottoms,
+    )
+    if (deferred > 0 && footnoteRetryCount < FOOTNOTE_MAX_RETRIES) {
+      footnoteRetryCount++
+      scheduleFootnotes(400)
+    } else if (deferred === 0) {
+      footnoteRetryCount = 0
+    }
+
     const pageRefs = new Map<number, HTMLElement[]>()
     pageBreaks.forEach((_, i) => pageRefs.set(i, []))
-
-    allRefs.forEach(ref => {
-      const top = ref.getBoundingClientRect().top
-      let assigned = pageBreaks.length - 1
-      for (let i = 0; i < pageBreaks.length - 1; i++) {
-        const breaker = pageBreaks[i].querySelector<HTMLElement>('.breaker')
-        if (breaker && top < breaker.getBoundingClientRect().top) { assigned = i; break }
-      }
-      pageRefs.get(assigned)!.push(ref)
+    allRefs.forEach((ref, i) => {
+      const page = assignedPages[i]
+      const target = page === undefined || page === DEFERRED_PAGE ? pageBreaks.length - 1 : page
+      pageRefs.get(target)!.push(ref)
     })
 
     // Footnotes are numbered continuously through the document — the first
@@ -283,6 +310,11 @@ export function useFootnotes(options: UseFootnotesOptions) {
     // Listen to window resize because pagination calculations layout can shift
     window.addEventListener('resize', onResize)
   })
+
+  // Footnote bodies live inside each page's break area, so when the page count
+  // changes (pagination recomputed) the pass must run again — otherwise notes
+  // stay pinned to the old last page even though new pages exist (#19).
+  watch(pageCount, () => { scheduleFootnotes(50) })
 
   onUnmounted(() => {
     if (resizeTimer) clearTimeout(resizeTimer)
