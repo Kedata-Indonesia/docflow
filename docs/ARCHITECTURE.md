@@ -516,7 +516,8 @@ sequenceDiagram
 | Typecheck | `pnpm typecheck` (per-package: `pnpm --filter <pkg> typecheck`) | this repo |
 | Lint | `pnpm lint` — eslint with `noUnusedLocals`/`noUnusedParameters` strict | this repo |
 | Server only | `pnpm --filter @kedata-indonesia/docflow-server test:unit` | `docflow-app` |
-| E2E | `pnpm test:e2e` — Playwright; auto-starts `apps/demo` | `docflow-app` |
+| E2E (showcase) | `pnpm test:e2e` — Playwright against the demo app in this repo | this repo |
+| E2E (product) | `pnpm test:e2e` — Playwright; auto-starts web + server | `docflow-app` |
 | Visual | `pnpm test:visual` — Percy + Playwright | `docflow-app` |
 
 Per-AGENTS.md gate order after any non-trivial change: **lint → typecheck → test:unit → build affected packages**

@@ -1,0 +1,36 @@
+import { defineConfig } from '@playwright/test'
+
+// Showcase e2e: library behaviors exercised against the backend-free demo
+// app in this repo (the playground / demo that mounts <DocsEditor>).
+// Product flows (auth/collab/sharing) are e2e-tested in the docflow-app repo.
+const demoPort = Number(process.env.DEMO_PORT) || 5173
+const demoURL = `http://localhost:${demoPort}`
+
+export default defineConfig({
+  testDir: './e2e',
+  fullyParallel: true,
+  forbidOnly: !!process.env.CI,
+  retries: process.env.CI ? 2 : 0,
+  workers: process.env.CI ? 1 : undefined,
+  reporter: 'html',
+  use: {
+    trace: 'on-first-retry',
+    screenshot: 'only-on-failure',
+  },
+  projects: [
+    {
+      name: 'showcase',
+      testDir: './e2e/showcase',
+      use: { baseURL: demoURL },
+    },
+  ],
+  webServer: [
+    {
+      // Root `pnpm dev` starts the demo/playground app.
+      command: 'pnpm dev',
+      url: demoURL,
+      reuseExistingServer: !process.env.CI,
+      timeout: 30000,
+    },
+  ],
+})
