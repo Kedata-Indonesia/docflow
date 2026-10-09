@@ -34,7 +34,7 @@ only (no backend, no database) and is the recommended way to review UI changes. 
 
 ## Repository layout
 
-This repo contains the **library packages only** (`packages/*`). The deployable app (web UI + API server) lives in [`docflow-app`](https://github.com/Kedata-Indonesia/docflow-app).
+This repo contains the **library packages only** (`packages/*`). The deployable app (web UI + API server) lives in `docflow-app`.
 
 | Path | Contents |
 |------|----------|

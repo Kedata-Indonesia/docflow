@@ -1,6 +1,6 @@
 # DocFlow
 
-**The open-source editor engine for document-style apps** — true A4 pagination, real-time collaboration, and layout-aware AI. Free to embed (Apache-2.0); pay only for the cloud services around it.
+**The open-source editor engine for document-style apps** — true A4 pagination, real-time collaboration, and layout-aware AI. The libraries are free to embed under Apache-2.0; the deployable application and the Cloud platform are licensed.
 
 <p align="center">
   <a href="./LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-green" alt="License: Apache-2.0"></a>
@@ -12,7 +12,6 @@
 
 <p align="center">
   <a href="https://docflow-app.kedata.cloud"><b>Live demo</b></a> ·
-  <a href="https://github.com/Kedata-Indonesia/docflow-app"><b>docflow-app</b> (web UI + API server)</a> ·
   <a href="./docs/PUBLISH.md"><b>Docs</b></a>
 </p>
 
@@ -23,15 +22,15 @@
 Built on [TipTap](https://tiptap.dev) / [ProseMirror](https://prosemirror.net) with a page pagination engine and Yjs-based collaboration.
 
 > This repository holds the **library packages** only. The deployable application
-> (web UI + API server + demo) lives in
-> [`Kedata-Indonesia/docflow-app`](https://github.com/Kedata-Indonesia/docflow-app).
+> (web UI + API server) is **proprietary** and is not published here — see the
+> [live demo](https://docflow-app.kedata.cloud).
 
 ---
 
 ## Why DocFlow?
 
 - **True page layout** — auto page-breaks, headers/footers with `{page}`/`{total}`, A4/Letter/Legal. TipTap offers this only via the paid Pages Pro extension; CKEditor gates it behind a premium plugin; OnlyOffice is heavyweight and AGPL.
-- **Apache-2.0 license** — safe for commercial embedding and self-hosting. No copyleft anxiety, no premium gates. The core stays Apache-2.0 forever.
+- **Apache-2.0 license** — the libraries are safe for commercial embedding and self-hosting, with no copyleft anxiety and no premium gates on the core. The core stays Apache-2.0 forever.
 - **Real-time collaboration built in** — Yjs CRDT out of the box, self-hostable. An alternative to TipTap Collab / Liveblocks without per-seat lock-in.
 - **Layout-aware AI** — AI drafts that respect A4 structure (e.g. prompt → paginated Indonesian formal letter) via the built-in `aiStream` / `aiDraft` ports.
 - **Built in Indonesia** — Bahasa-friendly, PDPA-friendly self-hosting.
@@ -43,7 +42,7 @@ Built on [TipTap](https://tiptap.dev) / [ProseMirror](https://prosemirror.net) w
 | A4 pagination / page breaks | ✅ Built-in | 💰 Pages (Pro extension) | 💰 Premium plugin | ✅ Full suite (heavy) |
 | Headers / footers with page numbers | ✅ Built-in | 💰 Pages (Pro extension) | 💰 Premium plugin | ✅ |
 | Real-time collaboration | ✅ Yjs, self-hostable | Hocuspocus (OSS backend); Collab cloud is paid | 💰 Premium | ✅ |
-| License | **Apache-2.0** | MIT (core); Pro extensions require a paid plan | GPL / commercial | **AGPL** |
+| License | Apache-2.0 (libraries); app + Cloud are licensed | MIT (core); Pro extensions require a paid plan | GPL / commercial | **AGPL** |
 | Embeddable npm packages | ✅ | ✅ | ✅ | iframe / heavy |
 | Layout-aware AI hooks | ✅ Ports included | 💰 Content AI (paid add-on) | 💰 AI Assistant (paid add-on) | AI plugin exists; no layout-aware hooks |
 
@@ -54,7 +53,7 @@ Built on [TipTap](https://tiptap.dev) / [ProseMirror](https://prosemirror.net) w
 | You build | DocFlow gives you |
 |-----------|-------------------|
 | Contract editors, report generators, CMS document features | Drop-in paginated editor, self-hosted collab, no per-seat fees |
-| Surat / HR / school document systems (agencies) | A4 layout + kop surat templates + Bahasa support, free under Apache-2.0 |
+| Surat / HR / school document systems (agencies) | A4 layout + Bahasa UI in the free libraries; letter templates ship with the licensed application |
 | Internal document systems (enterprise, banks, SOEs, gov) | Self-hostable, PDPA-friendly, air-gapped deployment |
 | Legaltech / edtech / HR vertical apps | Compliance-friendly embedding with DOCX export |
 
@@ -398,13 +397,19 @@ const { editorRef, editor, pluginActions, isReady } = useEditor({
 
 ## Open-core model
 
-The editor engine is **free and open-source (Apache-2.0) — forever**. We monetize the services around it:
+The editor engine is **free and open-source (Apache-2.0) — forever**. Everything published in
+this repository can be embedded and self-hosted without a licence; that is the whole point of the
+Apache-2.0 grant.
 
-- **Hosted collaboration** — managed Yjs sync on [kedata.cloud](https://kedata.cloud)
-- **Hosted AI** — managed layout-aware AI drafting
-- **Enterprise support & services** — SLAs, custom integrations, on-prem/air-gapped deployment help
+The **deployable application** (web UI + API server — dashboard, collaboration, AI) and the
+**hosted Cloud platform** are separate, **proprietary products**. They are licensed, not free,
+and they are not part of this repository.
 
-You are never locked in: everything above can be self-hosted with the code in this repo and [`docflow-app`](https://github.com/Kedata-Indonesia/docflow-app).
+- **Cloud platform** — managed collaboration and layout-aware AI
+- **Self-hosted edition** — the application, licensed for on-premise and air-gapped deployment
+- **Enterprise & services** — SLAs, custom integration, and support
+
+For licensing enquiries: [info@kedata.online](mailto:info@kedata.online).
 
 ## Community
 
@@ -430,8 +435,8 @@ pnpm test:unit        # Unit test
 pnpm lint             # ESLint
 ```
 
-> The deployable application (web UI + API server) and its Docker stack live in the
-> separate [`docflow-app`](https://github.com/Kedata-Indonesia/docflow-app) repository.
+> The deployable application (web UI + API server) and its Docker stack are proprietary
+> and are not part of this repository.
 
 ### Playground (local-only)
 
@@ -460,11 +465,38 @@ and `pnpm dev:source` simply find no project to run.
 
 ### Docker
 
-The self-hosted Docker stack (server + web app + MongoDB) lives in the
-[`docflow-app`](https://github.com/Kedata-Indonesia/docflow-app) repository. This
-package repository only builds and publishes the `@kedataindo/docflow-*` libraries.
+The self-hosted Docker stack (server + web app + MongoDB) is proprietary and is not part of
+this repository. This package repository only builds and publishes the
+`@kedataindo/docflow-*` libraries.
 
 ### Project Structure
+
+How the packages fit together — everything in the `LIB` box is published from this repository:
+
+```mermaid
+flowchart TB
+    HOST["Your application<br/>docflow-app, or anything you build"]
+
+    subgraph LIB["this repository — packages/* · Apache-2.0"]
+        direction TB
+        UI["@kedataindo/docflow-vue<br/>Vue 3 components + composables"]
+        EL["@kedataindo/docflow-element<br/>Web Component"]
+        CORE["@kedataindo/docflow-core<br/>headless editor + plugin system"]
+        SIB["@kedataindo/docflow-layout-engine · -plugins · -export"]
+    end
+
+    UP["TipTap · ProseMirror · Yjs<br/>upstream foundations — MIT"]
+    PORTS["injection ports, provided by the host<br/>storage · auth · aiStream / aiDraft · collaboration"]
+
+    HOST --> UI
+    HOST --> EL
+    UI --> CORE
+    EL --> CORE
+    CORE --> SIB
+    CORE --> UP
+    HOST -.-> PORTS
+    PORTS -.-> CORE
+```
 
 ```
 docflow/

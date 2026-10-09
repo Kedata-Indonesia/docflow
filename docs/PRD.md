@@ -7,7 +7,7 @@
 > **Catatan (2026-10):** Dokumen ini adalah draf produk awal (v1.0). Branding
 > produk kini **DocFlow**. Repositori ini **library-only**: host app
 > (`apps/*`, server, Docker, E2E) berada di
-> [`Kedata-Indonesia/docflow-app`](https://github.com/Kedata-Indonesia/docflow-app).
+> `Kedata-Indonesia/docflow-app`.
 > Untuk arsitektur & batas library, lihat `ARCHITECTURE.md` dan
 > `LIBRARY_CONTRACT.md`.
 

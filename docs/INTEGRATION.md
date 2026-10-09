@@ -240,7 +240,7 @@ function EditorComponent() {
 
 ## Backend Integration
 
-The companion server in [`Kedata-Indonesia/docflow-app`](https://github.com/Kedata-Indonesia/docflow-app) (`apps/server`) provides reference endpoints:
+The companion server in `Kedata-Indonesia/docflow-app` (`apps/server`) provides reference endpoints:
 
 ```
 Base URL: https://your-server.com
