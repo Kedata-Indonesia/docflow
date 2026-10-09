@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <a href="https://dev-docflow-web.kedata.cloud"><b>Live demo</b></a> ·
+  <a href="https://docflow-app.kedata.cloud"><b>Live demo</b></a> ·
   <a href="https://github.com/Kedata-Indonesia/docflow-app"><b>docflow-app</b> (web UI + API server)</a> ·
   <a href="./docs/PUBLISH.md"><b>Docs</b></a>
 </p>
@@ -410,7 +410,7 @@ You are never locked in: everything above can be self-hosted with the code in th
 
 - [GitHub Discussions](https://github.com/Kedata-Indonesia/docflow/discussions) — questions, RFCs, and **showcase** what you built
 - [Issues](https://github.com/Kedata-Indonesia/docflow/issues) — bugs and feature requests
-- Live demo: https://dev-docflow-web.kedata.cloud
+- Live demo: https://docflow-app.kedata.cloud
 
 Full channel list and our code of conduct: [docs/COMMUNITY.md](./docs/COMMUNITY.md).
 
