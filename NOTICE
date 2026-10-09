@@ -5,9 +5,13 @@ its own license (the "Upstream License"); nothing in this NOTICE
 modifies the Upstream License, nor grants you any rights beyond
 those granted by the Upstream License.
 
-DocFlow itself is **proprietary software** (see `LICENSE`); this
-file only enumerates the open-source components redistributed in the
-binary / distribution.
+DocFlow's libraries (`packages/*`) are **open source under Apache-2.0**
+(see `LICENSE`); this file enumerates the third-party components
+redistributed in the published packages and their bundled output.
+
+> The deployable application and the hosted Cloud platform are separate,
+> licensed products (see the `docflow-app` repository) — they are **not**
+> covered by the Apache-2.0 grant for this repository.
 
 The full machine-readable dependency list is `pnpm-lock.yaml` at the
 repo root; the curated list below covers the meaningful editor /
@@ -32,6 +36,12 @@ preserved in full.
     Copyright (c) 2014-present, [webfoli](https://webfoli.com)
                             / Tiptap contributors
     License: MIT <https://github.com/ueberdosis/tiptap/blob/main/LICENSE.md>
+
+  tiptap-pagination-plus (A4 pagination extension; patched — see
+  `patches/tiptap-pagination-plus@3.1.0.patch`; bundled into
+  `@kedataindo/docflow-core`)
+    Copyright (c) Romik Makavana
+    License: MIT <https://github.com/RomikMakavana/tiptap-pagination-plus>
 
   Yjs (and y-protocols, y-prosemirror, y-indexeddb — all by the same
   authors, distributed under MIT)
@@ -67,10 +77,6 @@ preserved in full.
     Copyright (c) 2024 Better Auth
     License: MIT <https://github.com/better-auth/better-auth/blob/main/LICENSE>
 
-  citeproc-js (citation engine)
-    Copyright (c) 2009 Frank Bennett (and contributors)
-    License: AGPL-3.0-or-later (NOT MIT — listed below in §AGPL)
-
 ──────────────────────────────────────────────────────────────────────
 BSD-3-Clause / Apache-2.0 components
 ──────────────────────────────────────────────────────────────────────
@@ -90,14 +96,14 @@ AGPL-3.0-or-later components (copyleft — read carefully)
     URL: <https://github.com/Juris-M/citeproc-js/blob/master/LICENSE>
 
   IMPORTANT: This is a copyleft license. Embedding an unmodified /
-  unmodified-recompiled citeproc-js into a larger proprietary work
-  (DocFlow) is permitted: the resulting "Larger Work" is governed by
-  DocFlow's proprietary EULA, and the citeproc-js portion remains
-  governed by AGPL. **However**, distributing a modified version of
-  citeproc-js, OR providing network access to a service whose purpose
-  is to run modified citeproc-js to users outside your organization,
-  triggers AGPL §13 — i.e. you must make the corresponding source
-  modifications available under AGPL.
+  unmodified-recompiled citeproc-js into a larger work is permitted:
+  the resulting "Larger Work" is governed by the embedding work's own
+  license (the DocFlow libraries themselves are Apache-2.0), and the
+  citeproc-js portion remains governed by AGPL. **However**,
+  distributing a modified version of citeproc-js, OR providing network
+  access to a service whose purpose is to run modified citeproc-js to
+  users outside your organization, triggers AGPL §13 — i.e. you must
+  make the corresponding source modifications available under AGPL.
 
   DocFlow ships the unmodified upstream citeproc-js as a dependency;
   it does NOT modify citeproc-js. Customers who **modify** the
@@ -127,8 +133,8 @@ SSPL-1.0 components (server-side public license — for self-host only)
 AGPL-3.0 components (copyleft — for optional MinIO)
 ──────────────────────────────────────────────────────────────────────
 
-  MinIO (the optional self-host object store in
-  `docker/docker-compose.yml`).
+  MinIO (the optional self-host object store used by the deployable
+  application — see the `docflow-app` repository).
     License: AGPL-3.0
     URL: <https://github.com/minio/minio/blob/master/LICENSE>
     IMPORTANT: same shape as SSPL — running MinIO yourself for your
@@ -141,13 +147,13 @@ AGPL-3.0 components (copyleft — for optional MinIO)
 DocFlow's own code
 ──────────────────────────────────────────────────────────────────────
 
-All original code in the `packages/` and `apps/` directories is the
-intellectual property of PT Kedata Indonesia and is licensed under
-the DocFlow EULA (see `LICENSE`). The directories also contain
-modified versions of some upstream components (notably the y-websocket
-backend in `apps/server/src/y-websocket/`); the modifications are
-governed by the original components' Upstream License (MIT for
-y-websocket) ONLY to the extent that the upstream copyright holder's
-permission is required — i.e. you may treat them as part of DocFlow
-under the EULA, but you may not redistribute the modifications under
-a different license unless the upstream license permits it.
+All original code in the `packages/` directories is the intellectual
+property of PT Kedata Indonesia and is licensed under Apache-2.0 (see
+`LICENSE`). The directories also contain modified versions of some
+upstream components (notably the `tiptap-pagination-plus` patch under
+`patches/`); the modifications are governed by the original
+components' Upstream License (MIT for tiptap-pagination-plus) ONLY to
+the extent that the upstream copyright holder's permission is
+required — i.e. you may treat them as part of DocFlow under
+Apache-2.0, but you may not redistribute the modifications under a
+different license unless the upstream license permits it.
