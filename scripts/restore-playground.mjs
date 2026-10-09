@@ -18,7 +18,12 @@ import { fileURLToPath } from 'node:url'
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 
-/** Pinned snapshot of the harness (the revision listed in README → Playground). */
+/**
+ * Pinned snapshot of the harness. `0861b95` is the last revision that tracked
+ * `examples/` before the folder was re-tracked — its copy still carries the
+ * original Indonesian strings, so restoring it is a deliberate rollback, not a
+ * refresh. Pass `--ref HEAD` to pull the current tracked version instead.
+ */
 const DEFAULT_REF = '0861b95'
 const TARGET = 'examples'
 

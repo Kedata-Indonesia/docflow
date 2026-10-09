@@ -67,7 +67,7 @@ notes and the demo GIF attached — so treat every release as a small launch.
 The README GIF is recorded from the playground, not hand-edited:
 
 ```bash
-pnpm playground:restore        # once, from a fresh clone
+pnpm install
 pnpm build && pnpm dev         # serve http://localhost:5200
 node scripts/record-demo.mjs   # writes docs/assets/docflow-demo.gif
 ```
