@@ -26,9 +26,9 @@ tracked in-repo, so a fresh `pnpm install` is enough — then run
 `pnpm build && pnpm dev` (http://localhost:5200). Use `pnpm dev:source` to edit
 `packages/*` with HMR instead of rebuilding after every change.
 
-> `pnpm playground:restore` unpacks the pinned playground snapshot from git into
-> `examples/` (see `scripts/restore-playground.mjs`). It is only needed to reset a
-> locally modified harness back to that revision — pass `--force` to overwrite.
+> `pnpm playground:restore` resets `examples/` to a committed revision — `HEAD` by
+> default, or the legacy Indonesian snapshot via `--ref 0861b95`. It only needs
+> `--force` to overwrite an existing folder.
 
 ## Repository layout
 

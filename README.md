@@ -454,7 +454,7 @@ Regenerate the README demo GIF from a running playground with
 
 It owns its fixtures (documents, comment threads, versions, collaborators) in
 memory — no server, no database, nothing published. To reset a locally modified
-harness back to the pinned snapshot, run `pnpm playground:restore --force`.
+harness back to the committed version, run `pnpm playground:restore --force`.
 
 ### Docker
 
