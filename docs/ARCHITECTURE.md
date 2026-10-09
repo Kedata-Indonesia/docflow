@@ -20,6 +20,7 @@
 The library in one picture — everything in the `LIB` box is published from this repository:
 
 ```mermaid
+%%{init: {'flowchart': {'curve': 'linear'}}}%%
 flowchart TB
     HOST["Your application<br/>docflow-app, or anything you build"]
 
@@ -71,6 +72,7 @@ At runtime the system runs **two processes** (browser talks to both):
 ## 1. Process model
 
 ```mermaid
+%%{init: {'flowchart': {'curve': 'linear'}}}%%
 flowchart LR
     subgraph Browser
         direction TB
@@ -149,6 +151,7 @@ packages/export         ← docx/markdown/pdf export.
 **Rule:** `packages/*` MUST NOT import from `apps/*` or backend-only deps (`mongoose`, `express`, `better-auth`). Enforced by `.eslintrc.cjs` (`no-restricted-imports`). Host features reach library features only via **injection ports** catalogued in `docs/LIBRARY_CONTRACT.md`:
 
 ```mermaid
+%%{init: {'flowchart': {'curve': 'linear'}}}%%
 flowchart LR
     subgraph Library["packages/* (library)"]
         direction TB
