@@ -261,6 +261,8 @@ const MyPlugin = definePlugin({
 | `modelValue` | `object \| string` | `—` | Document content (ProseMirror JSON). Two-way bound via `v-model`. |
 | `plugins` | `DocsEditorPlugin[]` | `[]` | Active plugins — usually `defaultPlugins` from `@kedataindo/docflow-plugins`. |
 | `editable` | `boolean` | `true` | Let the user edit the document. Reactive after mount: toggling it calls `editor.setEditable()` instead of requiring a remount. |
+| `mode` | `DocumentMode` | `—` | Document mode (issues #27/#28): `editing` (default) · `suggesting` (edits become suggestions) · `viewing` (read-only). Supersedes `editable` when set; `editable === false` maps to `viewing`. Reactive — switching does not remount. |
+| `canReviewSuggestions` | `boolean` | `true` | Whether the track-changes review UI may accept/reject suggestions (issues #27/#28). Defaults to `true`; hosts pass `false` for viewer roles. |
 | `collaboration` | `CollaborationOptions \| CollaborationSetup` | `—` | Collaboration config (`room`, `provider`, `user`) — the host owns the transport. |
 | `pageSize` | `string` | `'a4'` | Page size id (`a4`, `f4`, `letter`, `legal`, `a5`). Reactive after mount: changing it re-lays out the paper instead of requiring a remount. |
 | `pageless` | `boolean` | `false` | Continuous mode: disables pagination so the document flows without page breaks. |
@@ -302,6 +304,7 @@ const MyPlugin = definePlugin({
 | `update:margins` | `margins: { top: number; bottom: number; left: number; right: number }` | Page margins changed (points). |
 | `update:header-footer-margins` | `margins: { headerMarginCm: number; footerMarginCm: number }` | Header/footer margin offsets changed (cm). |
 | `update:pageless` | `pageless: boolean` | Pageless (continuous) mode was toggled. |
+| `update:mode` | `mode: DocumentMode` | Document mode changed (issues #27/#28). |
 | `update:pageCount` | `pageCount: number` | The rendered page count changed. |
 | `update:locale` | `locale: Locale` | UI language changed. |
 | `citation-sources-change` | `sources: CslItemData[]` | The citation source list changed. |
