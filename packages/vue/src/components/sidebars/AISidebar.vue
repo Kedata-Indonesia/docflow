@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { ref, computed, watch, onUnmounted, nextTick, toRaw } from 'vue'
-import { Sparkles, Send, Copy, Check, ArrowDownToLine, AlignLeft, BadgeCheck, Wand2, Globe, X, User, PencilLine, Quote, Loader2, Square } from 'lucide-vue-next'
+import { Sparkles, Send, Copy, Check, ArrowDownToLine, AlignLeft, BadgeCheck, Wand2, Globe, X, User, PencilLine, Quote, Loader2, Square, TriangleAlert } from 'lucide-vue-next'
 import type { Editor } from '@tiptap/core'
 import { Slice, Fragment } from 'prosemirror-model'
 import type { AIActionRequest, AIStreamFn, AIDraftCitation, AIDraftEvent, AIDraftFn } from '@kedata-indonesia/docflow-core'
@@ -39,6 +39,12 @@ interface ChatTurn {
   text: string
   streaming?: boolean
   error?: boolean
+  /** Failure detail, kept SEPARATE from `text` so a mid-stream failure never
+   *  discards the partial answer the user already saw. */
+  errorText?: string
+  /** Which transport produced the turn — a draft that errors still carries
+   *  unresolved `[n]` markers, so its Insert stays disabled. */
+  kind?: 'chat' | 'draft'
   /** 7E-4: the citation table for a draft turn (set on the `done` event). */
   citations?: AIDraftCitation[]
 }
@@ -143,7 +149,7 @@ async function send(req: AIActionRequest, userLabel: string) {
   isStreaming.value = true
 
   turns.value.push({ role: 'user', text: userLabel })
-  turns.value.push({ role: 'assistant', text: '', streaming: true })
+  turns.value.push({ role: 'assistant', text: '', streaming: true, kind: 'chat' })
   // Mutate through turns.value[i] — a local reference to the raw object would
   // bypass Vue's reactivity (the proxy wraps on access, not on the original).
   const assistantIdx = turns.value.length - 1
@@ -155,13 +161,17 @@ async function send(req: AIActionRequest, userLabel: string) {
       scrollToBottom()
     }
     if (!turns.value[assistantIdx].text) {
-      turns.value[assistantIdx].text = t('sidebars.ai.emptyResponse')
+      // Empty answer is a soft failure: keep it out of `text` so the insert
+      // button stays meaningless, and surface it via the error note instead.
       turns.value[assistantIdx].error = true
+      turns.value[assistantIdx].errorText = t('sidebars.ai.emptyResponse')
     }
   } catch (err) {
     if (!abort.signal.aborted) {
-      turns.value[assistantIdx].text = `${t('sidebars.ai.aiError')}: ${err instanceof Error ? err.message : String(err)}`
+      // Keep whatever streamed in `text` (the user saw it); the failure rides
+      // alongside it in `errorText` rather than overwriting the answer.
       turns.value[assistantIdx].error = true
+      turns.value[assistantIdx].errorText = err instanceof Error ? err.message : String(err)
     }
   } finally {
     turns.value[assistantIdx].streaming = false
@@ -207,7 +217,7 @@ async function sendDraft(req: { prompt: string; context?: { before: string; afte
   isStreaming.value = true
 
   turns.value.push({ role: 'user', text: userLabel })
-  turns.value.push({ role: 'assistant', text: '', streaming: true })
+  turns.value.push({ role: 'assistant', text: '', streaming: true, kind: 'draft' })
   const assistantIdx = turns.value.length - 1
   await scrollToBottom()
 
@@ -222,21 +232,22 @@ async function sendDraft(req: { prompt: string; context?: { before: string; afte
         // it). Empty table = 0-results path; Insert still works (plain text).
         turns.value[assistantIdx].citations = event.citations
       } else if (event.type === 'error') {
-        turns.value[assistantIdx].text = `${t('sidebars.ai.aiError')}: ${event.message}`
+        // Keep the partial text (the user saw it); the failure rides alongside
+        // it. Clear citations: `kind === 'draft'` keeps Insert disabled so the
+        // unresolved `[n]` markers can never leak (the bug-hunter forward).
         turns.value[assistantIdx].error = true
-        // Carry-forward: no citations on error → Insert button hidden via v-if
-        // (turn.error === true breaks the gating) → stays disabled.
+        turns.value[assistantIdx].errorText = event.message
         turns.value[assistantIdx].citations = undefined
       }
     }
     if (!turns.value[assistantIdx].text && !turns.value[assistantIdx].error) {
-      turns.value[assistantIdx].text = t('sidebars.ai.emptyResponse')
       turns.value[assistantIdx].error = true
+      turns.value[assistantIdx].errorText = t('sidebars.ai.emptyResponse')
     }
   } catch (err) {
     if (!abort.signal.aborted) {
-      turns.value[assistantIdx].text = `${t('sidebars.ai.aiError')}: ${err instanceof Error ? err.message : String(err)}`
       turns.value[assistantIdx].error = true
+      turns.value[assistantIdx].errorText = err instanceof Error ? err.message : String(err)
       turns.value[assistantIdx].citations = undefined
     }
   } finally {
@@ -327,6 +338,17 @@ function markInserted(index: number) {
 }
 
 /**
+ * Whether a turn's answer can be inserted. A **draft** that errored may still
+ * carry unresolved `[n]` markers (no citation table arrived), so inserting it
+ * would leak them — Insert stays disabled there. A **chat** turn that failed
+ * after emitting partial text is safe to insert (the user already sees it).
+ */
+function canInsert(turn: ChatTurn): boolean {
+  if (!turn.text) return false
+  return !(turn.error && turn.kind === 'draft')
+}
+
+/**
  * UNIFIED insert (7E-4) — ONE substantive `view.dispatch` per turn regardless
  * of branch (the §2 decision 6 — never N dispatches for N markers):
  *
@@ -355,7 +377,7 @@ function markInserted(index: number) {
  * "ONE history entry" invariant holds (the content-array insert is one step). */
 function handleInsert(turn: ChatTurn, index: number) {
   const ed = pmEditor()
-  if (!turn.text || !ed) return
+  if (!canInsert(turn) || !ed) return
   const { state, view } = ed
   const { from, to } = state.selection
 
@@ -487,23 +509,36 @@ onUnmounted(() => {
           <!-- Waiting for the first token: show a real loading cue instead of an
                empty bubble (the caret alone reads as “broken”). -->
           <div
-            v-if="turn.role === 'assistant' && turn.streaming && !turn.text"
+            v-if="turn.role === 'assistant' && turn.streaming && !turn.text && !turn.error"
             class="flex items-center gap-2 rounded-xl bg-slate-100 px-3 py-2 text-xs text-slate-500 dark:bg-white/[0.04] dark:text-slate-400"
           >
             <Loader2 class="h-3.5 w-3.5 animate-spin text-cyan-500" />
             <span>{{ t('sidebars.ai.thinking') }}</span>
           </div>
+          <!-- Answer bubble (partial or final). Failures are NOT painted over the
+               text — the error note below carries them, so any partial answer the
+               user already saw keeps its normal styling. -->
           <div
-            v-else
+            v-else-if="turn.text"
             class="max-w-full whitespace-pre-wrap rounded-xl px-3 py-2 text-xs leading-relaxed"
-            :class="[
+            :class="
               turn.role === 'user'
                 ? 'bg-cyan-500/10 text-slate-700 dark:bg-cyan-500/15 dark:text-slate-200'
-                : turn.error
-                  ? 'bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-300'
-                  : 'bg-slate-100 text-slate-700 dark:bg-white/[0.04] dark:text-slate-300',
-            ]"
+                : 'bg-slate-100 text-slate-700 dark:bg-white/[0.04] dark:text-slate-300'
+            "
           >{{ turn.text }}<span v-if="turn.streaming" class="animate-pulse text-cyan-500">▌</span></div>
+
+          <!-- Failure note — kept separate from the answer above. -->
+          <div
+            v-if="turn.role === 'assistant' && turn.error"
+            class="flex max-w-full flex-col gap-0.5 rounded-xl bg-red-50 px-3 py-2 text-[11px] leading-relaxed dark:bg-red-500/10"
+          >
+            <span class="flex items-center gap-1.5 font-semibold text-red-700 dark:text-red-300">
+              <TriangleAlert class="h-3 w-3" /> {{ t('sidebars.ai.aiError') }}
+            </span>
+            <span v-if="turn.errorText" class="text-red-600/90 dark:text-red-300/90">{{ turn.errorText }}</span>
+            <span class="text-red-500/80 dark:text-red-300/70">{{ t('sidebars.ai.errorHint') }}</span>
+          </div>
 
           <!-- 7E-4: citation chips under a draft turn (rendered after `done`). -->
           <div
@@ -519,8 +554,12 @@ onUnmounted(() => {
             </span>
           </div>
 
-          <div v-if="turn.role === 'assistant' && !turn.streaming && !turn.error && turn.text" class="flex gap-1.5">
+          <div
+            v-if="turn.role === 'assistant' && !turn.streaming && (turn.text || turn.error)"
+            class="flex gap-1.5"
+          >
             <button
+              v-if="turn.text"
               type="button"
               class="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold text-slate-600 transition-all hover:bg-slate-50 dark:border-white/10 dark:bg-white/[0.02] dark:text-slate-300 dark:hover:bg-white/5"
               @click="handleCopy(turn, i)"
@@ -529,6 +568,7 @@ onUnmounted(() => {
               <span>{{ copiedIndex === i ? t('sidebars.ai.copied') : t('sidebars.ai.copy') }}</span>
             </button>
             <button
+              v-if="canInsert(turn)"
               type="button"
               class="flex items-center gap-1 rounded-lg bg-cyan-500 px-2 py-1 text-[10px] font-bold text-black shadow-cyan transition-all hover:bg-cyan-400"
               @click="handleInsert(turn, i)"

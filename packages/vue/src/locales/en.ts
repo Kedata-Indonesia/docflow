@@ -337,6 +337,7 @@ export default {
       aiDrafting: 'AI drafting…',
       thinking: 'Thinking…',
       stop: 'Stop',
+      errorHint: 'Check your AI provider settings and API key, then try again.',
       copy: 'Copy',
       copied: 'Copied',
       insert: 'Insert',

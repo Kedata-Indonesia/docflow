@@ -337,6 +337,7 @@ export default {
       aiDrafting: 'AI menyusun…',
       thinking: 'Berpikir…',
       stop: 'Hentikan',
+      errorHint: 'Periksa pengaturan penyedia AI dan API key Anda, lalu coba lagi.',
       copy: 'Salin',
       copied: 'Tersalin',
       insert: 'Sisipkan',
