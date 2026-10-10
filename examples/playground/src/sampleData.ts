@@ -52,6 +52,9 @@ const doc = (...blocks: PmNode[]): PmDoc => ({ type: 'doc', content: blocks })
 const fn = (content: string): PmNode => ({ type: 'footnote', attrs: { content } })
 /** Paragraph built from mixed inline nodes (text + footnotes). */
 const inline = (...nodes: PmNode[]): PmNode => ({ type: 'paragraph', content: nodes })
+/** Ordered list from pre-built list items (each item may carry a footnote). */
+const olItems = (...items: PmNode[]): PmNode => ({ type: 'orderedList', content: items })
+const li = (...nodes: PmNode[]): PmNode => ({ type: 'listItem', content: [inline(...nodes)] })
 
 // ---------------------------------------------------------------------------
 // Document presets
@@ -224,12 +227,22 @@ const longReport = (() => {
 
   blocks.push(h(2, 'Follow-up Plan'))
   blocks.push(
-    ol(
-      ...Array.from(
-        { length: 18 },
-        (_, i) =>
-          `Follow-up item ${i + 1}: complete the agreed action, record the supporting evidence, and report the outcome at the next monthly review.`,
-      ),
+    olItems(
+      ...Array.from({ length: 18 }, (_, i) => {
+        const nodes: PmNode[] = [
+          t(
+            `Follow-up item ${i + 1}: complete the agreed action, record the supporting evidence, and report the outcome at the next monthly review.`,
+          ),
+        ]
+        // Footnotes *inside* the tall final block: when pagination undercounts,
+        // these refs land beyond the last page — the #19 pile-up case.
+        if (i % 2 === 0) {
+          nodes.push(
+            fn(`Appendix note ${i + 1}: supporting evidence for item ${i + 1} is filed in the appendix register.`),
+          )
+        }
+        return li(...nodes)
+      }),
     ),
   )
 
