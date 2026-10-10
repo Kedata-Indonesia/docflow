@@ -87,6 +87,32 @@ A change that respects this principle touches either the library *or* the app �
 5. **`onSourcesChange` receives ids, not objects.** It is the *document-level* cited-id set, useful for embedding a per-document snapshot. Library-level CRUD persistence uses the `citation-sources-change` emit (§2.3).
 6. **Insert citations via `pluginActions.insertCitation({ sourceId })`.** The internal `insertCitationWithSource` is not exported — `packages/plugins` public surface is `citationPlugin`, `CitationNode`, `CitationEngineExtension`, `getCitationEngine`, `buildCitationNodes`.
 
+**Custom references sidebar (`#references-sidebar` slot, issue #22).** Hosts that need a picker
+richer than the built-in sidebar — e.g. semantic knowledge-base search returning snippets with
+page numbers/relevance — can replace it wholesale:
+
+```vue
+<DocsEditor :citation="citation">
+  <template #references-sidebar="{ sources, activeStyle, pickerMode, onInsert, onClose }">
+    <MyKbPicker :sources="sources" :active-style="activeStyle" :picker-mode="pickerMode"
+                @select="onInsert" @close="onClose" />
+  </template>
+</DocsEditor>
+```
+
+- Renders **in place of** `ReferencesSidebar`, only while `activeSidebar === 'references'`.
+  Omit the slot and the built-in sidebar is used — fully backward compatible.
+- **Scoped props:** `sources`, `activeStyle`, `pickerMode`, `canImport`, `importing`,
+  `importMessage`; **actions:** `onInsert(sourceId)`, `onClose()`, `onCreate(source)`,
+  `onUpdate(source)`, `onRemove(id)`, `onStyleChange(styleId)`, `onImportDoi(doi)`,
+  `onImportBibliography(payload)`.
+- **Picker flow:** leave `CitationPort.onSourceRequest` **unset** so the built-in
+  `defaultSourceRequest` opens the sidebar in picker mode (`pickerMode === true`); call
+  `onInsert(sourceId)` to complete the pending citation, or `onClose()` to cancel. (If the host
+  sets `onSourceRequest`, it owns the picker entirely and the sidebar never enters picker mode.)
+- The host owns the sidebar's sizing/positioning (the built-in uses `w-80`, right-aligned) and
+  does its own fetching — the library still performs **no** network I/O.
+
 > **Seeding rule (Phase 1):** in collab mode the `content` option is **not**
 > auto-seeded into the room — an unguarded local seed races with other clients
 > and duplicates the document. Hosts seed via `initialStorageState` or a guarded

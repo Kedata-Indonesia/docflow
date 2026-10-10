@@ -9,7 +9,7 @@ import { useFootnotes } from '../composables/useFootnotes.js'
 import { useEditCommands } from '../composables/useEditCommands.js'
 import { useDocsEditorMenu } from '../composables/useDocsEditorMenu.js'
 import VirtualPageOverlay from './VirtualPageOverlay.vue'
-import { computed, ref, watch } from 'vue'
+import { computed, ref, useSlots, watch } from 'vue'
 import SlashMenuVue from './SlashMenu.vue'
 import HeaderBar from './HeaderBar.vue'
 import EditorToolbar from './EditorToolbar.vue'
@@ -88,6 +88,13 @@ const {
 
 const pageCount = ref(1)
 const currentPage = ref(1)
+
+// Host-supplied `#references-sidebar` slot (issue #22). When present it replaces
+// the built-in ReferencesSidebar; the forwarded flag tells the child to render
+// the slot instead of its fallback (an empty forwarded slot would otherwise
+// suppress the fallback).
+const slots = useSlots()
+const hasReferencesSidebarSlot = computed(() => Boolean(slots['references-sidebar']))
 
 // ─── Page numbering + header / footer ────────────────────────────────────────
 // Page-numbering settings live on the component (tests read them through
@@ -234,6 +241,7 @@ void [openHeaderFormatModal, openPageNumberModal]
         :active-sidebar="activeSidebar" :editor="editor" :citation-sources="citationSources"
         :citation-style-id="citationStyleId" :pending-source-request="pendingSourceRequest"
         :can-import-sources="canImportSources" :import-busy="importBusy" :import-message="importMessage"
+        :has-references-sidebar-slot="hasReferencesSidebarSlot"
         :comments="props.comments" :selected-text-snippet="props.selectedTextSnippet"
         :selected-text-index="props.selectedTextIndex" :orphaned-comment-ids="orphanedCommentIds"
         :snapshots="props.snapshots" :active-preview-index="props.activePreviewIndex"
@@ -248,7 +256,7 @@ void [openHeaderFormatModal, openPageNumberModal]
         @save-snapshot="(name) => $emit('save-snapshot', name)"
         @restore-snapshot="(idx) => $emit('restore-snapshot', idx)"
         @preview-snapshot="(s) => $emit('preview-snapshot', s)"
-      />
+      ><template #references-sidebar="slotProps"><slot name="references-sidebar" v-bind="slotProps" /></template></DocsEditorSidebars>
     </div>
     <StatusBar
       v-if="!focusMode"
