@@ -482,6 +482,24 @@ onUnmounted(() => {
             >
               <Star class="h-4 w-4" :class="starred ? 'fill-amber-400 text-amber-500' : ''" />
             </button>
+
+            <!-- Document-mode indicator (#27/#28) — makes suggesting/viewing obvious -->
+            <span
+              v-if="props.mode === 'suggesting'"
+              class="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-300"
+              :title="t('header.modeSuggesting')"
+            >
+              <PenLine class="h-3 w-3" />
+              {{ t('header.modeSuggesting') }}
+            </span>
+            <span
+              v-else-if="props.mode === 'viewing'"
+              class="inline-flex items-center gap-1 rounded-full bg-slate-500/15 px-2 py-0.5 text-[10px] font-semibold text-slate-600 dark:bg-slate-400/15 dark:text-slate-300"
+              :title="t('header.modeViewing')"
+            >
+              <Eye class="h-3 w-3" />
+              {{ t('header.modeViewing') }}
+            </span>
           </div>
 
           <!-- Menu bar under title -->
