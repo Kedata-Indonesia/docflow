@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 /**
- * Records the README demo GIF from the local playground.
+ * Records the README demo GIF from the playground.
  *
  * Beats: sample document → scroll through paginated pages → type to trigger an
  * automatic page break → footer page counter updates → export the document.
  *
- * Prerequisites (the playground is a local-only harness, see `.gitignore`):
- *   pnpm playground:restore     # once, from a fresh clone
+ * Prerequisites (the playground ships with the repo):
+ *   pnpm install
  *   pnpm build && pnpm dev      # serves http://localhost:5200
  *
  * Usage:

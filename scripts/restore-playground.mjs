@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 /**
- * Restores `examples/playground`, the local-only UI review harness, from git.
+ * Restores `examples/playground`, the UI review harness, from git.
  *
- * The playground is deliberately untracked (`.gitignore`, PR #62) so a fresh
- * clone ships a clean library tree, but the folder is still useful for UI work.
- * This script unpacks the last revision that tracked it, replacing the cryptic
+ * The playground is tracked in-repo, so this script just resets a locally
+ * modified harness back to a committed revision — replacing the cryptic
  * `git archive … | tar -x` incantation with one command.
  *
  * Usage:
- *   pnpm playground:restore            # unpack from the pinned revision
+ *   pnpm playground:restore            # reset to HEAD (the tracked harness)
  *   pnpm playground:restore --force    # replace an existing examples/
+ *   node scripts/restore-playground.mjs --ref 0861b95   # legacy ID snapshot
  *   node scripts/restore-playground.mjs --ref <commit-ish> [--root <dir>]
  */
 import { execFileSync } from 'node:child_process'
@@ -19,8 +19,13 @@ import { fileURLToPath } from 'node:url'
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 
-/** Last commit that tracked `examples/` (see README → Development → Playground). */
-const DEFAULT_REF = '0861b95'
+/**
+ * Default revision to restore from. The harness is tracked, so `HEAD` resets a
+ * locally modified copy back to the committed version. `0861b95` is kept as the
+ * legacy pre-track snapshot (its copy still carries the original Indonesian
+ * strings) — pass `--ref 0861b95` for a deliberate rollback to it.
+ */
+const DEFAULT_REF = 'HEAD'
 const TARGET = 'examples'
 
 const args = process.argv.slice(2)

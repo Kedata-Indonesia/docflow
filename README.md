@@ -438,17 +438,15 @@ pnpm lint             # ESLint
 > The deployable application (web UI + API server) and its Docker stack are proprietary
 > and are not part of this repository.
 
-### Playground (local-only)
+### Playground
 
 `examples/playground` is a small backend-free Vite app that mounts `<DocsEditor>`
 **through the public API only** (`defaultPlugins`, props, events). Use it to review
 UI changes, compare branches, or copy a working setup.
 
-It is **not tracked in this repo** (`.gitignore`, PR #62) — keep it on your own
-machine. Restore the last tracked revision once after cloning or pulling:
+It is tracked in this repo, so a fresh clone can run it directly:
 
 ```bash
-pnpm playground:restore                      # unpacks examples/ from 0861b95
 pnpm install
 
 pnpm build && pnpm dev                       # dist mode — http://localhost:5200
@@ -460,8 +458,8 @@ Regenerate the README demo GIF from a running playground with
 `node scripts/record-demo.mjs` (writes `docs/assets/docflow-demo.gif`).
 
 It owns its fixtures (documents, comment threads, versions, collaborators) in
-memory — no server, no database, nothing published. Without the folder, `pnpm dev`
-and `pnpm dev:source` simply find no project to run.
+memory — no server, no database, nothing published. To reset a locally modified
+harness back to the committed version, run `pnpm playground:restore --force`.
 
 ### Docker
 
@@ -508,7 +506,7 @@ docflow/
 │   ├── layout-engine/     @kedataindo/docflow-layout-engine
 │   └── export/            @kedataindo/docflow-export
 ├── examples/
-│   └── playground/        backend-free demo app (local-only, untracked)
+│   └── playground/        backend-free demo app (tracked, not published)
 └── docs/                  Documentation
 ```
 

@@ -11,6 +11,12 @@
 <!-- What you ran and its result. Required: pnpm lint, pnpm typecheck, pnpm test:unit.
      If editor UI/layout changed: pnpm test:e2e. Screenshots/GIFs for UI changes. -->
 
+**Demo verified on:** <!-- e.g. playground @ :5200, Chrome 130 — or "N/A: not UI-facing, reason" -->
+
+**Steps / expected vs. actual:**
+<!-- 1. open Insert → Table … 2. expect … 3. saw … -->
+
+- [ ] Verified in the demo (or explained above why not)
 - [ ] `pnpm lint` passes
 - [ ] `pnpm typecheck` passes
 - [ ] `pnpm test:unit` passes
