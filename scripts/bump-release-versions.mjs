@@ -97,6 +97,14 @@ function changedFiles(before, after) {
 /**
  * Resolve `<before>`: `auto` -> newest release commit on HEAD, else the pushed
  * range from `$BASE_FALLBACK`.
+ *
+ * `--no-merges` is load-bearing: the pipeline lands each release commit by
+ * opening and merging a PR, so the resulting merge commit's message *quotes*
+ * the release subject (`chore(release): bump … [skip ci]`) in its body. A plain
+ * `--grep` would match that merge commit — which is newer — and move the anchor
+ * past any change merged while the run was in flight, silently marking it
+ * released without ever publishing it. Only the pipeline's own non-merge commit
+ * is a valid anchor.
  */
 export function resolveBase(requested, fallback = process.env.BASE_FALLBACK ?? '') {
   if (requested !== 'auto') return requested;
@@ -104,6 +112,7 @@ export function resolveBase(requested, fallback = process.env.BASE_FALLBACK ?? '
     const found = git([
       'log',
       '-1',
+      '--no-merges',
       '--extended-regexp',
       '--format=%H',
       '--grep',

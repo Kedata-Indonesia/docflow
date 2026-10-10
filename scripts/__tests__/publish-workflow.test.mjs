@@ -53,6 +53,23 @@ test('publish step does not write the npm token into the tracked .npmrc', () => 
   )
 })
 
+test('a bumped package already on npm fails loudly instead of skipping silently', () => {
+  const body = stepBody('Publish @kedataindo/* to npm')
+  assert.match(
+    body,
+    /BUMPED:\s*\$\{\{\s*steps\.bump\.outputs\.bumped\s*\}\}/,
+    'the publish step needs the bump output to know which packages it chose',
+  )
+  assert.match(body, /case ",\$\{BUMPED\}," in/, 'the guard must key on the bumped list')
+  assert.match(body, /\*",\$\{pkg\},"\*/, 'the guard must test the package being published')
+  const err = body.indexOf('::error::the bump chose')
+  assert.notEqual(err, -1, 'a stale registry read must fail loudly')
+  assert.ok(
+    body.indexOf('exit 1', err) > err,
+    'the guard must exit non-zero rather than go green having published nothing',
+  )
+})
+
 test('commit-back never pushes straight to main (the ruleset demands a PR)', () => {
   const body = stepBody(COMMIT_BACK_STEP)
   const pushes = body

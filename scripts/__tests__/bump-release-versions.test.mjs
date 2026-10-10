@@ -68,11 +68,21 @@ test('bumpPatch increments only the patch digit', () => {
 test('resolveBase passes explicit refs through and falls back for auto', () => {
   assert.equal(resolveBase('abc123', 'fallback'), 'abc123');
 
-  // `auto` = newest release commit on HEAD, else the fallback. Assert against
-  // git directly so the test is precise whether or not a release commit exists.
+  // `auto` = newest release commit on HEAD (ignoring merge commits, whose
+  // messages quote the release subject), else the fallback. Assert against git
+  // directly so the test is precise whether or not a release commit exists.
   const releaseSha = execFileSync(
     'git',
-    ['log', '-1', '--extended-regexp', '--format=%H', '--grep', '^chore\\(release\\):', 'HEAD'],
+    [
+      'log',
+      '-1',
+      '--no-merges',
+      '--extended-regexp',
+      '--format=%H',
+      '--grep',
+      '^chore\\(release\\):',
+      'HEAD',
+    ],
     { cwd: ROOT, encoding: 'utf8' },
   ).trim();
   assert.equal(resolveBase('auto', 'fallback'), releaseSha || 'fallback');
@@ -161,4 +171,90 @@ test('auto anchors the range on the newest release commit', (t) => {
   assert.match(out, /core: 0\.0\.2 -> 0\.0\.3 \(changed\)/);
   assert.match(out, /vue: 0\.0\.1 -> 0\.0\.2 \(dependency of changed package\)/);
   assert.match(out, /bumped=core,layout-engine,plugins,vue,element \(dry-run\)/);
+});
+
+test('auto ignores a merge commit that quotes the release subject (bookmark race)', (t) => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'docflow-release-merge-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+
+  const git = (...args) => execFileSync('git', args, { cwd: dir, encoding: 'utf8' });
+  git('init', '-q');
+  git('config', 'user.email', 'release-test@example.com');
+  git('config', 'user.name', 'Release Test');
+
+  // All publishable packages exist so the script can read every package.json.
+  for (const name of PUBLISH_ORDER) {
+    const pkgDir = path.join(dir, 'packages', name);
+    mkdirSync(pkgDir, { recursive: true });
+    writeFileSync(
+      path.join(pkgDir, 'package.json'),
+      `${JSON.stringify({ name: `@kedata-indonesia/docflow-${name}`, version: '0.0.1' }, null, 2)}\n`,
+    );
+  }
+  const coreDir = path.join(dir, 'packages', 'core');
+  mkdirSync(path.join(coreDir, 'src'), { recursive: true });
+  writeFileSync(path.join(coreDir, 'src', 'index.ts'), 'export {};\n');
+  git('add', '-A');
+  git('commit', '-q', '-m', 'feat: initial');
+
+  // The pipeline's own release commit — the only valid anchor.
+  writeFileSync(
+    path.join(coreDir, 'package.json'),
+    `${JSON.stringify({ name: '@kedata-indonesia/docflow-core', version: '0.0.2' }, null, 2)}\n`,
+  );
+  git('add', '-A');
+  git('commit', '-q', '-m', 'chore(release): bump core [skip ci]');
+  const releaseSha = git('rev-parse', 'HEAD').trim();
+
+  // A change merged while a run was in flight. GitHub's merge commit quotes the
+  // PR title in its body, so the merge of a release PR carries the release
+  // subject — the trap the plain `--grep` fell into (it moved the anchor past
+  // the change, silently marking it released without publishing it).
+  writeFileSync(path.join(coreDir, 'src', 'index.ts'), 'export const x = 1;\n');
+  git('add', '-A');
+  git('commit', '-q', '-m', 'fix: change core after the release commit');
+  const changeSha = git('rev-parse', 'HEAD').trim();
+  const tree = git('rev-parse', 'HEAD^{tree}').trim();
+  const mergeSha = git(
+    'commit-tree',
+    tree,
+    '-p',
+    changeSha,
+    '-p',
+    releaseSha,
+    '-m',
+    'Merge pull request #99 from Kedata-Indonesia/release/bump-1-1',
+    '-m',
+    'chore(release): bump core [skip ci]',
+  ).trim();
+  git('update-ref', 'HEAD', mergeSha);
+
+  // Sanity: the naive grep really does hit the newer merge commit.
+  const naive = git(
+    'log',
+    '-1',
+    '--extended-regexp',
+    '--format=%H',
+    '--grep',
+    '^chore\\(release\\):',
+    'HEAD',
+  ).trim();
+  assert.equal(naive, mergeSha, 'the setup must reproduce the trap the fix guards');
+
+  const out = execFileSync(process.execPath, [SCRIPT, 'auto', 'HEAD', '--dry-run'], {
+    cwd: dir,
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      REPO_ROOT: dir,
+      BASE_FALLBACK: 'unused-fallback',
+      NPM_PUBLISHED_STUB: '{}',
+      GITHUB_OUTPUT: '',
+    },
+  });
+
+  // The anchor stays on the real release commit, so the change merged after it
+  // is still seen as unreleased and gets published.
+  assert.match(out, new RegExp(`Release range: ${releaseSha}\\.\\.HEAD`));
+  assert.match(out, /core: 0\.0\.2 -> 0\.0\.3 \(changed\)/);
 });
