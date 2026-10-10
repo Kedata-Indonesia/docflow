@@ -159,6 +159,7 @@ const { updateFootnotes } = useFootnotes({
   editor,
   editorRef,
   isReady,
+  pageCount,
 })
 
 // Test-facing bindings: the DocsEditor tests drive these directly through
