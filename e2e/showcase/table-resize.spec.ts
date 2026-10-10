@@ -12,14 +12,13 @@ import { test, expect, type Page } from '@playwright/test'
  *   - #55:  resize must also work on tables pasted from Google Docs/Word,
  *     including ones that contain colspan merged cells.
  *
- * The demo app exposes `window.__docsEditor` (see its EditorView
- * handleEditorReady) so specs can insert precise table content via commands
- * instead of toolbar UI.
+ * The playground exposes `window.__docsEditor` (its `@ready` handler) so specs
+ * can insert precise table content via commands instead of toolbar UI.
  */
 
 async function createBlank(page: Page): Promise<void> {
   await page.goto('/')
-  await page.getByRole('button', { name: /Blank document/i }).first().click()
+  await page.locator('select.pg-select').first().selectOption('blank')
   await expect(page.locator('.docs-editor__paper .ProseMirror')).toBeVisible()
 }
 

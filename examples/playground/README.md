@@ -61,3 +61,6 @@ the fixtures in memory so the repository stays backend-free.
   (`.github/workflows/publish.yml`).
 - Keep the playground free of host-app code: no fetch, no auth, no Mongo. If you
   need a new capability to demo a change, add an injection port instead.
+- The **Blank document** preset and the `window.__docsEditor` test hook (set in
+  `App.vue`'s `@ready` handler) exist for the showcase e2e specs in `e2e/showcase/`.
+  The specs insert content through `editor.commands`, so keep the hook wired.
