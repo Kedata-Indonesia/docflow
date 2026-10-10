@@ -63,14 +63,21 @@ const {
 })
 
 // ─── Editor session: document model → editor → citations → bubble / link ─────
-// Document mode (#27/#28): an explicit `mode` prop wins; `editable === false`
-// maps to `viewing` for backwards compatibility.
+// Document mode (#27/#28). Controlled: an explicit `mode` prop wins. Uncontrolled:
+// the View ▸ Document mode menu drives internal state, so the menu works even
+// when the host does not bind `v-model:mode`. `editable === false` maps to
+// `viewing` for backwards compatibility.
+const internalMode = ref<DocumentMode>('editing')
 const documentMode = computed<DocumentMode>(
-  () => props.mode ?? (props.editable === false ? 'viewing' : 'editing'),
+  () => props.mode ?? (props.editable === false ? 'viewing' : internalMode.value),
 )
 const effectiveEditable = computed(() =>
   documentMode.value === 'viewing' ? false : (props.editable ?? true),
 )
+const setDocumentMode = (mode: DocumentMode) => {
+  internalMode.value = mode
+  emit('update:mode', mode)
+}
 
 const {
   initialDoc, persistCurrentDoc, updateCounts, saveTimer, slashCommands, wordCount, charCount, savingStatus,
@@ -188,7 +195,7 @@ const { menuClick } = useDocsEditorMenu({
   editor, focusMode, showFindReplace, editFormatMenuCommands, isPageless, showRuler, activeSidebar,
   getUpdateFootnotes: () => updateFootnotes(), openPageSetupModal, handlePrint, toggleSidebar,
   startInlineHeaderEdit, openFooterModal, openLinkDialog, applyPageless, showDetailsModal, showEmailModal,
-  documentMode, onDocumentMode: (mode) => emit('update:mode', mode),
+  documentMode, onDocumentMode: setDocumentMode,
   onShare: () => emit('share'), onMenuClick: (action) => emit('menu-click', action),
 })
 
