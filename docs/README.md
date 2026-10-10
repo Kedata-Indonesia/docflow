@@ -13,7 +13,7 @@
 
 ```bash
 # Development
-pnpm dev               # Start demo app (port 5173)
+pnpm dev               # Start demo app (playground, port 5200)
 pnpm dev:server        # Start backend (port 3001)
 
 # Docker (development — dev overlay with MinIO + direct API on :3001)

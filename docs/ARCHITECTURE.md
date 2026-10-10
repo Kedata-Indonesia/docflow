@@ -19,6 +19,7 @@
 The library in one picture — everything in the `LIB` box is published from this repository:
 
 ```mermaid
+%%{init: {'flowchart': {'curve': 'linear'}}}%%
 flowchart TB
     HOST["Your application<br/>docflow-app, or anything you build"]
 
@@ -70,6 +71,7 @@ At runtime the system runs **two processes** (browser talks to both):
 ## 1. Process model
 
 ```mermaid
+%%{init: {'flowchart': {'curve': 'linear'}}}%%
 flowchart LR
     subgraph Browser
         direction TB
@@ -148,6 +150,7 @@ packages/export         ← docx/markdown/pdf export.
 **Rule:** `packages/*` MUST NOT import from `apps/*` or backend-only deps (`mongoose`, `express`, `better-auth`). Enforced by `.eslintrc.cjs` (`no-restricted-imports`). Host features reach library features only via **injection ports** catalogued in `docs/LIBRARY_CONTRACT.md`:
 
 ```mermaid
+%%{init: {'flowchart': {'curve': 'linear'}}}%%
 flowchart LR
     subgraph Library["packages/* (library)"]
         direction TB
@@ -512,7 +515,8 @@ sequenceDiagram
 | Typecheck | `pnpm typecheck` (per-package: `pnpm --filter <pkg> typecheck`) | this repo |
 | Lint | `pnpm lint` — eslint with `noUnusedLocals`/`noUnusedParameters` strict | this repo |
 | Server only | `pnpm --filter @kedata-indonesia/docflow-server test:unit` | `docflow-app` |
-| E2E | `pnpm test:e2e` — Playwright; auto-starts `apps/demo` | `docflow-app` |
+| E2E (showcase) | `pnpm test:e2e` — Playwright against the demo app in this repo | this repo |
+| E2E (product) | `pnpm test:e2e` — Playwright; auto-starts web + server | `docflow-app` |
 | Visual | `pnpm test:visual` — Percy + Playwright | `docflow-app` |
 
 Per-AGENTS.md gate order after any non-trivial change: **lint → typecheck → test:unit → build affected packages**

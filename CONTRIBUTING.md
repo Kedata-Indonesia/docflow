@@ -70,6 +70,53 @@ pnpm --filter @kedata-indonesia/docflow-core test:unit
 pnpm --filter @kedata-indonesia/docflow-vue typecheck
 ```
 
+## Workflow: demo-first (features & updates)
+
+Every feature or fix — no matter how small — follows the same loop before it can
+be pushed or turned into a PR. **The demo is the review surface:** if the change
+isn't visible or exercisable there, a reviewer can't validate it, and neither can
+CI (which only runs units).
+
+```bash
+# 1. Branch from main
+git checkout main && git pull
+git checkout -b feat/<short-topic>        # feat/ | fix/ | docs/ | chore/
+
+# 2. Start the demo once per clone
+pnpm playground:restore                   # unpacks examples/ (untracked)
+pnpm install
+pnpm build && pnpm dev                    # http://localhost:5200
+
+# 3. Make the change, then exercise it IN THE DEMO (real click path, not just units)
+
+# 4. Run the gate
+pnpm lint && pnpm typecheck && pnpm test:unit
+pnpm test:e2e                             # if editor UI/layout changed (drives the demo)
+
+# 5. Commit (Conventional Commits), push the branch, open a PR against main
+git push -u origin feat/<short-topic>
+```
+
+### Rules
+
+- **Never commit or push directly to `main`.** It is protected; all changes land
+  via a PR from a topic branch.
+- **Test on the demo before you push** — not after, and not "CI will catch it".
+  Unit tests don't render the DOM; pagination, tables, cursors, and toolbars only
+  break in a browser. `pnpm test:e2e` drives the demo (Playwright auto-starts it
+  on `:5200`), so it is the automated half of this rule — run it yourself for UI
+  work.
+- **Say what you saw.** In the PR Testing section, list the demo steps you took
+  (which menus/clicks, expected vs. actual) plus the command output. Attach a
+  screenshot or GIF for anything visual.
+- **If it can't be exercised in the demo, say so** and provide the alternative
+  evidence (unit test, headless harness, host-app screenshot). Silence reads as
+  "untested".
+- **One concern per PR.** Unrelated fixes belong in their own branch.
+- **Keep `pnpm-lock.yaml` clean.** The missing `examples/` folder makes a plain
+  `pnpm install` prune its importer — `git checkout -- pnpm-lock.yaml` instead of
+  committing that churn (or use `pnpm install --frozen-lockfile`).
+
 ## Commit style
 
 We use [Conventional Commits](https://www.conventionalcommits.org/):
@@ -86,11 +133,12 @@ Common scopes: `core`, `vue`, `element`, `plugins`, `layout-engine`, `export`, `
 ## Pull request process
 
 1. Fork the repo and create a branch **from `main`** (`feat/...`, `fix/...`, or `docs/...`).
-2. Make your change with the verification steps above passing.
+2. Make your change, verify it **in the demo** (`pnpm dev` → http://localhost:5200), and
+   get the verification steps above passing.
 3. Open the PR **against `main`** with:
    - **What** changed and **why**
    - **How** it works (key implementation notes)
-   - **Testing** — what you ran and its result
+   - **Testing** — the demo steps you followed (expected vs. actual) plus what you ran and its result
    - Screenshots/GIFs for UI changes
 4. Keep PRs focused — one concern per PR. A PR touching both `packages/*` and app-specific concerns is usually a sign it should be split.
 5. We aim to respond to every PR and issue **within 24 hours**.
@@ -162,8 +210,8 @@ This is our triage flow — what happens to your issue after you open it:
 | 3. Classify | Labeled `bug` or `enhancement`, plus package and priority. | With step 2 |
 | 4. Need info? | If we can't reproduce, we ask questions and label `status: needs-info`. **The issue auto-closes after 14 days without a response** — reply to reopen. | — |
 | 5. Decide | Accepted → assigned or labeled `help wanted` (great first issues are labeled `good first issue`). Duplicate → closed and linked to the original. Declined → closed as `wontfix` with an explanation. | Within **7 days** of triage |
-| 6. Fix | Work happens on `development` via a PR that references the issue (`Closes #123`). | — |
-| 7. Close & release | Merged to `development` → issue closes automatically. Shipped to `main` on the next release, noted in the release notes / CHANGELOG. | — |
+| 6. Fix | Work happens on a topic branch via a PR that references the issue (`Closes #123`). | — |
+| 7. Close & release | Merged to `main` → issue closes automatically, shipped on the next release and noted in the release notes / CHANGELOG. | — |
 | 8. Stale sweep | No activity for 60 days → `status: stale` label and a ping; 14 more days of silence → closed (reopenable). | Periodic |
 
 We aim to answer every issue and PR **within 24 hours**, even if it's just "we've seen this, triage is coming."
