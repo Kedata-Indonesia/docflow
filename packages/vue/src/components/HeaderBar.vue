@@ -12,7 +12,7 @@ import {
   IndentIncrease, AlignLeft, AlignCenter, AlignRight, AlignJustify,
   ListOrdered, ListChecks, RemoveFormatting, SpellCheck, SlidersHorizontal,
   Puzzle, Keyboard, Bug, CircleHelp,
-  Sparkles, LayoutTemplate, Calendar, MapPin, Eye, PenLine,
+  Sparkles, LayoutTemplate, Calendar, MapPin, Eye, PenLine, GitPullRequest,
 } from 'lucide-vue-next'
 import type { Collaborator } from '../types.js'
 import type { DocumentMode } from '@kedata-indonesia/docflow-core'
@@ -318,6 +318,8 @@ const menus = computed<Record<string, { label: string; items: MenuItem[] }>>(() 
     items: [
       { label: t('header.spellCheck'), action: 'spellcheck', icon: SpellCheck },
       { label: t('header.wordCount'), action: 'word-count', icon: Hash },
+      { label: 'divider', divider: true },
+      { label: t('header.reviewSuggestedEdits'), action: 'review-suggestions', icon: GitPullRequest },
       { label: 'divider', divider: true },
       { label: t('header.preferences'), action: 'preferences', icon: SlidersHorizontal },
     ],

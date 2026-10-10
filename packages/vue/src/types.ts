@@ -57,7 +57,7 @@ export interface DocumentSnapshot {
   timestamp: number
 }
 
-export type SidebarKey = 'comments' | 'history' | 'ai' | 'toc' | 'references'
+export type SidebarKey = 'comments' | 'history' | 'ai' | 'toc' | 'references' | 'review'
 export type ConnectionState = 'connected' | 'connecting' | 'disconnected'
 export type SavingStatus = 'saved' | 'saving' | 'offline'
 
@@ -83,8 +83,7 @@ export interface DocumentMeta {
  * `pickerMode` is `true` while an insert-citation request is pending — call
  * `onInsert(sourceId)` to complete it, or `onClose()` to cancel.
  */
-export interface ReferencesSidebarSlotProps {
-  /** Live reference library (mutates as the host edits through the actions). */
+export interface ReferencesSidebarSlotProps {  /** Live reference library (mutates as the host edits through the actions). */
   sources: CslItemData[]
   /** Active CSL style id. */
   activeStyle: string
@@ -112,4 +111,19 @@ export interface ReferencesSidebarSlotProps {
   onImportDoi: (doi: string) => void
   /** Import a BibTeX/RIS blob (only when `canImport`). */
   onImportBibliography: (payload: { format: 'bibtex' | 'ris'; text: string }) => void
+}
+
+/**
+ * A pending tracked-change suggestion (issues #27/#28, P2). Mirrors the
+ * `SuggestionSummary` shape produced by `@kedataindo/docflow-plugins`; the Vue
+ * layer reads it from `editor.storage.suggestChanges.suggestions`.
+ */
+export interface SuggestionSummary {
+  id: string
+  type: 'insert' | 'delete'
+  authorId: string | null
+  authorName: string | null
+  /** ProseMirror positions (from/to) of the suggestion range. */
+  from: number
+  to: number
 }
