@@ -426,6 +426,21 @@ Full channel list and our code of conduct: [docs/COMMUNITY.md](./docs/COMMUNITY.
 
 Contributions are welcome — bug reports, RFC discussions, and pull requests. `main` is protected: fork the repo, create a branch, and open a PR. Please read [CONTRIBUTING.md](./CONTRIBUTING.md) for the dev setup, verification steps, and PR expectations, and open an issue first for anything non-trivial so we can align on direction.
 
+### Pull requests: one complete, release-ready change
+
+Every PR must be **self-contained and ready to release to `main`**. Include
+everything the change needs — code, tests, docs, and any version or dependency
+updates — in the **same PR**. Do not open a small PR whose value only lands once
+a later PR merges: no stacked PRs, no "merge this, then that", nothing that needs
+a follow-up in order to ship.
+
+`main` is the release branch — merging a PR publishes the packages it touched
+(see [Releasing](#releasing)) — so **only merge when the change is ready**. If a
+change cannot be delivered end-to-end in one PR, don't open it: open an issue
+and align on scope first.
+
+This applies equally to humans and AI agents.
+
 ## Development
 
 ```bash

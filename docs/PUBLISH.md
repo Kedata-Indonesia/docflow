@@ -70,12 +70,16 @@ Publishing runs via GitHub Actions (`.github/workflows/publish.yml`) to the
   [RELEASING.md](./RELEASING.md))
 - **manual run** — `workflow_dispatch` from the Actions tab
 
-Publishing is **idempotent**: a package whose exact version is already on npm is
-skipped, so re-running the workflow never hard-fails. The version the bump picks
-is never one npm already has (see
-[Auto version bump](#auto-version-bump-push-to-main)), and a push to `main`
-re-checks npm after publishing: a version the bump deemed free but that never
-reached the registry fails the run before the bump is committed back.
+Publishing is **idempotent per package**: a version already on npm is skipped, so
+re-running never hard-fails and a tag release only touches what is new. But a
+package the **bump** chose (it is in the run's `bumped` list) that turns out to be
+already on npm means the bump read a **stale registry replica** — that **fails the
+run** (`::error::`) instead of going green having published nothing (the silent
+drop that stranded `vue@0.0.97`). The bump never picks a taken version on purpose
+(see [Auto version bump](#auto-version-bump-push-to-main)); a re-run, with a fresh
+read, picks a free version. A version the bump deemed free is also re-checked on
+npm after publishing: one that never reached the registry fails the run before the
+bump is committed back.
 
 ### Trigger
 
@@ -105,8 +109,9 @@ on:
 6. Rewrites `dist/**` files, which contain hardcoded `@kedata-indonesia/docflow-*`
    import specifiers after the build.
 7. Publishes in dependency order (`core`, `layout-engine`, `plugins`, `vue`,
-   `element`, `export`), **idempotently**: if the version already exists on npm,
-   it is skipped instead of hard-failing.
+   `element`, `export`), **idempotently per package**: a version already on npm
+   is skipped — unless the bump chose it, in which case the registry read was
+   stale and the run fails rather than going green having published nothing.
 8. Restores the original `package.json` files from their `.bak` copies — which
    already carry the bumped version.
 9. On a push to `main`, re-checks every bumped version with
@@ -124,6 +129,8 @@ on:
 ```bash
 VERSION=$(node -e "console.log(JSON.parse(require('fs').readFileSync('./packages/core/package.json.bak','utf8')).version)")
 if npm view @kedataindo/docflow-core@$VERSION version --registry=https://registry.npmjs.org &>/dev/null 2>&1; then
+  # A version the bump chose must not already exist: that is a stale registry read.
+  case ",${BUMPED}," in *",core,"*) echo "::error::stale registry read"; exit 1;; esac
   echo "@kedataindo/docflow-core@$VERSION already published, skipping"
 else
   pnpm publish --filter @kedataindo/docflow-core --no-git-checks --access public
@@ -134,10 +141,14 @@ fi
 
 `scripts/bump-release-versions.mjs` runs on the **current tip of `main`** and
 decides what to release from everything that changed **since the last
-`chore(release):` commit** (the one this pipeline itself pushes). Before the
-first automated release — or after a history rewrite that drops it — it falls
-back to the pushed range (`github.event.before..HEAD`). The version arithmetic
-and the registry reads live in `scripts/lib/release-versions.mjs`:
+`chore(release):` commit** (the one this pipeline itself pushes). That anchor is
+found with `git log --no-merges`: each release commit lands through a merge whose
+message *quotes* the release subject, and matching that merge would move the
+anchor past changes merged while a run was in flight — silently marking them
+released without ever publishing them. Before the first automated release — or
+after a history rewrite that drops it — it falls back to the pushed range
+(`github.event.before..HEAD`). The version arithmetic and the registry reads live
+in `scripts/lib/release-versions.mjs`:
 
 - A package is **changed** when the range touched its files, ignoring docs
   (`*.md`), tests (`__tests__/`, `*.test.*`, `*.spec.*`) and build output (`dist/`).

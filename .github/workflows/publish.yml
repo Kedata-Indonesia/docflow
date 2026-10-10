@@ -164,6 +164,16 @@ jobs:
             VERSION=$(node -e "console.log(JSON.parse(require('fs').readFileSync('./packages/$pkg/package.json.bak', 'utf8')).version)")
 
             if npm view @kedataindo/docflow-$pkg@$VERSION version --registry=https://registry.npmjs.org &>/dev/null 2>&1; then
+              # A package the bump just chose must not already exist: that means
+              # the bump read a stale registry replica, picked a taken version,
+              # and this run would otherwise go green having published nothing.
+              # Fail loudly so a re-run (with a fresh read) picks a free version.
+              case ",${BUMPED}," in
+                *",${pkg},"*)
+                  echo "::error::the bump chose @kedataindo/docflow-$pkg@$VERSION, but it is already on npm — stale registry read. Refusing to go green having published nothing; re-run to pick the next free version."
+                  exit 1
+                  ;;
+              esac
               echo "@kedataindo/docflow-$pkg@$VERSION already published, skipping"
             else
               echo "Publishing @kedataindo/docflow-$pkg@$VERSION..."
@@ -178,6 +188,7 @@ jobs:
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          BUMPED: ${{ steps.bump.outputs.bumped }}
 
       # The bump only ever picks a version npm does not have, so a version that
       # is still missing here means the publish did not actually land. `npm
