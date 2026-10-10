@@ -21,6 +21,9 @@ const debug = defineModel<boolean>('debug', { required: true })
 const locale = defineModel<Locale>('locale', { required: true })
 const userName = defineModel<string>('userName', { required: true })
 const connectionState = defineModel<ConnectionState>('connectionState', { required: true })
+// Playground-only: swap the built-in references sidebar for a host component
+// injected through DocsEditor's `#references-sidebar` slot (issue #22).
+const customReferencesSidebar = defineModel<boolean>('customReferencesSidebar', { required: true })
 
 defineProps<{ commentCount: number; snapshotCount: number }>()
 
@@ -91,6 +94,16 @@ const CONNECTION_OPTIONS: ConnectionState[] = ['connected', 'connecting', 'disco
       <label class="pg-check">
         <input v-model="locale" type="radio" value="en" /><span>English</span>
       </label>
+
+      <p class="pg-section">Extensions</p>
+      <label class="pg-check">
+        <input v-model="customReferencesSidebar" type="checkbox" />
+        <span>custom references sidebar</span>
+      </label>
+      <p class="pg-hint">
+        Off → the library's <strong>built-in</strong> references sidebar. On → a host component injected
+        through <code>#references-sidebar</code> (issue #22). Open it from the toolbar's References button.
+      </p>
 
       <p class="pg-section">Collaboration</p>
       <label class="pg-field">

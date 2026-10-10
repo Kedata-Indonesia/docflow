@@ -1,3 +1,5 @@
+import type { CslItemData } from '@kedata-indonesia/docflow-core'
+
 export interface Collaborator {
   userId: string
   name: string
@@ -69,4 +71,45 @@ export interface DocumentMeta {
   charCount: number
   pageCount: number
   folderName?: string
+}
+
+/**
+ * Scoped props of `<DocsEditor>`'s `#references-sidebar` slot (issue #22).
+ *
+ * A host that fills the slot **replaces** the built-in `ReferencesSidebar`; the
+ * library stays backend-agnostic and the host fetches its own sources/results.
+ * Leave the slot empty to keep the built-in sidebar.
+ *
+ * `pickerMode` is `true` while an insert-citation request is pending — call
+ * `onInsert(sourceId)` to complete it, or `onClose()` to cancel.
+ */
+export interface ReferencesSidebarSlotProps {
+  /** Live reference library (mutates as the host edits through the actions). */
+  sources: CslItemData[]
+  /** Active CSL style id. */
+  activeStyle: string
+  /** True while a citation insert is waiting for a source pick. */
+  pickerMode: boolean
+  /** True when the host supplied import ports (`onImportDoi` / `onImportBibliography`). */
+  canImport: boolean
+  /** True while an import is in flight. */
+  importing: boolean
+  /** Host-provided import result message (success or error). */
+  importMessage: string
+  /** Complete the pending citation with a chosen source, or insert one directly. */
+  onInsert: (sourceId: string) => void
+  /** Close the sidebar (cancels any pending pick). */
+  onClose: () => void
+  /** Add a source to the library. */
+  onCreate: (source: CslItemData) => void
+  /** Update an existing source. */
+  onUpdate: (source: CslItemData) => void
+  /** Remove a source by id. */
+  onRemove: (id: string) => void
+  /** Switch the active CSL style. */
+  onStyleChange: (styleId: string) => void
+  /** Import a source by DOI (only when `canImport`). */
+  onImportDoi: (doi: string) => void
+  /** Import a BibTeX/RIS blob (only when `canImport`). */
+  onImportBibliography: (payload: { format: 'bibtex' | 'ris'; text: string }) => void
 }
