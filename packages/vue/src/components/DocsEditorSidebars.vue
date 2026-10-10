@@ -2,11 +2,12 @@
 import { computed } from 'vue'
 import type { Editor } from '@tiptap/core'
 import type { AIDraftFn, AIStreamFn, CslItemData } from '@kedata-indonesia/docflow-core'
-import type { CommentItem, DocumentSnapshot, SidebarKey } from '../types.js'
+import type { CommentItem, DocumentSnapshot, SidebarKey, SuggestionSummary } from '../types.js'
 import ReferencesSidebar from './sidebars/ReferencesSidebar.vue'
 import CommentsSidebar from './sidebars/CommentsSidebar.vue'
 import HistorySidebar from './sidebars/HistorySidebar.vue'
 import AISidebar from './sidebars/AISidebar.vue'
+import SuggestionsSidebar from './sidebars/SuggestionsSidebar.vue'
 
 /**
  * Right-hand sidebar stack for DocsEditor: reference manager, comment
@@ -35,6 +36,10 @@ const props = defineProps<{
   activePreviewIndex?: number | null
   aiStream?: AIStreamFn
   aiDraft?: AIDraftFn
+  /** Pending tracked-change suggestions (issues #27/#28). */
+  suggestions?: SuggestionSummary[]
+  /** Host gate for accept/reject (viewer roles get false). */
+  canReviewSuggestions?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -53,6 +58,10 @@ const emit = defineEmits<{
   'save-snapshot': [name: string]
   'restore-snapshot': [versionIndex: number]
   'preview-snapshot': [snapshot: DocumentSnapshot | null]
+  'accept-suggestion': [id: string]
+  'reject-suggestion': [id: string]
+  'accept-all-suggestions': []
+  'reject-all-suggestions': []
 }>()
 
 /**
@@ -138,6 +147,18 @@ const referencesSidebarProps = computed(() => ({
     :editor="editor"
     :ai-stream="aiStream"
     :ai-draft="aiDraft"
+    @close="emit('close')"
+  />
+
+  <!-- Track-changes review (issues #27/#28). -->
+  <SuggestionsSidebar
+    v-if="activeSidebar === 'review'"
+    :suggestions="suggestions ?? []"
+    :can-review="canReviewSuggestions !== false"
+    @accept="(id) => emit('accept-suggestion', id)"
+    @reject="(id) => emit('reject-suggestion', id)"
+    @accept-all="emit('accept-all-suggestions')"
+    @reject-all="emit('reject-all-suggestions')"
     @close="emit('close')"
   />
 </template>

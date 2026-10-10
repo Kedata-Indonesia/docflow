@@ -166,7 +166,18 @@ const collectRanges = (
 
 const SuggestChanges = Extension.create({
   name: 'suggestChanges',
+  addStorage() {
+    // Live list of pending suggestions, kept in sync by the plugin's view (P2
+    // review UI reads it). Data-only: the editor instance isn't available here.
+    return { suggestions: [] as SuggestionSummary[] }
+  },
   addProseMirrorPlugins() {
+    const editor = this.editor
+    const syncStorage = () => {
+      const storage = (editor.storage as Record<string, { suggestions?: SuggestionSummary[] }>)
+        .suggestChanges
+      if (storage) storage.suggestions = getSuggestions(editor)
+    }
     return [
       new Plugin<SuggestState>({
         key: suggestChangesKey,
@@ -180,6 +191,10 @@ const SuggestChanges = Extension.create({
               author: meta.author ?? value.author,
             }
           },
+        },
+        view: () => {
+          syncStorage()
+          return { update: syncStorage }
         },
         props: {
           handleTextInput: (view, from, to, text) => {
