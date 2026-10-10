@@ -25,6 +25,7 @@ import { Menu, Minimize2 } from 'lucide-vue-next'
 import { provideLocale } from '../composables/useLocale.js'
 import { docsEditorPropDefaults, type DocsEditorEmits, type DocsEditorProps } from './docsEditorContracts.js'
 import type { ReferencesSidebarSlotProps } from '../types.js'
+import type { DocumentMode } from '@kedata-indonesia/docflow-core'
 
 const props = withDefaults(defineProps<DocsEditorProps>(), docsEditorPropDefaults)
 
@@ -62,6 +63,15 @@ const {
 })
 
 // ─── Editor session: document model → editor → citations → bubble / link ─────
+// Document mode (#27/#28): an explicit `mode` prop wins; `editable === false`
+// maps to `viewing` for backwards compatibility.
+const documentMode = computed<DocumentMode>(
+  () => props.mode ?? (props.editable === false ? 'viewing' : 'editing'),
+)
+const effectiveEditable = computed(() =>
+  documentMode.value === 'viewing' ? false : (props.editable ?? true),
+)
+
 const {
   initialDoc, persistCurrentDoc, updateCounts, saveTimer, slashCommands, wordCount, charCount, savingStatus,
   lastSaved, activeSidebar, showRuler, focusMode, scrollContainerRef, handleScroll, toggleSidebar, handlePrint,
@@ -74,7 +84,7 @@ const {
 } = useDocsEditorSession({
   emit, t, modelValue: props.modelValue, getPlugins: () => props.plugins,   // A computed ref so `useEditor`'s editable watch stays live — passing the
   // plain `props.editable` snapshot froze the editor's editable state at mount.
-  editable: computed(() => props.editable),
+  editable: effectiveEditable,
   collaboration: props.collaboration, onImageUpload: props.onImageUpload, getCitation: () => props.citation,
   aiStream: props.aiStream, aiDraft: props.aiDraft, debug: props.debug,
   getComments: () => props.comments ?? [], getCollaboration: () => props.collaboration,
@@ -89,6 +99,17 @@ const {
 
 const pageCount = ref(1)
 const currentPage = ref(1)
+
+// Push the mode + author into the suggestChanges plugin (issues #27/#28). The
+// plugin is inert in `editing` mode, so this is a no-op for existing hosts.
+watch([isReady, documentMode], ([ready, mode]) => {
+  if (!ready) return
+  editor.value?.commands.setDocumentMode?.(mode)
+})
+watch([isReady, () => props.userName], ([ready, name]) => {
+  if (!ready) return
+  editor.value?.commands.setSuggestionAuthor?.({ name: name ?? null })
+})
 
 // Host-supplied `#references-sidebar` slot (issue #22). Evaluated inline in the
 // template (`$slots`) rather than cached: `useSlots()` does not invalidate a
@@ -167,6 +188,7 @@ const { menuClick } = useDocsEditorMenu({
   editor, focusMode, showFindReplace, editFormatMenuCommands, isPageless, showRuler, activeSidebar,
   getUpdateFootnotes: () => updateFootnotes(), openPageSetupModal, handlePrint, toggleSidebar,
   startInlineHeaderEdit, openFooterModal, openLinkDialog, applyPageless, showDetailsModal, showEmailModal,
+  documentMode, onDocumentMode: (mode) => emit('update:mode', mode),
   onShare: () => emit('share'), onMenuClick: (action) => emit('menu-click', action),
 })
 
@@ -191,7 +213,7 @@ void [openHeaderFormatModal, openPageNumberModal]
     <HeaderBar
       v-if="!focusMode"
       :title="title" :editable="editable" :collaborators="collaborators" :starred="starred" :user-name="userName" :user-avatar="userAvatar"
-      :pageless="isPageless" :outline-open="activeSidebar === 'toc'" :show-ruler="showRuler" :focus-mode="focusMode"
+      :pageless="isPageless" :outline-open="activeSidebar === 'toc'" :show-ruler="showRuler" :focus-mode="focusMode" :mode="documentMode"
       @menu-click="menuClick" @back="$emit('back')" @update:title="$emit('update:title', $event)" @toggle-star="$emit('toggle-star')"
       @export="$emit('export', $event)" @share="$emit('share')"><template #actions><slot name="header-actions" /></template><template #overflow-actions="slotProps"><slot name="overflow-actions" v-bind="slotProps" /></template><template #user-menu="slotProps"><slot name="user-menu" v-bind="slotProps" /></template></HeaderBar>
     <EditorToolbar

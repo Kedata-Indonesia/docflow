@@ -18,6 +18,20 @@ export { citationPlugin, CitationNode, CitationEngineExtension, getCitationEngin
 export { aiPlugin, AIExtension, getAIPreview, aiPluginKey, type AIPreviewState } from './ai.js'
 export { markdownToFragment, insertMarkdownBlock } from './markdownInsert.js'
 export { commentPlugin, CommentMarkExtension, type CommentMarkAttrs } from './comment.js'
+export {
+  suggestChangesPlugin,
+  SuggestionInsertMark,
+  SuggestionDeleteMark,
+  acceptSuggestion,
+  rejectSuggestion,
+  acceptAllSuggestions,
+  rejectAllSuggestions,
+  getSuggestions,
+  setDocumentMode,
+  setSuggestionAuthor,
+  type SuggestionSummary,
+  type SuggestionAuthor,
+} from './suggestChanges.js'
 export { smartElementsPlugin, DateChipNode, PeopleChipNode, FileChipNode, DropdownChipNode, LocationChipNode } from './smartElements.js'
 export { BibliographyNode } from './bibliography.js'
 export { CiteEngine, nextCitationId, sanitizeCiteprocHtml, type CitationAttrs, type CitationMode, type CitationCluster, type CiteEngineOptions } from './citeEngine.js'
@@ -44,6 +58,7 @@ import { highlightPlugin } from './highlight.js'
 import { citationPlugin } from './citation.js'
 import { aiPlugin } from './ai.js'
 import { commentPlugin } from './comment.js'
+import { suggestChangesPlugin } from './suggestChanges.js'
 import { smartElementsPlugin } from './smartElements.js'
 import { tablePageSplitPlugin } from './tablePageSplit.js'
 
@@ -68,6 +83,7 @@ export const defaultPlugins = [
   citationPlugin,
   aiPlugin,
   commentPlugin,
+  suggestChangesPlugin,
   smartElementsPlugin,
 ]
 

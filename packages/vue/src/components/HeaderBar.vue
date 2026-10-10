@@ -12,9 +12,10 @@ import {
   IndentIncrease, AlignLeft, AlignCenter, AlignRight, AlignJustify,
   ListOrdered, ListChecks, RemoveFormatting, SpellCheck, SlidersHorizontal,
   Puzzle, Keyboard, Bug, CircleHelp,
-  Sparkles, LayoutTemplate, Calendar, MapPin,
+  Sparkles, LayoutTemplate, Calendar, MapPin, Eye, PenLine,
 } from 'lucide-vue-next'
 import type { Collaborator } from '../types.js'
+import type { DocumentMode } from '@kedata-indonesia/docflow-core'
 import ThemeToggle from './ThemeToggle.vue'
 import { useLocale, getSupportedLocales, getLocaleName } from '../composables/useLocale.js'
 import { useTheme } from '../composables/useTheme.js'
@@ -36,6 +37,8 @@ const props = withDefaults(
     outlineOpen?: boolean
     showRuler?: boolean
     focusMode?: boolean
+    /** Document mode (#27/#28) — drives the View ▸ Document mode radios. */
+    mode?: DocumentMode
     currentUserId?: string
     simulatorsActive?: boolean
     userName?: string
@@ -50,6 +53,7 @@ const props = withDefaults(
     outlineOpen: false,
     showRuler: true,
     focusMode: false,
+    mode: 'editing',
     currentUserId: '',
     simulatorsActive: false,
     userName: '',
@@ -225,6 +229,14 @@ const menus = computed<Record<string, { label: string; items: MenuItem[] }>>(() 
       { label: 'divider', divider: true },
       { label: t('header.focusMode'), action: 'toggle-focus-mode', checked: props.focusMode, icon: Maximize2 },
       { label: t('header.showRuler'), action: 'toggle-ruler', checked: props.showRuler, icon: Ruler },
+      { label: 'divider', divider: true },
+      {
+        label: t('header.documentMode'), icon: Eye, sub: [
+          { label: t('header.modeEditing'), action: 'mode-editing', checked: props.mode === 'editing', icon: Pencil },
+          { label: t('header.modeSuggesting'), action: 'mode-suggesting', checked: props.mode === 'suggesting', icon: PenLine },
+          { label: t('header.modeViewing'), action: 'mode-viewing', checked: props.mode === 'viewing', icon: Eye },
+        ]
+      },
     ],
   },
   Insert: {

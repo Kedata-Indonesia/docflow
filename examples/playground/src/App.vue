@@ -6,6 +6,7 @@ import {
   type CommentItem,
   type ConnectionState,
   type DocumentSnapshot,
+  type DocumentMode,
   type Locale,
 } from '@kedata-indonesia/docflow-vue'
 import { defaultPlugins } from '@kedata-indonesia/docflow-plugins'
@@ -42,6 +43,7 @@ const footerMarginCm = ref(0.5)
 const pageless = ref(false)
 const virtualPages = ref(false)
 const editable = ref(true)
+const mode = ref<DocumentMode>('editing')
 const debug = ref(false)
 const locale = ref<Locale>('en')
 const userName = ref('Reviewer DocFlow')
@@ -223,6 +225,7 @@ function onReady(docsEditor: { editor: unknown; pluginActions?: unknown }): void
         v-model:pageless="pageless"
         v-model:virtual-pages="virtualPages"
         v-model:editable="editable"
+        v-model:mode="mode"
         v-model:debug="debug"
         v-model:locale="locale"
         v-model:user-name="userName"
@@ -262,6 +265,7 @@ function onReady(docsEditor: { editor: unknown; pluginActions?: unknown }): void
       -->
       <DocsEditor
         :key="`${presetId}-${debug}`"
+        v-model:mode="mode"
         :model-value="content"
         :plugins="defaultPlugins"
         :citation="citation"

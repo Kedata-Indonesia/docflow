@@ -1,5 +1,5 @@
 import type { Ref } from 'vue'
-import type { DocsEditor } from '@kedata-indonesia/docflow-core'
+import type { DocsEditor, DocumentMode } from '@kedata-indonesia/docflow-core'
 import type { useEditCommands } from './useEditCommands.js'
 import type { useEditorChrome } from './useEditorChrome.js'
 import type { useHeaderEdit } from './useHeaderEdit.js'
@@ -24,6 +24,8 @@ export interface UseDocsEditorMenuOptions {
   openFooterModal: ReturnType<typeof useHeaderFooter>['openFooterModal']
   openLinkDialog: ReturnType<typeof useLinkDialog>['openLinkDialog']
   applyPageless: ReturnType<typeof usePageStats>['applyPageless']
+  documentMode: Ref<DocumentMode>
+  onDocumentMode: (mode: DocumentMode) => void
   showDetailsModal: Ref<boolean>
   showEmailModal: Ref<boolean>
   onShare: () => void
@@ -58,6 +60,8 @@ export function useDocsEditorMenu(
     applyPageless,
     showDetailsModal,
     showEmailModal,
+    documentMode,
+    onDocumentMode,
     onShare,
     onMenuClick,
   } = options
@@ -92,6 +96,10 @@ export function useDocsEditorMenu(
     } else if (action === 'toggle-focus-mode') {
       focusMode.value = !focusMode.value
       if (focusMode.value) activeSidebar.value = null
+    } else if (action === 'mode-editing' || action === 'mode-suggesting' || action === 'mode-viewing') {
+      // Document mode (#27/#28). No-op when it's already the active mode.
+      const next = action.replace('mode-', '') as DocumentMode
+      if (documentMode.value !== next) onDocumentMode(next)
     } else if (action === 'new-help-me-create') {
       toggleSidebar('ai')
     } else if (action === 'insert-footnote') {
