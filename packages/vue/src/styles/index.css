@@ -1868,3 +1868,7 @@
 .dark .ProseMirror .docflow-suggestion--delete {
   color: #fca5a5;
 }
+.ProseMirror .docflow-suggestion--format {
+  border-bottom: 2px dotted #0284c7;
+  background: rgba(2, 132, 199, 0.08);
+}

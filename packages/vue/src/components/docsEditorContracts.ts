@@ -34,6 +34,11 @@ export interface DocsEditorProps {
    * `editable === false` maps to `viewing`. Reactive — switching does not remount.
    */
   mode?: DocumentMode
+  /**
+   * Whether the track-changes review UI may accept/reject suggestions
+   * (issues #27/#28). Defaults to `true`; hosts pass `false` for viewer roles.
+   */
+  canReviewSuggestions?: boolean
   /** Collaboration config (`room`, `provider`, `user`) — the host owns the transport. */
   collaboration?: NonNullable<EditorOptions['collaboration']>
   /**
@@ -108,6 +113,7 @@ export interface DocsEditorProps {
 export const docsEditorPropDefaults = {
   editable: true,
   mode: undefined,
+  canReviewSuggestions: true,
   modelValue: undefined,
   plugins: () => [],
   collaboration: undefined,

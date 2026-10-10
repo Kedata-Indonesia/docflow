@@ -98,9 +98,10 @@ const CONNECTION_OPTIONS: ConnectionState[] = ['connected', 'connecting', 'disco
         </select>
       </label>
       <p class="pg-hint">
-        In <strong>suggesting</strong> mode, typing/pasting/deleting is recorded as suggestions
-        (green insertions, struck-through deletions). Accept/reject via
-        <code>__docsCore.pluginActions.acceptAllSuggestions()</code> (P1). <strong>viewing</strong> is read-only.
+        In <strong>suggesting</strong> mode, typing/pasting/deleting/formatting is recorded as
+        suggestions (green insertions, struck-through deletions, dotted format changes). Review them in
+        <strong>Tools ▸ Review suggested edits</strong> → Accept / Reject (per item, or all).
+        <strong>viewing</strong> is read-only.
       </p>
       <label class="pg-check"><input v-model="debug" type="checkbox" /><span>debug</span></label>
       <label class="pg-check">

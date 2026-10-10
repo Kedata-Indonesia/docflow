@@ -100,6 +100,9 @@ export function useDocsEditorMenu(
       // Document mode (#27/#28). No-op when it's already the active mode.
       const next = action.replace('mode-', '') as DocumentMode
       if (documentMode.value !== next) onDocumentMode(next)
+    } else if (action === 'review-suggestions') {
+      // Track-changes review sidebar (#28, P2).
+      toggleSidebar('review')
     } else if (action === 'new-help-me-create') {
       toggleSidebar('ai')
     } else if (action === 'insert-footnote') {

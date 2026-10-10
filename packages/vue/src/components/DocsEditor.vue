@@ -6,6 +6,7 @@ import { useDocsEditorHeaderFooterState } from '../composables/useDocsEditorHead
 import { useDocsEditorPaging } from '../composables/useDocsEditorPaging.js'
 import { useDocsEditorBootstrap } from '../composables/useDocsEditorBootstrap.js'
 import { useFootnotes } from '../composables/useFootnotes.js'
+import { useSuggestions } from '../composables/useSuggestions.js'
 import { useEditCommands } from '../composables/useEditCommands.js'
 import { useDocsEditorMenu } from '../composables/useDocsEditorMenu.js'
 import VirtualPageOverlay from './VirtualPageOverlay.vue'
@@ -207,6 +208,15 @@ const { updateFootnotes } = useFootnotes({
   pageCount,
 })
 
+// Track-changes suggestions (issues #27/#28, P2) — review sidebar state.
+const {
+  suggestions,
+  accept: acceptSuggestion,
+  reject: rejectSuggestion,
+  acceptAll: acceptAllSuggestions,
+  rejectAll: rejectAllSuggestions,
+} = useSuggestions({ getEditor: () => editor.value, isReady })
+
 // Test-facing bindings: the DocsEditor tests drive these directly through
 // `wrapper.vm`, so they stay top-level even though the component itself only
 // reaches them through the composables above.
@@ -284,6 +294,7 @@ void [openHeaderFormatModal, openPageNumberModal]
         :selected-text-index="props.selectedTextIndex" :orphaned-comment-ids="orphanedCommentIds"
         :snapshots="props.snapshots" :active-preview-index="props.activePreviewIndex"
         :ai-stream="props.aiStream" :ai-draft="props.aiDraft"
+        :suggestions="suggestions" :can-review-suggestions="props.canReviewSuggestions"
         @close="activeSidebar = null" @insert="handleReferenceInsert" @create="handleSourceCreate"
         @update="handleSourceUpdate" @remove="handleSourceRemove"
         @update:style="handleCitationStyleChange" @import-doi="handleImportDoi"
@@ -294,6 +305,10 @@ void [openHeaderFormatModal, openPageNumberModal]
         @save-snapshot="(name) => $emit('save-snapshot', name)"
         @restore-snapshot="(idx) => $emit('restore-snapshot', idx)"
         @preview-snapshot="(s) => $emit('preview-snapshot', s)"
+        @accept-suggestion="acceptSuggestion"
+        @reject-suggestion="rejectSuggestion"
+        @accept-all-suggestions="acceptAllSuggestions"
+        @reject-all-suggestions="rejectAllSuggestions"
       ><template #references-sidebar="slotProps"><slot name="references-sidebar" v-bind="slotProps" /></template></DocsEditorSidebars>
     </div>
     <StatusBar
