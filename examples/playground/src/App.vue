@@ -2,6 +2,9 @@
 import { computed, ref, watch } from 'vue'
 import {
   DocsEditor,
+  toAIStreamFn,
+  type AIProvider,
+  type AIStreamFn,
   type Collaborator,
   type CommentItem,
   type ConnectionState,
@@ -12,6 +15,7 @@ import {
 import { defaultPlugins } from '@kedata-indonesia/docflow-plugins'
 import EventLog from './EventLog.vue'
 import ReviewPanel from './ReviewPanel.vue'
+import AiPlayground from './AiPlayground.vue'
 import KbPicker from './KbPicker.vue'
 import {
   PRESETS,
@@ -61,6 +65,24 @@ const citation = { sources: SAMPLE_SOURCES, style: 'chicago-notes-bibliography' 
 // Playground-only: when on, inject a custom references sidebar via the
 // `#references-sidebar` slot (#22). Off = the library's built-in sidebar.
 const customReferencesSidebar = ref(false)
+
+// AI: the panel builds a provider (BYOK); inject it as `aiStream` so the editor's
+// AI sidebar streams through the same provider (#118, end-to-end). The function
+// is stable and reads the current provider lazily, because the editor reads
+// `aiStream` once at creation (it is an injection port, not a reactive prop).
+const aiProvider = ref<AIProvider | null>(null)
+const aiStream: AIStreamFn = (req, signal) => {
+  const provider = aiProvider.value
+  if (!provider) {
+    return (async function* () {
+      yield '⚠️ No AI provider configured — add a key in the “AI providers” panel.'
+    })()
+  }
+  return toAIStreamFn(provider)(req, signal)
+}
+function onAiProvider(provider: AIProvider | null) {
+  aiProvider.value = provider
+}
 
 // --- event log --------------------------------------------------------------
 const events = ref<LogEntry[]>([])
@@ -237,6 +259,8 @@ function onReady(docsEditor: { editor: unknown; pluginActions?: unknown }): void
         @add-snapshot-sample="addSampleSnapshot"
       />
 
+      <AiPlayground @provider="onAiProvider" />
+
       <EventLog :events="events" @clear="events = []" />
     </aside>
 
@@ -270,6 +294,7 @@ function onReady(docsEditor: { editor: unknown; pluginActions?: unknown }): void
         :plugins="defaultPlugins"
         :citation="citation"
         :editable="editable"
+        :ai-stream="aiStream"
         :page-size="pageSize"
         :orientation="orientation"
         :margins="margins"

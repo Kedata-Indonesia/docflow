@@ -14,3 +14,4 @@ export {
   httpKeyStorage,
 } from './keyStorage.js'
 export { openaiCompatibleProvider, type OpenAICompatibleConfig } from './openaiCompatibleProvider.js'
+export { claudeProvider, type ClaudeConfig } from './claudeProvider.js'

@@ -3,13 +3,15 @@
 > **Architecture:** pluggable AI provider (issue #119,
 > [`plans/PLUGGABLE_AI_PROVIDER.md`](plans/PLUGGABLE_AI_PROVIDER.md)).
 > LLM completions go **browser-direct**: the host app injects an
-> `openaiCompatibleProvider` (or our SaaS web app builds one from the tenant's
-> AI Settings config) and the library streams from it. The server only stores
-> the tenant config — it never sees completion traffic.
+> `openaiCompatibleProvider` (or a native `claudeProvider` for Anthropic — issue
+> #118), or our SaaS web app builds one from the tenant's
+> AI Settings config, and the library streams from it. The server only stores
+> the config — it never sees completion traffic.
 >
 > **What this is:** a contract — the browser-side provider's SSE parsing,
 > auth headers, and abort semantics are asserted by unit tests
-> ([`packages/core/src/ai/__tests__/openaiCompatibleProvider.test.ts`](../packages/core/src/ai/__tests__/openaiCompatibleProvider.test.ts)).
+> ([`openaiCompatibleProvider.test.ts`](../packages/core/src/ai/__tests__/openaiCompatibleProvider.test.ts),
+> [`claudeProvider.test.ts`](../packages/core/src/ai/__tests__/claudeProvider.test.ts)).
 >
 > **What this is NOT:** an exhaustive vendor list. The provider speaks the
 > **OpenAI `/chat/completions` streaming protocol** — any endpoint that
@@ -50,7 +52,7 @@ use their own backend hop (§3).
 | **vLLM** | `http://<host>:8000/v1` | none / bearer | Same shape as OpenAI. |
 | **LM Studio** | `http://<host>:1234/v1` | none | Same shape as Ollama. |
 | **OpenRouter** | `https://openrouter.ai/api/v1` | bearer | Gateway; prepends routed model id to chunks — harmless. |
-| **Anthropic Claude** | — | — | No native OpenAI-shaped endpoint for chat; use a gateway (e.g. LiteLLM) or write a custom `AIProvider` class. |
+| **Anthropic Claude** | `https://api.anthropic.com` | `x-api-key` | **Native** — use `claudeProvider` (`packages/core/src/ai/claudeProvider.ts`), not the OpenAI shape: `/v1/messages`, required `max_tokens`, top-level `system`, its own SSE events. Sets `anthropic-dangerous-direct-browser-access: true` for browser calls. |
 
 > Errors: non-2xx responses surface as `{ type: 'error' }` stream events with
 > the status code (and up to 200 chars of the upstream body) — the sidebar

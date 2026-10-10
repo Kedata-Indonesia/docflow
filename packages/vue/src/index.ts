@@ -7,11 +7,13 @@ export { useAIProvider, type UseAIProviderReturn } from './composables/useAIProv
 // core internals (docs/plans/PLUGGABLE_AI_PROVIDER.md §8.2).
 export {
   openaiCompatibleProvider,
+  claudeProvider,
   toAIStreamFn,
   memoryKeyStorage,
   localStorageKeyStorage,
   httpKeyStorage,
   type OpenAICompatibleConfig,
+  type ClaudeConfig,
   type AIProvider,
   type StreamEvent,
   type AIConfig,

@@ -281,6 +281,35 @@ body,
   backdrop-filter: none;
 }
 
+/* AI provider demo: docked between the review panel and the event log. */
+.pg-ai {
+  position: static;
+  flex: 0 0 auto;
+  width: auto;
+  max-height: 44vh;
+  border: none;
+  border-top: 1px solid rgb(51 65 85 / 0.7);
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+  backdrop-filter: none;
+}
+
+.pg-ai__output {
+  margin: 0;
+  max-height: 16vh;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  border-radius: 8px;
+  background: rgb(2 6 23 / 0.6);
+  padding: 8px 10px;
+  color: rgb(226 232 240);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
 .pg-log__count {
   margin-left: auto;
   color: rgb(100 116 139);
