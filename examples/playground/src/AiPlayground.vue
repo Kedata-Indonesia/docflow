@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { reactive, ref, watch } from 'vue'
 import {
   claudeProvider,
   openaiCompatibleProvider,
@@ -51,6 +51,16 @@ function buildProvider(): AIProvider {
   return openaiCompatibleProvider({ baseUrl: form.baseUrl, auth, model: form.model })
 }
 
+// Hand the built provider up so the host can inject it into the editor
+// (`:ai-stream="toAIStreamFn(provider)"`) — that's what makes the editor's AI
+// sidebar usable. Null until a key is present.
+const emit = defineEmits<{ provider: [provider: AIProvider | null] }>()
+watch(
+  () => ({ ...form }),
+  () => emit('provider', form.apiKey ? buildProvider() : null),
+  { immediate: true, deep: true },
+)
+
 async function stream() {
   if (!form.prompt.trim() || streaming.value) return
   output.value = ''
@@ -92,7 +102,8 @@ function cancel() {
     <div class="pg-card__body">
       <p class="pg-hint">
         Streams from the shipped providers with a key you paste here. The key stays in the browser.
-        Claude uses the native <code>claudeProvider</code> (issue #118).
+        Claude uses the native <code>claudeProvider</code> (issue #118). With a key set, the editor's
+        <strong>AI sidebar</strong> (toolbar ✨) becomes available and streams through the same provider.
       </p>
 
       <label class="pg-field">
