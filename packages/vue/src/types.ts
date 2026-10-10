@@ -120,10 +120,14 @@ export interface ReferencesSidebarSlotProps {  /** Live reference library (mutat
  */
 export interface SuggestionSummary {
   id: string
-  type: 'insert' | 'delete'
+  type: 'insert' | 'delete' | 'format'
   authorId: string | null
   authorName: string | null
   /** ProseMirror positions (from/to) of the suggestion range. */
   from: number
   to: number
+  /** For `type: 'format'` — the mark that would be added/removed. */
+  format?: string
+  /** For `type: 'format'` — `add` applies the mark, `remove` clears it. */
+  delta?: 'add' | 'remove'
 }

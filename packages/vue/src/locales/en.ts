@@ -421,6 +421,7 @@ export default {
       rejectAll: 'Reject all',
       insert: 'Insert',
       delete: 'Delete',
+      format: 'Format',
       empty: 'No pending suggestions.',
     },
     references: {

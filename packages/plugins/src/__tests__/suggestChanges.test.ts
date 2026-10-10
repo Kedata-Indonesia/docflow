@@ -180,4 +180,46 @@ describe('suggesting mode (P1)', () => {
     expect(getSuggestions(editor())).toHaveLength(0)
     expect(editor().getText()).toBe('Helloprog')
   })
+
+  // ─── P3: formatting suggestions ─────────────────────────────────────────────
+  it('records a formatting change as a suggestion instead of applying it', () => {
+    setDocumentMode(editor(), 'suggesting')
+    editor().commands.setContent('<p>Hello world</p>')
+    editor().commands.selectAll()
+    editor().commands.toggleBold()
+
+    const format = getSuggestions(editor()).find((s) => s.type === 'format')
+    expect(format).toMatchObject({ format: 'bold', delta: 'add' })
+    expect(marksOn('Hello')).not.toContain('bold') // not applied yet
+
+    expect(acceptSuggestion(editor(), format!.id)).toBe(true)
+    expect(marksOn('Hello')).toContain('bold')
+    expect(getSuggestions(editor())).toHaveLength(0)
+  })
+
+  it('rejecting a formatting suggestion leaves the text unformatted', () => {
+    setDocumentMode(editor(), 'suggesting')
+    editor().commands.setContent('<p>Hello</p>')
+    editor().commands.selectAll()
+    editor().commands.toggleBold()
+
+    const format = getSuggestions(editor()).find((s) => s.type === 'format')!
+    expect(rejectSuggestion(editor(), format.id)).toBe(true)
+    expect(marksOn('Hello')).not.toContain('bold')
+    expect(getSuggestions(editor())).toHaveLength(0)
+  })
+
+  it('records removing formatting as a suggestion', () => {
+    setDocumentMode(editor(), 'suggesting')
+    editor().commands.setContent('<p><strong>Hello</strong></p>')
+    editor().commands.selectAll()
+    editor().commands.toggleBold() // bold is on → proposal to remove it
+
+    const format = getSuggestions(editor()).find((s) => s.type === 'format')!
+    expect(format).toMatchObject({ format: 'bold', delta: 'remove' })
+    expect(marksOn('Hello')).toContain('bold') // still applied (proposal only)
+
+    expect(acceptSuggestion(editor(), format.id)).toBe(true)
+    expect(marksOn('Hello')).not.toContain('bold')
+  })
 })

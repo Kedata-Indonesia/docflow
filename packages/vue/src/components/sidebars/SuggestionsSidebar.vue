@@ -29,6 +29,14 @@ const emit = defineEmits<{
 const { t } = useLocale()
 
 const count = computed(() => props.suggestions.length)
+
+/** Badge text: Insert / Delete / "Format: bold". */
+const suggestionLabel = (suggestion: SuggestionSummary): string => {
+  if (suggestion.type === 'insert') return t('sidebars.suggestions.insert')
+  if (suggestion.type === 'delete') return t('sidebars.suggestions.delete')
+  const name = suggestion.format ?? ''
+  return `${t('sidebars.suggestions.format')}: ${name}`
+}
 </script>
 
 <template>
@@ -80,9 +88,11 @@ const count = computed(() => props.suggestions.length)
             class="rounded-full px-1.5 py-0.5 text-[10px] font-bold"
             :class="suggestion.type === 'insert'
               ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
-              : 'bg-rose-500/15 text-rose-600 dark:text-rose-300'"
+              : suggestion.type === 'delete'
+                ? 'bg-rose-500/15 text-rose-600 dark:text-rose-300'
+                : 'bg-sky-500/15 text-sky-700 dark:text-sky-300'"
           >
-            {{ suggestion.type === 'insert' ? t('sidebars.suggestions.insert') : t('sidebars.suggestions.delete') }}
+            {{ suggestionLabel(suggestion) }}
           </span>
           <span class="truncate text-[10px] text-slate-500 dark:text-slate-400">
             {{ suggestion.authorName ?? t('sidebars.references.anonymous') }}
