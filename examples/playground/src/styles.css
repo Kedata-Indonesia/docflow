@@ -13,7 +13,91 @@ body,
 
 .pg {
   position: relative;
+  display: flex;
   height: 100%;
+}
+
+/* ── Left rail: review controls (scroll) + event log (docked bottom) ───────── */
+.pg-rail {
+  flex: 0 0 300px;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  border-right: 1px solid rgb(51 65 85 / 0.9);
+  background: rgb(15 23 42 / 0.96);
+  color: rgb(226 232 240);
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  font-size: 12px;
+  transition: flex-basis 140ms ease;
+}
+
+.pg--collapsed .pg-rail {
+  flex-basis: 0;
+  border-right: none;
+}
+
+.pg-editor {
+  position: relative;
+  height: 100%;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* Chevron on the rail/editor boundary; always visible so it can reopen the rail. */
+.pg-rail-toggle {
+  position: fixed;
+  top: 50%;
+  left: 300px;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid rgb(51 65 85 / 0.9);
+  border-left: none;
+  border-radius: 0 8px 8px 0;
+  background: rgb(30 41 59 / 0.96);
+  color: rgb(148 163 184);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  transform: translateY(-50%);
+  transition: left 140ms ease, color 120ms ease, background 120ms ease;
+}
+
+.pg-rail-toggle:hover {
+  background: rgb(51 65 85 / 0.96);
+  color: rgb(226 232 240);
+}
+
+.pg--collapsed .pg-rail-toggle {
+  left: 0;
+  border-left: 1px solid rgb(51 65 85 / 0.9);
+}
+
+/* Narrow screens: the rail floats over the editor instead of shrinking it. */
+@media (max-width: 900px) {
+  .pg-rail {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 45;
+    width: 300px;
+    flex-basis: 300px;
+    box-shadow: 0 0 40px rgb(2 6 23 / 0.5);
+  }
+
+  .pg--collapsed .pg-rail {
+    display: none;
+  }
+
+  .pg--collapsed .pg-rail-toggle {
+    left: 0;
+  }
 }
 
 /* Shared card look for the floating review panel and event log. */
@@ -165,24 +249,36 @@ body,
   line-height: 1.5;
 }
 
-/* Review panel: top-left, sized to leave room for the event log below it. */
+/* Review panel: fills the rail, scrolls. (Docked, so no floating-card chrome.) */
 .pg-panel {
-  top: 64px;
-  left: 12px;
-  width: 296px;
-  max-height: calc(74vh - 124px);
+  position: static;
+  flex: 1 1 auto;
+  min-height: 0;
+  width: auto;
+  max-height: none;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+  backdrop-filter: none;
 }
 
 .pg-panel--closed .pg-card__head {
   border-bottom: none;
 }
 
-/* Event log: bottom-left, floating above the editor status bar. */
+/* Event log: docked at the bottom of the rail. */
 .pg-log {
-  bottom: 48px;
-  left: 12px;
-  width: 296px;
-  max-height: 26vh;
+  position: static;
+  flex: 0 0 auto;
+  width: auto;
+  max-height: 34vh;
+  border: none;
+  border-top: 1px solid rgb(51 65 85 / 0.7);
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+  backdrop-filter: none;
 }
 
 .pg-log__count {

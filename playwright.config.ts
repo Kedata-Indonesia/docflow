@@ -25,7 +25,10 @@ export default defineConfig({
     {
       name: 'showcase',
       testDir: './e2e/showcase',
-      use: { baseURL: demoURL },
+      // The playground has a 300px control rail, so the editor column is narrower
+      // than the raw viewport. Give the specs room around the A4 page (the
+      // table-resize drags assume margin beyond the paper edge).
+      use: { baseURL: demoURL, viewport: { width: 1512, height: 900 } },
     },
   ],
   webServer: [
