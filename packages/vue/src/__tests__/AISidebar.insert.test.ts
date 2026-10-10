@@ -243,6 +243,10 @@ describe('AISidebar.insert (7E-4)', () => {
     // for an insert (the bug-hunter carry-forward — Insert is enabled only
     // on `done` with the table).
     expect(wrapper.text()).toContain('provider unavailable')
+    // The partial draft text is kept (not overwritten) and Copy is offered;
+    // only Insert stays disabled (unresolved `[n]` markers must not leak).
+    expect(wrapper.text()).toContain('partial')
+    expect(wrapper.findAll('button').some((b) => b.text().includes('Copy'))).toBe(true)
     const insertBtn = wrapper.findAll('button').find((b) => b.text().includes('Insert'))
     expect(insertBtn).toBeUndefined()
 
