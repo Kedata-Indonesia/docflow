@@ -52,6 +52,7 @@ const CONNECTION_OPTIONS: ConnectionState[] = ['connected', 'connecting', 'disco
           <option value="letter">Meeting invitation letter</option>
           <option value="contract">Cooperation agreement</option>
           <option value="report">Monthly report</option>
+          <option value="long">Long report + footnotes (#19)</option>
         </select>
       </label>
       <label class="pg-field">
