@@ -12,6 +12,7 @@ import {
 import { defaultPlugins } from '@kedata-indonesia/docflow-plugins'
 import EventLog from './EventLog.vue'
 import ReviewPanel from './ReviewPanel.vue'
+import AiPlayground from './AiPlayground.vue'
 import KbPicker from './KbPicker.vue'
 import {
   PRESETS,
@@ -236,6 +237,8 @@ function onReady(docsEditor: { editor: unknown; pluginActions?: unknown }): void
         @add-comment-sample="addSampleComment"
         @add-snapshot-sample="addSampleSnapshot"
       />
+
+      <AiPlayground />
 
       <EventLog :events="events" @clear="events = []" />
     </aside>
