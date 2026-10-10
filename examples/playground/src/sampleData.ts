@@ -343,3 +343,43 @@ export const SAMPLE_COLLABORATORS: Collaborator[] = [
   { userId: 'user-3', name: 'Sari Indah', color: '#d97706', isTyping: true },
   { userId: 'user-4', name: 'Bagas Wicaksana', color: '#7c3aed' },
 ]
+
+/**
+ * Reference library for the citation port — CSL-JSON shaped (structurally
+ * `CslItemData`). Used by the playground's custom `#references-sidebar` demo
+ * (issue #22), which simulates a semantic knowledge-base search over these.
+ */
+export const SAMPLE_SOURCES = [
+  {
+    id: 'src-1',
+    type: 'book',
+    title: 'Information Retrieval for Business Documents',
+    author: [{ family: 'Nugroho', given: 'Bambang' }],
+    issued: { 'date-parts': [[2023]] },
+    publisher: 'Nusantara Press',
+  },
+  {
+    id: 'src-2',
+    type: 'article-journal',
+    title: 'Retrieval-Augmented Generation in Practice',
+    author: [{ family: 'Prasetyo', given: 'Dimas' }],
+    'container-title': 'Journal of Applied NLP',
+    issued: { 'date-parts': [[2024]] },
+  },
+  {
+    id: 'src-3',
+    type: 'chapter',
+    title: 'Knowledge Base Governance for Regulated Industries',
+    author: [{ family: 'Indah', given: 'Sari' }],
+    publisher: 'Kedata Publishing',
+    issued: { 'date-parts': [[2022]] },
+  },
+  {
+    id: 'src-4',
+    type: 'report',
+    title: 'Retrieval Quality Benchmarks 2026',
+    author: [{ literal: 'Performance Monitoring Team' }],
+    issued: { 'date-parts': [[2026]] },
+  },
+]
+

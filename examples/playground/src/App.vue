@@ -11,7 +11,15 @@ import {
 import { defaultPlugins } from '@kedata-indonesia/docflow-plugins'
 import EventLog from './EventLog.vue'
 import ReviewPanel from './ReviewPanel.vue'
-import { PRESETS, SAMPLE_COLLABORATORS, SAMPLE_COMMENTS, SAMPLE_SNAPSHOTS, type PresetId } from './sampleData'
+import KbPicker from './KbPicker.vue'
+import {
+  PRESETS,
+  SAMPLE_COLLABORATORS,
+  SAMPLE_COMMENTS,
+  SAMPLE_SNAPSHOTS,
+  SAMPLE_SOURCES,
+  type PresetId,
+} from './sampleData'
 import type { LogEntry } from './types'
 
 /**
@@ -42,6 +50,12 @@ const collaborators = ref<Collaborator[]>(SAMPLE_COLLABORATORS)
 const comments = ref<CommentItem[]>(SAMPLE_COMMENTS)
 const snapshots = ref<DocumentSnapshot[]>(SAMPLE_SNAPSHOTS)
 const pageCount = ref(1)
+
+// Citation port — seeds the reference library. We deliberately do NOT set
+// `onSourceRequest`, so `DocsEditor` keeps the built-in picker flow (toolbar
+// Citation → sidebar in picker mode). The `#references-sidebar` slot below
+// replaces the built-in sidebar's UI with a custom knowledge-base picker.
+const citation = { sources: SAMPLE_SOURCES, style: 'chicago-notes-bibliography' }
 
 // --- event log --------------------------------------------------------------
 const events = ref<LogEntry[]>([])
@@ -181,9 +195,16 @@ function addSampleSnapshot(): void {
  * Test hook: the showcase e2e specs (e2e/showcase/*) drive the editor through
  * `window.__docsEditor`, the same surface the old `apps/demo` exposed. Keep it
  * — table-resize / page-break specs depend on it.
+ *
+ * `window.__docsCore` exposes the core DocsEditor (`.pluginActions`), which the
+ * demo uses to trigger flows without a toolbar entry — e.g.
+ * `__docsCore.pluginActions.insertCitation()` opens the references sidebar in
+ * picker mode.
  */
-function onReady(docsEditor: { editor: unknown }): void {
-  ;(window as unknown as { __docsEditor?: unknown }).__docsEditor = docsEditor.editor
+function onReady(docsEditor: { editor: unknown; pluginActions?: unknown }): void {
+  const w = window as unknown as { __docsEditor?: unknown; __docsCore?: unknown }
+  w.__docsEditor = docsEditor.editor
+  w.__docsCore = docsEditor
   log('ready')
 }
 </script>
@@ -239,6 +260,7 @@ function onReady(docsEditor: { editor: unknown }): void {
         :key="`${presetId}-${debug}`"
         :model-value="content"
         :plugins="defaultPlugins"
+        :citation="citation"
         :editable="editable"
         :page-size="pageSize"
         :orientation="orientation"
@@ -278,7 +300,20 @@ function onReady(docsEditor: { editor: unknown }): void {
         @save-snapshot="onSaveSnapshot"
         @restore-snapshot="log('restore-snapshot', $event)"
         @preview-snapshot="log('preview-snapshot', $event ? $event.versionId : 'clear')"
-      />
+      >
+        <!-- Custom references sidebar (issue #22): a knowledge-base picker
+             instead of the built-in CSL list. Omit this slot to get the
+             default sidebar back. -->
+        <template #references-sidebar="{ sources, activeStyle, pickerMode, onInsert, onClose }">
+          <KbPicker
+            :sources="sources"
+            :active-style="activeStyle"
+            :picker-mode="pickerMode"
+            @insert="onInsert"
+            @close="onClose"
+          />
+        </template>
+      </DocsEditor>
     </main>
   </div>
 </template>
