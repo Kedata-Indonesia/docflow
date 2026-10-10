@@ -15,8 +15,22 @@ const GoogleDocsHighlight = Highlight.extend({
     return [
       // Standard <mark> tag (default TipTap behavior)
       { tag: 'mark' },
-      // Google Docs pastes background-color as inline span style
-      { tag: 'span', style: 'background-color' },
+      // Google Docs pastes background-color as an inline span style.
+      //
+      // This MUST be a *style* rule (no `tag`). A tag rule — `{ tag: 'span',
+      // style: 'background-color' }` — is treated as `{ tag: 'span' }` by
+      // ProseMirror (a rule with `tag` is a tag rule and `style` is ignored),
+      // and since mark rules run before node rules and only the first matching
+      // tag rule wins, it swallows EVERY <span>: custom nodes such as
+      // `span[data-toc-page]` degrade to highlight-marked text on load (issue
+      // #23), and it also loses to TextStyle's own bare span rule anyway.
+      //
+      // A style rule is applied in addition to the matched tag rule (see
+      // DOMParser.readStyles), and only fires for elements that actually carry
+      // the inline style — so bare spans and custom span-nodes are left alone.
+      // `getAttrs` receives the style VALUE here (not the element), so read the
+      // colour straight from it.
+      { style: 'background-color', getAttrs: value => ({ color: value as unknown as string }) },
     ]
   },
   renderHTML({ HTMLAttributes }) {
