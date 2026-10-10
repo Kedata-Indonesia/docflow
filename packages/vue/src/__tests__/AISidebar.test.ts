@@ -153,6 +153,28 @@ describe('AISidebar (Phase 7D)', () => {
     wrapper.unmount()
   })
 
+  it('keeps partial text on a mid-stream chat failure (Copy + Insert survive)', async () => {
+    const { editor, fake } = setup()
+    const wrapper = mount(AISidebar, { props: { editor } })
+
+    await wrapper.find('textarea').setValue('write something')
+    await wrapper.find('form').trigger('submit')
+    fake.push('Partial answer')
+    await flush()
+    fake.fail(new Error('connection reset'))
+    await flush()
+    await wrapper.vm.$nextTick()
+
+    // The partial answer the user already saw survives; the failure rides
+    // alongside it (chat turn → no marker-leak risk → Insert stays available).
+    expect(wrapper.text()).toContain('Partial answer')
+    expect(wrapper.text()).toContain('connection reset')
+    expect(wrapper.text()).toContain('Check your AI provider settings')
+    expect(wrapper.findAll('button').some((b) => b.text().includes('Copy'))).toBe(true)
+    expect(wrapper.findAll('button').some((b) => b.text().includes('Insert'))).toBe(true)
+    wrapper.unmount()
+  })
+
   it('shows a "Thinking…" loading cue and a Stop control before the first token', async () => {
     const { editor } = setup()
     const wrapper = mount(AISidebar, { props: { editor } })
