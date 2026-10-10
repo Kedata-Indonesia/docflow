@@ -24,6 +24,8 @@ import type { LogEntry } from './types'
 const presetId = ref<PresetId>('letter')
 const content = ref<object>(PRESETS.letter.doc)
 const title = ref(PRESETS.letter.title)
+// Left rail (review controls + event log) collapsed state.
+const railCollapsed = ref(false)
 const pageSize = ref('a4')
 const orientation = ref<'portrait' | 'landscape'>('portrait')
 const margins = ref({ top: 94, bottom: 94, left: 94, right: 94 })
@@ -187,82 +189,96 @@ function onReady(docsEditor: { editor: unknown }): void {
 </script>
 
 <template>
-  <div class="pg">
-    <DocsEditor
-      :key="`${presetId}-${debug}`"
-      :model-value="content"
-      :plugins="defaultPlugins"
-      :editable="editable"
-      :page-size="pageSize"
-      :orientation="orientation"
-      :margins="margins"
-      :header-margin-cm="headerMarginCm"
-      :footer-margin-cm="footerMarginCm"
-      :pageless="pageless"
-      :virtual-pages="virtualPages"
-      :title="title"
-      :user-name="userName"
-      :locale="locale"
-      :collaborators="collaborators"
-      :connection-state="connectionState"
-      :document-meta="documentMeta"
-      :comments="comments"
-      :snapshots="snapshots"
-      :debug="debug"
-      @update:model-value="onContentUpdate"
-      @update:title="title = $event; log('update:title', $event)"
-      @update:page-size="pageSize = $event; log('update:pageSize', $event)"
-      @update:orientation="orientation = $event; log('update:orientation', $event)"
-      @update:margins="margins = $event; log('update:margins', JSON.stringify($event))"
-      @update:header-footer-margins="onHeaderFooterMargins"
-      @update:pageless="pageless = $event; log('update:pageless', String($event))"
-      @update:page-count="pageCount = $event; log('update:pageCount', $event)"
-      @update:locale="locale = $event; log('update:locale', $event)"
-      @menu-click="log('menu-click', $event)"
-      @export="log('export', $event)"
-      @ready="onReady"
-      @share="log('share')"
-      @back="log('back')"
-      @toggle-star="log('toggle-star')"
-      @add-comment="onAddComment"
-      @add-reply="onAddReply"
-      @resolve-comment="onResolveComment"
-      @delete-comment="onDeleteComment"
-      @save-snapshot="onSaveSnapshot"
-      @restore-snapshot="log('restore-snapshot', $event)"
-      @preview-snapshot="log('preview-snapshot', $event ? $event.versionId : 'clear')"
-    />
+  <div class="pg" :class="{ 'pg--collapsed': railCollapsed }">
+    <aside class="pg-rail">
+      <ReviewPanel
+        v-model:preset-id="presetId"
+        v-model:title="title"
+        v-model:page-size="pageSize"
+        v-model:orientation="orientation"
+        v-model:pageless="pageless"
+        v-model:virtual-pages="virtualPages"
+        v-model:editable="editable"
+        v-model:debug="debug"
+        v-model:locale="locale"
+        v-model:user-name="userName"
+        v-model:connection-state="connectionState"
+        :comment-count="comments.length"
+        :snapshot-count="snapshots.length"
+        @add-comment-sample="addSampleComment"
+        @add-snapshot-sample="addSampleSnapshot"
+      />
 
-    <!--
-      The key remounts the editor when a mount-only prop changes. Only two props
-      are read once at setup and never watched:
-        modelValue  - useDocumentModel parses it in setup(), so a new document
-                      (the preset select) needs a fresh mount;
-        debug       - core creates the performance monitor together with the
-                      editor.
-      pageSize and editable are reactive (watched in useDocsEditorPageSurface /
-      useEditor), so they must NOT be part of the key: remounting would throw
-      away undo history and selection just to re-read a prop the library already
-      follows.
-    -->
-    <ReviewPanel
-      v-model:preset-id="presetId"
-      v-model:title="title"
-      v-model:page-size="pageSize"
-      v-model:orientation="orientation"
-      v-model:pageless="pageless"
-      v-model:virtual-pages="virtualPages"
-      v-model:editable="editable"
-      v-model:debug="debug"
-      v-model:locale="locale"
-      v-model:user-name="userName"
-      v-model:connection-state="connectionState"
-      :comment-count="comments.length"
-      :snapshot-count="snapshots.length"
-      @add-comment-sample="addSampleComment"
-      @add-snapshot-sample="addSampleSnapshot"
-    />
+      <EventLog :events="events" @clear="events = []" />
+    </aside>
 
-    <EventLog :events="events" @clear="events = []" />
+    <button
+      class="pg-rail-toggle"
+      type="button"
+      :title="railCollapsed ? 'Show controls' : 'Hide controls'"
+      :aria-expanded="!railCollapsed"
+      @click="railCollapsed = !railCollapsed"
+    >
+      {{ railCollapsed ? '›' : '‹' }}
+    </button>
+
+    <main class="pg-editor">
+      <!--
+        The key remounts the editor when a mount-only prop changes. Only two props
+        are read once at setup and never watched:
+          modelValue  - useDocumentModel parses it in setup(), so a new document
+                        (the preset select) needs a fresh mount;
+          debug       - core creates the performance monitor together with the
+                        editor.
+        pageSize and editable are reactive (watched in useDocsEditorPageSurface /
+        useEditor), so they must NOT be part of the key: remounting would throw
+        away undo history and selection just to re-read a prop the library already
+        follows.
+      -->
+      <DocsEditor
+        :key="`${presetId}-${debug}`"
+        :model-value="content"
+        :plugins="defaultPlugins"
+        :editable="editable"
+        :page-size="pageSize"
+        :orientation="orientation"
+        :margins="margins"
+        :header-margin-cm="headerMarginCm"
+        :footer-margin-cm="footerMarginCm"
+        :pageless="pageless"
+        :virtual-pages="virtualPages"
+        :title="title"
+        :user-name="userName"
+        :locale="locale"
+        :collaborators="collaborators"
+        :connection-state="connectionState"
+        :document-meta="documentMeta"
+        :comments="comments"
+        :snapshots="snapshots"
+        :debug="debug"
+        @update:model-value="onContentUpdate"
+        @update:title="title = $event; log('update:title', $event)"
+        @update:page-size="pageSize = $event; log('update:pageSize', $event)"
+        @update:orientation="orientation = $event; log('update:orientation', $event)"
+        @update:margins="margins = $event; log('update:margins', JSON.stringify($event))"
+        @update:header-footer-margins="onHeaderFooterMargins"
+        @update:pageless="pageless = $event; log('update:pageless', String($event))"
+        @update:page-count="pageCount = $event; log('update:pageCount', $event)"
+        @update:locale="locale = $event; log('update:locale', $event)"
+        @menu-click="log('menu-click', $event)"
+        @export="log('export', $event)"
+        @ready="onReady"
+        @share="log('share')"
+        @back="log('back')"
+        @toggle-star="log('toggle-star')"
+        @add-comment="onAddComment"
+        @add-reply="onAddReply"
+        @resolve-comment="onResolveComment"
+        @delete-comment="onDeleteComment"
+        @save-snapshot="onSaveSnapshot"
+        @restore-snapshot="log('restore-snapshot', $event)"
+        @preview-snapshot="log('preview-snapshot', $event ? $event.versionId : 'clear')"
+      />
+    </main>
   </div>
 </template>
