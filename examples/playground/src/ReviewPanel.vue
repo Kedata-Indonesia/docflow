@@ -49,6 +49,7 @@ const CONNECTION_OPTIONS: ConnectionState[] = ['connected', 'connecting', 'disco
       <label class="pg-field">
         <span class="pg-field__label">Sample document</span>
         <select v-model="presetId" class="pg-input pg-select">
+          <option value="blank">Blank document</option>
           <option value="letter">Meeting invitation letter</option>
           <option value="contract">Cooperation agreement</option>
           <option value="report">Monthly report</option>

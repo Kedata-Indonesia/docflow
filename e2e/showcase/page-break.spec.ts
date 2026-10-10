@@ -2,7 +2,7 @@ import { test, expect, type Page } from '@playwright/test'
 
 async function createBlankDocument(page: Page): Promise<void> {
   await page.goto('/')
-  await page.getByRole('button', { name: /Create Blank Document/i }).click()
+  await page.locator('select.pg-select').first().selectOption('blank')
   await expect(page.locator('.docs-editor')).toBeVisible()
   await expect(page.locator('.docs-editor__paper .ProseMirror')).toBeVisible()
 }
@@ -30,8 +30,10 @@ test.describe('Page break visual', () => {
     const paper = page.locator('.docs-editor__paper')
     await expect(paper).toBeVisible()
 
-    // With short content the pagination wrapper exists and there is exactly one page
-    const pagination = page.locator('[data-rm-pagination]')
+    // With short content the pagination wrapper exists and there is exactly one page.
+    // Scope to the paper: the layout engine renders an off-screen measurement clone
+    // that also carries `[data-layout-shadow] [data-rm-pagination]`.
+    const pagination = page.locator('.docs-editor__paper [data-rm-pagination]')
     await expect(pagination).toBeAttached()
     await expect(pagination).toHaveCount(1)
 
@@ -43,7 +45,7 @@ test.describe('Page break visual', () => {
     await createBlankDocument(page)
     await insertLongContent(page, 80)
 
-    const pageBreaks = page.locator('[data-rm-pagination] > .rm-page-break')
+    const pageBreaks = page.locator('.docs-editor__paper [data-rm-pagination] > .rm-page-break')
     await expect(pageBreaks).toHaveCount(8)
   })
 
@@ -62,7 +64,7 @@ test.describe('Page break visual', () => {
     await createBlankDocument(page)
     await insertLongContent(page, 80)
 
-    const gaps = page.locator('[data-rm-pagination] .rm-pagination-gap')
+    const gaps = page.locator('.docs-editor__paper [data-rm-pagination] .rm-pagination-gap')
     await expect(gaps.first()).toBeVisible()
   })
 

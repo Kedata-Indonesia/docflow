@@ -174,6 +174,16 @@ function addSampleComment(): void {
 function addSampleSnapshot(): void {
   onSaveSnapshot(`Playground version ${snapshots.value.length + 1}`)
 }
+
+/**
+ * Test hook: the showcase e2e specs (e2e/showcase/*) drive the editor through
+ * `window.__docsEditor`, the same surface the old `apps/demo` exposed. Keep it
+ * — table-resize / page-break specs depend on it.
+ */
+function onReady(docsEditor: { editor: unknown }): void {
+  ;(window as unknown as { __docsEditor?: unknown }).__docsEditor = docsEditor.editor
+  log('ready')
+}
 </script>
 
 <template>
@@ -210,7 +220,7 @@ function addSampleSnapshot(): void {
       @update:locale="locale = $event; log('update:locale', $event)"
       @menu-click="log('menu-click', $event)"
       @export="log('export', $event)"
-      @ready="log('ready')"
+      @ready="onReady"
       @share="log('share')"
       @back="log('back')"
       @toggle-star="log('toggle-star')"

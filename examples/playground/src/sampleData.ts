@@ -60,7 +60,7 @@ const li = (...nodes: PmNode[]): PmNode => ({ type: 'listItem', content: [inline
 // Document presets
 // ---------------------------------------------------------------------------
 
-export type PresetId = 'letter' | 'contract' | 'report' | 'long'
+export type PresetId = 'blank' | 'letter' | 'contract' | 'report' | 'long'
 
 export interface Preset {
   title: string
@@ -250,6 +250,7 @@ const longReport = (() => {
 })()
 
 export const PRESETS: Record<PresetId, Preset> = {
+  blank: { title: 'Blank document', doc: doc(p('')) },
   letter: { title: 'Invitation to the Q4 Coordination Meeting', doc: letter },
   contract: { title: 'Software Services Cooperation Agreement', doc: contract },
   report: { title: 'Monthly Performance Report — September 2026', doc: report },
