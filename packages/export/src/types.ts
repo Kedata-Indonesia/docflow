@@ -2,6 +2,9 @@ import type { Schema } from 'prosemirror-model'
 
 export type ExportFormat = 'markdown' | 'html' | 'html-zip' | 'txt' | 'docx' | 'pdf' | 'odt' | 'rtf'
 
+/** How to resolve track-changes suggestions when exporting (issues #27/#28). */
+export type SuggestionExportMode = 'accept' | 'reject' | 'annotate'
+
 export interface PageGeometry {
   sizeId: string
   pageWidth: number
@@ -13,6 +16,12 @@ export interface PageGeometry {
 export interface ExportContext {
   doc: object
   title: string
+  /**
+   * Track-changes suggestions handling (issues #27/#28). Defaults to `'accept'`
+   * (export as if all suggestions were accepted). `'annotate'` keeps the
+   * suggestion markup in the output.
+   */
+  suggestions?: SuggestionExportMode
   geometry?: PageGeometry
   resolveImage?: (src: string) => Promise<{ data: Uint8Array; mime: string; width?: number; height?: number }>
   /** Rendered citations + bibliography for citation/bibliography nodes (Phase 6D). */

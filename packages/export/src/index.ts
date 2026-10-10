@@ -1,4 +1,4 @@
-import type { ExportFormat, ExportContext, EditorLike } from './types.js'
+import type { ExportFormat, ExportContext, EditorLike, SuggestionExportMode } from './types.js'
 import {
   filenameFromTitle,
   triggerDownload,
@@ -9,27 +9,33 @@ import {
 import { generateRtf } from './rtf.js'
 import { generateOdt, exportHtmlZip } from './odt.js'
 import { exportDocx } from './docx/index.js'
+import { resolveSuggestionDoc, docJsonToHtml } from './suggestions.js'
 
-export type { ExportFormat, ExportContext, ExportResult, EditorLike, PageGeometry } from './types.js'
+export type { ExportFormat, ExportContext, ExportResult, EditorLike, PageGeometry, SuggestionExportMode } from './types.js'
 export { filenameFromTitle, wrapHtmlDocument, plainTextFromHtml, jsonToMarkdown } from './utils.js'
 export { generateRtf } from './rtf.js'
 export { generateOdt, exportHtmlZip } from './odt.js'
 export { exportDocx } from './docx/index.js'
+export { resolveSuggestionDoc, docJsonToHtml } from './suggestions.js'
 
 export async function exportDocument(format: ExportFormat, editor: EditorLike, title: string, ctx?: Partial<ExportContext>): Promise<void> {
-  const html = editor.getHTML()
-  const json = editor.getJSON()
+  // Resolve track-changes suggestions (issues #27/#28) before rendering. Default
+  // 'accept'; 'annotate' keeps the suggestion markup as-is.
+  const mode: SuggestionExportMode = ctx?.suggestions ?? 'accept'
+  const sourceJson = (ctx?.doc as object | undefined) ?? editor.getJSON()
+  const json = mode === 'annotate' ? sourceJson : resolveSuggestionDoc(editor.schema, sourceJson, mode)
+  const html = mode === 'annotate' ? editor.getHTML() : docJsonToHtml(editor.schema, json)
   const context: ExportContext = {
+    ...ctx,
     doc: json,
     title,
-    ...ctx,
   }
 
   switch (format) {
     case 'markdown': {
       let markdown: string
       try {
-        markdown = jsonToMarkdown(editor.schema, json)
+        markdown = jsonToMarkdown(editor.schema, json as Record<string, unknown>)
       } catch {
         markdown = plainTextFromHtml(html)
       }
