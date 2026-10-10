@@ -9,7 +9,7 @@ import { useFootnotes } from '../composables/useFootnotes.js'
 import { useEditCommands } from '../composables/useEditCommands.js'
 import { useDocsEditorMenu } from '../composables/useDocsEditorMenu.js'
 import VirtualPageOverlay from './VirtualPageOverlay.vue'
-import { computed, ref, useSlots, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import SlashMenuVue from './SlashMenu.vue'
 import HeaderBar from './HeaderBar.vue'
 import EditorToolbar from './EditorToolbar.vue'
@@ -90,12 +90,10 @@ const {
 const pageCount = ref(1)
 const currentPage = ref(1)
 
-// Host-supplied `#references-sidebar` slot (issue #22). When present it replaces
-// the built-in ReferencesSidebar; the forwarded flag tells the child to render
-// the slot instead of its fallback (an empty forwarded slot would otherwise
-// suppress the fallback).
-const slots = useSlots()
-const hasReferencesSidebarSlot = computed(() => Boolean(slots['references-sidebar']))
+// Host-supplied `#references-sidebar` slot (issue #22). Evaluated inline in the
+// template (`$slots`) rather than cached: `useSlots()` does not invalidate a
+// computed, so a plain `computed(() => slots['references-sidebar'])` would keep
+// the mount-time value and ignore a host that adds the slot later.
 
 // Public slot surface — typed so hosts get `vue-tsc`/IDE completion and the
 // scoped props of `#references-sidebar` (ReferencesSidebarSlotProps) are
@@ -252,7 +250,7 @@ void [openHeaderFormatModal, openPageNumberModal]
         :active-sidebar="activeSidebar" :editor="editor" :citation-sources="citationSources"
         :citation-style-id="citationStyleId" :pending-source-request="pendingSourceRequest"
         :can-import-sources="canImportSources" :import-busy="importBusy" :import-message="importMessage"
-        :has-references-sidebar-slot="hasReferencesSidebarSlot"
+        :has-references-sidebar-slot="Boolean($slots['references-sidebar'])"
         :comments="props.comments" :selected-text-snippet="props.selectedTextSnippet"
         :selected-text-index="props.selectedTextIndex" :orphaned-comment-ids="orphanedCommentIds"
         :snapshots="props.snapshots" :active-preview-index="props.activePreviewIndex"

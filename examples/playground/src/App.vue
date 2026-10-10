@@ -56,6 +56,9 @@ const pageCount = ref(1)
 // Citation → sidebar in picker mode). The `#references-sidebar` slot below
 // replaces the built-in sidebar's UI with a custom knowledge-base picker.
 const citation = { sources: SAMPLE_SOURCES, style: 'chicago-notes-bibliography' }
+// Playground-only: when on, inject a custom references sidebar via the
+// `#references-sidebar` slot (#22). Off = the library's built-in sidebar.
+const customReferencesSidebar = ref(false)
 
 // --- event log --------------------------------------------------------------
 const events = ref<LogEntry[]>([])
@@ -224,6 +227,7 @@ function onReady(docsEditor: { editor: unknown; pluginActions?: unknown }): void
         v-model:locale="locale"
         v-model:user-name="userName"
         v-model:connection-state="connectionState"
+        v-model:custom-references-sidebar="customReferencesSidebar"
         :comment-count="comments.length"
         :snapshot-count="snapshots.length"
         @add-comment-sample="addSampleComment"
@@ -301,10 +305,13 @@ function onReady(docsEditor: { editor: unknown; pluginActions?: unknown }): void
         @restore-snapshot="log('restore-snapshot', $event)"
         @preview-snapshot="log('preview-snapshot', $event ? $event.versionId : 'clear')"
       >
-        <!-- Custom references sidebar (issue #22): a knowledge-base picker
-             instead of the built-in CSL list. Omit this slot to get the
-             default sidebar back. -->
-        <template #references-sidebar="{ sources, activeStyle, pickerMode, onInsert, onClose, onCreate, onUpdate, onRemove, onStyleChange }">
+        <!-- Opt-in (ReviewPanel → Extensions): replace the built-in references
+             sidebar with a host component through the `#references-sidebar`
+             slot (issue #22). When unchecked the library sidebar is used. -->
+        <template
+          v-if="customReferencesSidebar"
+          #references-sidebar="{ sources, activeStyle, pickerMode, onInsert, onClose, onCreate, onUpdate, onRemove, onStyleChange }"
+        >
           <KbPicker
             :sources="sources"
             :active-style="activeStyle"

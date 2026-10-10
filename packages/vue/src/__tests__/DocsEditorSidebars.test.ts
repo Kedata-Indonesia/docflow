@@ -1,6 +1,6 @@
 import { mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
-import { h, type Component } from 'vue'
+import { h, defineComponent, nextTick, ref, type Component } from 'vue'
 import type { CslItemData } from '@kedata-indonesia/docflow-core'
 import DocsEditor from '../components/DocsEditor.vue'
 import ReferencesSidebar from '../components/sidebars/ReferencesSidebar.vue'
@@ -177,6 +177,40 @@ describe('DocsEditor sidebar bridge', () => {
       ;(slotProps?.onClose as () => void)()
       await wrapper.vm.$nextTick()
       expect(vm.activeSidebar).toBeNull()
+      wrapper.unmount()
+    })
+
+    // Regression: DocsEditor must notice a slot added *after* mount. A
+    // `computed(() => useSlots()[name])` keeps the mount-time value (useSlots is
+    // not reactive for presence), so conditional host slots would be ignored.
+    it('reacts when the host adds the slot after mount', async () => {
+      const Host = defineComponent({
+        components: { DocsEditor },
+        setup() {
+          const show = ref(false)
+          return { show }
+        },
+        template: `
+          <DocsEditor>
+            <template v-if="show" #references-sidebar>
+              <div class="custom-picker">kb</div>
+            </template>
+          </DocsEditor>`,
+      })
+
+      const wrapper = mount(Host)
+      const editor = wrapper.findComponent(DocsEditor)
+      ;(editor.vm as unknown as DocsEditorVm).activeSidebar = 'references'
+      await nextTick()
+      // No slot yet → built-in fallback.
+      expect(wrapper.findComponent(ReferencesSidebar).exists()).toBe(true)
+
+      ;(wrapper.vm as unknown as { show: boolean }).show = true
+      await nextTick()
+      await nextTick()
+
+      expect(wrapper.find('.custom-picker').exists()).toBe(true)
+      expect(wrapper.findComponent(ReferencesSidebar).exists()).toBe(false)
       wrapper.unmount()
     })
   })
