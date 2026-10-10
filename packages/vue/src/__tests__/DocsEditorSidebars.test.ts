@@ -1,6 +1,6 @@
 import { mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
-import type { Component } from 'vue'
+import { h, type Component } from 'vue'
 import type { CslItemData } from '@kedata-indonesia/docflow-core'
 import DocsEditor from '../components/DocsEditor.vue'
 import ReferencesSidebar from '../components/sidebars/ReferencesSidebar.vue'
@@ -126,5 +126,58 @@ describe('DocsEditor sidebar bridge', () => {
     expect(wrapper.findComponent(HistorySidebar).exists()).toBe(false)
     expect(wrapper.findComponent(AISidebar).exists()).toBe(false)
     wrapper.unmount()
+  })
+
+  // ─── #22: host-supplied references sidebar ─────────────────────────────────
+  describe('#references-sidebar slot', () => {
+    const mountWithSlot = async (slot: unknown, citation?: { sources: CslItemData[]; style: string }) => {
+      const wrapper = mount(DocsEditor, {
+        ...(citation ? { props: { citation } } : {}),
+        slots: { 'references-sidebar': slot as never },
+      })
+      await new Promise((resolve) => setTimeout(resolve, 50))
+      const vm = wrapper.vm as unknown as DocsEditorVm
+      vm.activeSidebar = 'references'
+      await wrapper.vm.$nextTick()
+      return { wrapper, vm }
+    }
+
+    it('replaces the built-in sidebar when the host provides the slot', async () => {
+      const { wrapper } = await mountWithSlot(`<div class="custom-picker">KB picker</div>`)
+      expect(wrapper.find('.custom-picker').exists()).toBe(true)
+      expect(wrapper.findComponent(ReferencesSidebar).exists()).toBe(false)
+      wrapper.unmount()
+    })
+
+    it('falls back to the built-in sidebar when the slot is absent', async () => {
+      const { wrapper } = await openSidebar('references')
+      expect(wrapper.findComponent(ReferencesSidebar).exists()).toBe(true)
+      wrapper.unmount()
+    })
+
+    it('passes the live library, picker state and actions to the slot', async () => {
+      let slotProps: Record<string, unknown> | undefined
+      const existing: CslItemData = { id: 's1', type: 'book', title: 'Existing' }
+      const { wrapper, vm } = await mountWithSlot(
+        (props: Record<string, unknown>) => {
+          slotProps = props
+          return h('div', { class: 'custom-picker' })
+        },
+        { sources: [existing], style: 'apa' },
+      )
+
+      expect(slotProps?.activeStyle).toBe('apa')
+      expect((slotProps?.sources as CslItemData[])?.map((s) => s.id)).toEqual(['s1'])
+      expect(slotProps?.pickerMode).toBe(false)
+      for (const action of ['onInsert', 'onClose', 'onCreate', 'onRemove', 'onStyleChange']) {
+        expect(typeof slotProps?.[action]).toBe('function')
+      }
+
+      // onClose routes back through DocsEditor and clears the active sidebar.
+      ;(slotProps?.onClose as () => void)()
+      await wrapper.vm.$nextTick()
+      expect(vm.activeSidebar).toBeNull()
+      wrapper.unmount()
+    })
   })
 })

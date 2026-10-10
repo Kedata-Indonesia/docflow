@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { Editor } from '@tiptap/core'
 import type { AIDraftFn, AIStreamFn, CslItemData } from '@kedata-indonesia/docflow-core'
 import type { CommentItem, DocumentSnapshot, SidebarKey } from '../types.js'
@@ -15,7 +16,7 @@ import AISidebar from './sidebars/AISidebar.vue'
  * Everything arrives as props; every user intent leaves as an event, and
  * DocsEditor (or the host behind it) wires those events to storage.
  */
-defineProps<{
+const props = defineProps<{
   activeSidebar: SidebarKey | null
   editor: Editor | null
   citationSources: CslItemData[]
@@ -24,6 +25,8 @@ defineProps<{
   canImportSources: boolean
   importBusy: boolean
   importMessage: string
+  /** True when the host supplied the `#references-sidebar` slot (issue #22). */
+  hasReferencesSidebarSlot?: boolean
   comments?: CommentItem[]
   selectedTextSnippet?: string
   selectedTextIndex?: number
@@ -51,28 +54,57 @@ const emit = defineEmits<{
   'restore-snapshot': [versionIndex: number]
   'preview-snapshot': [snapshot: DocumentSnapshot | null]
 }>()
+
+/**
+ * Everything a custom `#references-sidebar` host needs to render a picker
+ * (issue #22): the live library + picker state, and the actions it must call —
+ * `onInsert(sourceId)` completes a pending citation, `onClose()` closes the
+ * sidebar, and the CRUD/import actions mirror the built-in sidebar's emits.
+ */
+const referencesSidebarProps = computed(() => ({
+  sources: props.citationSources,
+  activeStyle: props.citationStyleId,
+  pickerMode: props.pendingSourceRequest,
+  canImport: props.canImportSources,
+  importing: props.importBusy,
+  importMessage: props.importMessage,
+  onInsert: (sourceId: string) => emit('insert', sourceId),
+  onClose: () => emit('close'),
+  onCreate: (source: CslItemData) => emit('create', source),
+  onUpdate: (source: CslItemData) => emit('update', source),
+  onRemove: (id: string) => emit('remove', id),
+  onStyleChange: (styleId: string) => emit('update:style', styleId),
+  onImportDoi: (doi: string) => emit('import-doi', doi),
+  onImportBibliography: (payload: { format: 'bibtex' | 'ris'; text: string }) =>
+    emit('import-bibliography', payload),
+}))
 </script>
 
 <template>
   <!-- Reference manager — also acts as the source picker while a citation
-       insert is pending. -->
-  <ReferencesSidebar
-    v-if="activeSidebar === 'references'"
-    :sources="citationSources"
-    :active-style="citationStyleId"
-    :picker-mode="pendingSourceRequest"
-    :can-import="canImportSources"
-    :importing="importBusy"
-    :import-message="importMessage"
-    @close="emit('close')"
-    @insert="(sourceId) => emit('insert', sourceId)"
-    @create="(source) => emit('create', source)"
-    @update="(source) => emit('update', source)"
-    @remove="(id) => emit('remove', id)"
-    @update:style="(styleId) => emit('update:style', styleId)"
-    @import-doi="(doi) => emit('import-doi', doi)"
-    @import-bibliography="(payload) => emit('import-bibliography', payload)"
-  />
+       insert is pending. Hosts may replace it entirely via DocsEditor's
+       `#references-sidebar` slot (issue #22); the built-in sidebar is the
+       fallback and is used whenever the slot is absent. -->
+  <template v-if="activeSidebar === 'references'">
+    <slot v-if="hasReferencesSidebarSlot" name="references-sidebar" v-bind="referencesSidebarProps" />
+    <ReferencesSidebar
+      v-else
+      :sources="citationSources"
+      :active-style="citationStyleId"
+      :picker-mode="pendingSourceRequest"
+      :can-import="canImportSources"
+      :importing="importBusy"
+      :import-message="importMessage"
+      @close="emit('close')"
+      @insert="(sourceId) => emit('insert', sourceId)"
+      @create="(source) => emit('create', source)"
+      @update="(source) => emit('update', source)"
+      @remove="(id) => emit('remove', id)"
+      @update:style="(styleId) => emit('update:style', styleId)"
+      @import-doi="(doi) => emit('import-doi', doi)"
+      @import-bibliography="(payload) => emit('import-bibliography', payload)"
+    />
+  </template>
 
   <!-- Comment threads — library-only stub that forwards user intent to the
        host (which owns the REST surface and sets the `comment` mark). -->
