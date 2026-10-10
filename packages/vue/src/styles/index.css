@@ -1846,3 +1846,25 @@
   background: rgba(244, 114, 182, 0.15);
   color: #f9a8d4;
 }
+
+/* ── Suggesting mode / track changes (#27, #28) ─────────────────────────────
+   Insertions render green + underlined; deletions render red + struck
+   through. The underlying text is never removed until accept/reject. */
+.ProseMirror .docflow-suggestion--insert {
+  color: #047857;
+  background: rgba(16, 185, 129, 0.12);
+  text-decoration: underline;
+  text-decoration-color: #10b981;
+}
+.dark .ProseMirror .docflow-suggestion--insert {
+  color: #6ee7b7;
+}
+.ProseMirror .docflow-suggestion--delete {
+  color: #b91c1c;
+  background: rgba(239, 68, 68, 0.1);
+  text-decoration: line-through;
+  text-decoration-color: #ef4444;
+}
+.dark .ProseMirror .docflow-suggestion--delete {
+  color: #fca5a5;
+}

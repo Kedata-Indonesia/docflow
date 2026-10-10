@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import type { ConnectionState, Locale } from '@kedata-indonesia/docflow-vue'
+import type { DocumentMode } from '@kedata-indonesia/docflow-vue'
 import { PAGE_SIZE_OPTIONS, type PresetId } from './sampleData'
 
 /**
@@ -17,6 +18,7 @@ const orientation = defineModel<'portrait' | 'landscape'>('orientation', { requi
 const pageless = defineModel<boolean>('pageless', { required: true })
 const virtualPages = defineModel<boolean>('virtualPages', { required: true })
 const editable = defineModel<boolean>('editable', { required: true })
+const mode = defineModel<DocumentMode>('mode', { required: true })
 const debug = defineModel<boolean>('debug', { required: true })
 const locale = defineModel<Locale>('locale', { required: true })
 const userName = defineModel<string>('userName', { required: true })
@@ -87,6 +89,19 @@ const CONNECTION_OPTIONS: ConnectionState[] = ['connected', 'connecting', 'disco
 
       <p class="pg-section">Behaviour</p>
       <label class="pg-check"><input v-model="editable" type="checkbox" /><span>editable</span></label>
+      <label class="pg-field">
+        <span class="pg-field__label">Mode <code>mode</code></span>
+        <select v-model="mode" class="pg-input pg-select">
+          <option value="editing">editing</option>
+          <option value="suggesting">suggesting (track changes)</option>
+          <option value="viewing">viewing (read-only)</option>
+        </select>
+      </label>
+      <p class="pg-hint">
+        In <strong>suggesting</strong> mode, typing/pasting/deleting is recorded as suggestions
+        (green insertions, struck-through deletions). Accept/reject via
+        <code>__docsCore.pluginActions.acceptAllSuggestions()</code> (P1). <strong>viewing</strong> is read-only.
+      </p>
       <label class="pg-check"><input v-model="debug" type="checkbox" /><span>debug</span></label>
       <label class="pg-check">
         <input v-model="locale" type="radio" value="id" /><span>Bahasa Indonesia</span>

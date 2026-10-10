@@ -12,9 +12,10 @@ import {
   IndentIncrease, AlignLeft, AlignCenter, AlignRight, AlignJustify,
   ListOrdered, ListChecks, RemoveFormatting, SpellCheck, SlidersHorizontal,
   Puzzle, Keyboard, Bug, CircleHelp,
-  Sparkles, LayoutTemplate, Calendar, MapPin,
+  Sparkles, LayoutTemplate, Calendar, MapPin, Eye, PenLine,
 } from 'lucide-vue-next'
 import type { Collaborator } from '../types.js'
+import type { DocumentMode } from '@kedata-indonesia/docflow-core'
 import ThemeToggle from './ThemeToggle.vue'
 import { useLocale, getSupportedLocales, getLocaleName } from '../composables/useLocale.js'
 import { useTheme } from '../composables/useTheme.js'
@@ -36,6 +37,8 @@ const props = withDefaults(
     outlineOpen?: boolean
     showRuler?: boolean
     focusMode?: boolean
+    /** Document mode (#27/#28) — drives the View ▸ Document mode radios. */
+    mode?: DocumentMode
     currentUserId?: string
     simulatorsActive?: boolean
     userName?: string
@@ -50,6 +53,7 @@ const props = withDefaults(
     outlineOpen: false,
     showRuler: true,
     focusMode: false,
+    mode: 'editing',
     currentUserId: '',
     simulatorsActive: false,
     userName: '',
@@ -225,6 +229,14 @@ const menus = computed<Record<string, { label: string; items: MenuItem[] }>>(() 
       { label: 'divider', divider: true },
       { label: t('header.focusMode'), action: 'toggle-focus-mode', checked: props.focusMode, icon: Maximize2 },
       { label: t('header.showRuler'), action: 'toggle-ruler', checked: props.showRuler, icon: Ruler },
+      { label: 'divider', divider: true },
+      {
+        label: t('header.documentMode'), icon: Eye, sub: [
+          { label: t('header.modeEditing'), action: 'mode-editing', checked: props.mode === 'editing', icon: Pencil },
+          { label: t('header.modeSuggesting'), action: 'mode-suggesting', checked: props.mode === 'suggesting', icon: PenLine },
+          { label: t('header.modeViewing'), action: 'mode-viewing', checked: props.mode === 'viewing', icon: Eye },
+        ]
+      },
     ],
   },
   Insert: {
@@ -470,6 +482,24 @@ onUnmounted(() => {
             >
               <Star class="h-4 w-4" :class="starred ? 'fill-amber-400 text-amber-500' : ''" />
             </button>
+
+            <!-- Document-mode indicator (#27/#28) — makes suggesting/viewing obvious -->
+            <span
+              v-if="props.mode === 'suggesting'"
+              class="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-300"
+              :title="t('header.modeSuggesting')"
+            >
+              <PenLine class="h-3 w-3" />
+              {{ t('header.modeSuggesting') }}
+            </span>
+            <span
+              v-else-if="props.mode === 'viewing'"
+              class="inline-flex items-center gap-1 rounded-full bg-slate-500/15 px-2 py-0.5 text-[10px] font-semibold text-slate-600 dark:bg-slate-400/15 dark:text-slate-300"
+              :title="t('header.modeViewing')"
+            >
+              <Eye class="h-3 w-3" />
+              {{ t('header.modeViewing') }}
+            </span>
           </div>
 
           <!-- Menu bar under title -->

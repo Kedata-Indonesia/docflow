@@ -7,6 +7,7 @@ import type {
   CslItemData,
   AIStreamFn,
   AIDraftFn,
+  DocumentMode,
 } from '@kedata-indonesia/docflow-core'
 import type {
   Collaborator,
@@ -27,6 +28,12 @@ export interface DocsEditorProps {
    * `editor.setEditable()` instead of requiring a remount.
    */
   editable?: boolean
+  /**
+   * Document mode (issues #27/#28): `editing` (default) · `suggesting` (edits
+   * become suggestions) · `viewing` (read-only). Supersedes `editable` when set;
+   * `editable === false` maps to `viewing`. Reactive — switching does not remount.
+   */
+  mode?: DocumentMode
   /** Collaboration config (`room`, `provider`, `user`) — the host owns the transport. */
   collaboration?: NonNullable<EditorOptions['collaboration']>
   /**
@@ -100,6 +107,7 @@ export interface DocsEditorProps {
 
 export const docsEditorPropDefaults = {
   editable: true,
+  mode: undefined,
   modelValue: undefined,
   plugins: () => [],
   collaboration: undefined,
@@ -146,6 +154,8 @@ export interface DocsEditorEmits {
   'update:header-footer-margins': [margins: { headerMarginCm: number; footerMarginCm: number }]
   /** Pageless (continuous) mode was toggled. */
   'update:pageless': [pageless: boolean]
+  /** Document mode changed (issues #27/#28). */
+  'update:mode': [mode: DocumentMode]
   /** The rendered page count changed. */
   'update:pageCount': [pageCount: number]
   /** UI language changed. */
