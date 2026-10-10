@@ -20,11 +20,19 @@
 import { Extension, Mark, mergeAttributes } from '@tiptap/core'
 import type { Editor } from '@tiptap/core'
 import { Plugin, PluginKey, TextSelection, type EditorState } from '@tiptap/pm/state'
+import { AddMarkStep, RemoveMarkStep } from '@tiptap/pm/transform'
 import type { Node as PMNode, Slice } from '@tiptap/pm/model'
 import { definePlugin, type DocumentMode } from '@kedata-indonesia/docflow-core'
 
 export const SUGGESTION_INSERT = 'suggestionInsert'
 export const SUGGESTION_DELETE = 'suggestionDelete'
+export const SUGGESTION_FORMAT = 'suggestionFormat'
+
+/** Inline marks whose changes are captured as format suggestions (P3). */
+const FORMAT_MARKS = new Set(['bold', 'italic', 'underline', 'strike', 'highlight'])
+
+/** Meta flag marking our own appended transactions so appendTransaction ignores them. */
+const SUGGEST_APPLIED_META = 'suggestChanges:applied'
 
 export interface SuggestionAuthor {
   id?: string | null
@@ -33,11 +41,16 @@ export interface SuggestionAuthor {
 
 export interface SuggestionSummary {
   id: string
-  type: 'insert' | 'delete'
+  type: 'insert' | 'delete' | 'format'
   authorId: string | null
   authorName: string | null
+  /** ProseMirror positions (from/to) of the suggestion range. */
   from: number
   to: number
+  /** For `type: 'format'` — the mark that would be added/removed. */
+  format?: string
+  /** For `type: 'format'` — `add` applies the mark, `remove` clears it. */
+  delta?: 'add' | 'remove'
 }
 
 interface SuggestState {
@@ -123,6 +136,36 @@ export const SuggestionDeleteMark = Mark.create({
   },
 })
 
+/** A proposed inline-format change (P3): the mark is recorded, not applied. */
+export const SuggestionFormatMark = Mark.create({
+  name: SUGGESTION_FORMAT,
+  addAttributes() {
+    return {
+      ...suggestionAttributes(),
+      format: {
+        default: null,
+        parseHTML: (el: HTMLElement) => el.getAttribute('data-suggestion-format'),
+        renderHTML: (attrs: Record<string, unknown>) =>
+          attrs.format ? { 'data-suggestion-format': attrs.format } : {},
+      },
+      delta: { default: 'add' },
+    }
+  },
+  parseHTML() {
+    return [{ tag: 'span[data-suggestion="format"]' }]
+  },
+  renderHTML({ HTMLAttributes }) {
+    return [
+      'span',
+      mergeAttributes(HTMLAttributes, {
+        'data-suggestion': 'format',
+        class: 'docflow-suggestion docflow-suggestion--format',
+      }),
+      0,
+    ]
+  },
+})
+
 // A fresh id per suggestion "run" (a typed word, a pasted block, a deletion).
 let suggestionSeq = 0
 const newSuggestionId = (): string => {
@@ -151,14 +194,14 @@ const collectRanges = (
   doc: PMNode,
   markName: string,
   id?: string,
-): Array<{ from: number; to: number }> => {
-  const out: Array<{ from: number; to: number }> = []
+): Array<{ from: number; to: number; attrs: Record<string, unknown> }> => {
+  const out: Array<{ from: number; to: number; attrs: Record<string, unknown> }> = []
   doc.descendants((node, pos) => {
     if (!node.isText || node.marks.length === 0) return
     for (const mark of node.marks) {
       if (mark.type.name !== markName) continue
       if (id && mark.attrs.suggestionId !== id) continue
-      out.push({ from: pos, to: pos + node.nodeSize })
+      out.push({ from: pos, to: pos + node.nodeSize, attrs: mark.attrs as Record<string, unknown> })
     }
   })
   return out
@@ -195,6 +238,45 @@ const SuggestChanges = Extension.create({
         view: () => {
           syncStorage()
           return { update: syncStorage }
+        },
+        appendTransaction: (transactions, _oldState, newState) => {
+          // Ignore our own appended transactions (see below) and anything not in
+          // suggesting mode.
+          if (transactions.some((tr) => tr.getMeta(SUGGEST_APPLIED_META))) return null
+          const current = suggestChangesKey.getState(newState)
+          if (current?.mode !== 'suggesting') return null
+
+          const formatMark = newState.schema.marks[SUGGESTION_FORMAT]
+          if (!formatMark) return null
+
+          // Collect inline-format changes (add/remove of bold/italic/…) and turn
+          // them into format suggestions instead of applying them.
+          const changes: Array<{ from: number; to: number; name: string; add: boolean }> = []
+          for (const tr of transactions) {
+            for (const step of tr.steps) {
+              if (step instanceof AddMarkStep || step instanceof RemoveMarkStep) {
+                if (!FORMAT_MARKS.has(step.mark.type.name)) continue
+                changes.push({ from: step.from, to: step.to, name: step.mark.type.name, add: step instanceof AddMarkStep })
+              }
+            }
+          }
+          if (changes.length === 0) return null
+
+          const tr = newState.tr
+          for (const change of changes) {
+            const target = newState.schema.marks[change.name]
+            if (!target) continue
+            // Revert the applied format change, then record the proposal.
+            if (change.add) tr.removeMark(change.from, change.to, target)
+            else tr.addMark(change.from, change.to, target.create())
+            tr.addMark(
+              change.from,
+              change.to,
+              formatMark.create({ ...markAttrs(newSuggestionId(), current.author), format: change.name, delta: change.add ? 'add' : 'remove' }),
+            )
+          }
+          tr.setMeta(SUGGEST_APPLIED_META, true)
+          return tr
         },
         props: {
           handleTextInput: (view, from, to, text) => {
@@ -337,7 +419,7 @@ export function setSuggestionAuthor(editor: Editor, author: SuggestionAuthor): b
 /** All pending suggestions, ordered by position. */
 export function getSuggestions(editor: Editor): SuggestionSummary[] {
   const byId = new Map<string, SuggestionSummary>()
-  const scan = (markName: string, type: 'insert' | 'delete') => {
+  const scan = (markName: string, type: SuggestionSummary['type']) => {
     editor.state.doc.descendants((node, pos) => {
       if (!node.isText) return
       for (const mark of node.marks) {
@@ -355,6 +437,12 @@ export function getSuggestions(editor: Editor): SuggestionSummary[] {
             authorName: (mark.attrs.authorName as string | null) ?? null,
             from: pos,
             to: pos + node.nodeSize,
+            ...(type === 'format'
+              ? {
+                  format: (mark.attrs.format as string | null) ?? undefined,
+                  delta: (mark.attrs.delta as 'add' | 'remove' | null) ?? undefined,
+                }
+              : {}),
           })
         }
       }
@@ -362,6 +450,7 @@ export function getSuggestions(editor: Editor): SuggestionSummary[] {
   }
   scan(SUGGESTION_INSERT, 'insert')
   scan(SUGGESTION_DELETE, 'delete')
+  scan(SUGGESTION_FORMAT, 'format')
   return [...byId.values()].sort((a, b) => a.from - b.from)
 }
 
@@ -370,18 +459,35 @@ function buildResolveTr(state: EditorState, accept: boolean, id?: string) {
   const { schema } = state
   const insertMark = schema.marks[SUGGESTION_INSERT]
   const deleteMark = schema.marks[SUGGESTION_DELETE]
+  const formatMark = schema.marks[SUGGESTION_FORMAT]
   if (!insertMark || !deleteMark) return null
 
   const insertRanges = collectRanges(state.doc, SUGGESTION_INSERT, id)
   const deleteRanges = collectRanges(state.doc, SUGGESTION_DELETE, id)
-  if (insertRanges.length === 0 && deleteRanges.length === 0) return null
+  const formatRanges = formatMark ? collectRanges(state.doc, SUGGESTION_FORMAT, id) : []
+  if (insertRanges.length === 0 && deleteRanges.length === 0 && formatRanges.length === 0) return null
+
+  const tr = state.tr
+
+  // Format suggestions (P3): accept applies the recorded mark change, reject
+  // just clears the proposal. Done first so later deletions don't invalidate
+  // these positions.
+  for (const range of formatRanges) {
+    if (accept) {
+      const target = schema.marks[range.attrs.format as string]
+      if (target) {
+        if (range.attrs.delta === 'remove') tr.removeMark(range.from, range.to, target)
+        else tr.addMark(range.from, range.to, target.create())
+      }
+    }
+    if (formatMark) tr.removeMark(range.from, range.to, formatMark)
+  }
 
   // Accept: keep insertions, drop deletions. Reject: the inverse.
   const rangesToUnmark = accept ? insertRanges : deleteRanges
   const markToRemove = accept ? insertMark : deleteMark
   const rangesToDelete = accept ? deleteRanges : insertRanges
 
-  const tr = state.tr
   for (const range of rangesToUnmark) {
     tr.removeMark(range.from, range.to, markToRemove)
   }
@@ -389,6 +495,9 @@ function buildResolveTr(state: EditorState, accept: boolean, id?: string) {
   for (const range of [...rangesToDelete].sort((a, b) => b.from - a.from)) {
     tr.delete(range.from, range.to)
   }
+  // Mark as ours so appendTransaction doesn't re-capture the format change we
+  // just applied (accept adds a format mark → would otherwise loop).
+  tr.setMeta(SUGGEST_APPLIED_META, true)
   return tr.docChanged ? tr : null
 }
 
@@ -409,7 +518,7 @@ export const rejectAllSuggestions = (editor: Editor): boolean => resolveSuggesti
 
 export const suggestChangesPlugin = definePlugin({
   id: 'suggestChanges',
-  tiptapExtensions: [SuggestionInsertMark, SuggestionDeleteMark, SuggestChanges],
+  tiptapExtensions: [SuggestionInsertMark, SuggestionDeleteMark, SuggestionFormatMark, SuggestChanges],
   commands: {
     setDocumentMode: (editor, ...args) => setDocumentMode(editor, args[0] as DocumentMode),
     setSuggestionAuthor: (editor, ...args) =>

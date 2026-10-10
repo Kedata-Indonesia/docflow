@@ -421,6 +421,7 @@ export default {
       rejectAll: 'Tolak semua',
       insert: 'Sisipan',
       delete: 'Hapusan',
+      format: 'Format',
       empty: 'Tidak ada saran.',
     },
     references: {
