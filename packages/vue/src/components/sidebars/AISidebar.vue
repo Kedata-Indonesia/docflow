@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { ref, computed, watch, onUnmounted, nextTick, toRaw } from 'vue'
-import { Sparkles, Send, Copy, Check, ArrowDownToLine, AlignLeft, BadgeCheck, Wand2, Globe, X, User, PencilLine, Quote } from 'lucide-vue-next'
+import { Sparkles, Send, Copy, Check, ArrowDownToLine, AlignLeft, BadgeCheck, Wand2, Globe, X, User, PencilLine, Quote, Loader2, Square } from 'lucide-vue-next'
 import type { Editor } from '@tiptap/core'
 import { Slice, Fragment } from 'prosemirror-model'
 import type { AIActionRequest, AIStreamFn, AIDraftCitation, AIDraftEvent, AIDraftFn } from '@kedata-indonesia/docflow-core'
@@ -399,6 +399,11 @@ function handleInsert(turn: ChatTurn, index: number) {
   markInserted(index)
 }
 
+/** Stop the in-flight turn (the partial text, if any, is kept). */
+function handleStop() {
+  abort?.abort()
+}
+
 function handleClose() {
   abort?.abort()
   isStreaming.value = false
@@ -479,7 +484,17 @@ onUnmounted(() => {
             <Sparkles v-else class="h-2.5 w-2.5 text-cyan-400" />
             {{ turn.role === 'user' ? t('sidebars.ai.you') : t('sidebars.ai.assistant') }}
           </span>
+          <!-- Waiting for the first token: show a real loading cue instead of an
+               empty bubble (the caret alone reads as “broken”). -->
           <div
+            v-if="turn.role === 'assistant' && turn.streaming && !turn.text"
+            class="flex items-center gap-2 rounded-xl bg-slate-100 px-3 py-2 text-xs text-slate-500 dark:bg-white/[0.04] dark:text-slate-400"
+          >
+            <Loader2 class="h-3.5 w-3.5 animate-spin text-cyan-500" />
+            <span>{{ t('sidebars.ai.thinking') }}</span>
+          </div>
+          <div
+            v-else
             class="max-w-full whitespace-pre-wrap rounded-xl px-3 py-2 text-xs leading-relaxed"
             :class="[
               turn.role === 'user'
@@ -537,8 +552,17 @@ onUnmounted(() => {
           />
           <div class="flex justify-end">
             <button
+              v-if="isStreaming"
+              type="button"
+              class="flex items-center gap-1 rounded-lg border border-slate-300 px-3.5 py-2 text-xs font-bold text-slate-600 transition-all hover:bg-slate-100 dark:border-white/15 dark:text-slate-300 dark:hover:bg-white/5"
+              @click="handleStop"
+            >
+              <Square class="h-3.5 w-3.5" /> {{ t('sidebars.ai.stop') }}
+            </button>
+            <button
+              v-else
               type="submit"
-              :disabled="isStreaming || !promptInput.trim()"
+              :disabled="!promptInput.trim()"
               class="flex items-center gap-1 rounded-lg bg-cyan-500 px-3.5 py-2 text-xs font-bold text-black shadow-cyan transition-all hover:bg-cyan-400 disabled:opacity-40"
             >
               <Send class="h-3.5 w-3.5" /> {{ draftMode ? t('sidebars.ai.promptDraft') : t('sidebars.ai.promptAI') }}

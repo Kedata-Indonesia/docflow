@@ -335,6 +335,8 @@ export default {
       toSpanish: 'To Spanish',
       generations: 'AI Generations',
       aiDrafting: 'AI drafting…',
+      thinking: 'Thinking…',
+      stop: 'Stop',
       copy: 'Copy',
       copied: 'Copied',
       insert: 'Insert',
