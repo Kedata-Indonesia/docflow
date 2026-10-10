@@ -102,6 +102,8 @@ page numbers/relevance — can replace it wholesale:
 
 - Renders **in place of** `ReferencesSidebar`, only while `activeSidebar === 'references'`.
   Omit the slot and the built-in sidebar is used — fully backward compatible.
+  The scoped props are typed as **`ReferencesSidebarSlotProps`** (re-exported from the package),
+  so consuming apps get `vue-tsc`/IDE checking on the slot.
 - **Scoped props:** `sources`, `activeStyle`, `pickerMode`, `canImport`, `importing`,
   `importMessage`; **actions:** `onInsert(sourceId)`, `onClose()`, `onCreate(source)`,
   `onUpdate(source)`, `onRemove(id)`, `onStyleChange(styleId)`, `onImportDoi(doi)`,
@@ -123,6 +125,9 @@ page numbers/relevance — can replace it wholesale:
 | Port | Planned signature | Phase | Replaces |
 |------|-------------------|-------|----------|
 | Export hooks | TBD in Phase 5 design | [Phase 5](plans/phase-5-export-pdf-docx.md) | Host-side export wiring; today only the `export` emit exists (§2.3). |
+| `CitationPort.onSourceSearch` | `(query: string) => Promise<SourceSearchResult[]>` where `SourceSearchResult = { source: CslItemData; snippet?: string; score?: number; locator?: string }` | — | A **host-bound search** rendered inside the *built-in* references sidebar (a search box appears only when the port is provided; results replace the list while searching, then the CRUD list returns). Complements the `#references-sidebar` slot (§2.1) for hosts that want search **and** the built-in add/import UI. |
+
+**When to build it:** the issue upstream of this table ([#22](https://github.com/Kedata-Indonesia/docflow/issues/22)) deliberately *defers* `onSourceSearch`. Implement it **port-only** (no extra slot) once one of these fires: a second host needs KB-style search, `fe-aktifai` wants to retire its separate picker modal, or users find the separate modal confusing. Until then the `#references-sidebar` replace slot is the extension point — the library itself never fetches.
 
 ### 2.3 Related host-interaction surface (not backend ports)
 

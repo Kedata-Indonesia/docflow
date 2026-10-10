@@ -24,6 +24,7 @@ import FindReplaceDialog from './FindReplaceDialog.vue'
 import { Menu, Minimize2 } from 'lucide-vue-next'
 import { provideLocale } from '../composables/useLocale.js'
 import { docsEditorPropDefaults, type DocsEditorEmits, type DocsEditorProps } from './docsEditorContracts.js'
+import type { ReferencesSidebarSlotProps } from '../types.js'
 
 const props = withDefaults(defineProps<DocsEditorProps>(), docsEditorPropDefaults)
 
@@ -95,6 +96,16 @@ const currentPage = ref(1)
 // suppress the fallback).
 const slots = useSlots()
 const hasReferencesSidebarSlot = computed(() => Boolean(slots['references-sidebar']))
+
+// Public slot surface — typed so hosts get `vue-tsc`/IDE completion and the
+// scoped props of `#references-sidebar` (ReferencesSidebarSlotProps) are
+// checked. These are the only slots `DocsEditor` forwards.
+defineSlots<{
+  'header-actions'?: () => unknown
+  'overflow-actions'?: (props: { close: () => void }) => unknown
+  'user-menu'?: (props: { close: () => void }) => unknown
+  'references-sidebar'?: (props: ReferencesSidebarSlotProps) => unknown
+}>()
 
 // ─── Page numbering + header / footer ────────────────────────────────────────
 // Page-numbering settings live on the component (tests read them through
