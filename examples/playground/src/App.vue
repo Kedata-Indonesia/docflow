@@ -304,13 +304,17 @@ function onReady(docsEditor: { editor: unknown; pluginActions?: unknown }): void
         <!-- Custom references sidebar (issue #22): a knowledge-base picker
              instead of the built-in CSL list. Omit this slot to get the
              default sidebar back. -->
-        <template #references-sidebar="{ sources, activeStyle, pickerMode, onInsert, onClose }">
+        <template #references-sidebar="{ sources, activeStyle, pickerMode, onInsert, onClose, onCreate, onUpdate, onRemove, onStyleChange }">
           <KbPicker
             :sources="sources"
             :active-style="activeStyle"
             :picker-mode="pickerMode"
             @insert="onInsert"
             @close="onClose"
+            @create="onCreate"
+            @update="onUpdate"
+            @remove="onRemove"
+            @style-change="onStyleChange"
           />
         </template>
       </DocsEditor>
