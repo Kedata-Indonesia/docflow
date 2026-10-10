@@ -152,4 +152,57 @@ describe('AISidebar (Phase 7D)', () => {
     expect(wrapper.text()).toContain('provider unavailable')
     wrapper.unmount()
   })
+
+  it('shows a "Thinking…" loading cue and a Stop control before the first token', async () => {
+    const { editor } = setup()
+    const wrapper = mount(AISidebar, { props: { editor } })
+
+    await wrapper.find('textarea').setValue('write something')
+    await wrapper.find('form').trigger('submit')
+    await wrapper.vm.$nextTick()
+
+    // No token yet → loading cue + Stop, and no Insert (nothing to insert).
+    expect(wrapper.text()).toContain('Thinking…')
+    expect(wrapper.find('.animate-spin').exists()).toBe(true)
+    expect(wrapper.findAll('button').some((b) => b.text().includes('Stop'))).toBe(true)
+    expect(wrapper.text()).not.toContain('Insert')
+    wrapper.unmount()
+  })
+
+  it('Stop aborts the in-flight turn and keeps the partial text insertable', async () => {
+    const target = document.createElement('div')
+    document.body.appendChild(target)
+    let seenSignal: AbortSignal | undefined
+    const aiStream = ((_req: unknown, signal: AbortSignal) => {
+      seenSignal = signal
+      return (async function* () {
+        yield 'Partial'
+        await new Promise<void>((resolve) => {
+          signal.addEventListener('abort', () => resolve(), { once: true })
+        })
+      })()
+    }) as AIStreamFn
+    inst = createEditor({ target, plugins: defaultPlugins, aiStream })
+    const editor = inst.editor
+    const wrapper = mount(AISidebar, { props: { editor } })
+
+    await wrapper.find('textarea').setValue('start')
+    await wrapper.find('form').trigger('submit')
+    await flush()
+    await wrapper.vm.$nextTick()
+    expect(wrapper.text()).toContain('Partial')
+
+    const stop = wrapper.findAll('button').find((b) => b.text().includes('Stop'))
+    expect(stop).toBeDefined()
+    await stop!.trigger('click')
+    expect(seenSignal?.aborted).toBe(true)
+
+    await flush()
+    await wrapper.vm.$nextTick()
+    // Streaming stopped, the partial text survives and remains insertable.
+    expect(wrapper.text()).not.toContain('Stop')
+    expect(wrapper.text()).toContain('Partial')
+    expect(wrapper.text()).toContain('Insert')
+    wrapper.unmount()
+  })
 })

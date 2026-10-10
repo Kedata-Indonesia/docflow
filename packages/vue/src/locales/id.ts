@@ -335,6 +335,8 @@ export default {
       toSpanish: 'Ke Spanyol',
       generations: 'Hasil AI',
       aiDrafting: 'AI menyusun…',
+      thinking: 'Berpikir…',
+      stop: 'Hentikan',
       copy: 'Salin',
       copied: 'Tersalin',
       insert: 'Sisipkan',
