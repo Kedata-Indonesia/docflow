@@ -9,7 +9,8 @@
 
 ## Testing
 <!-- What you ran and its result. Required: pnpm lint, pnpm typecheck, pnpm test:unit.
-     If editor UI/layout changed: pnpm test:e2e. Screenshots/GIFs for UI changes. -->
+     If editor UI/layout changed: pnpm test:e2e. If DocsEditor props/emits changed:
+     pnpm docs:api:check (fix with pnpm docs:api). Screenshots/GIFs for UI changes. -->
 
 **Demo verified on:** <!-- e.g. playground @ :5200, Chrome 130 — or "N/A: not UI-facing, reason" -->
 
@@ -21,5 +22,6 @@
 - [ ] `pnpm typecheck` passes
 - [ ] `pnpm test:unit` passes
 - [ ] `pnpm test:e2e` passes (if editor UI/layout changed)
+- [ ] `pnpm docs:api:check` passes (if `DocsEditor` props/emits changed)
 - [ ] No backend-only imports added in `packages/*` (see docs/LIBRARY_CONTRACT.md)
 - [ ] Conventional commit title (e.g. `fix(pagination): ...`)

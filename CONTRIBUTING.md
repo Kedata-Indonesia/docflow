@@ -60,6 +60,7 @@ pnpm lint          # ESLint
 pnpm typecheck     # tsc / vue-tsc --noEmit (noUnusedLocals is on — dead bindings fail)
 pnpm test:unit     # vitest
 pnpm test:e2e      # Playwright, if editor UI/layout changed
+pnpm docs:api:check # generated README API tables up to date (CI enforces it)
 pnpm build         # for affected packages
 ```
 
@@ -92,6 +93,7 @@ pnpm build && pnpm dev                    # http://localhost:5200
 # 4. Run the gate
 pnpm lint && pnpm typecheck && pnpm test:unit
 pnpm test:e2e                             # if editor UI/layout changed (drives the demo)
+pnpm docs:api:check                        # if you changed DocsEditor props/emits (CI-enforced; fix with `pnpm docs:api`)
 
 # 5. Commit (Conventional Commits), push the branch, open a PR against main
 git push -u origin feat/<short-topic>
