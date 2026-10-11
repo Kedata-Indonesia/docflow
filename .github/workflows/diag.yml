@@ -1,0 +1,37 @@
+name: diag
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.9.0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          registry-url: 'https://registry.npmjs.org'
+          scope: '@kedataindo'
+      - name: Probe npm view (unredacted)
+        run: |
+          echo "node $(node -v)  npm $(npm -v)"
+          echo "which npm: $(which npm)"
+          echo "NPM_CONFIG_USERCONFIG=$NPM_CONFIG_USERCONFIG"
+          echo "--- user .npmrc ---"; cat "${NPM_CONFIG_USERCONFIG:-$HOME/.npmrc}" 2>&1 || true
+          echo "--- project .npmrc ---"; cat .npmrc 2>&1 || true
+          echo "--- npm config get registry ---"; npm config get registry 2>&1 || true
+          echo "--- npm view (redirected, as the publish step does) ---"
+          if npm view "@kedataindo/docflow-core@0.0.86" version --registry=https://registry.npmjs.org &>/dev/null 2>&1; then
+            echo "VIEW-OK (would skip)"
+          else
+            echo "VIEW-FAILED (would publish) exit=$?"
+          fi
+          echo "--- npm view (unredacted) ---"
+          npm view "@kedataindo/docflow-core@0.0.86" version --registry=https://registry.npmjs.org; echo "view exit=$?"
