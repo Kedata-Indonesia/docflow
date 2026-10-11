@@ -137,6 +137,19 @@ custom column resize), not knowing it removed the convergence mechanism.)
   ambiguous plain text stays plain. Never surprise-convert.
 - **Fix the readback loop before the pipeline.** A nicer sanitizer still
   feeds the same wedging renderer.
+- **Table page-splits are not undoable (they are layout, not edits).** When a
+  tall table is split into page-sized chunks, the split transaction is
+  dispatched with `addToHistory: false`, so it never becomes an undo step.
+  Rationale: a split is a layout artifact, not a user action. Recording it
+  would let Ctrl+Z "undo" a split nobody made — the doc reverts to one table
+  and the plugin immediately splits it again (a no-op undo, plus a new history
+  entry on every pass). Leaving it out keeps undo aimed at the user's real
+  action: one undo reverses the paste/edit, and ProseMirror maps that inverse
+  through the split so the chunk tables still disappear cleanly. The
+  `addToHistory` meta is honoured by both StarterKit's history (non-collab) and
+  y-prosemirror's undo (collab). `tablePageSplitPlugin` (issue #25); the
+  "make splits undoable" / hybrid options were rejected because they fight the
+  auto-splitter or need a fragile "commit on first edit".
 
 ## 4. Stages
 
