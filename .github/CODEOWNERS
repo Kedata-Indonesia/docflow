@@ -1,0 +1,14 @@
+# Code owners (auto-request a reviewer).
+#
+# With a single maintainer today the catch-all covers everything; the explicit
+# paths are the surfaces we want owned by maintainers first as the team grows.
+# This only *requests* a review — the hard gate is the ruleset's "1 approving
+# review from any collaborator" plus the required `ci` check.
+*                       @eppofahmi
+
+# Release & supply-chain surface.
+/.github/               @eppofahmi
+/scripts/               @eppofahmi
+
+# Published packages.
+/packages/              @eppofahmi

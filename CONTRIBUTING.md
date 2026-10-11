@@ -4,7 +4,9 @@ Thanks for your interest in contributing! DocFlow is an open-source (Apache-2.0)
 
 ## Ground rules
 
-- **`main` is protected.** All changes land via pull request — direct pushes are rejected.
+- **`main` is protected.** All changes land via pull request — direct pushes are
+  rejected, the `ci` check must pass, and a PR needs one approving review (see
+  [Branch protection & CI](#branch-protection--ci)).
 - **Be honest in comparisons and claims.** Credibility with developers is our core asset.
 - **The core stays Apache-2.0.** We don't accept changes that gate editor features behind paid services.
 - **Open an issue first** for anything non-trivial (features, schema changes, architectural work) so we can align before you invest time. Small fixes (typos, obvious bugs) can go straight to a PR.
@@ -152,6 +154,29 @@ CI reads your PR **title**: the Conventional Commit type (`feat`, `fix`, `docs`,
 `breaking`. Those labels are exactly what GitHub groups release notes by
 (`.github/release.yml`), so a conventional title keeps the notes tidy — no manual
 labelling needed.
+
+## Branch protection & CI
+
+`main` is protected by a repository ruleset, and CI is enforced on **every pull
+request** — the same gates the release pipeline runs, but *before* a change can
+merge:
+
+| Rule | Effect |
+|------|--------|
+| Pull request required | No direct pushes to `main`. |
+| **`ci` check required** | `lint`, `typecheck`, `test:unit`, `test:scripts`, `docs:api:check` and the package build must pass (`ci.yml`). |
+| **1 approving review** | One approval from a collaborator; approvals are dismissed on new commits and review conversations must be resolved. |
+| Force-push / deletion | Blocked. |
+| CODEOWNERS | `.github/`, `scripts/` and `packages/` auto-request a maintainer review. |
+
+The release bot is a ruleset **bypass actor**: the version-bump PR it opens and
+merges itself is exempt, so releases never wait on human review. Everyone else —
+maintainers included — lands changes the same way: branch → PR → green `ci` →
+one approval → merge.
+
+Run the same commands locally before pushing (see
+[Verification](#verification-required-before-every-pr)) so `ci` is green on the
+first try.
 
 ## Branch & release flow
 

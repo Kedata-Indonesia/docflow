@@ -1,0 +1,59 @@
+name: CI
+
+# Runs the same gates the release pipeline runs, but on the pull request — so a
+# change is verified *before* it can merge, not only after it lands on `main`.
+# The `ci` job below is the required status check on `main`.
+#
+# `pull_request` (never `pull_request_target`): no secrets and no base-repo write
+# token are exposed to PR code. Fork PRs run with a read-only token, which is all
+# lint/typecheck/tests/build need.
+on:
+  pull_request:
+    branches: [main]
+
+# A PR's earlier runs are irrelevant once it is pushed to again.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # The job id is the required-check context; keep it `ci`.
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.9.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # Never let a change that fails its own checks reach `main`.
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Unit tests
+        run: pnpm test:unit
+
+      - name: Release-script unit tests
+        run: pnpm test:scripts
+
+      # The README API tables are generated from the public component contract.
+      - name: Verify generated API docs are up to date
+        run: pnpm docs:api:check
+
+      # Only the publishable packages: `examples/*` must not be able to block CI.
+      - name: Build packages
+        run: pnpm -r --filter "./packages/*" run build
