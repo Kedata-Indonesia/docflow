@@ -208,26 +208,37 @@ The commit-back step therefore:
 
 1. pushes the bump commit to a throwaway branch
    `release/bump-<run-id>-<attempt>`;
-2. opens a PR titled `chore(release): bump <packages> [skip ci]` and merges it
-   with `GITHUB_TOKEN` — that route satisfies the ruleset, and a `GITHUB_TOKEN`
-   merge cannot re-trigger this workflow;
+2. opens a PR titled `chore(release): bump <packages> [skip ci]` and merges it as
+   `RELEASE_TOKEN` (a `GITHUB_TOKEN` merge cannot re-trigger this workflow either
+   way);
 3. re-checks that the bump commit is an ancestor of `main`, and fails the run
    (`::error::version bump did not reach main`) if it is not — a green run never
    means "published but the repo drifted".
 
-Does a `GITHUB_TOKEN` PR survive the ruleset's
-`require_extra_approval_for_unattributed_changes: true`? **Yes, verified** (probe
-PR #76, 2026-10-08): a PR opened by `app/github-actions` carrying a
-`github-actions[bot]` commit reported `mergeable: MERGEABLE` and
-`mergeStateStatus: CLEAN` with an empty `reviewDecision` — no extra approval was
-demanded. GitHub's docs say that setting has no effect while the ruleset requires
-zero approvals (it targets Copilot-authored PRs, and GitHub defaults it to `true`
-when a ruleset body omits it). Weakening the ruleset is therefore unnecessary.
+#### The bot's bypass (`RELEASE_TOKEN`)
 
-The self-merge would only need help if `required_approving_review_count` were
-raised above zero — on a single-maintainer repo nobody could supply that approval.
-In that case either let the GitHub Actions app (`Integration`, id `15368`) bypass
-the ruleset, or keep syncing versions manually as before.
+`protect-default-branch` requires the **`ci` check** and **one approving review**.
+A `GITHUB_TOKEN` PR can satisfy neither: GitHub does not run workflows for
+`GITHUB_TOKEN` events, so `ci` would never report and the merge would wait
+forever, and a bot PR cannot approve itself. So the step pushes and merges as
+**`RELEASE_TOKEN`** — a PAT owned by an **org admin**, whose repository role
+(`admin`) is a ruleset *bypass actor*.
+
+The built-in **GitHub Actions** app (`Integration`, id `15368`) **cannot** be that
+bypass actor on a repository ruleset here — the API rejects it with *"Actor GitHub
+Actions integration must be part of the ruleset source or owner organization"* —
+hence the PAT.
+
+Setup:
+
+1. Create a PAT — fine-grained (`Contents: read/write`, `Pull requests:
+   read/write`, this repository) or classic (`repo` + `workflow`) — on an account
+   with **admin** on the repository.
+2. Add it as the repository secret **`RELEASE_TOKEN`**.
+
+The workflow falls back to `GITHUB_TOKEN` when the secret is absent, which is only
+safe while the ruleset has **no** required checks/reviews — do not add required
+checks/reviews before the secret exists.
 
 > **Branch protection alternative:** removing the commit-back step and bumping
 > versions by hand is still supported — the publish step stays idempotent, so a
