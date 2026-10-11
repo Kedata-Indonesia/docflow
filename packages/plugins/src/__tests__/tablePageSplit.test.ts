@@ -295,4 +295,46 @@ describe('tablePageSplitPlugin', () => {
     ]
     expect(tailSizes).toEqual([2, 4])
   })
+
+  it('does not record table splits in undo history (a split is a layout artifact)', async () => {
+    // Start with no table, so the insertion below is the only history entry.
+    s = setup(
+      { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'before' }] }] },
+      { pageContentPx: 200 },
+    )
+    await s.awaitSplit()
+
+    // Insert a tall table the way a paste would — one ordinary, undoable edit.
+    const bigTable = makeBigTableDoc(20).content[1]
+    s.inst.editor.commands.insertContentAt(s.inst.editor.state.doc.content.size, bigTable)
+    await s.awaitSplit()
+
+    const count = () => docContent(s.inst.editor.getJSON()).filter((n) => n.type === 'table').length
+    expect(count()).toBe(4) // the split happened
+
+    // One undo reverses the *insertion* (the user's action), not the split. If
+    // the split were an undo step, this would collapse to 1 table and the
+    // plugin would immediately re-split to 4 — an undo that visibly does
+    // nothing (issue #25).
+    s.inst.editor.commands.undo()
+    await s.awaitSplit()
+    expect(count()).toBe(0)
+  })
+
+  it('a split triggered without a user edit is not itself an undo step', async () => {
+    s = setup(makeBigTableDoc(20), { pageContentPx: 200 })
+
+    // Trigger the split with a no-op transaction — the shape of a programmatic
+    // load / layout pass, where there is no local user edit to undo.
+    s.inst.editor.view.dispatch(s.inst.editor.state.tr)
+    await s.awaitSplit()
+
+    const count = () => docContent(s.inst.editor.getJSON()).filter((n) => n.type === 'table').length
+    expect(count()).toBe(4)
+
+    // The split must not have entered the undo history: otherwise Ctrl+Z would
+    // "undo" it back to one table and this plugin would immediately split it
+    // again — an undo that does nothing on a split nobody made.
+    expect(s.inst.editor.can().undo()).toBe(false)
+  })
 })

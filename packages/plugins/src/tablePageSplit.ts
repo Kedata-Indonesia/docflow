@@ -31,6 +31,9 @@ import type { Node as PMNode, NodeType, Schema } from '@tiptap/pm/model'
  *  - When the split pass dispatches its own tr back through the editor, the
  *    resulting `appendTransaction` cycle is detected via `PLUGIN_KEY` meta
  *    and skipped, avoiding recursion.
+ *  - That split tr is dispatched with `addToHistory: false`: a split is a
+ *    layout artifact, not a user edit, so undo must not reverse it (see
+ *    `runSplitPass` and docs/plans/clipboard-paste-pipeline-plan.md §3).
  *  - Each table's recursion predicts the tail's row heights from the
  *    existing measurements (the row Nodes are shared across the split),
  *    so each individual split converges in O(log n) within one tr.
@@ -388,6 +391,16 @@ function runSplitPass(view: EditorView, editor: EditorWithPaginationStorage | nu
     tr.replaceWith(pos, pos + node.nodeSize, chain)
   }
   tr.setMeta(PLUGIN_KEY, { splitAtRow: -1 })
+  // A split is a layout artifact, not a user edit, so it must not become an
+  // undo step. If it did, Ctrl+Z would collapse the split back to the original
+  // table and this plugin would immediately split it again — an undo that
+  // visibly does nothing (and adds a history entry on every pass). Keeping the
+  // split out of history means one undo reverses the user's real action (the
+  // paste or cell edit); ProseMirror maps that inverse through the split, so
+  // the chunk tables still disappear cleanly. `addToHistory` is honoured by
+  // both StarterKit's history (non-collab) and y-prosemirror's undo (collab).
+  // Decision: docs/plans/clipboard-paste-pipeline-plan.md §3, issue #25.
+  tr.setMeta('addToHistory', false)
   v.dispatch(tr)
 }
 
