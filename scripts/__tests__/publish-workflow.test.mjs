@@ -53,6 +53,24 @@ test('publish step does not write the npm token into the tracked .npmrc', () => 
   )
 })
 
+test('the npm token is appended newline-safely (setup-node omits a trailing newline)', () => {
+  const body = stepBody('Publish @kedataindo/* to npm')
+  // setup-node v6+ writes the user .npmrc WITHOUT a trailing newline, so a bare
+  // `echo … >> file` concatenates onto the last line — corrupting
+  // `@scope:registry` and making every scoped `npm view` fail (run 38183681839:
+  // the "already published" check wrongly tried to re-publish and 403-ed).
+  assert.doesNotMatch(
+    body,
+    /echo "\/\/registry\.npmjs\.org\/:_authToken=\$\{NPM_TOKEN\}" >>/,
+    'a bare echo append would concatenate onto the last .npmrc line',
+  )
+  assert.match(
+    body,
+    /printf '\\n\/\/registry\.npmjs\.org\/:_authToken=%s\\n'/,
+    'the token must be appended with an explicit leading newline',
+  )
+})
+
 test('a bumped package already on npm fails loudly instead of skipping silently', () => {
   const body = stepBody('Publish @kedataindo/* to npm')
   assert.match(

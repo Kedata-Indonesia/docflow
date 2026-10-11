@@ -120,7 +120,14 @@ jobs:
           # the checkout, so write the token there (falling back to npm's default
           # user config).
           NPMRC="${NPM_CONFIG_USERCONFIG:-$HOME/.npmrc}"
-          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" >> "$NPMRC"
+          # The leading newline is load-bearing. setup-node v6+ writes this file
+          # WITHOUT a trailing newline, so a bare append concatenates the token
+          # onto the last line — corrupting `@kedataindo:registry`, which makes
+          # every scoped `npm view` fail. The idempotency check below then thinks
+          # nothing is published and re-publishes, 403-ing the run (regression:
+          # run 38183681839, after the actions were bumped to checkout v7 /
+          # setup-node v7 / pnpm-action-setup v6).
+          printf '\n//registry.npmjs.org/:_authToken=%s\n' "${NPM_TOKEN}" >> "$NPMRC"
 
           # Step 1: Backup package.json and rewrite ALL package.json files (name + deps + workspace:* -> actual version)
           for pkg in core layout-engine plugins vue element export; do
