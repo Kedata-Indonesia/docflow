@@ -39,6 +39,9 @@ Built on [TipTap](https://tiptap.dev) / [ProseMirror](https://prosemirror.net) w
 
 | | DocFlow | TipTap | CKEditor 5 | OnlyOffice |
 |---|---------|--------|------------|------------|
+| Footnotes (page-anchored) | ✅ Built-in | 💰 Pages (Pro extension) | 💰 Premium — and grouped as endnotes, *not* per page | ✅ Full suite |
+| Citation styles (CSL) | ✅ Built-in (APA · MLA · Chicago), citeproc | ❌ Not included | ❌ Not included | 🔌 Zotero / Mendeley plugin |
+| Self-updating bibliography | ✅ Built-in | ❌ Not included | ❌ Not included | 🔌 Zotero / Mendeley plugin |
 | A4 pagination / page breaks | ✅ Built-in | 💰 Pages (Pro extension) | 💰 Premium plugin | ✅ Full suite (heavy) |
 | Headers / footers with page numbers | ✅ Built-in | 💰 Pages (Pro extension) | 💰 Premium plugin | ✅ |
 | Real-time collaboration | ✅ Yjs, self-hostable | Hocuspocus (OSS backend); Collab cloud is paid | 💰 Premium | ✅ |
@@ -46,7 +49,7 @@ Built on [TipTap](https://tiptap.dev) / [ProseMirror](https://prosemirror.net) w
 | Embeddable npm packages | ✅ | ✅ | ✅ | iframe / heavy |
 | Layout-aware AI hooks | ✅ Ports included | 💰 Content AI (paid add-on) | 💰 AI Assistant (paid add-on) | AI plugin exists; no layout-aware hooks |
 
-*Honest take: if you don't need pages, use TipTap. If you need Word-style documents inside your own app, that's us.*
+*Honest take: if you don't need pages, use TipTap. If you need Word-style documents inside your own app — footnotes, citations, and bibliographies included — that's us. For a full office suite with a server, OnlyOffice is the closer fit; for an embeddable engine, it's between DocFlow and TipTap.*
 
 ## Who is this for?
 
