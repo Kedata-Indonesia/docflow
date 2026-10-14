@@ -19,6 +19,8 @@ apps/server/data/
 # Agent configuration (local only)
 AGENTS.md
 CLAUDE.md
+.opencode/
+opencode.json
 
 # The UI review harness (examples/playground) is tracked in-repo so a fresh
 # clone can run `pnpm dev` directly. Its build output and dependencies stay
