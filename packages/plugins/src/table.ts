@@ -111,12 +111,12 @@ const CustomTable = Table.extend({
             const cell = (event.target as HTMLElement | null)?.closest?.('td, th') ?? null
             if (!cell) return false
 
-            // Already inside the pointed-at cell → default behaviour.
-            const $pos = view.state.doc.resolve(pos)
-            for (let d = $pos.depth; d > 0; d--) {
-              const name = $pos.node(d).type.name
-              if (name === 'tableCell' || name === 'tableHeader') return false
-            }
+            // Only the EMPTY-cell case mis-resolves: with no word to land on,
+            // the browser/ProseMirror double-click word-selection falls back to
+            // a neighbouring cell. Cells that have text keep the default
+            // word-selection behaviour.
+            if ((cell.textContent ?? '').trim() !== '') return false
+            void pos
 
             const cellPos = view.posAtDOM(cell, 0)
             const selection = TextSelection.near(view.state.doc.resolve(cellPos), 1)
