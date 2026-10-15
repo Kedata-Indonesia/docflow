@@ -108,6 +108,11 @@ export interface DocsEditorProps {
   headerMarginCm?: number
   /** Distance from the bottom paper edge to the footer content, in cm. */
   footerMarginCm?: number
+  /**
+   * Actions this host does not implement. Dimmed (still visible),
+   * `aria-disabled="true"`, `reason` becomes the tooltip. (issue #153)
+   */
+  unimplementedActions?: Array<string | { action: string; reason?: string }>
 }
 
 export const docsEditorPropDefaults = {
@@ -143,6 +148,7 @@ export const docsEditorPropDefaults = {
   margins: () => ({ top: 94, bottom: 94, left: 94, right: 94 }),
   headerMarginCm: 0.5,
   footerMarginCm: 0.5,
+  unimplementedActions: () => [],
 } satisfies Record<keyof Required<DocsEditorProps>, unknown>
 
 export interface DocsEditorEmits {

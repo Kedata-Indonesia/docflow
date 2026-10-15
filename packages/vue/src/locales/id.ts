@@ -136,6 +136,9 @@ export default {
     keyboardShortcuts: 'Pintasan keyboard',
     reportIssue: 'Laporkan masalah',
     about: 'Tentang DocsEditor',
+    // Host-owned menu items (#153) — dimmed marker + default tooltip.
+    hostOwned: 'host',
+    hostOwnedHint: 'Aksi milik host — editor hanya memancarkan event dan aplikasi host yang mengimplementasikannya.',
   },
   toolbar: {
     undo: 'Urungkan',

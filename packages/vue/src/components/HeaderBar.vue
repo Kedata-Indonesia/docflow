@@ -1,22 +1,14 @@
 <script setup lang="ts">
-import { ref, watch, computed, onMounted, onUnmounted, nextTick, type Component } from 'vue'
+import { ref, watch, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import {
   Star, Share2, Users, ChevronDown, MoreVertical, Check,
-  FilePlus2, FolderOpen, Copy, Mail, Download, FileText, Pencil,
-  FolderInput, History, Info, ShieldCheck, Languages, Settings, Printer,
-  Undo2, Redo2, Scissors, ClipboardPaste, Text as TextIcon, Search,
-  PanelLeft, Maximize2, Ruler, Trash2,
-  NotebookPen, ImagePlus, Table, Code2, Minus, Link2, SeparatorHorizontal,
-  Heading, PanelBottom, List, Hash, ScrollText,
-  Bold, Italic, Underline, Heading1, Heading2, Heading3,
-  IndentIncrease, AlignLeft, AlignCenter, AlignRight, AlignJustify,
-  ListOrdered, ListChecks, RemoveFormatting, SpellCheck, SlidersHorizontal,
-  Puzzle, Keyboard, Bug, CircleHelp,
-  Sparkles, LayoutTemplate, Calendar, MapPin, Eye, PenLine, GitPullRequest,
+  PenLine, Eye,
 } from 'lucide-vue-next'
 import type { Collaborator } from '../types.js'
 import type { DocumentMode } from '@kedata-indonesia/docflow-core'
 import ThemeToggle from './ThemeToggle.vue'
+import { buildMenus } from './menuStructure.js'
+import { findHeaderBarAction, type ExportFormat, type HeaderBarActionHandlers } from './headerBarActions.js'
 import { useLocale, getSupportedLocales, getLocaleName } from '../composables/useLocale.js'
 import { useTheme } from '../composables/useTheme.js'
 import logoWhite from '../assets/logo-white.png'
@@ -43,6 +35,13 @@ const props = withDefaults(
     simulatorsActive?: boolean
     userName?: string
     userAvatar?: string
+    /**
+     * Actions this host does not implement (issue #153). They stay visible but
+     * dimmed, carry `aria-disabled="true"` and show `reason` (or a localized
+     * default) as the tooltip; clicking still emits, so the host can watch the
+     * event fire in the log.
+     */
+    unimplementedActions?: Array<string | { action: string; reason?: string }>
   }>(),
   {
     title: 'Untitled Document',
@@ -58,6 +57,7 @@ const props = withDefaults(
     simulatorsActive: false,
     userName: '',
     userAvatar: '',
+    unimplementedActions: () => [],
   },
 )
 
@@ -112,7 +112,7 @@ const getInitials = (name: string) =>
     .slice(0, 2)
     .toUpperCase()
 
-const handleExport = (format: 'markdown' | 'html' | 'html-zip' | 'txt' | 'docx' | 'pdf' | 'odt' | 'rtf') => {
+const handleExport = (format: ExportFormat) => {
   emit('export', format)
   activeMenu.value = null
 }
@@ -124,224 +124,49 @@ const avatarError = ref(false)
 // Platform detection — used to show OS-appropriate shortcut hints (⌘ on Mac, Ctrl+ elsewhere).
 const isMac = typeof navigator !== 'undefined' && /mac/i.test(navigator.platform)
 
-/**
- * Returns a platform-appropriate modifier shortcut hint.
- * Pass the key portion after the modifier, e.g. `'Z'`, `'⇧V'`.
- * On Mac:     `⌘Z`, `⌘⇧V`
- * On Windows/Linux: `Ctrl+Z`, `Ctrl+Shift+V`
- */
-function modKey(key: string): string {
-  return isMac ? `⌘${key}` : `Ctrl+${key.replace('⇧', 'Shift+')}`
-}
-
-// Menu structure
-interface MenuSubItem {
-  label: string
-  action: string
-  badge?: string
-  icon?: Component
-  shortcut?: string
-}
-
-interface MenuItem {
-  label: string
-  action?: string
-  divider?: boolean
-  /** Keyboard shortcut hint displayed right-aligned (Google Docs style). */
-  shortcut?: string
-  /** Toggle items render a check gutter; true shows the check mark. */
-  checked?: boolean
-  /** Leading icon (16x16 Lucide) for visual scanability per issue #140. */
-  icon?: Component
-  sub?: MenuSubItem[]
-}
-
-const menus = computed<Record<string, { label: string; items: MenuItem[] }>>(() => ({
-  File: {
-    label: t('header.file'),
-    items: [
-      {
-        label: t('header.new'), icon: FilePlus2, sub: [
-          { label: t('header.newDocument'), action: 'new-doc', icon: FilePlus2 },
-          { label: t('header.helpMeCreate'), action: 'new-help-me-create', icon: Sparkles },
-          { label: t('header.fromTemplate'), action: 'new-from-template', icon: LayoutTemplate },
-        ]
-      },
-      { label: t('header.open'), action: 'open-doc', icon: FolderOpen },
-      { label: t('header.makeACopy'), action: 'duplicate', icon: Copy },
-      { label: 'divider', divider: true },
-      { label: t('header.share'), action: 'share', icon: Share2 },
-      { label: t('header.email'), action: 'email', icon: Mail },
-      {
-        label: t('header.download'), icon: Download, sub: [
-          { label: t('header.docx'), action: 'export:docx', badge: 'DOCX', icon: FileText },
-          { label: t('header.pdf'), action: 'export:pdf', badge: 'PDF', icon: FileText },
-          { label: t('header.odt'), action: 'export:odt', badge: 'ODT', icon: FileText },
-          { label: t('header.txt'), action: 'export:txt', badge: 'TXT', icon: FileText },
-          { label: t('header.rtf'), action: 'export:rtf', badge: 'RTF', icon: FileText },
-          { label: t('header.htmlZip'), action: 'export:html-zip', badge: 'ZIP', icon: FileText },
-          { label: t('header.html'), action: 'export:html', badge: 'HTML', icon: FileText },
-          { label: t('header.markdown'), action: 'export:markdown', badge: 'MD', icon: FileText },
-        ]
-      },
-      { label: 'divider', divider: true },
-      { label: t('header.rename'), action: 'rename', icon: Pencil },
-      { label: t('header.move'), action: 'move', icon: FolderInput },
-      { label: t('header.addToStarred'), action: 'add-to-starred', icon: Star },
-      { label: t('header.moveToTrash'), action: 'trash', icon: Trash2 },
-      { label: 'divider', divider: true },
-      { label: t('header.versionHistory'), action: 'version-history', icon: History },
-      { label: 'divider', divider: true },
-      { label: t('header.details'), action: 'details', icon: Info },
-      { label: t('header.security'), action: 'security', icon: ShieldCheck },
-      { label: 'divider', divider: true },
-      {
-        label: t('header.language'), icon: Languages, sub: supportedLocales.map((loc) => ({
-          label: getLocaleName(loc),
-          action: `set-locale:${loc}`,
-        }))
-      },
-      { label: t('header.pageSetup'), action: 'page-setup', icon: Settings },
-      { label: t('header.print'), action: 'print', icon: Printer },
-    ],
-  },
-  Edit: {
-    label: t('header.edit'),
-    items: [
-      { label: t('header.undo'), action: 'undo', shortcut: modKey('Z'), icon: Undo2 },
-      { label: t('header.redo'), action: 'redo', shortcut: modKey('Y'), icon: Redo2 },
-      { label: 'divider', divider: true },
-      { label: t('header.cut'), action: 'cut', shortcut: modKey('X'), icon: Scissors },
-      { label: t('header.copy'), action: 'copy', shortcut: modKey('C'), icon: Copy },
-      { label: t('header.paste'), action: 'paste', shortcut: modKey('V'), icon: ClipboardPaste },
-      { label: t('header.pasteWithoutFormatting'), action: 'paste-without-formatting', shortcut: modKey('⇧V'), icon: ClipboardPaste },
-      { label: 'divider', divider: true },
-      { label: t('header.selectAll'), action: 'select-all', shortcut: modKey('A'), icon: TextIcon },
-      { label: t('header.delete'), action: 'delete', icon: Trash2 },
-      { label: 'divider', divider: true },
-      { label: t('header.findAndReplace'), action: 'find-replace', shortcut: modKey('⇧H'), icon: Search },
-    ],
-  },
-  View: {
-    label: t('header.view'),
-    items: [
-      { label: t('header.showSidebar'), action: 'toggle-left-sidebar', checked: props.outlineOpen, icon: PanelLeft },
-      { label: 'divider', divider: true },
-      { label: t('header.focusMode'), action: 'toggle-focus-mode', checked: props.focusMode, icon: Maximize2 },
-      { label: t('header.showRuler'), action: 'toggle-ruler', checked: props.showRuler, icon: Ruler },
-      { label: 'divider', divider: true },
-      {
-        label: t('header.documentMode'), icon: Eye, sub: [
-          { label: t('header.modeEditing'), action: 'mode-editing', checked: props.mode === 'editing', icon: Pencil },
-          { label: t('header.modeSuggesting'), action: 'mode-suggesting', checked: props.mode === 'suggesting', icon: PenLine },
-          { label: t('header.modeViewing'), action: 'mode-viewing', checked: props.mode === 'viewing', icon: Eye },
-        ]
-      },
-    ],
-  },
-  Insert: {
-    label: t('header.insert'),
-    items: [
-      { label: t('header.meetingNotes'), action: 'meeting-notes', icon: NotebookPen },
-      { label: t('header.emailDraft'), action: 'email-draft', icon: Mail },
-      { label: 'divider', divider: true },
-      { label: t('header.image'), action: 'insert-image', icon: ImagePlus },
-      { label: t('header.table'), action: 'insert-table', icon: Table },
-      { label: t('header.codeBlock'), action: 'insert-code', icon: Code2 },
-      { label: t('header.horizontalLine'), action: 'horizontal-line', icon: Minus },
-      { label: 'divider', divider: true },
-      { label: t('header.link'), action: 'insert-link', shortcut: modKey('K'), icon: Link2 },
-      { label: 'divider', divider: true },
-      {
-        label: t('header.smartElements'), icon: Sparkles, sub: [
-          { label: t('header.dateChip'), action: 'insert-date-chip', icon: Calendar },
-          { label: t('header.peopleChip'), action: 'insert-people-chip', icon: Users },
-          { label: t('header.fileChip'), action: 'insert-file-chip', icon: FileText },
-          { label: t('header.dropdownChip'), action: 'insert-dropdown-chip', icon: ChevronDown },
-          { label: t('header.locationChip'), action: 'insert-location-chip', icon: MapPin },
-        ]
-      },
-      { label: 'divider', divider: true },
-      {
-        label: t('header.break'), icon: SeparatorHorizontal, sub: [
-          { label: t('header.pageBreak'), action: 'insert-page-break', shortcut: t('header.pageBreakShortcut'), icon: Minus },
-        ]
-      },
-      { label: 'divider', divider: true },
-      { label: t('header.header'), action: 'insert-header', icon: Heading },
-      { label: t('header.footer'), action: 'insert-footer', icon: PanelBottom },
-      { label: t('header.footnote'), action: 'insert-footnote', icon: List },
-      { label: t('header.tableOfContents'), action: 'insert-toc', icon: List },
-      { label: 'divider', divider: true },
-      {
-        label: t('header.pageNumbers'), icon: Hash, sub: [
-          { label: t('header.pageNumberInHeader'), action: 'page-numbers-header', icon: Heading },
-          { label: t('header.pageNumberInFooter'), action: 'page-numbers-footer', icon: PanelBottom },
-        ]
-      },
-    ],
-  },
-  Format: {
-    label: t('header.format'),
-    items: [
-      { label: t('header.bold'), action: 'bold', icon: Bold },
-      { label: t('header.italic'), action: 'italic', icon: Italic },
-      { label: t('header.underline'), action: 'underline', icon: Underline },
-      { label: 'divider', divider: true },
-      { label: t('header.heading1'), action: 'heading1', icon: Heading1 },
-      { label: t('header.heading2'), action: 'heading2', icon: Heading2 },
-      { label: t('header.heading3'), action: 'heading3', icon: Heading3 },
-      { label: 'divider', divider: true },
-      {
-        label: t('header.alignIndent'), icon: IndentIncrease, sub: [
-          { label: t('header.alignLeft'), action: 'align-left', icon: AlignLeft },
-          { label: t('header.alignCenter'), action: 'align-center', icon: AlignCenter },
-          { label: t('header.alignRight'), action: 'align-right', icon: AlignRight },
-          { label: t('header.alignJustify'), action: 'align-justify', icon: AlignJustify },
-        ]
-      },
-      {
-        label: t('header.bulletsNumbering'), icon: List, sub: [
-          { label: t('header.bulletList'), action: 'bullet-list', icon: List },
-          { label: t('header.numberedList'), action: 'numbered-list', icon: ListOrdered },
-          { label: t('header.taskList'), action: 'task-list', icon: ListChecks },
-        ]
-      },
-      { label: 'divider', divider: true },
-      { label: t('header.pagelessFormat'), action: 'toggle-pageless', checked: props.pageless, icon: ScrollText },
-      { label: 'divider', divider: true },
-      { label: t('header.clearFormatting'), action: 'clear-formatting', icon: RemoveFormatting },
-    ],
-  },
-  Tools: {
-    label: t('header.tools'),
-    items: [
-      { label: t('header.spellCheck'), action: 'spellcheck', icon: SpellCheck },
-      { label: t('header.wordCount'), action: 'word-count', icon: Hash },
-      { label: 'divider', divider: true },
-      { label: t('header.reviewSuggestedEdits'), action: 'review-suggestions', icon: GitPullRequest },
-      { label: 'divider', divider: true },
-      { label: t('header.preferences'), action: 'preferences', icon: SlidersHorizontal },
-    ],
-  },
-  Extensions: {
-    label: t('header.extensions'),
-    items: [
-      { label: t('header.manageExtensions'), action: 'manage-extensions', icon: Puzzle },
-    ],
-  },
-  Help: {
-    label: t('header.help'),
-    items: [
-      { label: t('header.keyboardShortcuts'), action: 'keyboard-shortcuts', icon: Keyboard },
-      { label: 'divider', divider: true },
-      { label: t('header.reportIssue'), action: 'report-issue', icon: Bug },
-      { label: t('header.about'), action: 'about', icon: CircleHelp },
-    ],
-  },
+const menus = computed(() => buildMenus({
+  t,
+  isMac,
+  outlineOpen: !!props.outlineOpen,
+  focusMode: !!props.focusMode,
+  showRuler: !!props.showRuler,
+  mode: props.mode ?? 'editing',
+  pageless: !!props.pageless,
+  supportedLocales,
+  getLocaleName,
 }))
 
 const menuKeys = computed(() => Object.keys(menus.value))
+
+// ─── Host-owned menu items (issue #153) ──────────────────────────────────────
+// The host tells us which actions it does not implement. Such items stay
+// visible — dimmed, annotated and still clickable — instead of being hidden,
+// because the click must keep emitting (the playground's event log is the
+// point). One lookup, one set of render helpers.
+const unimplementedLookup = computed(() => {
+  const lookup = new Map<string, string | undefined>()
+  for (const entry of props.unimplementedActions) {
+    if (typeof entry === 'string') lookup.set(entry, undefined)
+    else lookup.set(entry.action, entry.reason)
+  }
+  return lookup
+})
+
+/** `true` when the host flagged this action as one it does not implement. */
+const isUnimplemented = (action?: string): boolean =>
+  !!action && unimplementedLookup.value.has(action)
+
+/** Tooltip for a flagged action: the host's reason, else the localized default. */
+const unimplementedHint = (action?: string): string | undefined => {
+  if (!action || !isUnimplemented(action)) return undefined
+  return unimplementedLookup.value.get(action) || t('header.hostOwnedHint')
+}
+
+/** Flagged items are dimmed and lose the hover fill but stay focusable. */
+const menuItemClass = (action?: string): string[] => [
+  'flex w-full items-center justify-between gap-6 px-4 py-2 text-left',
+  isUnimplemented(action) ? 'opacity-50' : 'hover:bg-slate-50 dark:hover:bg-white/5',
+]
 
 // Sub-menu hover state
 const hoveredSub = ref<string | null>(null)
@@ -373,22 +198,31 @@ const toggleUserMenu = () => {
   userMenuOpen.value = !userMenuOpen.value
 }
 
-const handleMenuAction = (action: string) => {
-  if (action.startsWith('export:')) {
-    const format = action.replace('export:', '') as 'markdown' | 'html' | 'txt'
-    handleExport(format)
-  } else if (action === 'share') {
+// The dispatcher and the host/library classification share ONE table
+// (`HEADER_BAR_ACTIONS` in components/headerBarActions.ts) so they cannot
+// drift: `host: false` entries are resolved in-library (set-locale:*), the
+// `host: true` ones only fire an event for the host to implement.
+const headerBarHandlers: HeaderBarActionHandlers = {
+  exportDocument: (format) => handleExport(format),
+  share: () => {
     emit('share')
     activeMenu.value = null
-  } else if (action === 'add-to-starred') {
+  },
+  toggleStar: () => {
     emit('toggle-star')
     activeMenu.value = null
-  } else if (action === 'rename') {
+  },
+  rename: () => {
     void startRenaming()
     activeMenu.value = null
-  } else if (action.startsWith('set-locale:')) {
-    const loc = action.replace('set-locale:', '') as 'en' | 'id'
-    handleSetLocale(loc)
+  },
+  setLocale: (locale) => handleSetLocale(locale),
+}
+
+const handleMenuAction = (action: string) => {
+  const entry = findHeaderBarAction(action)
+  if (entry) {
+    entry.run(action, headerBarHandlers)
   } else {
     emit('menu-click', action)
   }
@@ -580,7 +414,9 @@ onUnmounted(() => {
                             v-for="sub in item.sub"
                             :key="sub.action"
                             type="button"
-                            class="flex w-full items-center justify-between gap-6 px-4 py-2 text-left hover:bg-slate-50 dark:hover:bg-white/5"
+                            :class="menuItemClass(sub.action)"
+                            :title="unimplementedHint(sub.action)"
+                            :aria-disabled="isUnimplemented(sub.action) ? 'true' : undefined"
                             @click.stop="handleMenuAction(sub.action)"
                           >
                             <span class="flex items-center gap-2.5">
@@ -590,6 +426,13 @@ onUnmounted(() => {
                                 class="h-4 w-4 shrink-0 text-slate-400 dark:text-slate-500"
                               />
                               {{ sub.label }}
+                              <!-- Host-owned marker (#153): never colour-only. -->
+                              <span
+                                v-if="isUnimplemented(sub.action)"
+                                class="rounded bg-amber-100 px-1 py-0.5 text-[9px] font-mono text-amber-700 dark:bg-amber-400/15 dark:text-amber-300"
+                              >
+                                {{ t('header.hostOwned') }}
+                              </span>
                             </span>
                             <span
                               v-if="sub.badge"
@@ -612,7 +455,9 @@ onUnmounted(() => {
                     <button
                       v-else
                       type="button"
-                      class="flex w-full items-center justify-between gap-6 px-4 py-2 text-left hover:bg-slate-50 dark:hover:bg-white/5"
+                      :class="menuItemClass(item.action)"
+                      :title="unimplementedHint(item.action)"
+                      :aria-disabled="isUnimplemented(item.action) ? 'true' : undefined"
                       @click.stop="handleMenuAction(item.action!)"
                     >
                       <span class="flex items-center gap-2.5">
@@ -622,6 +467,13 @@ onUnmounted(() => {
                           class="h-4 w-4 shrink-0 text-slate-400 dark:text-slate-500"
                         />
                         {{ item.label }}
+                        <!-- Host-owned marker (#153): never colour-only. -->
+                        <span
+                          v-if="isUnimplemented(item.action)"
+                          class="rounded bg-amber-100 px-1 py-0.5 text-[9px] font-mono text-amber-700 dark:bg-amber-400/15 dark:text-amber-300"
+                        >
+                          {{ t('header.hostOwned') }}
+                        </span>
                       </span>
                       <span
                         v-if="item.checked"

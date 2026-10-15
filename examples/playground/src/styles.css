@@ -348,6 +348,19 @@ body,
   white-space: nowrap;
 }
 
+/* Issue #153 — marks a log row whose action the host owns (dimmed in the menu). */
+.pg-log__tag {
+  flex: 0 0 auto;
+  padding: 0 5px;
+  border: 1px solid rgb(251 191 36 / 0.4);
+  border-radius: 999px;
+  color: rgb(252 211 77);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 9px;
+  line-height: 16px;
+  text-transform: lowercase;
+}
+
 .pg-log__empty {
   padding: 2px 0;
   color: rgb(100 116 139);

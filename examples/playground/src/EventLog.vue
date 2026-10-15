@@ -16,6 +16,8 @@ defineEmits<{ clear: [] }>()
     <ol class="pg-log__list">
       <li v-for="entry in events" :key="entry.id" class="pg-log__item">
         <code class="pg-log__name">{{ entry.name }}</code>
+        <!-- Issue #153 — the host owns this action (dimmed in the menu too). -->
+        <span v-if="entry.hostOwned" class="pg-log__tag" title="Host-owned action — the playground does not implement it">host-owned</span>
         <span v-if="entry.detail" class="pg-log__detail">{{ entry.detail }}</span>
       </li>
       <li v-if="events.length === 0" class="pg-log__empty">

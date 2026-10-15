@@ -14,6 +14,55 @@ export interface UseEditCommandsOptions {
   persistCurrentDoc: () => void
 }
 
+/**
+ * The keys of `editFormatMenuCommands`, exported so menu classification
+ * (issue #153, `components/menuActions.ts`) can subtract them from the
+ * host-owned set without duplicating the map. `menuActions.drift.test.ts`
+ * asserts this list and the real map never diverge.
+ */
+export const EDIT_FORMAT_MENU_ACTIONS: readonly string[] = [
+  // Edit menu
+  'undo',
+  'redo',
+  'select-all',
+  'cut',
+  'copy',
+  'paste',
+  'paste-without-formatting',
+  'delete',
+  // Format menu — text styles
+  'bold',
+  'italic',
+  'underline',
+  'heading1',
+  'heading2',
+  'heading3',
+  // Format menu — align & indent
+  'align-left',
+  'align-center',
+  'align-right',
+  'align-justify',
+  // Format menu — bullets & numbering
+  'bullet-list',
+  'numbered-list',
+  'task-list',
+  // Insert menu — editor-scoped inserts
+  'horizontal-line',
+  'page-numbers-header',
+  'page-numbers-footer',
+  'clear-formatting',
+  'insert-image',
+  'insert-table',
+  'insert-code',
+  'insert-page-break',
+  'insert-toc',
+  'insert-date-chip',
+  'insert-people-chip',
+  'insert-file-chip',
+  'insert-dropdown-chip',
+  'insert-location-chip',
+]
+
 // Editor-scoped menu actions are executed in-library (the library owns command
 // execution); they are never emitted to the host app. All dispatch is defensive:
 // a missing command (e.g. undo in collab mode where StarterKit history is off,

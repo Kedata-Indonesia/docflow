@@ -293,6 +293,7 @@ const MyPlugin = definePlugin({
 | `margins` | `{ top: number; bottom: number; left: number; right: number }` | `{ top: 94, bottom: 94, left: 94, right: 94 }` | Page margins in points. Persisted by the host. |
 | `headerMarginCm` | `number` | `0.5` | Distance from the paper edge to the header/footer content, in cm. |
 | `footerMarginCm` | `number` | `0.5` | Distance from the bottom paper edge to the footer content, in cm. |
+| `unimplementedActions` | `Array<string \| { action: string; reason?: string }>` | `[]` | Actions this host does not implement. Dimmed (still visible), `aria-disabled="true"`, `reason` becomes the tooltip. (issue #153) |
 <!-- api:props:end -->
 
 ### Events
