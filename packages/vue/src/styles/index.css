@@ -224,8 +224,15 @@
   margin: 1rem 0 !important;
 }
 
+/*
+ * Heading sizes are DEFAULTS, deliberately without !important: a size chosen
+ * from the toolbar renders as an inline `font-size` on the text (textStyle
+ * mark), and an !important here would override it — so the font-size control
+ * had no effect on a heading (#143). Inline styles now win; headings that never
+ * set a size keep these defaults.
+ */
 .ProseMirror h1 {
-  font-size: 1.875rem !important;
+  font-size: 1.875rem;
   font-weight: 700 !important;
   line-height: 1.25 !important;
   margin-top: 1.25rem !important;
@@ -233,7 +240,7 @@
 }
 
 .ProseMirror h2 {
-  font-size: 1.5rem !important;
+  font-size: 1.5rem;
   font-weight: 700 !important;
   line-height: 1.35 !important;
   margin-top: 1rem !important;
@@ -241,7 +248,7 @@
 }
 
 .ProseMirror h3 {
-  font-size: 1.25rem !important;
+  font-size: 1.25rem;
   font-weight: 700 !important;
   line-height: 1.4 !important;
   margin-top: 0.875rem !important;
@@ -327,14 +334,17 @@
 /* ── Tables ─────────────────────────────────────────────────────────── */
 
 /*
- * Table layout: columns auto-size to content by default, so a pasted table
- * whose source widths were stripped (GDocs/Word embed widths in <style>,
- * which the paste pipeline removes for safety) doesn't collapse to equal
- * columns and wrap long text — wrapping doubled row height and pushed tables
- * taller than a page (see docs/plans/clipboard-paste-pipeline-plan.md, paste
- * table fix). Tables with explicit colwidths (set by ManualColumnResize or by
- * paste from a source that carries inline widths) get table-layout: fixed,
- * which is required for ManualColumnResize to drive layout from <colgroup col>.
+ * Table layout (#140): fixed. Column widths are decided by the first row /
+ * <col> widths — NOT by the cell content — so typing in a cell wraps the text
+ * and grows the ROW height instead of widening the COLUMN and squeezing its
+ * neighbours. Tables that carry explicit colwidths (ManualColumnResize, or a
+ * paste source with inline widths) render with those exact widths; tables
+ * without them fall back to equal columns.
+ *
+ * This reverses the earlier `table-layout: auto` choice (content-sized
+ * columns). That avoided doubling row height on pasted GDocs/Word tables whose
+ * source widths were stripped, but it made columns shift as you typed, which
+ * is the reported bug. Wrapping is the behaviour users expect (#140).
  */
 .rm-with-pagination table,
 .ProseMirror table {
@@ -349,7 +359,7 @@
    */
   margin: 2px 0 0.5rem !important;
   overflow: visible;
-  table-layout: auto;
+  table-layout: fixed;
   width: 100%;
   display: table !important;
 }
@@ -389,6 +399,10 @@
   padding: 0.5rem 0.75rem;
   position: relative;
   vertical-align: top;
+  /* Wrap long words so a single token can never force the column wider (#140). */
+  overflow-wrap: break-word;
+  word-break: break-word;
+  white-space: normal;
 }
 
 .ProseMirror th {

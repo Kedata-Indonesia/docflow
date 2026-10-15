@@ -6,12 +6,12 @@ import { tablePlugin } from '../index.js'
  * Tests for the column-layout switch in CustomTable.renderHTML
  * (packages/plugins/src/table.ts).
  *
- * Tables WITHOUT explicit colwidth render with `table-layout: auto` (columns
- * size to content) so a pasted table whose source widths were stripped doesn't
- * collapse to equal columns and wrap long text. Tables WITH explicit colwidth
- * get `data-colwidth="explicit"`, which CSS scopes to `table-layout: fixed`
- * (required by ManualColumnResize). See
- * docs/plans/clipboard-paste-pipeline-plan.md (paste table fix).
+ * Every table renders with `table-layout: fixed` (#140): column widths come
+ * from the first row / <col> widths, not from cell content, so typing wraps the
+ * text and grows the row height instead of widening the column. Tables WITH
+ * explicit colwidth still emit `data-colwidth="explicit"` and per-column <col>
+ * widths, which is what ManualColumnResize drives (and what gives those tables
+ * their exact, non-equal widths); tables without it fall back to equal columns.
  */
 
 function setup(content: object) {

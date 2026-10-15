@@ -12,6 +12,7 @@ export { pageBreakPlugin, PageBreak } from './pageBreak.js'
 export { footnotePlugin, FootnoteNode } from './footnote.js'
 export { tocPlugin, TocNode, TocEntryNode, TocPageNumNode, collectHeadings, regenerateToc } from './toc.js'
 export { fontSizePlugin, FontSizeExtension } from './fontSize.js'
+export { fontFamilyPlugin, FontFamilyExtension } from './fontFamily.js'
 export { textColorPlugin } from './textColor.js'
 export { highlightPlugin } from './highlight.js'
 export { citationPlugin, CitationNode, CitationEngineExtension, getCitationEngine, buildCitationNodes } from './citation.js'
@@ -58,6 +59,7 @@ import { pageBreakPlugin } from './pageBreak.js'
 import { footnotePlugin } from './footnote.js'
 import { tocPlugin } from './toc.js'
 import { fontSizePlugin } from './fontSize.js'
+import { fontFamilyPlugin } from './fontFamily.js'
 import { textColorPlugin } from './textColor.js'
 import { highlightPlugin } from './highlight.js'
 import { citationPlugin } from './citation.js'
@@ -83,6 +85,7 @@ export const defaultPlugins = [
   footnotePlugin,
   tocPlugin,
   fontSizePlugin,
+  fontFamilyPlugin,
   textColorPlugin,
   highlightPlugin,
   citationPlugin,

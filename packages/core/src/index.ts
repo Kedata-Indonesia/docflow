@@ -9,6 +9,7 @@ export {
 } from './PerformanceMonitor.js'
 export { BlockAttributesExtension } from './BlockAttributes.js'
 export { FontSizeExtension } from './FontSize.js'
+export { FontFamilyExtension } from './FontFamily.js'
 export { EditorContextExtension, type EditorContextOptions } from './EditorContext.js'
 export {
   SearchAndReplaceExtension,
