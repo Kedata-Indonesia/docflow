@@ -458,6 +458,14 @@ const currentFontSize = computed<number>(() => {
     }
   }
 
+  // Headings take their size from CSS, not a textStyle mark, so the control
+  // would otherwise report the body size (#143). Reflect the heading's real
+  // size for H1–H3; H4–H6 have no explicit size, so they fall through to base.
+  const HEADING_FONT_SIZES: Record<number, number> = { 1: 30, 2: 24, 3: 20 }
+  for (const level of [1, 2, 3]) {
+    if (editor.isActive('heading', { level })) return HEADING_FONT_SIZES[level]
+  }
+
   // Fallback: read actual rendered font size from the DOM
   if (editor.view?.dom) {
     const baseSize = parseFloat(getComputedStyle(editor.view.dom).fontSize)

@@ -224,8 +224,15 @@
   margin: 1rem 0 !important;
 }
 
+/*
+ * Heading sizes are DEFAULTS, deliberately without !important: a size chosen
+ * from the toolbar renders as an inline `font-size` on the text (textStyle
+ * mark), and an !important here would override it — so the font-size control
+ * had no effect on a heading (#143). Inline styles now win; headings that never
+ * set a size keep these defaults.
+ */
 .ProseMirror h1 {
-  font-size: 1.875rem !important;
+  font-size: 1.875rem;
   font-weight: 700 !important;
   line-height: 1.25 !important;
   margin-top: 1.25rem !important;
@@ -233,7 +240,7 @@
 }
 
 .ProseMirror h2 {
-  font-size: 1.5rem !important;
+  font-size: 1.5rem;
   font-weight: 700 !important;
   line-height: 1.35 !important;
   margin-top: 1rem !important;
@@ -241,7 +248,7 @@
 }
 
 .ProseMirror h3 {
-  font-size: 1.25rem !important;
+  font-size: 1.25rem;
   font-weight: 700 !important;
   line-height: 1.4 !important;
   margin-top: 0.875rem !important;
