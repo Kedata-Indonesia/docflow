@@ -68,7 +68,6 @@ export const FontSizeExtension = Extension.create({
       setFontSize:
         (fontSize: string) =>
         ({ tr, state, dispatch }) => {
-          console.log('[FontSizeExt] setFontSize called, fontSize:', fontSize, 'empty:', state.selection.empty)
           const textStyleType = state.schema.marks.textStyle
           const { from, to, empty } = state.selection
 
