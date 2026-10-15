@@ -413,20 +413,43 @@ const currentParagraphLabel = computed(
   () => PARAGRAPH_OPTIONS.value.find((o) => o.value === currentParagraphStyle.value)?.label ?? t('toolbar.normalText'),
 )
 
-// Font family — display-only for now (no font-family command wired to the editor),
-// matching the previous <select> behaviour but with a consistent dropdown UI.
+// Font family. Each option carries the actual CSS stack — stored on the
+// TextStyle mark via setFontFamily (FontFamilyExtension) so switching a font
+// works and round-trips with the document — plus a label for the dropdown.
 const FONT_OPTIONS = [
-  { value: 'arial', label: 'Arial' },
-  { value: 'inter', label: 'Inter' },
-  { value: 'serif', label: 'Serif' },
-  { value: 'mono', label: 'Monospace' },
+  { value: 'Inter, ui-sans-serif, system-ui, sans-serif', label: 'Inter' },
+  { value: 'Arial, Helvetica, sans-serif', label: 'Arial' },
+  { value: '"Times New Roman", Times, serif', label: 'Times New Roman' },
+  { value: 'Georgia, "Times New Roman", serif', label: 'Georgia' },
+  { value: 'Garamond, "Times New Roman", serif', label: 'Garamond' },
+  { value: 'Calibri, "Segoe UI", sans-serif', label: 'Calibri' },
+  { value: '"Segoe UI", Tahoma, sans-serif', label: 'Segoe UI' },
+  { value: 'Verdana, Geneva, sans-serif', label: 'Verdana' },
+  { value: 'Roboto, Arial, sans-serif', label: 'Roboto' },
+  { value: '"Open Sans", Helvetica, sans-serif', label: 'Open Sans' },
+  { value: 'Lora, Georgia, serif', label: 'Lora' },
+  { value: 'Merriweather, Georgia, serif', label: 'Merriweather' },
+  { value: '"JetBrains Mono", "Courier New", monospace', label: 'JetBrains Mono' },
+  { value: '"Courier New", Courier, monospace', label: 'Courier New' },
 ]
-const currentFont = ref('arial')
-const currentFontLabel = computed(
-  () => FONT_OPTIONS.find((o) => o.value === currentFont.value)?.label ?? 'Arial',
-)
+const DEFAULT_FONT_STACK = FONT_OPTIONS[0].value
+
+/** Reactively read the font family from the current selection's TextStyle mark. */
+const currentFont = computed<string>(() => {
+  void selectionTick.value
+  const attrs = props.editor?.getAttributes('textStyle')
+  return (attrs?.fontFamily as string | undefined) || DEFAULT_FONT_STACK
+})
+const currentFontLabel = computed(() => {
+  const match = FONT_OPTIONS.find((o) => o.value === currentFont.value)
+  if (match) return match.label
+  // Stored family from a paste / older doc that isn't in the list — show its
+  // first family name rather than a misleading default.
+  const first = (currentFont.value || '').split(',')[0].trim().replace(/^["']|["']$/g, '')
+  return first || 'Inter'
+})
 function applyFont(value: string) {
-  currentFont.value = value
+  props.editor?.commands.setFontFamily(value)
   activeDropdown.value = null
   props.editor?.commands.focus()
 }
