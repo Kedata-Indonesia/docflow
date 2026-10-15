@@ -3,6 +3,7 @@ import { definePlugin } from '@kedata-indonesia/docflow-core'
 import type { Editor } from '@tiptap/core'
 import type { Schema, Node as PMNode } from '@tiptap/pm/model'
 import type { Transaction } from '@tiptap/pm/state'
+import { scrollEditorToPos } from './editorScroll.js'
 
 export interface TocHeading {
   level: number
@@ -311,14 +312,15 @@ export const TocNode = Node.create({
         regenerateToc(editor)
       }
       // Click an entry → jump to its heading. Positions were captured at
-      // generation time and may be stale between refreshes — clamp to the doc
-      // size so a stale pos can never throw (same best-effort as the sidebar).
+      // generation time and may be stale between refreshes — `scrollEditorToPos`
+      // clamps to the doc size (so a stale pos can never throw) and scrolls the
+      // paginated surface (`.docs-editor-scroll`), which a plain
+      // `scrollIntoView()` could not do once the page frames were cloned.
       const onEntryClick = (event: MouseEvent) => {
         const entry = (event.target as HTMLElement | null)?.closest?.('[data-toc-entry]')
         if (!entry) return
         const pos = Number((entry as HTMLElement).getAttribute('data-pos') ?? 0)
-        const clamped = Math.min(Math.max(0, pos), editor.state.doc.content.size)
-        editor.chain().focus().setTextSelection(clamped).scrollIntoView().run()
+        scrollEditorToPos(editor, pos)
       }
 
       refresh.addEventListener('click', onRefresh)

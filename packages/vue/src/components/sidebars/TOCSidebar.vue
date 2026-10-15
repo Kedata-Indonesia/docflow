@@ -11,6 +11,7 @@ import {
   Navigation2,
 } from 'lucide-vue-next'
 import { useLocale } from '../../composables/useLocale.js'
+import { scrollEditorToPos } from '@kedata-indonesia/docflow-plugins'
 
 interface HeadingItem {
   id: string
@@ -143,21 +144,11 @@ const filteredHeadings = computed(() =>
 
 function handleJumpToHeading(heading: HeadingItem) {
   if (!props.editor) return
-  props.editor.chain().focus().setTextSelection(heading.pos).run()
   activeHeadingId.value = heading.id
-  setTimeout(() => {
-    const scrollContainer = document.querySelector('.docs-editor-scroll')
-    if (!scrollContainer) return
-    const els = scrollContainer.querySelectorAll(
-      '.ProseMirror h1, .ProseMirror h2, .ProseMirror h3',
-    )
-    for (const el of Array.from(els)) {
-      if (el.textContent?.trim() === heading.text) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-        return
-      }
-    }
-  }, 50)
+  // One coordinate-based scroll that works in paginated mode (see
+  // scrollEditorToPos) — replaces the brittle text-match + scrollIntoView,
+  // which missed duplicate/atom-bearing headings and the cloned page frames.
+  scrollEditorToPos(props.editor, heading.pos)
 }
 
 function handleInsertHeading(level: 1 | 2 | 3) {

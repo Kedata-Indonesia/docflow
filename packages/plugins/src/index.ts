@@ -17,6 +17,7 @@ export { highlightPlugin } from './highlight.js'
 export { citationPlugin, CitationNode, CitationEngineExtension, getCitationEngine, buildCitationNodes } from './citation.js'
 export { aiPlugin, AIExtension, getAIPreview, aiPluginKey, type AIPreviewState } from './ai.js'
 export { markdownToFragment, insertMarkdownBlock } from './markdownInsert.js'
+export { scrollEditorToPos } from './editorScroll.js'
 export { commentPlugin, CommentMarkExtension, type CommentMarkAttrs } from './comment.js'
 export {
   suggestChangesPlugin,
