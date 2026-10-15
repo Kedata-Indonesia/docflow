@@ -5,6 +5,7 @@ import TableRow from '@tiptap/extension-table-row'
 import TableCell from '@tiptap/extension-table-cell'
 import TableHeader from '@tiptap/extension-table-header'
 import type { DOMOutputSpec } from '@tiptap/pm/model'
+import { Plugin, TextSelection } from '@tiptap/pm/state'
 
 const CustomTable = Table.extend({
   addAttributes() {
@@ -92,6 +93,38 @@ const CustomTable = Table.extend({
       tableAttrs,
       ['colgroup', ...cols],
       ['tbody', 0],
+    ]
+  },
+
+  // #139: double-clicking an EMPTY cell resolved the caret to a neighbouring
+  // cell — ProseMirror's default dblclick word-selection has no text to land on
+  // in a cell whose only content is a trailing <br>. When the resolved position
+  // is not inside the cell under the pointer, place the caret at that cell's
+  // start instead. Non-empty cells keep the default (select the word).
+  addProseMirrorPlugins() {
+    const parent = this.parent?.() ?? []
+    return [
+      ...parent,
+      new Plugin({
+        props: {
+          handleDoubleClick(view, pos, event) {
+            const cell = (event.target as HTMLElement | null)?.closest?.('td, th') ?? null
+            if (!cell) return false
+
+            // Already inside the pointed-at cell → default behaviour.
+            const $pos = view.state.doc.resolve(pos)
+            for (let d = $pos.depth; d > 0; d--) {
+              const name = $pos.node(d).type.name
+              if (name === 'tableCell' || name === 'tableHeader') return false
+            }
+
+            const cellPos = view.posAtDOM(cell, 0)
+            const selection = TextSelection.near(view.state.doc.resolve(cellPos), 1)
+            view.dispatch(view.state.tr.setSelection(selection))
+            return true
+          },
+        },
+      }),
     ]
   },
 })
