@@ -533,6 +533,11 @@ export default {
     movedToTrash: 'Dipindahkan ke sampah:',
     selectedCount: '{count} dipilih',
     documentDeleteError: 'Tidak dapat menghapus satu atau lebih dokumen. Silakan coba lagi.',
+    owner: 'Pemilik',
+    sharedWith: 'Dibagikan ke',
+    you: 'Anda',
+    private: 'Privat',
+    sharedCount: '{count} dibagikan',
   },
   auth: {
     signInTitle: 'Masuk untuk membuat dan menyunting dokumen',
