@@ -154,6 +154,18 @@ they are listed here so reviewers don't mistake them for leaks:
   `update:pageCount`, `update:locale` emits — pure UI intent signals.
 - `shareUrl`, `documentMeta`, `collaborators`, `connectionState`, `userName`, `userAvatar`
   props — host-supplied display data, rendered but never fetched by the library.
+- `HOST_OWNED_ACTIONS` + `unimplementedActions` prop (issue #153) — the header menu
+  actions the library only *emits* (`export:*`, `share`, `move`, `trash`, `rename`,
+  `add-to-starred`, `open-doc`, …). The list is derived once from the real dispatchers —
+  [menuStructure.ts](../packages/vue/src/components/menuStructure.ts) (the menu tree as
+  data) minus the library command maps and the header-bar-local table
+  ([menuActions.ts](../packages/vue/src/components/menuActions.ts)), guarded by
+  [`menuActions.drift.test.ts`](../packages/vue/src/__tests__/menuActions.drift.test.ts) —
+  and exported from the package entry. A host passes the subset it does **not**
+  implement: `<DocsEditor :unimplemented-actions="HOST_OWNED_ACTIONS" />`. Flagging is
+  presentational only — the item stays visible, is dimmed with `aria-disabled="true"`
+  plus a tooltip/chip, and **the emit still fires**, so a host that does implement the
+  action simply passes a smaller list (or nothing at all, as `docflow-app` does).
 
 ---
 

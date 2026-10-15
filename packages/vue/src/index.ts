@@ -26,6 +26,9 @@ export {
 export { useTheme } from './composables/useTheme.js'
 export { useLocale, provideLocale, getLocaleName, getSupportedLocales, type Locale } from './composables/useLocale.js'
 export { messages, defaultLocale, getLocaleMessages, isLocale, type Messages, type TranslationKey } from './locales/index.js'
+// Issue #153 — the derived list of header menu actions a host has to implement
+// itself. Pass it (or a subset) to `<DocsEditor :unimplemented-actions="…">`.
+export { HOST_OWNED_ACTIONS } from './components/menuActions.js'
 export { default as DocsEditor } from './components/DocsEditor.vue'
 export { default as EditorToolbar } from './components/EditorToolbar.vue'
 export { default as PageView } from './components/PageView.vue'

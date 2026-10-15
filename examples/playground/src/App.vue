@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import {
   DocsEditor,
+  HOST_OWNED_ACTIONS,
   toAIStreamFn,
   type AIProvider,
   type AIStreamFn,
@@ -90,10 +91,31 @@ let eventSeq = 0
 /** Monotonic fixture ids — `Date.now()` collides on rapid clicks. */
 let commentSeq = 0
 
-function log(name: string, detail?: string | number): void {
+function log(name: string, detail?: string | number, hostOwned = false): void {
   eventSeq += 1
   const text = detail === undefined ? '' : String(detail)
-  events.value = [{ id: eventSeq, name, detail: text }, ...events.value].slice(0, 50)
+  events.value = [{ id: eventSeq, name, detail: text, hostOwned }, ...events.value].slice(0, 50)
+}
+
+// --- host-owned action logging (issue #153) ----------------------------------
+// The playground implements no host actions, so every action the library emits
+// is flagged in the log with the same derived source of truth the menu item
+// dimming uses (`HOST_OWNED_ACTIONS`). What you see dimmed in the header is
+// exactly what stays untagged here.
+function onMenuClick(action: string): void {
+  log('menu-click', action, HOST_OWNED_ACTIONS.includes(action))
+}
+
+function onExport(format: string): void {
+  log('export', format, HOST_OWNED_ACTIONS.includes(`export:${format}`))
+}
+
+function onShare(): void {
+  log('share', undefined, HOST_OWNED_ACTIONS.includes('share'))
+}
+
+function onToggleStar(): void {
+  log('toggle-star', undefined, HOST_OWNED_ACTIONS.includes('add-to-starred'))
 }
 
 /** Captured once: `Date.now()` inside the computed would drift on every recompute. */
@@ -311,6 +333,7 @@ function onReady(docsEditor: { editor: unknown; pluginActions?: unknown }): void
         :comments="comments"
         :snapshots="snapshots"
         :debug="debug"
+        :unimplemented-actions="[...HOST_OWNED_ACTIONS]"
         @update:model-value="onContentUpdate"
         @update:title="title = $event; log('update:title', $event)"
         @update:page-size="pageSize = $event; log('update:pageSize', $event)"
@@ -320,12 +343,12 @@ function onReady(docsEditor: { editor: unknown; pluginActions?: unknown }): void
         @update:pageless="pageless = $event; log('update:pageless', String($event))"
         @update:page-count="pageCount = $event; log('update:pageCount', $event)"
         @update:locale="locale = $event; log('update:locale', $event)"
-        @menu-click="log('menu-click', $event)"
-        @export="log('export', $event)"
+        @menu-click="onMenuClick"
+        @export="onExport"
         @ready="onReady"
-        @share="log('share')"
+        @share="onShare"
         @back="log('back')"
-        @toggle-star="log('toggle-star')"
+        @toggle-star="onToggleStar"
         @add-comment="onAddComment"
         @add-reply="onAddReply"
         @resolve-comment="onResolveComment"

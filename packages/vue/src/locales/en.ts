@@ -136,6 +136,9 @@ export default {
     keyboardShortcuts: 'Keyboard shortcuts',
     reportIssue: 'Report issue',
     about: 'About DocsEditor',
+    // Host-owned menu items (#153) — dimmed marker + default tooltip.
+    hostOwned: 'host',
+    hostOwnedHint: 'Host-owned action — the editor emits the event and the host app implements it.',
   },
   toolbar: {
     undo: 'Undo',

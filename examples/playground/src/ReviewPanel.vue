@@ -50,6 +50,13 @@ const CONNECTION_OPTIONS: ConnectionState[] = ['connected', 'connecting', 'disco
     </header>
 
     <div v-if="open" class="pg-card__body">
+      <!-- Issue #153 — how to read the dimmed/tagged header menu items. -->
+      <p class="pg-hint">
+        Header menu items wearing the <span class="pg-log__tag">host</span> chip (dimmed)
+        are <strong>host-owned</strong>: the library only emits the event — watch it land in the
+        event log — and the playground implements none of them. Mid-tier items such as
+        <code>email</code> or <code>version-history</code> open library UI but persist nothing.
+      </p>
       <p class="pg-section">Document</p>
       <label class="pg-field">
         <span class="pg-field__label">Sample document</span>
