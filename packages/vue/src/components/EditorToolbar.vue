@@ -454,7 +454,12 @@ function applyFont(value: string) {
   props.editor?.commands.focus()
 }
 
-const FONT_SIZES = [8, 9, 10, 11, 12, 14, 16, 18, 20, 22, 24, 26, 28, 36, 48, 72]
+/**
+ * Font-size ladder used by the `−` / `+` stepper: each click moves one entry, so
+ * the list must stay gap-free in the ranges users step through — a missing entry
+ * makes the control jump (28 → 36, #158).
+ */
+const FONT_SIZES = [8, 9, 10, 11, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 48, 72]
 const DEFAULT_FONT_SIZE = 11
 
 /** Reactively read the font-size from the current selection's TextStyle mark. */
