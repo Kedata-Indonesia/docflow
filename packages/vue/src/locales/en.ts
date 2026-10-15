@@ -533,6 +533,11 @@ export default {
     movedToTrash: 'Moved to trash:',
     selectedCount: '{count} selected',
     documentDeleteError: 'Could not delete one or more documents. Please try again.',
+    owner: 'Owner',
+    sharedWith: 'Shared with',
+    you: 'You',
+    private: 'Private',
+    sharedCount: '{count} shared',
   },
   auth: {
     signInTitle: 'Sign in to create and edit documents',
