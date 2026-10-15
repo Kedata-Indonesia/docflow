@@ -125,4 +125,23 @@ describe('toc plugin', () => {
     expect(html).toContain('docs-toc__page')
     expect(html).toContain(`>${breakerCount + 1}</span>`)
   })
+
+  it('clicking a TOC entry moves the caret into that heading', () => {
+    const { editor } = editorInstance
+    editor.commands.setContent('<h1>Intro</h1><p>Body</p><h1>Second</h1>')
+    editor.commands.focus('end')
+    editor.commands.insertToc()
+
+    const entries = editor.view.dom.querySelectorAll('[data-toc-entry]')
+    expect(entries.length).toBe(2)
+    const secondEntry = entries[1] as HTMLElement
+    const targetPos = Number(secondEntry.getAttribute('data-pos'))
+    secondEntry.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+
+    // The caret lands inside the second heading (the entry's target).
+    const { $from } = editor.state.selection
+    expect($from.parent.type.name).toBe('heading')
+    expect($from.parent.textContent).toBe('Second')
+    expect(editor.state.selection.from).toBeGreaterThanOrEqual(targetPos)
+  })
 })
