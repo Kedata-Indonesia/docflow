@@ -356,6 +356,7 @@ export default {
       promptDraft: 'Susun',
       citations: 'Sitasi',
       emptyResponse: 'AI mengembalikan respons kosong.',
+      insertFailed: 'Tidak dapat menyisipkan teks AI ke dokumen.',
       aiError: 'Permintaan AI gagal',
     },
     comments: {
