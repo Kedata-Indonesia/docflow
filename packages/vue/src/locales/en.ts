@@ -356,6 +356,7 @@ export default {
       promptDraft: 'Draft',
       citations: 'Citations',
       emptyResponse: 'The AI returned an empty response.',
+      insertFailed: 'Could not insert the AI text into the document.',
       aiError: 'AI request failed',
     },
     comments: {

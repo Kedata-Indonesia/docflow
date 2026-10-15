@@ -5,7 +5,7 @@ import { Sparkles, Send, Copy, Check, ArrowDownToLine, AlignLeft, BadgeCheck, Wa
 import type { Editor } from '@tiptap/core'
 import { Slice, Fragment } from 'prosemirror-model'
 import type { AIActionRequest, AIStreamFn, AIDraftCitation, AIDraftEvent, AIDraftFn } from '@kedata-indonesia/docflow-core'
-import { getCitationEngine, insertMarkdownBlock } from '@kedata-indonesia/docflow-plugins'
+import { getCitationEngine, insertMarkdownBlock, scrollEditorToPos } from '@kedata-indonesia/docflow-plugins'
 import { useLocale } from '../../composables/useLocale.js'
 import { buildContentArray, stripMarkers } from './markerGrammar.js'
 
@@ -377,7 +377,13 @@ function canInsert(turn: ChatTurn): boolean {
  * "ONE history entry" invariant holds (the content-array insert is one step). */
 function handleInsert(turn: ChatTurn, index: number) {
   const ed = pmEditor()
-  if (!canInsert(turn) || !ed) return
+  if (!ed) {
+    // No editor to insert into — say so instead of failing silently (#147).
+    turn.error = true
+    turn.errorText = t('sidebars.ai.insertFailed')
+    return
+  }
+  if (!canInsert(turn)) return
   const { state, view } = ed
   const { from, to } = state.selection
 
@@ -389,7 +395,7 @@ function handleInsert(turn: ChatTurn, index: number) {
     // leading paragraph and mangle a table). Falls back to `insertText` when
     // the Markdown extension isn't registered (preserves 7D plain-text Insert).
     insertMarkdownBlock(ed, view, from, to, turn.text)
-    view.focus()
+    focusInsertionEnd(ed)
     markInserted(index)
     return
   }
@@ -400,7 +406,7 @@ function handleInsert(turn: ChatTurn, index: number) {
     // draft with `[n]` markers but no engine still renders headings/lists/
     // tables rather than leaking literal `##` / `|` characters.
     insertMarkdownBlock(ed, view, from, to, stripMarkers(turn.text))
-    view.focus()
+    focusInsertionEnd(ed)
     markInserted(index)
     return
   }
@@ -417,8 +423,17 @@ function handleInsert(turn: ChatTurn, index: number) {
     .filter((n): n is NonNullable<typeof n> => Boolean(n))
   const slice = new Slice(Fragment.from(nodes), 0, 0)
   view.dispatch(state.tr.replace(from, to, slice))
-  view.focus()
+  focusInsertionEnd(ed)
   markInserted(index)
+}
+
+/**
+ * Bring the caret — just moved to the end of the inserted content — into view.
+ * Focus alone left the inserted text off-screen when the editor's last caret
+ * was outside the viewport, which read as "Insert did nothing" (#147).
+ */
+function focusInsertionEnd(ed: Editor) {
+  scrollEditorToPos(ed, ed.state.selection.from)
 }
 
 /** Stop the in-flight turn (the partial text, if any, is kept). */
