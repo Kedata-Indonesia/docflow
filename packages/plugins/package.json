@@ -25,6 +25,7 @@
   "files": [
     "dist"
   ],
+  "sideEffects": false,
   "scripts": {
     "build": "tsup src/index.ts src/citations.ts --format esm,cjs --dts --no-splitting",
     "typecheck": "tsc --noEmit",
