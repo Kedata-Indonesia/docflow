@@ -1,0 +1,89 @@
+# Dependabot configuration.
+#
+# Version updates only. The audit that produced #165/#166 found five advisories
+# that had accumulated with nothing watching the manifests, so this file exists
+# to make the next one show up as a pull request instead of as a quarterly
+# surprise. Security updates do not need an entry: Dependabot raises them for
+# supported ecosystems as soon as an advisory lands.
+#
+# A single `npm` entry at the root is deliberate. This is a pnpm workspace with
+# one lockfile (`pnpm-lock.yaml`) at the root, so `directory: "/"` already covers
+# every manifest under `packages/*` and `examples/*`. Splitting it into
+# per-package entries would overlap directories — which Dependabot rejects — and
+# would raise duplicate pull requests for the same dependency.
+version: 2
+
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "08:00"
+      timezone: "Asia/Jakarta"
+    # Grouped updates need about four slots a week; the rest of the headroom is
+    # for the production dependencies that are deliberately not grouped (11 of
+    # them, measured over the workspace manifests) so they are not queued forever.
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+    commit-message:
+      prefix: "chore(deps)"
+      prefix-development: "chore(deps-dev)"
+    groups:
+      # Editor stacks are bumped together on purpose: a split bump inside the
+      # TipTap/ProseMirror family is exactly what split `prosemirror-transform`
+      # into two copies and turned three tests red while #165 was being worked on.
+      tiptap:
+        patterns:
+          - "@tiptap/*"
+      prosemirror:
+        patterns:
+          - "prosemirror-*"
+      # `vue` and its runtime packages only. `@vue/test-utils` and `vue-tsc` also
+      # match the patterns below but are build tooling: because the first
+      # matching group wins, they are excluded here so they land in `dev-tooling`
+      # and cannot ride along with a runtime `vue` bump.
+      vue:
+        patterns:
+          - "vue"
+          - "@vue/*"
+          - "vue-*"
+        exclude-patterns:
+          - "@vue/test-utils"
+          - "vue-tsc"
+      # Tooling that never ships: batch it so release-relevant bumps stay visible
+      # as individual pull requests.
+      dev-tooling:
+        patterns:
+          - "*"
+        dependency-type: "development"
+        update-types:
+          - "minor"
+          - "patch"
+    ignore:
+      # TipTap v3 is a migration with its own issue (#166). An automated major
+      # bump would only produce a pull request that cannot pass CI. Remove this
+      # entry when that migration starts.
+      #
+      # `update-types` filters version updates only; a security advisory against
+      # `@tiptap/core` (for example GHSA-cp6q-959q-f8rh) is still reported.
+      - dependency-name: "@tiptap/*"
+        update-types:
+          - "version-update:semver-major"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "08:00"
+      timezone: "Asia/Jakarta"
+    labels:
+      - "github_actions"
+    commit-message:
+      prefix: "chore(ci)"
+    groups:
+      actions:
+        patterns:
+          - "*"
