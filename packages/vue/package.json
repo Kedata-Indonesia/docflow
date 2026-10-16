@@ -21,6 +21,9 @@
   "files": [
     "dist"
   ],
+  "sideEffects": [
+    "**/*.css"
+  ],
   "scripts": {
     "build": "vite build && vue-tsc --project tsconfig.build.json --emitDeclarationOnly",
     "typecheck": "vue-tsc --noEmit",

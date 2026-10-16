@@ -20,6 +20,9 @@
   "files": [
     "dist"
   ],
+  "sideEffects": [
+    "**/*.css"
+  ],
   "scripts": {
     "build": "vite build && tsup src/index.ts --format cjs && vue-tsc --project tsconfig.build.json --emitDeclarationOnly",
     "typecheck": "vue-tsc --noEmit",
