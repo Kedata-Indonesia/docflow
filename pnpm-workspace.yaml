@@ -12,6 +12,11 @@ allowBuilds:
   puppeteer: true
 
 overrides:
+  # Convention (kept small on purpose):
+  # - advisory floors use a caret range, so the next patch inside the same major
+  #   is picked up automatically without editing this file again;
+  # - pins that must not drift use an exact version (today: `prosemirror-model`,
+  #   carried over from an earlier dedupe pass).
   prosemirror-model: 1.25.11
   # Transitive security patches — see issue #165.
   # prosemirror-view < 1.42.3: GHSA-c8x8-7fp4-3x9w (XSS in paste handling).
