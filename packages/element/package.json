@@ -1,6 +1,9 @@
 {
   "name": "@kedata-indonesia/docflow-element",
   "license": "Apache-2.0",
+  "engines": {
+    "node": ">=20"
+  },
   "version": "0.0.102",
   "type": "module",
   "main": "./dist/index.js",
