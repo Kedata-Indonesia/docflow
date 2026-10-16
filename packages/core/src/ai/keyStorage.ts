@@ -4,9 +4,17 @@
  *
  * The URL and the key are a pair and travel together. The library ships three
  * reference implementations; hosts may write their own (e.g. keyed per-tenant
- * in their own backend). No URL is hardcoded anywhere — `httpKeyStorage`
- * receives its endpoints from the host, keeping the library backend-agnostic
- * (docs/LIBRARY_CONTRACT.md rule 3).
+ * in their own backend). The library names no endpoint on the feature path:
+ * every implementation receives its URLs from the host, keeping it
+ * backend-agnostic (docs/LIBRARY_CONTRACT.md rule 3). The single built-in
+ * default is `claudeProvider`'s `DEFAULT_BASE_URL` — an overridable
+ * convenience, not a feature-path assumption (deviation #5).
+ *
+ * ⚠️ Security: `localStorageKeyStorage` persists the AI **API key in
+ * plaintext** in the browser origin. Any XSS on the host page can read and
+ * exfiltrate it, so treat the stored config as a bearer secret and prefer
+ * `httpKeyStorage` (server-held) where the key must not reach the client
+ * (docs/LIBRARY_CONTRACT.md §4 rule 5, deviation #6).
  */
 
 export type Auth =
@@ -55,8 +63,11 @@ export const LOCAL_STORAGE_KEY = 'docflow:ai-config'
 
 /**
  * Browser `localStorage` persistence — for embedded apps that want the config
- * kept client-side. Note: this stores AI *credentials*, not document data, so
- * it is the host's deliberate choice, not a library persistence leak.
+ * kept client-side. This stores AI *credentials* in plaintext, not document
+ * data, so it is the host's deliberate choice, not a library persistence leak
+ * (docs/LIBRARY_CONTRACT.md §4 rule 5). ⚠️ Blast radius: any XSS in the host
+ * origin can read the API key — prefer `httpKeyStorage` when the key must stay
+ * server-side.
  */
 export function localStorageKeyStorage(
   key: string = LOCAL_STORAGE_KEY,

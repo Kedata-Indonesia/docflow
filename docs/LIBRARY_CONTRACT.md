@@ -1,6 +1,6 @@
 # Library Contract — DocsEditor
 
-**Status:** Living document · **Owner:** Kedata Indonesia · **Last updated:** 2026-10-08
+**Status:** Living document · **Owner:** Kedata Indonesia · **Last updated:** 2026-10-16
 
 > This file is the **single source of truth for the library/app boundary**. It catalogues
 > every injection port through which the library (`packages/*`) may reach backend concerns,
@@ -235,12 +235,22 @@ How each existing port flows through the layers (verified 2026-07-19):
 3. ❌ No direct backend HTTP calls (`fetch('/api/*')`, hardcoded API hosts).
    → *Not lint-catchable (string-based); review-gated. See deviation #1.*
 4. ❌ No hardcoded external URLs / CDNs / storage endpoints.
-   → *Review-gated. See deviations #2, #3.*
+   → *Review-gated. See deviations #2, #3, #5.*
+   ✅ *Exception:* `claudeProvider`'s `DEFAULT_BASE_URL`
+   ([claudeProvider.ts:33](../packages/core/src/ai/claudeProvider.ts)) — an overridable
+   `baseUrl?` default that spares hosts zero-config boilerplate, **not** an endpoint
+   assumption on the feature path. Tracked as deviation #5.
 5. ❌ No document persistence inside the library (`localStorage` drafts, IndexedDB, etc.) —
    persistence is the host's job via `onUpdate`.
-   → *Review-gated. See deviation #4.*
+   → *Review-gated. See deviations #4, #7.*
    ✅ *Exception:* presentation preferences (theme, locale) may use `localStorage` —
    they are UI chrome state, not document data.
+   ✅ *Exception:* AI provider **credentials** may be held by a host-chosen `KeyStorage`
+   (e.g. `localStorageKeyStorage`) — config, not document data. The value is a bearer
+   secret, so this choice carries XSS blast radius; see deviation #6.
+   ✅ *Exception:* the opt-in `collaboration.offline` mirror (`y-indexeddb`) writes the
+   Y.Doc to IndexedDB, but it is **never** a seed source and is off by default — see
+   deviation #7.
 
 **Escape hatch — add a port, not a leak.** If a library feature needs something from the
 backend (upload, AI, directory lookup, …), do not reach out directly. Instead:
@@ -256,10 +266,12 @@ reviewers to ask which side of the boundary it really belongs on.
 
 ## 5. Known Deviations
 
-Violations of this contract and their status. All known deviations are now
-resolved — deviation #1 was closed by the pluggable AI provider work
-([PLUGGABLE_AI_PROVIDER](plans/PLUGGABLE_AI_PROVIDER.md)); the rest were
-resolved in Phase 2.
+Violations of this contract and their status. **Closing a deviation means either
+removing the leak or declaring it explicitly, with its reason and an owner** — a
+known-but-live deviation stays in this table (it does not silently disappear).
+Deviations #1–#4 were removed (deviation #1 by the pluggable AI provider work,
+[PLUGGABLE_AI_PROVIDER](plans/PLUGGABLE_AI_PROVIDER.md); the rest in Phase 2); #5–#7
+are live and accepted/opt-in — see their rows and remediation links.
 
 | # | Deviation | Location | Class | Status | Remediation |
 |---|-----------|----------|-------|--------|-------------|
@@ -267,6 +279,9 @@ resolved in Phase 2.
 | 2 | Image plugin hardcoded `via.placeholder.com` + `window.prompt` fallback | `packages/plugins/src/image.ts` (pre-Phase-2) | Hardcoded external URL / storage assumption (rule 4) | ✅ **Resolved in Phase 2** | Replaced by the `onImageUpload` port (§2.1); URL prompt kept as an explicit no-host fallback. |
 | 3 | webrtc signaling defaulted to public servers (`wss://signaling.yjs.dev`, `wss://y-webrtc-eu.fly.dev`) | `packages/core/src/Collaboration.ts` (pre-Phase-2) | External-network assumption (rule 4) | ✅ **Resolved in Phase 2** | Defaults to localhost-only + one-time `console.warn`; cross-network webrtc requires explicit `signaling`; websocket + own server is the documented production path. |
 | 4 | Document draft autosave to `localStorage` (`docs-editor-current-doc`) | `packages/vue/src/components/DocsEditor.vue` (pre-Phase-2) | Document persistence in the library (rule 5) | ✅ **Resolved in Phase 2** | Write removed (it was never read anywhere); hosts persist via `update:modelValue` / `onUpdate`. |
+| 5 | `claudeProvider` ships a hardcoded `DEFAULT_BASE_URL = 'https://api.anthropic.com'` | [claudeProvider.ts:33](../packages/core/src/ai/claudeProvider.ts) | Hardcoded external URL (rule 4) | ⚠️ **Accepted** (owner: library team) | Kept as an overridable `baseUrl?` default so Anthropic works zero-config — the `PLUGGABLE_AI_PROVIDER` goal. The feature path never assumes it (hosts may pass any compatible `baseUrl`); candidate for removal at the next major, when `baseUrl` would become required. |
+| 6 | `localStorageKeyStorage` persists the AI API key in plaintext in the browser origin | [keyStorage.ts:72](../packages/core/src/ai/keyStorage.ts) | Credential exposure via host-owned persistence (rules 4–5) | ⚠️ **Open** → [#179](https://github.com/Kedata-Indonesia/docflow/issues/179) (owner: library team) | The store is host-chosen and holds config, not documents; now stated explicitly (docblock + [EMBEDDING_AI.md §2](EMBEDDING_AI.md)). Treat the key as a bearer secret, prefer `httpKeyStorage` in `admin-only` mode; #179 tracks hardening guidance. |
+| 7 | Opt-in `collaboration.offline` mirrors the Y.Doc into IndexedDB via `y-indexeddb` | [Collaboration.ts:48](../packages/core/src/Collaboration.ts) (sets up `IndexeddbPersistence`, [`:147`](../packages/core/src/Collaboration.ts)) | Library-side persistence (rule 5) | ⚠️ **Accepted / opt-in** → follow-up [#162](https://github.com/Kedata-Indonesia/docflow/issues/162) (owner: library team) | Off by default and **never** a seed source (server / legacy-JSON owns initial state; reconnect is a normal Yjs merge). #162 covers mirror lifecycle & quota guard. |
 
 > The theme/locale `localStorage` uses in `useTheme.ts` / `useLocale.ts` are **not**
 > deviations — they are presentation preferences, allowed by the rule-5 exception in §4.
@@ -284,6 +299,6 @@ The ESLint guardrail in [.eslintrc.cjs](../.eslintrc.cjs) (override scoped to
   raised from `'warn'` to `'error'` in `.eslintrc.cjs` (2026-10). Softening back to `'warn'`
   is a one-line change if ever needed.
 - **Baseline:** as of 2026-10 the boundary holds structurally —
-  `grep -rn "apps/" packages --include=*.ts --include=*.vue` returns no imports,
-  `pnpm lint` emits zero `no-restricted-imports` violations (0 errors), and all known
-  deviations (#1–#4) are resolved.
+  `grep -rn "apps/" packages --include=*.ts --include=*.vue` returns no imports and
+  `pnpm lint` emits zero `no-restricted-imports` violations (0 errors). Deviations
+  #1–#4 are resolved; #5–#7 are live and documented as accepted/opt-in in §5.

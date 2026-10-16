@@ -44,6 +44,12 @@ httpKeyStorage({ getUrl, setUrl, deleteUrl }) // your backend holds it
 memoryKeyStorage()                          // tests / SSR
 ```
 
+> ⚠️ **`localStorageKeyStorage` stores the API key in plaintext** in the browser
+> origin — any XSS on your page can read and exfiltrate it. Choose it only for
+> demos or trusted origins; in production prefer `httpKeyStorage` (key held
+> server-side) with a `visibility: 'admin-only'` config. See
+> [`LIBRARY_CONTRACT.md`](LIBRARY_CONTRACT.md) §4 rule 5 and deviation #6.
+
 Typical boot flow (mirror of our SaaS `aiProviderBootstrap.ts`):
 
 ```ts
