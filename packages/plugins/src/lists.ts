@@ -4,7 +4,10 @@ import TaskItem from '@tiptap/extension-task-item'
 
 export const listsPlugin = definePlugin({
   id: 'lists',
-  tiptapExtensions: [TaskList, TaskItem.configure({ nested: true })],
+  tiptapExtensions: [
+    TaskList,
+    TaskItem.configure({ nested: true }),
+  ],
   toolbar: [
     { id: 'bullet-list', label: 'Bullet List', action: 'toggleBulletList', iconComponent: 'List' },
     { id: 'ordered-list', label: 'Ordered List', action: 'toggleOrderedList', iconComponent: 'ListOrdered' },

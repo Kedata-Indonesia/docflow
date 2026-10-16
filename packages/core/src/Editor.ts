@@ -265,6 +265,18 @@ function createTiptapEditor(
       // before ProseMirror parsing. Prevents crashes from non-content
       // tags commonly produced by Google Docs clipboard data.
       transformPastedHTML: sanitizePastedHTML,
+      handleKeyDown: (view, event) => {
+        if (event.key === 'Tab') {
+          const { state, dispatch } = view
+          if (state.selection.$head.parent.type.name === 'codeBlock') {
+            event.preventDefault()
+            const tr = state.tr.insertText('  ')
+            dispatch(tr)
+            return true
+          }
+        }
+        return false
+      },
     },
   })
 }
