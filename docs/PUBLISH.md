@@ -272,6 +272,10 @@ git push origin v0.0.5
 npm view @kedataindo/docflow-core versions
 npm view @kedataindo/docflow-vue versions
 
+# Every package publishes the Node floor it was built for (install on an older
+# Node prints EBADENGINE instead of failing later inside a bundler)
+npm view @kedataindo/docflow-core engines
+
 # Test install in a clean project
 mkdir test-install && cd test-install
 npm init -y
@@ -292,6 +296,8 @@ range (`scripts/bump-release-versions.mjs`), which is enough at this scale.
 - [ ] `pnpm test:unit` passes for all packages
 - [ ] `pnpm build` produces dist/ in all packages
 - [ ] `peerDependencies` are correct (no version conflicts)
+- [ ] Each `packages/*/package.json` declares the root `engines.node` floor
+      (`pnpm test:scripts` guards this, including the workflow Node version)
 - [ ] `exports` field includes CSS path (vue package)
 - [ ] Perubahan sudah merge ke `main` (versi di-`bump` otomatis oleh CI)
 - [ ] CHANGELOG updated (if exists)
