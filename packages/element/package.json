@@ -30,7 +30,7 @@
     "@kedata-indonesia/docflow-vue": "workspace:*"
   },
   "peerDependencies": {
-    "vue": "^3.5.0"
+    "vue": "^3.5.42"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.1.4",
