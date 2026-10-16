@@ -1,6 +1,6 @@
 # Library Contract — DocsEditor
 
-**Status:** Living document · **Owner:** Kedata Indonesia · **Last updated:** 2026-10-08
+**Status:** Living document · **Owner:** Kedata Indonesia · **Last updated:** 2026-10-16
 
 > This file is the **single source of truth for the library/app boundary**. It catalogues
 > every injection port through which the library (`packages/*`) may reach backend concerns,
@@ -235,14 +235,14 @@ How each existing port flows through the layers (verified 2026-07-19):
 3. ❌ No direct backend HTTP calls (`fetch('/api/*')`, hardcoded API hosts).
    → *Not lint-catchable (string-based); review-gated. See deviation #1.*
 4. ❌ No hardcoded external URLs / CDNs / storage endpoints.
-   → *Review-gated. See deviations #2, #3 and the open deviation in §5.*
+   → *Review-gated. See deviations #2 and #3 (resolved) and deviation #5 (accepted, below).*
    ✅ *Exception:* the library ships a **default** transport for AI providers
    (`DEFAULT_BASE_URL` in `packages/core/src/ai/claudeProvider.ts`). It is a
    named, overridable default for a host-injected port — hosts pass their own
    `baseUrl` — not a storage/API assumption baked into a feature path.
 5. ❌ No document persistence inside the library (`localStorage` drafts, IndexedDB, etc.) —
    persistence is the host's job via `onUpdate`.
-   → *Review-gated. See deviation #4 and the open deviation in §5.*
+   → *Review-gated. See deviation #4 (resolved) and deviations #6–#7 in §5.*
    ✅ *Exception:* presentation preferences (theme, locale) may use `localStorage` —
    they are UI chrome state, not document data.
    ✅ *Exception:* **AI credentials** are not document data, but they are secrets —
@@ -266,7 +266,8 @@ Violations of this contract and their status. The Phase 2 and Phase 7 leaks
 (deviations #1–#4) are closed. Three deviations were found still live during the
 2026-10 audit — recorded below as #5–#7 rather than silently dropped.
 Closing a deviation means either removing the leak or declaring it explicitly
-here with the reason it is accepted.
+here with the reason it is accepted **and the ticket that owns the follow-up**
+(a deviation with no owner is not closed, only hidden).
 
 | # | Deviation | Location | Class | Status | Remediation |
 |---|-----------|----------|-------|--------|-------------|
@@ -295,5 +296,10 @@ The ESLint guardrail in [.eslintrc.cjs](../.eslintrc.cjs) (override scoped to
   is a one-line change if ever needed.
 - **Baseline:** as of 2026-10 the boundary holds structurally —
   `grep -rn "apps/" packages --include=*.ts --include=*.vue` returns no imports,
-  `pnpm lint` emits zero `no-restricted-imports` violations (0 errors), and all known
-  deviations (#1–#4) are resolved.
+  `pnpm lint` emits zero `no-restricted-imports` violations (0 errors), and the
+  Phase 2/7 leaks (deviations #1–#4) are resolved. The three deviations found by
+  the 2026-10 audit stay live but are recorded with status and owner above: #5 is
+  an accepted, overridable default, while #6
+  ([issue #179](https://github.com/Kedata-Indonesia/docflow/issues/179)) and #7
+  ([issue #162](https://github.com/Kedata-Indonesia/docflow/issues/162)) carry the
+  follow-up work.
