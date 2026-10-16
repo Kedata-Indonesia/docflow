@@ -1,6 +1,7 @@
 import { Node, mergeAttributes } from '@tiptap/core'
 import { definePlugin } from '@kedata-indonesia/docflow-core'
-import type { Editor } from '@tiptap/core'
+import type { Editor, NodeViewRenderer } from '@tiptap/core'
+import type { Node as PMNode } from '@tiptap/pm/model'
 
 /**
  * Smart Elements — Google-Docs-style interactive inline chips.
@@ -22,8 +23,6 @@ import type { Editor } from '@tiptap/core'
  * link extension for the v1 insert flow; a host can later inject a picker port
  * (see docs/LIBRARY_CONTRACT.md §4) without changing the node schema.
  */
-
-/* eslint-disable @typescript-eslint/no-explicit-any */
 
 // ─── helpers ──────────────────────────────────────────────────────────────
 
@@ -63,7 +62,7 @@ export const DateChipNode = Node.create({
       date: {
         default: todayISO(),
         parseHTML: (el: HTMLElement) => el.getAttribute('data-date') ?? todayISO(),
-        renderHTML: (attrs: Record<string, any>) => ({ 'data-date': attrs.date ?? '' }),
+        renderHTML: (attrs: Record<string, unknown>) => ({ 'data-date': attrs.date ?? '' }),
       },
     }
   },
@@ -79,10 +78,10 @@ export const DateChipNode = Node.create({
     }), formatDate(node.attrs.date)]
   },
 
-  addNodeView(): any {
-    return (props: any) => {
+  addNodeView(): NodeViewRenderer {
+    return (props) => {
       let currentNode = props.node
-      const getPos = props.getPos as () => number | undefined
+      const getPos = props.getPos
       const view = props.view
 
       const dom = document.createElement('span')
@@ -121,7 +120,7 @@ export const DateChipNode = Node.create({
 
       return {
         dom,
-        update(updatedNode: any): boolean {
+        update(updatedNode: PMNode): boolean {
           if (updatedNode.type.name !== 'dateChip') return false
           currentNode = updatedNode
           render()
@@ -147,12 +146,12 @@ export const PeopleChipNode = Node.create({
       userId: {
         default: '',
         parseHTML: (el: HTMLElement) => el.getAttribute('data-user-id') ?? '',
-        renderHTML: (attrs: Record<string, any>) => (attrs.userId ? { 'data-user-id': attrs.userId } : {}),
+        renderHTML: (attrs: Record<string, unknown>) => (attrs.userId ? { 'data-user-id': attrs.userId } : {}),
       },
       name: {
         default: '',
         parseHTML: (el: HTMLElement) => el.getAttribute('data-name') ?? '',
-        renderHTML: (attrs: Record<string, any>) => ({ 'data-name': attrs.name ?? '' }),
+        renderHTML: (attrs: Record<string, unknown>) => ({ 'data-name': attrs.name ?? '' }),
       },
     }
   },
@@ -168,8 +167,8 @@ export const PeopleChipNode = Node.create({
     }), `@${node.attrs.name || 'user'}`]
   },
 
-  addNodeView(): any {
-    return (props: any) => {
+  addNodeView(): NodeViewRenderer {
+    return (props) => {
       let currentNode = props.node
       const dom = document.createElement('span')
       dom.className = 'docs-chip docs-chip--people'
@@ -192,7 +191,7 @@ export const PeopleChipNode = Node.create({
 
       return {
         dom,
-        update(updatedNode: any): boolean {
+        update(updatedNode: PMNode): boolean {
           if (updatedNode.type.name !== 'peopleChip') return false
           currentNode = updatedNode
           render()
@@ -218,12 +217,12 @@ export const FileChipNode = Node.create({
       fileId: {
         default: '',
         parseHTML: (el: HTMLElement) => el.getAttribute('data-file-id') ?? '',
-        renderHTML: (attrs: Record<string, any>) => (attrs.fileId ? { 'data-file-id': attrs.fileId } : {}),
+        renderHTML: (attrs: Record<string, unknown>) => (attrs.fileId ? { 'data-file-id': attrs.fileId } : {}),
       },
       name: {
         default: '',
         parseHTML: (el: HTMLElement) => el.getAttribute('data-name') ?? '',
-        renderHTML: (attrs: Record<string, any>) => ({ 'data-name': attrs.name ?? '' }),
+        renderHTML: (attrs: Record<string, unknown>) => ({ 'data-name': attrs.name ?? '' }),
       },
     }
   },
@@ -239,8 +238,8 @@ export const FileChipNode = Node.create({
     }), node.attrs.name || 'file']
   },
 
-  addNodeView(): any {
-    return (props: any) => {
+  addNodeView(): NodeViewRenderer {
+    return (props) => {
       let currentNode = props.node
       const dom = document.createElement('span')
       dom.className = 'docs-chip docs-chip--file'
@@ -263,7 +262,7 @@ export const FileChipNode = Node.create({
 
       return {
         dom,
-        update(updatedNode: any): boolean {
+        update(updatedNode: PMNode): boolean {
           if (updatedNode.type.name !== 'fileChip') return false
           currentNode = updatedNode
           render()
@@ -293,14 +292,14 @@ export const DropdownChipNode = Node.create({
           const list = raw ? raw.split('|') : []
           return list.length ? list : DEFAULT_STATUSES
         },
-        renderHTML: (attrs: Record<string, any>) => ({
-          'data-options': (attrs.options ?? []).join('|'),
+        renderHTML: (attrs: Record<string, unknown>) => ({
+          'data-options': (Array.isArray(attrs.options) ? attrs.options : []).join('|'),
         }),
       },
       selected: {
         default: DEFAULT_STATUSES[0],
         parseHTML: (el: HTMLElement) => el.getAttribute('data-selected') ?? DEFAULT_STATUSES[0],
-        renderHTML: (attrs: Record<string, any>) => ({ 'data-selected': attrs.selected ?? '' }),
+        renderHTML: (attrs: Record<string, unknown>) => ({ 'data-selected': attrs.selected ?? '' }),
       },
     }
   },
@@ -316,10 +315,10 @@ export const DropdownChipNode = Node.create({
     }), node.attrs.selected || '']
   },
 
-  addNodeView(): any {
-    return (props: any) => {
+  addNodeView(): NodeViewRenderer {
+    return (props) => {
       let currentNode = props.node
-      const getPos = props.getPos as () => number | undefined
+      const getPos = props.getPos
       const view = props.view
 
       const dom = document.createElement('span')
@@ -357,7 +356,7 @@ export const DropdownChipNode = Node.create({
 
       return {
         dom,
-        update(updatedNode: any): boolean {
+        update(updatedNode: PMNode): boolean {
           if (updatedNode.type.name !== 'dropdownChip') return false
           currentNode = updatedNode
           render()
@@ -383,7 +382,7 @@ export const LocationChipNode = Node.create({
       label: {
         default: '',
         parseHTML: (el: HTMLElement) => el.getAttribute('data-label') ?? '',
-        renderHTML: (attrs: Record<string, any>) => ({ 'data-label': attrs.label ?? '' }),
+        renderHTML: (attrs: Record<string, unknown>) => ({ 'data-label': attrs.label ?? '' }),
       },
       lat: {
         default: null,
@@ -391,7 +390,7 @@ export const LocationChipNode = Node.create({
           const v = el.getAttribute('data-lat')
           return v === null ? null : Number(v)
         },
-        renderHTML: (attrs: Record<string, any>) => (attrs.lat != null ? { 'data-lat': attrs.lat } : {}),
+        renderHTML: (attrs: Record<string, unknown>) => (attrs.lat != null ? { 'data-lat': attrs.lat } : {}),
       },
       lng: {
         default: null,
@@ -399,7 +398,7 @@ export const LocationChipNode = Node.create({
           const v = el.getAttribute('data-lng')
           return v === null ? null : Number(v)
         },
-        renderHTML: (attrs: Record<string, any>) => (attrs.lng != null ? { 'data-lng': attrs.lng } : {}),
+        renderHTML: (attrs: Record<string, unknown>) => (attrs.lng != null ? { 'data-lng': attrs.lng } : {}),
       },
     }
   },
@@ -415,8 +414,8 @@ export const LocationChipNode = Node.create({
     }), node.attrs.label || '']
   },
 
-  addNodeView(): any {
-    return (props: any) => {
+  addNodeView(): NodeViewRenderer {
+    return (props) => {
       let currentNode = props.node
       const dom = document.createElement('span')
       dom.className = 'docs-chip docs-chip--location'
@@ -439,7 +438,7 @@ export const LocationChipNode = Node.create({
 
       return {
         dom,
-        update(updatedNode: any): boolean {
+        update(updatedNode: PMNode): boolean {
           if (updatedNode.type.name !== 'locationChip') return false
           currentNode = updatedNode
           render()

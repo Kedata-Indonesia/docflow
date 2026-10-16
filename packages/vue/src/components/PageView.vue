@@ -159,7 +159,7 @@ const getBlockContent = (block: BlockInfo): string | null => {
 </script>
 
 <template>
-  <!-- eslint-disable vue/no-v-html -->
+  <!-- eslint-disable vue/no-v-html -- block content is sanitized via sanitizeInlineHTML (issue #51) -->
   <div class="docs-editor-pages flex flex-col items-center gap-10">
     <div
       v-for="(page, pageIndex) in pages"

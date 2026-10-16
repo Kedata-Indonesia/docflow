@@ -19,8 +19,16 @@ module.exports = {
     extraFileExtensions: ['.vue'],
   },
   plugins: ['@typescript-eslint'],
+  // Surface `eslint-disable` directives that no longer suppress anything so
+  // "zombie" suppressions cannot silently rot. The `lint` script also passes
+  // `--report-unused-disable-directives` (severity "error") for CI parity.
+  reportUnusedDisableDirectives: true,
   rules: {
-    '@typescript-eslint/no-explicit-any': 'warn',
+    // Type-safety guardrail: explicit `any` is a hard error, not a warning, so
+    // `pnpm lint` cannot exit 0 while the repo drifts towards `any` sprawl.
+    // Any remaining suppression must carry a written justification on the same
+    // line (see CONTRIBUTING.md § Rules).
+    '@typescript-eslint/no-explicit-any': 'error',
     '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
     'vue/multi-word-component-names': 'off',
   },

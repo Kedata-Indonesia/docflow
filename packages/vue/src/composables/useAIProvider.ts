@@ -15,24 +15,13 @@
 import { computed, type ComputedRef, type Ref } from 'vue'
 import type { Editor } from '@tiptap/core'
 import type { AIDraftFn, AIStreamFn } from '@kedata-indonesia/docflow-core'
+import { readEditorContext } from './editorContext.js'
 
 export interface UseAIProviderReturn {
   aiStream: ComputedRef<AIStreamFn | undefined>
   aiDraft: ComputedRef<AIDraftFn | undefined>
   /** True when the host injected an `aiStream` transport. */
   isAIAvailable: ComputedRef<boolean>
-}
-
-/** Shape of the host-injected AI ports kept on `editor.storage.editorContext`. */
-interface EditorContextStorage {
-  editorContext?: {
-    aiStream?: AIStreamFn
-    aiDraft?: AIDraftFn
-  }
-}
-
-function readEditorContext(editor: Editor | null): EditorContextStorage['editorContext'] {
-  return (editor?.storage as unknown as EditorContextStorage | undefined)?.editorContext
 }
 
 export function useAIProvider(editor: Ref<Editor | null>): UseAIProviderReturn {

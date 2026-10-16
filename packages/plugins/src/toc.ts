@@ -1,6 +1,6 @@
 import { Extension, Node, mergeAttributes } from '@tiptap/core'
 import { definePlugin } from '@kedata-indonesia/docflow-core'
-import type { Editor } from '@tiptap/core'
+import type { Editor, NodeViewRenderer } from '@tiptap/core'
 import type { Schema, Node as PMNode } from '@tiptap/pm/model'
 import type { Transaction } from '@tiptap/pm/state'
 import { scrollEditorToPos } from './editorScroll.js'
@@ -272,13 +272,9 @@ export const TocNode = Node.create({
     }), 0]
   },
 
-  // Return type cast to `any` to bypass TipTap's strict NodeViewRenderer typing
-  // (same pattern as FootnoteNode / BibliographyNode).
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  addNodeView(): any {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return (props: any) => {
-      const editor = props.editor as Editor
+  addNodeView(): NodeViewRenderer {
+    return (props) => {
+      const editor = props.editor
 
       const dom = document.createElement('div')
       dom.className = 'docs-toc'
@@ -329,9 +325,8 @@ export const TocNode = Node.create({
       return {
         dom,
         contentDOM,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        update(updatedNode: any): boolean {
-          return updatedNode?.type?.name === 'toc'
+        update(updatedNode: PMNode): boolean {
+          return updatedNode.type.name === 'toc'
         },
         destroy() {
           refresh.removeEventListener('click', onRefresh)

@@ -17,6 +17,13 @@ const position = ref({ top: 0, left: 0 })
 
 const filteredCommands = ref<Array<{ name: string; command: string }>>([])
 
+/**
+ * Structural view of `editor.commands` / a Tiptap chain so slash commands can
+ * be looked up by their runtime name. `docflow-vue` does not depend on every
+ * extension that registers a command, so the static map cannot know them all.
+ */
+type CommandMap = Record<string, (...args: unknown[]) => unknown>
+
 function updatePosition() {
   if (!props.editor) return
   const { view } = props.editor
@@ -46,14 +53,15 @@ function selectCommand(cmd: { name: string; command: string }) {
   }
 
   // Execute the command
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const editorAny = props.editor as any
-  if (typeof editorAny.commands?.[cmd.command] === 'function') {
-    editorAny.commands[cmd.command]()
-  } else if (editorAny.chain) {
+  const commands = props.editor.commands as unknown as CommandMap
+  if (typeof commands[cmd.command] === 'function') {
+    commands[cmd.command]()
+  } else if (typeof props.editor.chain === 'function') {
     // Try TipTap chain
     try {
-      editorAny.chain().focus()[cmd.command]?.()?.run()
+      const chain = props.editor.chain().focus() as unknown as CommandMap
+      const result = chain[cmd.command]?.() as { run?: () => boolean } | undefined
+      result?.run?.()
     } catch { /* ignore */ }
   }
 
