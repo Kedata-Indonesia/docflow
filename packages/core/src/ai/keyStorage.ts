@@ -4,9 +4,17 @@
  *
  * The URL and the key are a pair and travel together. The library ships three
  * reference implementations; hosts may write their own (e.g. keyed per-tenant
- * in their own backend). No URL is hardcoded anywhere — `httpKeyStorage`
- * receives its endpoints from the host, keeping the library backend-agnostic
- * (docs/LIBRARY_CONTRACT.md rule 3).
+ * in their own backend). No *endpoint* is hardcoded on the storage path —
+ * `httpKeyStorage` receives its endpoints from the host, keeping the library
+ * backend-agnostic (docs/LIBRARY_CONTRACT.md rule 3). The only hardcoded host
+ * is the overridable `DEFAULT_BASE_URL` default in `claudeProvider.ts`
+ * (contract rule 4 exception; see §5 of docs/LIBRARY_CONTRACT.md).
+ *
+ * ⚠️ Secrets note: `localStorageKeyStorage` keeps an API key in
+ * `localStorage` in plaintext — any script running on the same origin can read
+ * it. Prefer a non-persistent storage (or `httpKeyStorage`, which keeps the key
+ * on the host backend) when the embedding app is not fully trusted
+ * (issue #179).
  */
 
 export type Auth =

@@ -44,6 +44,14 @@ httpKeyStorage({ getUrl, setUrl, deleteUrl }) // your backend holds it
 memoryKeyStorage()                          // tests / SSR
 ```
 
+> ⚠️ **Secrets, not preferences.** `localStorageKeyStorage()` keeps the API key
+> in `localStorage` as plaintext, so any script running on the origin (including
+> an XSS payload) can read it and it survives sign-out. Prefer
+> `httpKeyStorage()` so the key stays in your backend, or a non-persistent
+> storage, whenever the embedding app is not fully trusted. See the rule-5
+> credential note and deviation #6 in
+> [LIBRARY_CONTRACT.md](LIBRARY_CONTRACT.md).
+
 Typical boot flow (mirror of our SaaS `aiProviderBootstrap.ts`):
 
 ```ts

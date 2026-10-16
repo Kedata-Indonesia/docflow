@@ -1,6 +1,6 @@
 # Library Contract — DocsEditor
 
-**Status:** Living document · **Owner:** Kedata Indonesia · **Last updated:** 2026-10-08
+**Status:** Living document · **Owner:** Kedata Indonesia · **Last updated:** 2026-10-16
 
 > This file is the **single source of truth for the library/app boundary**. It catalogues
 > every injection port through which the library (`packages/*`) may reach backend concerns,
@@ -235,12 +235,18 @@ How each existing port flows through the layers (verified 2026-07-19):
 3. ❌ No direct backend HTTP calls (`fetch('/api/*')`, hardcoded API hosts).
    → *Not lint-catchable (string-based); review-gated. See deviation #1.*
 4. ❌ No hardcoded external URLs / CDNs / storage endpoints.
-   → *Review-gated. See deviations #2, #3.*
+   → *Review-gated. See deviations #2 and #3 (resolved) and deviation #5 (accepted, below).*
+   ✅ *Exception:* the library ships a **default** transport for AI providers
+   (`DEFAULT_BASE_URL` in `packages/core/src/ai/claudeProvider.ts`). It is a
+   named, overridable default for a host-injected port — hosts pass their own
+   `baseUrl` — not a storage/API assumption baked into a feature path.
 5. ❌ No document persistence inside the library (`localStorage` drafts, IndexedDB, etc.) —
    persistence is the host's job via `onUpdate`.
-   → *Review-gated. See deviation #4.*
+   → *Review-gated. See deviation #4 (resolved) and deviations #6–#7 in §5.*
    ✅ *Exception:* presentation preferences (theme, locale) may use `localStorage` —
    they are UI chrome state, not document data.
+   ✅ *Exception:* **AI credentials** are not document data, but they are secrets —
+   see deviation #6 in §5 before persisting them client-side.
 
 **Escape hatch — add a port, not a leak.** If a library feature needs something from the
 backend (upload, AI, directory lookup, …), do not reach out directly. Instead:
@@ -256,10 +262,12 @@ reviewers to ask which side of the boundary it really belongs on.
 
 ## 5. Known Deviations
 
-Violations of this contract and their status. All known deviations are now
-resolved — deviation #1 was closed by the pluggable AI provider work
-([PLUGGABLE_AI_PROVIDER](plans/PLUGGABLE_AI_PROVIDER.md)); the rest were
-resolved in Phase 2.
+Violations of this contract and their status. The Phase 2 and Phase 7 leaks
+(deviations #1–#4) are closed. Three deviations were found still live during the
+2026-10 audit — recorded below as #5–#7 rather than silently dropped.
+Closing a deviation means either removing the leak or declaring it explicitly
+here with the reason it is accepted **and the ticket that owns the follow-up**
+(a deviation with no owner is not closed, only hidden).
 
 | # | Deviation | Location | Class | Status | Remediation |
 |---|-----------|----------|-------|--------|-------------|
@@ -267,6 +275,9 @@ resolved in Phase 2.
 | 2 | Image plugin hardcoded `via.placeholder.com` + `window.prompt` fallback | `packages/plugins/src/image.ts` (pre-Phase-2) | Hardcoded external URL / storage assumption (rule 4) | ✅ **Resolved in Phase 2** | Replaced by the `onImageUpload` port (§2.1); URL prompt kept as an explicit no-host fallback. |
 | 3 | webrtc signaling defaulted to public servers (`wss://signaling.yjs.dev`, `wss://y-webrtc-eu.fly.dev`) | `packages/core/src/Collaboration.ts` (pre-Phase-2) | External-network assumption (rule 4) | ✅ **Resolved in Phase 2** | Defaults to localhost-only + one-time `console.warn`; cross-network webrtc requires explicit `signaling`; websocket + own server is the documented production path. |
 | 4 | Document draft autosave to `localStorage` (`docs-editor-current-doc`) | `packages/vue/src/components/DocsEditor.vue` (pre-Phase-2) | Document persistence in the library (rule 5) | ✅ **Resolved in Phase 2** | Write removed (it was never read anywhere); hosts persist via `update:modelValue` / `onUpdate`. |
+| 5 | `DEFAULT_BASE_URL = 'https://api.anthropic.com'` is a hardcoded external host | [claudeProvider.ts:33](../packages/core/src/ai/claudeProvider.ts) | Hardcoded external URL (rule 4) | ⚠️ **Accepted deviation** — audited 2026-10 | Named, host-overridable default for a host-injected port (the host passes `baseUrl`), not a feature-path assumption. Recorded as the rule-4 exception above; revisit if the library ever picks an endpoint on its own. |
+| 6 | `localStorageKeyStorage()` persists **AI credentials** (API keys) as plaintext in `localStorage` | [keyStorage.ts:62,69](../packages/core/src/ai/keyStorage.ts) | Client-side secret persistence (rule 5, by analogy) | ⚠️ **Open** — [issue #179](https://github.com/Kedata-Indonesia/docflow/issues/179) | Opt-in reference implementation, but credentials are secrets even though they are not document data. Tracked to add a non-persistent option, a runtime warning, and an explicit host-facing note. |
+| 7 | `Collaboration.offline` mirrors the doc into `y-indexeddb` (`IndexeddbPersistence`) | [Collaboration.ts:145-147](../packages/core/src/Collaboration.ts) | IndexedDB use inside the library (rule 5) | ⚠️ **Accepted, opt-in** — lifecycle tracked in [#162](https://github.com/Kedata-Indonesia/docflow/issues/162) | Off by default, never a seed source: the Yjs room stays authoritative and the mirror only replays local offline edits (comments in-file). Purge/quota lifecycle is handled by #162. |
 
 > The theme/locale `localStorage` uses in `useTheme.ts` / `useLocale.ts` are **not**
 > deviations — they are presentation preferences, allowed by the rule-5 exception in §4.
@@ -285,5 +296,10 @@ The ESLint guardrail in [.eslintrc.cjs](../.eslintrc.cjs) (override scoped to
   is a one-line change if ever needed.
 - **Baseline:** as of 2026-10 the boundary holds structurally —
   `grep -rn "apps/" packages --include=*.ts --include=*.vue` returns no imports,
-  `pnpm lint` emits zero `no-restricted-imports` violations (0 errors), and all known
-  deviations (#1–#4) are resolved.
+  `pnpm lint` emits zero `no-restricted-imports` violations (0 errors), and the
+  Phase 2/7 leaks (deviations #1–#4) are resolved. The three deviations found by
+  the 2026-10 audit stay live but are recorded with status and owner above: #5 is
+  an accepted, overridable default, while #6
+  ([issue #179](https://github.com/Kedata-Indonesia/docflow/issues/179)) and #7
+  ([issue #162](https://github.com/Kedata-Indonesia/docflow/issues/162)) carry the
+  follow-up work.
