@@ -14,7 +14,7 @@
   "dependencies": {
     "@kedata-indonesia/docflow-plugins": "workspace:*",
     "@kedata-indonesia/docflow-vue": "workspace:*",
-    "vue": "^3.5.41"
+    "vue": "^3.5.44"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

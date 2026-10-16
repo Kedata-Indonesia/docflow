@@ -13,6 +13,10 @@ allowBuilds:
 
 overrides:
   prosemirror-model: 1.25.11
+  prosemirror-view: ^1.42.6
+  prosemirror-transform: ^1.12.2
+  source-map-js: ^1.2.2
+  markdown-it: ^14.3.2
 
 patchedDependencies:
   tiptap-pagination-plus@3.1.0: patches/tiptap-pagination-plus@3.1.0.patch
