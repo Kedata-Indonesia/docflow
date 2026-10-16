@@ -191,6 +191,15 @@
   line-height: 1.6 !important;
 }
 
+/* Block indent (issue #189). The level travels in --docflow-indent (set inline
+   by the IndentExtension) so this single rule can out-rank the `!important`
+   shorthands above — an inline `margin-left` alone would lose to
+   `.ProseMirror p { margin: … !important }`. 48px must match INDENT_STEP_PX in
+   packages/core/src/Indent.ts. */
+.ProseMirror [data-indent] {
+  margin-left: calc(var(--docflow-indent, 0) * 48px) !important;
+}
+
 .ProseMirror blockquote {
   border-left: 3px solid #22d3ee !important;
   background-color: rgba(34, 211, 238, 0.05) !important;
