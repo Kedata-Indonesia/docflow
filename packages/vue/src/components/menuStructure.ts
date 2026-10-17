@@ -7,6 +7,7 @@ import {
   PanelLeft, Maximize2, Ruler, Trash2, NotebookPen, ImagePlus, Table, Code2, Minus,
   Link2, SeparatorHorizontal, Heading, PanelBottom, List, Hash, ScrollText,
   Bold, Italic, Underline, Heading1, Heading2, Heading3, IndentIncrease,
+  IndentDecrease,
   AlignLeft, AlignCenter, AlignRight, AlignJustify, ListOrdered, ListChecks,
   RemoveFormatting, SpellCheck, SlidersHorizontal, Puzzle, Keyboard, Bug, CircleHelp,
   Sparkles, LayoutTemplate, Calendar, MapPin, Eye, PenLine, GitPullRequest,
@@ -213,6 +214,8 @@ export function buildMenus(ctx: MenuStructureContext): Record<string, { label: s
             { label: t('header.alignCenter'), action: 'align-center', icon: AlignCenter },
             { label: t('header.alignRight'), action: 'align-right', icon: AlignRight },
             { label: t('header.alignJustify'), action: 'align-justify', icon: AlignJustify },
+            { label: t('header.indent'), action: 'indent', icon: IndentIncrease },
+            { label: t('header.outdent'), action: 'outdent', icon: IndentDecrease },
           ]
         },
         {

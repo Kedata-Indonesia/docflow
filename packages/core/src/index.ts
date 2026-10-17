@@ -8,6 +8,14 @@ export {
   type MonitorMetric,
 } from './PerformanceMonitor.js'
 export { BlockAttributesExtension } from './BlockAttributes.js'
+export {
+  IndentExtension,
+  clampIndentLevel,
+  indentLevelOf,
+  INDENT_STEP_PX,
+  INDENT_MAX_LEVEL,
+  INDENT_STYLE_VAR,
+} from './Indent.js'
 export { FontSizeExtension } from './FontSize.js'
 export { FontFamilyExtension } from './FontFamily.js'
 export { EditorContextExtension, type EditorContextOptions } from './EditorContext.js'

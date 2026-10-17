@@ -42,6 +42,8 @@ export const EDIT_FORMAT_MENU_ACTIONS: readonly string[] = [
   'align-center',
   'align-right',
   'align-justify',
+  'indent',
+  'outdent',
   // Format menu — bullets & numbering
   'bullet-list',
   'numbered-list',
@@ -235,11 +237,13 @@ export function useEditCommands(options: UseEditCommandsOptions) {
     heading1: () => runMenuEditorCommand('toggleHeading', { level: 1 }),
     heading2: () => runMenuEditorCommand('toggleHeading', { level: 2 }),
     heading3: () => runMenuEditorCommand('toggleHeading', { level: 3 }),
-    // Format menu — align & indent (alignment plugin)
+    // Format menu — align & indent (alignment plugin + core IndentExtension)
     'align-left': () => runPluginMenuAction('alignLeft'),
     'align-center': () => runPluginMenuAction('alignCenter'),
     'align-right': () => runPluginMenuAction('alignRight'),
     'align-justify': () => runPluginMenuAction('alignJustify'),
+    indent: () => runMenuEditorCommand('indent'),
+    outdent: () => runMenuEditorCommand('outdent'),
     // Format menu — bullets & numbering (StarterKit lists + lists plugin)
     'bullet-list': () => runMenuEditorCommand('toggleBulletList'),
     'numbered-list': () => runMenuEditorCommand('toggleOrderedList'),
@@ -251,9 +255,10 @@ export function useEditCommands(options: UseEditCommandsOptions) {
     'clear-formatting': () => {
       if (!editor.value) return
       editor.value.chain().unsetAllMarks().clearNodes().run()
-      // clearNodes keeps node attributes — also reset text alignment when the
-      // alignment plugin's command is available.
+      // clearNodes keeps node attributes — also reset text alignment and the
+      // block indent when those commands are available.
       runMenuEditorCommand('setTextAlign', 'left')
+      runMenuEditorCommand('unsetIndent')
     },
     // Insert menu — editor-scoped inserts (template actions like meeting-notes /
     // email-draft stay host-level and are still emitted).

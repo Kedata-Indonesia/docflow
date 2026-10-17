@@ -34,6 +34,14 @@ describe('sanitizePastedHTML', () => {
       expect(sanitizePastedHTML('')).toBe('')
       expect(sanitizePastedHTML('plain text')).toBe('plain text')
     })
+
+    it('keeps the block indent added by the IndentExtension (#189)', () => {
+      // Copy/paste inside the editor goes through this normalizer, so dropping
+      // `data-indent` would silently flatten an indented paragraph on paste.
+      expect(sanitizePastedHTML('<p data-indent="2" class="x">hi</p>')).toBe(
+        '<p data-indent="2">hi</p>',
+      )
+    })
   })
 
   describe('Google Docs highlight conversion', () => {
