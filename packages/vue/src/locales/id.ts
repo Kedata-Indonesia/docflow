@@ -110,6 +110,8 @@ export default {
     alignCenter: 'Rata tengah',
     alignRight: 'Rata kanan',
     alignJustify: 'Rata kiri-kanan',
+    indent: 'Tambah inden',
+    outdent: 'Kurangi inden',
     bulletsNumbering: 'Bullet & penomoran',
     bulletList: 'Daftar ber-bullet',
     numberedList: 'Daftar bernomor',

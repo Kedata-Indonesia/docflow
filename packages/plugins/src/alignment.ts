@@ -22,5 +22,17 @@ export const alignmentPlugin = definePlugin({
     alignCenter: setAlign('center'),
     alignRight: setAlign('right'),
     alignJustify: setAlign('justify'),
+    indent: (editor: Editor) => {
+      if (editor.can().sinkListItem('listItem')) {
+        return editor.commands.sinkListItem('listItem')
+      }
+      return false
+    },
+    outdent: (editor: Editor) => {
+      if (editor.can().liftListItem('listItem')) {
+        return editor.commands.liftListItem('listItem')
+      }
+      return false
+    },
   },
 })

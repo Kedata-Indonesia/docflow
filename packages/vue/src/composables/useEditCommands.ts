@@ -42,6 +42,8 @@ export const EDIT_FORMAT_MENU_ACTIONS: readonly string[] = [
   'align-center',
   'align-right',
   'align-justify',
+  'indent',
+  'outdent',
   // Format menu — bullets & numbering
   'bullet-list',
   'numbered-list',
@@ -235,11 +237,13 @@ export function useEditCommands(options: UseEditCommandsOptions) {
     heading1: () => runMenuEditorCommand('toggleHeading', { level: 1 }),
     heading2: () => runMenuEditorCommand('toggleHeading', { level: 2 }),
     heading3: () => runMenuEditorCommand('toggleHeading', { level: 3 }),
-    // Format menu — align & indent (alignment plugin)
-    'align-left': () => runPluginMenuAction('alignLeft'),
-    'align-center': () => runPluginMenuAction('alignCenter'),
-    'align-right': () => runPluginMenuAction('alignRight'),
-    'align-justify': () => runPluginMenuAction('alignJustify'),
+  // Format menu — align & indent (alignment plugin)
+  'align-left': () => runPluginMenuAction('alignLeft'),
+  'align-center': () => runPluginMenuAction('alignCenter'),
+  'align-right': () => runPluginMenuAction('alignRight'),
+  'align-justify': () => runPluginMenuAction('alignJustify'),
+  indent: () => runPluginMenuAction('indent'),
+  outdent: () => runPluginMenuAction('outdent'),
     // Format menu — bullets & numbering (StarterKit lists + lists plugin)
     'bullet-list': () => runMenuEditorCommand('toggleBulletList'),
     'numbered-list': () => runMenuEditorCommand('toggleOrderedList'),

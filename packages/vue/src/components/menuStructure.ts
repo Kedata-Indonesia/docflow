@@ -213,6 +213,8 @@ export function buildMenus(ctx: MenuStructureContext): Record<string, { label: s
             { label: t('header.alignCenter'), action: 'align-center', icon: AlignCenter },
             { label: t('header.alignRight'), action: 'align-right', icon: AlignRight },
             { label: t('header.alignJustify'), action: 'align-justify', icon: AlignJustify },
+            { label: t('header.indent'), action: 'indent', icon: IndentIncrease, shortcut: 'Tab' },
+            { label: t('header.outdent'), action: 'outdent', icon: IndentIncrease, shortcut: 'Shift+Tab' },
           ]
         },
         {
