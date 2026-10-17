@@ -1,9 +1,9 @@
 <script setup lang="ts">
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { computed, ref, watch, onUnmounted } from 'vue'
 import { Bold, Italic, Underline, Link as LinkIcon, Sparkles, Check, X, Loader2, AlertCircle } from 'lucide-vue-next'
 import type { Editor } from '@tiptap/core'
 import type { AIAction } from '@kedata-indonesia/docflow-core'
+import { readEditorContext } from '../composables/editorContext.js'
 
 export interface BubbleMenuPosition {
   top: number
@@ -70,13 +70,21 @@ const items = computed(() => {
 /** The host injected an aiStream port (apps/web) — hide AI actions otherwise. */
 const aiAvailable = computed(() => {
   void selectionTick.value
-  return Boolean((props.editor?.storage as any)?.editorContext?.aiStream)
+  return Boolean(readEditorContext(props.editor ?? null)?.aiStream)
 })
+
+/** Read the aiPlugin storage without importing the backend-only plugin types. */
+function readAIPreview(editor: Editor | null): AIPreviewLike | null {
+  const storage = editor?.storage as unknown as
+    | { ai?: { preview?: AIPreviewLike | null } }
+    | undefined
+  return storage?.ai?.preview ?? null
+}
 
 /** Active AI preview mirrored into extension storage by the aiPlugin. */
 const aiPreview = computed<AIPreviewLike | null>(() => {
   void selectionTick.value
-  return ((props.editor?.storage as any)?.ai?.preview ?? null) as AIPreviewLike | null
+  return readAIPreview(props.editor ?? null)
 })
 
 const aiActions: Array<{ id: string; label: string; action: AIAction; prompt?: string }> = [
@@ -130,14 +138,14 @@ const inactiveClass =
 function runAction(action: string) {
   if (action === 'setLink') {
     if (props.editor?.isActive('link')) {
-      (props.editor.chain().focus() as any).unsetLink().run()
+      props.editor.chain().focus().unsetLink().run()
       return
     }
     const url = typeof window !== 'undefined' ? window.prompt('Enter link URL:', 'https://') : null
     if (url) {
       const fn = props.actions[action]
       if (typeof fn === 'function') fn({ href: url, target: '_blank' })
-      else (props.editor?.chain().focus() as any).setLink?.({ href: url, target: '_blank' }).run()
+      else props.editor?.chain().focus().setLink({ href: url, target: '_blank' }).run()
     }
     return
   }

@@ -1,5 +1,4 @@
 <script setup lang="ts">
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { ref, computed, watch, onUnmounted, nextTick, toRaw } from 'vue'
 import { Sparkles, Send, Copy, Check, ArrowDownToLine, AlignLeft, BadgeCheck, Wand2, Globe, X, User, PencilLine, Quote, Loader2, Square, TriangleAlert } from 'lucide-vue-next'
 import type { Editor } from '@tiptap/core'
@@ -7,6 +6,7 @@ import { Slice, Fragment } from 'prosemirror-model'
 import type { AIActionRequest, AIStreamFn, AIDraftCitation, AIDraftEvent, AIDraftFn } from '@kedata-indonesia/docflow-core'
 import { getCitationEngine, insertMarkdownBlock, scrollEditorToPos } from '@kedata-indonesia/docflow-plugins'
 import { useLocale } from '../../composables/useLocale.js'
+import { readEditorContext } from '../../composables/editorContext.js'
 import { buildContentArray, stripMarkers } from './markerGrammar.js'
 
 /**
@@ -85,13 +85,13 @@ let abort: AbortController | null = null
 /** The injected transport — prop first, editorContext port as fallback. */
 const resolvedAiStream = computed<AIStreamFn | undefined>(() => {
   if (props.aiStream) return props.aiStream
-  return (pmEditor()?.storage as any)?.editorContext?.aiStream
+  return readEditorContext(pmEditor())?.aiStream
 })
 
 /** 7E-4: the host-injected draft transport (yields `AIDraftEvent`s). */
 const resolvedAiDraft = computed<AIDraftFn | undefined>(() => {
   if (props.aiDraft) return props.aiDraft
-  return (pmEditor()?.storage as any)?.editorContext?.aiDraft
+  return readEditorContext(pmEditor())?.aiDraft
 })
 
 /** 7E-4: when true, the submit form drives `sendDraft` (→ /api/ai/draft) instead of chat. */
@@ -294,7 +294,7 @@ function runMacro(macro: {
  *  so the change is previewed in the editor and applied as ONE transaction. */
 function improveSelection() {
   if (!currentSelection.value) return
-  ;(pmEditor()?.commands as any)?.aiTransform?.({ action: 'rewrite' })
+  pmEditor()?.commands.aiTransform({ action: 'rewrite' })
 }
 
 interface QuickAction {

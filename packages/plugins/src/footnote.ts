@@ -1,6 +1,7 @@
 import { Node, mergeAttributes } from '@tiptap/core'
 import { definePlugin } from '@kedata-indonesia/docflow-core'
-import type { Editor } from '@tiptap/core'
+import type { Editor, NodeViewRenderer } from '@tiptap/core'
+import type { Node as ProseMirrorNode } from '@tiptap/pm/model'
 
 export const FootnoteNode = Node.create({
   name: 'footnote',
@@ -51,14 +52,10 @@ export const FootnoteNode = Node.create({
     }), '1']
   },
 
-  // Return type cast to `any` to bypass TipTap's strict NodeViewRenderer typing.
-  // At runtime this returns a valid ProseMirror NodeView { dom, update }.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  addNodeView(): any {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return (props: any) => {
-      const node = props.node ?? props
-      const attrs = (node && typeof node === 'object' && 'attrs' in node) ? node.attrs : {}
+  addNodeView(): NodeViewRenderer {
+    return (props) => {
+      const node = props.node
+      const attrs = node.attrs as Record<string, unknown>
 
       const dom = document.createElement('span')
       dom.className = 'docs-footnote-ref'
@@ -74,10 +71,9 @@ export const FootnoteNode = Node.create({
 
       return {
         dom,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        update(updatedNode: any): boolean {
+        update(updatedNode: ProseMirrorNode): boolean {
           try {
-            const updatedAttrs = updatedNode?.attrs ?? {}
+            const updatedAttrs = (updatedNode.attrs ?? {}) as Record<string, unknown>
             dom.setAttribute('data-footnote-content', String(updatedAttrs.content ?? ''))
             if (updatedAttrs.sourceId) {
               dom.setAttribute('data-footnote-source-id', String(updatedAttrs.sourceId))

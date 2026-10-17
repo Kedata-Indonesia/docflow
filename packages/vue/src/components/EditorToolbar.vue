@@ -1,5 +1,4 @@
 <script setup lang="ts">
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
 import type { Editor } from '@tiptap/core'
 import type { DocsEditorPlugin, ToolbarItem } from '@kedata-indonesia/docflow-core'
@@ -43,6 +42,7 @@ import {
 } from 'lucide-vue-next'
 import type { SidebarKey } from '../types.js'
 import { useLocale } from '../composables/useLocale.js'
+import { readEditorContext } from '../composables/editorContext.js'
 import ColorPickerDropdown from './ColorPickerDropdown.vue'
 
 const { t } = useLocale()
@@ -343,15 +343,11 @@ function sidebarClass(key: SidebarKey) {
 const hasCitationPlugin = computed(() => props.plugins?.some((p) => p.id === 'citation') ?? false)
 
 // The AI sidebar is only meaningful when the host injects an aiStream port.
-const hasAI = computed(
-  () =>
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    Boolean((props.editor?.storage as any)?.editorContext?.aiStream),
-)
+const hasAI = computed(() => Boolean(readEditorContext(props.editor ?? null)?.aiStream))
 
 function handleUndo() {
   if (props.editor) {
-    (props.editor.commands as any).undo()
+    props.editor.commands.undo()
     props.editor.commands.focus()
   }
   emit('undo')
@@ -359,7 +355,7 @@ function handleUndo() {
 
 function handleRedo() {
   if (props.editor) {
-    (props.editor.commands as any).redo()
+    props.editor.commands.redo()
     props.editor.commands.focus()
   }
   emit('redo')
@@ -383,14 +379,14 @@ function applyParagraphStyle(value: string) {
   const editor = props.editor
   if (editor) {
     if (value === 'paragraph') {
-      (editor.commands as any).setParagraph()
+      editor.commands.setParagraph()
     } else {
       const level = parseInt(value.replace('heading-', ''), 10)
       const fn = props.actions[`toggleHeading${level}`]
       if (typeof fn === 'function') {
         fn()
       } else {
-        (editor.commands as any).toggleHeading({ level: level as 1 | 2 | 3 | 4 | 5 | 6 })
+        editor.commands.toggleHeading({ level: level as 1 | 2 | 3 | 4 | 5 | 6 })
       }
     }
     editor.commands.focus()
@@ -527,8 +523,7 @@ function handleFontSize(delta: number) {
   }
   // Use direct command (not chain) to avoid chaining-proxy conflict with the
   // inner setMark calls inside FontSizeExtension.
-  const commands = props.editor.commands as any
-  commands.setFontSize(`${nextSize}px`)
+  props.editor.commands.setFontSize(`${nextSize}px`)
   props.editor.commands.focus()
 }
 
@@ -550,8 +545,7 @@ function onFontSizeInput(event: Event) {
 function applyFontSize(size: number) {
   if (!props.editor) return
   const clamped = Math.min(Math.max(size, MIN_FONT_SIZE), MAX_FONT_SIZE)
-  const commands = props.editor.commands as any
-  commands.setFontSize(`${clamped}px`)
+  props.editor.commands.setFontSize(`${clamped}px`)
 }
 
 function commitFontSize(event: FocusEvent) {

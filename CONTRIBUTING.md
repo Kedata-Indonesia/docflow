@@ -120,6 +120,12 @@ git push -u origin feat/<short-topic>
 - **Keep `pnpm-lock.yaml` clean.** The missing `examples/` folder makes a plain
   `pnpm install` prune its importer — `git checkout -- pnpm-lock.yaml` instead of
   committing that churn (or use `pnpm install --frozen-lockfile`).
+- **The lint gate is a hard gate.** `pnpm lint` runs with `--max-warnings 0` and
+  `@typescript-eslint/no-explicit-any` is an `error`, so it can never pass while
+  type-safety regresses. Prefer a real type over `eslint-disable`; when a
+  suppression is unavoidable it must carry a short reason on the same line
+  (e.g. `// eslint-disable-next-line <rule> -- why`). Unused directives fail the
+  run, so remove them once the underlying problem is fixed.
 
 ## Commit style
 

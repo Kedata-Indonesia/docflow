@@ -1,5 +1,6 @@
 import { Node, mergeAttributes } from '@tiptap/core'
-import type { Editor } from '@tiptap/core'
+import type { Editor, NodeViewRenderer } from '@tiptap/core'
+import type { Node as ProseMirrorNode } from '@tiptap/pm/model'
 import type { CiteEngine } from './citeEngine.js'
 
 interface CitationStorageLike {
@@ -37,13 +38,9 @@ export const BibliographyNode = Node.create({
     ]
   },
 
-  // Return type cast to `any` to bypass TipTap's strict NodeViewRenderer typing
-  // (same pattern as FootnoteNode).
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  addNodeView(): any {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return (props: any) => {
-      const editor = props.editor as Editor
+  addNodeView(): NodeViewRenderer {
+    return (props) => {
+      const editor = props.editor
 
       const dom = document.createElement('div')
       dom.className = 'docs-bibliography'
@@ -82,9 +79,8 @@ export const BibliographyNode = Node.create({
 
       return {
         dom,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        update(updatedNode: any): boolean {
-          return updatedNode?.type?.name === 'bibliography'
+        update(updatedNode: ProseMirrorNode): boolean {
+          return updatedNode.type.name === 'bibliography'
         },
         destroy() {
           unsubscribe?.()

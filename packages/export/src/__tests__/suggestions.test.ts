@@ -44,15 +44,25 @@ const docJson = (marks: Array<{ text: string; marks: import('prosemirror-model')
     ])
     .toJSON()
 
+interface ProseMirrorJsonNode {
+  type?: string
+  text?: string
+  marks?: Array<{ type: string; [key: string]: unknown }>
+  content?: ProseMirrorJsonNode[]
+}
+
+/** The inline content of the first paragraph in a serialized doc. */
+const inlineNodes = (json: object): ProseMirrorJsonNode[] => {
+  const doc = json as ProseMirrorJsonNode
+  return doc.content?.[0]?.content ?? []
+}
+
 const textOf = (json: object): string =>
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (json as any).content?.[0]?.content?.map((n: { text: string }) => n.text).join('') ?? ''
+  inlineNodes(json).map((n) => n.text ?? '').join('')
 
 const marksOf = (json: object, text: string): string[] => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const nodes = (json as any).content?.[0]?.content ?? []
-  const node = nodes.find((n: { text?: string }) => n.text === text)
-  return (node?.marks ?? []).map((m: { type: string }) => m.type)
+  const node = inlineNodes(json).find((n) => n.text === text)
+  return (node?.marks ?? []).map((m) => m.type)
 }
 
 describe('resolveSuggestionDoc (P4)', () => {
