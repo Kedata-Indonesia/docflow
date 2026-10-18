@@ -460,3 +460,16 @@ This is **out of scope for the paste fix** and tracked as a separate epic:
 Decision deferred. Recommended next investigation: prototype Approach B on a
 branch, since the float-spacer engine is already the source of the runaway
 (§8) and a CSS-break-based engine would fix both at once.
+
+### Status update — the residual multi-table blank band (#163)
+
+Approach A landed as the `tablePageSplit` plugin (`packages/plugins`), which
+splits a table taller than the page-content area into sibling chunk tables
+before PaginationPlus lays pages out. The remaining multi-table case is closed:
+a 2nd table that inherited a leftover smaller than one of its rows (282 px left
+vs a 403 px row) used to stay UNSplit, and PaginationPlus then inserted empty
+pages (7 breaks, ~5.100 px blank band) trying to fit a 2.5-page table on one
+page. `resolveHeadBudget` now gives such a table the next page's full budget
+instead of the leftover, so it chunks like any other tall table. Guarded by
+`packages/plugins/src/__tests__/tablePageSplit.test.ts` and
+`e2e/showcase/table-paste-pagination.spec.ts`.

@@ -37,6 +37,12 @@ import type { Node as PMNode, NodeType, Schema } from '@tiptap/pm/model'
  *  - Each table's recursion predicts the tail's row heights from the
  *    existing measurements (the row Nodes are shared across the split),
  *    so each individual split converges in O(log n) within one tr.
+ *  - A table that cannot fit even its first row in the space left on the
+ *    current page starts on the NEXT page (full-page budget) rather than
+ *    being left whole — the multi-table case of #163, where the leftover of
+ *    the previous table's chain (282 px) was smaller than one row (403 px) and
+ *    the 2nd tracker table went unsplit, dragging ~5.100 px of blank pages
+ *    with it. See `resolveHeadBudget`.
  */
 
 const PLUGIN_KEY = new PluginKey('docflow/table-page-split')
@@ -172,6 +178,40 @@ function findSplitRow(measurements: RowMeasurement[], pageContentPx: number): nu
     }
   }
   return best
+}
+
+/**
+ * Budget for the FIRST cut of a table, given the space left on the current
+ * page.
+ *
+ * A table that does not fit even its first row in the leftover space has to
+ * start on the NEXT page — that is what every word processor does, and it is
+ * the only alternative to overflowing the current page. So it gets the full
+ * page-content budget instead of the leftover.
+ *
+ * Why this matters (issue #163): tables are processed in document order with a
+ * running cursor, so a table that follows a split chain inherits what the chain
+ * left over — which can be smaller than one of its rows (measured case: 282 px
+ * left, first row 403 px). Passing that as the head budget made
+ * `findSplitRow` return -1, `buildSplitChain` return the table UNSplit, and a
+ * ~2.5-page table was left whole in the document. PaginationPlus then kept
+ * inserting empty pages trying to push that table onto one page (7 breaks for
+ * ~6 pages of content, ~5.100 px blank band above the table).
+ *
+ * The other two cases keep the leftover budget: the whole table fits in it (no
+ * split at all), or at least its first row fits (it starts on the current page
+ * and continues on the next).
+ */
+function resolveHeadBudget(
+  measurements: RowMeasurement[],
+  availablePx: number,
+  pageContentPx: number,
+): number {
+  if (measurements.length === 0) return availablePx
+  const totalPx = measurements[measurements.length - 1].cumulativePx
+  if (totalPx <= availablePx) return availablePx
+  if (measurements[0].heightPx <= availablePx) return availablePx
+  return pageContentPx
 }
 
 function rowBoundaryOffset(tableNode: PMNode, splitRow: number): number {
@@ -360,21 +400,27 @@ function runSplitPass(view: EditorView, editor: EditorWithPaginationStorage | nu
       ? (availablePxAt(v, pos, pageContentPx) ?? pageContentPx)
       : (cursorAvailablePx ?? pageContentPx)
 
-    const chain = buildSplitChain(node, measurements, availablePx, pageContentPx, schema, tableType, 0)
+    // The space the FIRST cut may use. A table that cannot fit even its first
+    // row in `availablePx` starts on the next page instead (see
+    // resolveHeadBudget) — otherwise it is left unsplit and PaginationPlus
+    // inflates the page count around it (#163).
+    const headBudgetPx = resolveHeadBudget(measurements, availablePx, pageContentPx)
+
+    const chain = buildSplitChain(node, measurements, headBudgetPx, pageContentPx, schema, tableType, 0)
     if (chain.length > 1) pending.push({ pos, node, chain })
 
     // Advance the cursor for the NEXT table based on where this table's
     // last chunk leaves off. If this table didn't split at all, its whole
-    // height was consumed from `availablePx`; the remainder is what's left
+    // height was consumed from `headBudgetPx`; the remainder is what's left
     // on the same page for whatever comes next. If it DID split, the last
     // chunk is a tail that started fresh at the top of a new page
     // (buildSplitChain's recursion), so the next table's budget is a fresh
     // full page minus that tail's actual height.
-    const lastChunkPx = lastChunkHeightPx(measurements, availablePx, pageContentPx)
+    const lastChunkPx = lastChunkHeightPx(measurements, headBudgetPx, pageContentPx)
     if (lastChunkPx === null) {
       // No split — whole table consumed part of the current page.
       const totalPx = measurements[measurements.length - 1]?.cumulativePx ?? 0
-      cursorAvailablePx = Math.max(0, availablePx - totalPx)
+      cursorAvailablePx = Math.max(0, headBudgetPx - totalPx)
     } else {
       // Split — last chunk landed on a fresh page; carry forward what's left.
       cursorAvailablePx = Math.max(0, pageContentPx - lastChunkPx)
