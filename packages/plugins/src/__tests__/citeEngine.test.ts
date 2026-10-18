@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import type { CslItemData } from '@kedata-indonesia/docflow-core'
+import type { CslItemData, CslStyleInfo } from '@kedata-indonesia/docflow-core'
 import { CiteEngine, sanitizeCiteprocHtml } from '../citeEngine.js'
 
 const bookDoe: CslItemData = {
@@ -108,6 +108,92 @@ describe('CiteEngine (T1)', () => {
     const engine = new CiteEngine({ sources: [evil], style: 'apa' })
     engine.syncCitations([{ citationId: 'c1', attrs: { sourceId: 'evil' } }])
     expect(engine.renderCluster('c1')).not.toContain('<script>')
+  })
+})
+
+describe('host-injected CSL styles (#180)', () => {
+  /** A minimal valid in-text CSL style, distinctive enough to assert on. */
+  const harvardLite: CslStyleInfo = {
+    id: 'harvard-lite',
+    name: 'Harvard (test)',
+    category: 'in-text',
+    xml: [
+      '<?xml version="1.0" encoding="utf-8"?>',
+      '<style xmlns="http://purl.org/net/xbiblio/csl" class="in-text" version="1.0" default-locale="en-US">',
+      '  <info><title>Harvard (test)</title><id>harvard-lite</id><updated>2026-01-01T00:00:00+00:00</updated></info>',
+      '  <citation><layout prefix="HVD(" suffix=")" delimiter="; "><text variable="title" font-style="italic"/></layout></citation>',
+      '  <bibliography><layout suffix="."><text variable="title"/></layout></bibliography>',
+      '</style>',
+    ].join('\n'),
+  }
+
+  it('renders with a host style that the library does not bundle', () => {
+    const engine = new CiteEngine({ sources: [bookDoe], style: 'harvard-lite', styles: [harvardLite] })
+    engine.syncCitations([{ citationId: 'c1', attrs: { sourceId: 'doe-2020' } }])
+
+    expect(engine.getStyle()).toBe('harvard-lite')
+    expect(engine.renderCluster('c1')).toBe('HVD(<i>The Design of Tests</i>)')
+  })
+
+  it('keeps the four bundled styles available alongside the injected one', () => {
+    const engine = new CiteEngine({ styles: [harvardLite] })
+    const ids = engine.getAvailableStyles().map((s) => s.id)
+
+    expect(ids).toEqual([
+      'apa',
+      'chicago-author-date',
+      'chicago-notes-bibliography',
+      'harvard-lite',
+      'modern-language-association',
+    ])
+    // Default behaviour with no styles passed is untouched.
+    expect(new CiteEngine().getAvailableStyles()).toHaveLength(4)
+  })
+
+  it('lets a host override a bundled style by id', () => {
+    const engine = new CiteEngine({
+      sources: [bookDoe],
+      style: 'apa',
+      styles: [{ ...harvardLite, id: 'apa', category: 'in-text' }],
+    })
+    engine.syncCitations([{ citationId: 'c1', attrs: { sourceId: 'doe-2020' } }])
+
+    expect(engine.renderCluster('c1')).toContain('HVD(')
+    expect(engine.getAvailableStyles()).toHaveLength(4)
+  })
+
+  it('falls back to the default style for an unknown id instead of throwing', () => {
+    const engine = new CiteEngine({ sources: [bookDoe], style: 'not-a-style', styles: [harvardLite] })
+
+    expect(engine.getStyle()).toBe('chicago-notes-bibliography')
+
+    // A live switch to something unknown is a no-op, not a blank document.
+    engine.syncCitations([{ citationId: 'c1', attrs: { sourceId: 'doe-2020' } }])
+    const before = engine.renderCluster('c1')
+    engine.setStyle('still-not-a-style')
+    expect(engine.getStyle()).toBe('chicago-notes-bibliography')
+    expect(engine.renderCluster('c1')).toBe(before)
+  })
+
+  it('marks a host note style as a note style (footnote path)', () => {
+    const noteStyle: CslStyleInfo = { ...harvardLite, id: 'note-lite', category: 'note' }
+    const engine = new CiteEngine({ style: 'note-lite', styles: [noteStyle] })
+
+    expect(engine.isNoteStyle()).toBe(true)
+    expect(new CiteEngine({ styles: [harvardLite] }).isNoteStyle()).toBe(true) // chicago notes default
+  })
+
+  it('rejects a malformed style up front, naming the offending entry', () => {
+    expect(() => new CiteEngine({ styles: [{ ...harvardLite, id: '' }] })).toThrow(/non-empty id/)
+    expect(() => new CiteEngine({ styles: [{ ...harvardLite, xml: '  ' }] })).toThrow(/harvard-lite/)
+  })
+
+  it('does not leak styles between engines (no process-wide registry)', () => {
+    const withCustom = new CiteEngine({ styles: [harvardLite] })
+    const plain = new CiteEngine()
+
+    expect(withCustom.getAvailableStyles().map((s) => s.id)).toContain('harvard-lite')
+    expect(plain.getAvailableStyles().map((s) => s.id)).not.toContain('harvard-lite')
   })
 })
 

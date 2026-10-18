@@ -5,16 +5,18 @@
  */
 export {
   CiteEngine,
+  resolveCslStyles,
   nextCitationId,
   sanitizeCiteprocHtml,
   type CitationAttrs,
   type CitationMode,
   type CitationCluster,
   type CiteEngineOptions,
+  type CslStyleInfo,
 } from './citeEngine.js'
 // Import from the spec module directly — './citation.js' carries a runtime
 // definePlugin import (editor extension graph), which would defeat this
 // entry's standalone purpose and drag core's barrel (incl. ESM yjs) into
 // server-side consumers.
 export { buildCitationNodes } from './citationNodeSpec.js'
-export { CSL_STYLES, DEFAULT_CSL_STYLE, CSL_LOCALE_EN_US, type CslStyleInfo } from './csl/index.js'
+export { CSL_STYLES, DEFAULT_CSL_STYLE, CSL_LOCALE_EN_US } from './csl/index.js'

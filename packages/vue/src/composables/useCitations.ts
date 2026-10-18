@@ -6,7 +6,24 @@ import type { LocaleContext } from './useLocale.js'
 interface CitationEngineLike {
   updateSources: (sources: CslItemData[]) => void
   setStyle: (styleId: string) => void
+  /**
+   * Styles this engine can render with — bundled + host-injected (issue #180).
+   * Optional: older/minimal engines only need the two methods above.
+   */
+  getAvailableStyles?: () => { id: string; name: string }[]
 }
+
+/**
+ * The four styles the library bundles. Used as the picker's fallback before an
+ * engine exists; once one does, the list comes from `getAvailableStyles()` so a
+ * host-injected style shows up without touching the library (issue #180).
+ */
+export const BUNDLED_REFERENCE_STYLES: { id: string; name: string }[] = [
+  { id: 'chicago-notes-bibliography', name: 'Chicago (notes & bibliography)' },
+  { id: 'chicago-author-date', name: 'Chicago (author-date)' },
+  { id: 'apa', name: 'APA' },
+  { id: 'modern-language-association', name: 'MLA' },
+]
 
 /** Events emitted by the citation surface. */
 export interface CitationsEmit {
@@ -84,6 +101,29 @@ export function useCitations(options: UseCitationsOptions) {
     (((getEditor()?.storage as Record<string, unknown> | undefined)?.citationEngine) as
       | { engine?: CitationEngineLike | null }
       | undefined)?.engine ?? null
+
+  /**
+   * Styles the picker offers (issue #180): the engine's registry — bundled
+   * styles plus whatever the host injected through `CitationPort.styles` — so an
+   * institutional/Harvard style appears without editing the library. Before the
+   * engine exists (it mounts with the editor, after the first render) this is
+   * the bundled four.
+   *
+   * A `watch` rather than a `computed` on purpose: the engine is not reactive,
+   * so the list is refreshed on the events that actually change it — the sidebar
+   * opening, and the live source list being synced into the engine. Deliberately
+   * not `immediate`: at setup time the editor (and therefore the engine) does
+   * not exist yet, and the fallback is already the right answer then.
+   */
+  const citationStyles = ref<{ id: string; name: string }[]>(BUNDLED_REFERENCE_STYLES)
+  const refreshCitationStyles = () => {
+    const available = getCitationEngineLike()?.getAvailableStyles?.()
+    citationStyles.value =
+      available && available.length > 0
+        ? available.map(({ id, name }) => ({ id, name }))
+        : BUNDLED_REFERENCE_STYLES
+  }
+  watch([activeSidebar, citationSources], refreshCitationStyles)
 
   /** Push the live library into the engine (re-renders every citation) and let the host persist. */
   const syncCitationEngine = () => {
@@ -191,6 +231,7 @@ export function useCitations(options: UseCitationsOptions) {
   return {
     citationSources,
     citationStyleId,
+    citationStyles,
     pendingSourceRequest,
     citationPort,
     handleSourceCreate,

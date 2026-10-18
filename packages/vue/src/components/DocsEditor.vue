@@ -83,7 +83,7 @@ const setDocumentMode = (mode: DocumentMode) => {
 const {
   initialDoc, persistCurrentDoc, updateCounts, saveTimer, slashCommands, wordCount, charCount, savingStatus,
   lastSaved, activeSidebar, showRuler, focusMode, scrollContainerRef, handleScroll, toggleSidebar, handlePrint,
-  citationSources, citationStyleId, pendingSourceRequest, handleSourceCreate, handleSourceUpdate,
+  citationSources, citationStyleId, citationStyles, pendingSourceRequest, handleSourceCreate, handleSourceUpdate,
   handleSourceRemove, handleCitationStyleChange, handleReferenceInsert, importBusy, importMessage,
   canImportSources, handleImportDoi, handleImportBibliography, editorRef, editor, pluginActions, isReady,
   docEditor, orphanedCommentIds, scheduleCommentAnchorScan, showBubbleMenu, bubblePosition, updateBubbleMenu,
@@ -288,7 +288,7 @@ void [openHeaderFormatModal, openPageNumberModal]
            matches the pre-extraction component tree. -->
       <DocsEditorSidebars
         :active-sidebar="activeSidebar" :editor="editor" :citation-sources="citationSources"
-        :citation-style-id="citationStyleId" :pending-source-request="pendingSourceRequest"
+        :citation-style-id="citationStyleId" :citation-styles="citationStyles" :pending-source-request="pendingSourceRequest"
         :can-import-sources="canImportSources" :import-busy="importBusy" :import-message="importMessage"
         :has-references-sidebar-slot="Boolean($slots['references-sidebar'])"
         :comments="props.comments" :selected-text-snippet="props.selectedTextSnippet"

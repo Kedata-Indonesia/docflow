@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { h, defineComponent, nextTick, ref, type Component } from 'vue'
 import type { CslItemData } from '@kedata-indonesia/docflow-core'
 import DocsEditor from '../components/DocsEditor.vue'
+import DocsEditorSidebars from '../components/DocsEditorSidebars.vue'
 import ReferencesSidebar from '../components/sidebars/ReferencesSidebar.vue'
 import CommentsSidebar from '../components/sidebars/CommentsSidebar.vue'
 import HistorySidebar from '../components/sidebars/HistorySidebar.vue'
@@ -43,6 +44,34 @@ const openSidebar = async (key: string) => {
 }
 
 describe('DocsEditor sidebar bridge', () => {
+  it('passes the style list it is given to the reference picker (#180)', async () => {
+    const wrapper = mount(DocsEditorSidebars, {
+      props: {
+        activeSidebar: 'references',
+        editor: null,
+        citationSources: [{ id: 'doe-2020', type: 'book', title: 'The Design of Tests' }],
+        citationStyleId: 'harvard-lite',
+        citationStyles: [
+          { id: 'harvard-lite', name: 'Harvard (test)' },
+          { id: 'apa', name: 'APA' },
+        ],
+        pendingSourceRequest: false,
+        canImportSources: false,
+        importBusy: false,
+        importMessage: '',
+        orphanedCommentIds: [],
+      },
+    })
+    await wrapper.vm.$nextTick()
+
+    const sidebar = wrapper.findComponent(ReferencesSidebar)
+    expect(sidebar.exists()).toBe(true)
+    expect((sidebar.props('availableStyles') as { id: string }[]).map((s) => s.id)).toEqual([
+      'harvard-lite',
+      'apa',
+    ])
+  })
+
   it('forwards comment events from the comments sidebar', async () => {
     const { wrapper } = await openSidebar('comments')
     const sidebar = wrapper.findComponent(CommentsSidebar)

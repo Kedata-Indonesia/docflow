@@ -74,7 +74,12 @@ export interface DocsEditorProps {
   shareUrl?: string
   /** Async handler for pasted/dropped images; returns the stored `src`. The host owns storage. */
   onImageUpload?: ImageUploadHandler
-  /** Citations port: CSL-JSON sources + active style. The host supplies the data. */
+  /**
+   * Citations port: CSL-JSON sources + active style, and optionally extra CSL
+   * styles (`styles`) the host supplies itself — a hosted/institutional style
+   * then appears in the reference sidebar's picker next to the four the library
+   * bundles, with no change to the library. The host supplies the data.
+   */
   citation?: CitationPort
   /** Streaming AI handler — the host calls its own LLM. */
   aiStream?: AIStreamFn

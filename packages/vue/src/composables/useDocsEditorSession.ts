@@ -103,6 +103,7 @@ export function useDocsEditorSession(options: UseDocsEditorSessionOptions) {
   const {
     citationSources,
     citationStyleId,
+    citationStyles,
     pendingSourceRequest,
     citationPort,
     handleSourceCreate,
@@ -192,6 +193,7 @@ export function useDocsEditorSession(options: UseDocsEditorSessionOptions) {
     handlePrint,
     citationSources,
     citationStyleId,
+    citationStyles,
     pendingSourceRequest,
     handleSourceCreate,
     handleSourceUpdate,

@@ -60,6 +60,20 @@ export interface CslItemData {
 }
 
 /**
+ * A CSL style the citation engine can render with (issue #180). The library
+ * bundles four; a host may inject more (an institutional or Harvard/IEEE style)
+ * through `CitationPort.styles` — without modifying the library.
+ */
+export interface CslStyleInfo {
+  id: string
+  name: string
+  /** 'note' styles render citations as footnotes; 'in-text' render inline. */
+  category: 'note' | 'in-text'
+  /** The CSL XML itself (the `<style>` document, as a string). */
+  xml: string
+}
+
+/**
  * Host-supplied citation port. The library never fetches sources itself — the
  * host owns the reference library and injects CSL-JSON through this port,
  * mirroring the `onImageUpload` injection pattern.
@@ -69,6 +83,13 @@ export interface CitationPort {
   sources: CslItemData[] | (() => CslItemData[])
   /** Active CSL style id (e.g. 'chicago-notes-bibliography'). */
   style?: string
+  /**
+   * Extra CSL styles for this document's engine (issue #180). A style whose
+   * `id` matches a bundled one overrides it; every other id is added alongside
+   * the four defaults. Omit it and the engine behaves exactly as before — the
+   * bundled styles keep the editor offline-capable.
+   */
+  styles?: CslStyleInfo[]
   /**
    * Called when the user inserts a citation: the host opens its source
    * picker and resolves with the chosen source id (null = cancelled).
