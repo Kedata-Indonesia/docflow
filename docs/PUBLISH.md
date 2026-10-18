@@ -296,6 +296,9 @@ range (`scripts/bump-release-versions.mjs`), which is enough at this scale.
 - [ ] `pnpm test:unit` passes for all packages
 - [ ] `pnpm build` produces dist/ in all packages
 - [ ] `peerDependencies` are correct (no version conflicts)
+- [ ] Setiap runtime dependency paket di-`external` di bundler-nya, sehingga tidak
+      ikut ter-bundle ke `dist` (`pnpm test:scripts` menjaga
+      `packages/*/vite.config.ts`; lihat issue #168)
 - [ ] Each `packages/*/package.json` declares the root `engines.node` floor
       (`pnpm test:scripts` guards this, including the workflow Node version)
 - [ ] `exports` field includes CSS path (vue package)
