@@ -294,7 +294,12 @@ function runMacro(macro: {
  *  so the change is previewed in the editor and applied as ONE transaction. */
 function improveSelection() {
   if (!currentSelection.value) return
-  pmEditor()?.commands.aiTransform({ action: 'rewrite' })
+  // `aiTransform` is registered by the aiPlugin; keep the optional call so a
+  // host that injects an aiStream port without loading that plugin is a no-op.
+  const commands = pmEditor()?.commands as unknown as
+    | { aiTransform?: (options: { action: 'rewrite' }) => boolean }
+    | undefined
+  commands?.aiTransform?.({ action: 'rewrite' })
 }
 
 interface QuickAction {

@@ -345,9 +345,27 @@ const hasCitationPlugin = computed(() => props.plugins?.some((p) => p.id === 'ci
 // The AI sidebar is only meaningful when the host injects an aiStream port.
 const hasAI = computed(() => Boolean(readEditorContext(props.editor ?? null)?.aiStream))
 
+/**
+ * Commands from extensions `docflow-vue` does not depend on directly (history,
+ * paragraph, heading). TipTap augments `Commands` from those packages, but the
+ * declaration build resolves `docflow-*` to `dist` (`tsconfig.build.json`
+ * clears `paths`), so those augmentations are not part of this program. Type
+ * the slice used here instead of `any`.
+ */
+interface ToolbarOnlyCommands {
+  undo: () => boolean
+  redo: () => boolean
+  setParagraph: () => boolean
+  toggleHeading: (attributes: { level: 1 | 2 | 3 | 4 | 5 | 6 }) => boolean
+}
+
+function toolbarCommands(editor: Editor): ToolbarOnlyCommands {
+  return editor.commands as unknown as ToolbarOnlyCommands
+}
+
 function handleUndo() {
   if (props.editor) {
-    props.editor.commands.undo()
+    toolbarCommands(props.editor).undo()
     props.editor.commands.focus()
   }
   emit('undo')
@@ -355,7 +373,7 @@ function handleUndo() {
 
 function handleRedo() {
   if (props.editor) {
-    props.editor.commands.redo()
+    toolbarCommands(props.editor).redo()
     props.editor.commands.focus()
   }
   emit('redo')
@@ -378,15 +396,16 @@ const PARAGRAPH_OPTIONS = computed(() => [
 function applyParagraphStyle(value: string) {
   const editor = props.editor
   if (editor) {
+    const commands = toolbarCommands(editor)
     if (value === 'paragraph') {
-      editor.commands.setParagraph()
+      commands.setParagraph()
     } else {
       const level = parseInt(value.replace('heading-', ''), 10)
       const fn = props.actions[`toggleHeading${level}`]
       if (typeof fn === 'function') {
         fn()
       } else {
-        editor.commands.toggleHeading({ level: level as 1 | 2 | 3 | 4 | 5 | 6 })
+        commands.toggleHeading({ level: level as 1 | 2 | 3 | 4 | 5 | 6 })
       }
     }
     editor.commands.focus()

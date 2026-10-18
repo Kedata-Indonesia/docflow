@@ -135,17 +135,42 @@ const activeClass = 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-400 font-bold'
 const inactiveClass =
   'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white'
 
+/**
+ * Link commands come from `@tiptap/extension-link`, which `docflow-vue` does not
+ * depend on directly. The declaration build resolves `docflow-*` to `dist`
+ * (`tsconfig.build.json` clears `paths`), so TipTap's command augmentation is
+ * not part of this program. Type the slice used here instead of `any`.
+ */
+interface LinkCommands {
+  setLink?: (attributes: { href: string; target?: string }) => void
+  unsetLink?: () => void
+}
+
+function linkChain(editor: Editor) {
+  return editor.chain().focus() as unknown as LinkCommands & { run: () => boolean }
+}
+
 function runAction(action: string) {
   if (action === 'setLink') {
     if (props.editor?.isActive('link')) {
-      props.editor.chain().focus().unsetLink().run()
+      const chain = linkChain(props.editor)
+      if (chain.unsetLink) {
+        chain.unsetLink()
+        chain.run()
+      }
       return
     }
     const url = typeof window !== 'undefined' ? window.prompt('Enter link URL:', 'https://') : null
     if (url) {
       const fn = props.actions[action]
       if (typeof fn === 'function') fn({ href: url, target: '_blank' })
-      else props.editor?.chain().focus().setLink({ href: url, target: '_blank' }).run()
+      else if (props.editor) {
+        const chain = linkChain(props.editor)
+        if (chain.setLink) {
+          chain.setLink({ href: url, target: '_blank' })
+          chain.run()
+        }
+      }
     }
     return
   }
