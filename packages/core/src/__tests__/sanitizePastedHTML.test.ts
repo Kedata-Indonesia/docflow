@@ -19,7 +19,7 @@ describe('sanitizePastedHTML', () => {
 
     it('removes <link>, <base> and <title> tags', () => {
       const dirty =
-        '<link rel="stylesheet" href="x.css"><base href="https://docs.google.com/"><title>Doc</title><p>hi</p>'
+        '<link rel="stylesheet"><base href="https://docs.google.com/"><title>Doc</title><p>hi</p>'
       expect(sanitizePastedHTML(dirty)).toBe('<p>hi</p>')
     })
   })

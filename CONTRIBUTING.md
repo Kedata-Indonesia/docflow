@@ -61,7 +61,8 @@ Run from the repo root:
 pnpm lint          # ESLint
 pnpm typecheck     # tsc / vue-tsc --noEmit (noUnusedLocals is on — dead bindings fail)
 pnpm test:unit     # vitest
-pnpm test:e2e      # Playwright, if editor UI/layout changed
+pnpm test:coverage # vitest + per-package coverage thresholds (what CI runs)
+pnpm test:e2e      # Playwright, runs in CI (needs `pnpm build` locally)
 pnpm docs:api:check # generated README API tables up to date (CI enforces it)
 pnpm build         # for affected packages
 ```
@@ -93,8 +94,8 @@ pnpm build && pnpm dev                    # http://localhost:5200
 # 3. Make the change, then exercise it IN THE DEMO (real click path, not just units)
 
 # 4. Run the gate
-pnpm lint && pnpm typecheck && pnpm test:unit
-pnpm test:e2e                             # if editor UI/layout changed (drives the demo)
+pnpm lint && pnpm typecheck && pnpm test:coverage
+pnpm test:e2e                             # CI runs it; run it locally for UI/layout changes
 pnpm docs:api:check                        # if you changed DocsEditor props/emits (CI-enforced; fix with `pnpm docs:api`)
 
 # 5. Commit (Conventional Commits), push the branch, open a PR against main
@@ -126,6 +127,10 @@ git push -u origin feat/<short-topic>
   suppression is unavoidable it must carry a short reason on the same line
   (e.g. `// eslint-disable-next-line <rule> -- why`). Unused directives fail the
   run, so remove them once the underlying problem is fixed.
+- **Run `pnpm dedupe --check` after touching dependencies.** A split same-major
+  package (`prosemirror-transform`, `@tiptap/*`, …) can break `instanceof`
+  checks at runtime. Exit 0 means "nothing left for pnpm to dedupe", not "zero
+  duplicates": the lockfile keeps same-major groups such as `esbuild` on purpose.
 
 ## Commit style
 
@@ -170,7 +175,8 @@ merge:
 | Rule | Effect |
 |------|--------|
 | Pull request required | No direct pushes to `main`. |
-| **`ci` check required** | `lint`, `typecheck`, `test:unit`, `test:scripts`, `docs:api:check` and the package build must pass (`ci.yml`). |
+| **`ci` check required** | `pnpm dedupe --check`, `lint`, `typecheck`, `test:coverage`, `test:scripts`, `docs:api:check` and the package build must pass (`ci.yml`). |
+| **`e2e` check required** | The Playwright showcase suite runs in a separate job (needs `ci`); a failing/regressed e2e blocks merge. |
 | **1 approving review** | One approval from a collaborator; approvals are dismissed on new commits and review conversations must be resolved. |
 | Force-push / deletion | Blocked. |
 | CODEOWNERS | `.github/`, `scripts/` and `packages/` auto-request a maintainer review. |

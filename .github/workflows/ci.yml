@@ -37,6 +37,12 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # A split same-major dependency once broke `instanceof` checks (#165).
+      # Exit 0 means "no fixable duplicates left", not "zero duplicates": the
+      # lockfile keeps ~31 same-major groups (mostly esbuild) on purpose.
+      - name: Lockfile has no fixable duplicate instances
+        run: pnpm dedupe --check
+
       # Never let a change that fails its own checks reach `main`.
       - name: Lint
         run: pnpm lint
@@ -44,8 +50,21 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
-      - name: Unit tests
-        run: pnpm test:unit
+      - name: Unit tests with coverage
+        run: pnpm test:coverage
+
+      # Thresholds fail the run; the table still lands in the job summary.
+      - name: Coverage summary
+        if: always()
+        run: pnpm coverage:summary
+
+      - name: Upload coverage summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-summary
+          path: packages/*/coverage/coverage-summary.json
+          retention-days: 7
 
       - name: Release-script unit tests
         run: pnpm test:scripts
@@ -57,3 +76,49 @@ jobs:
       # Only the publishable packages: `examples/*` must not be able to block CI.
       - name: Build packages
         run: pnpm -r --filter "./packages/*" run build
+
+  # E2E covers what unit tests cannot see: pagination, page breaks, table
+  # resize and keymap ordering. It runs after `ci` so a failing gate doesn't
+  # pay for a browser download; skipped when `ci` fails.
+  e2e:
+    runs-on: ubuntu-latest
+    needs: ci
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.9.0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Install Playwright (Chromium)
+        run: pnpm exec playwright install --with-deps chromium
+
+      # The playground loads `dist`, so the packages must be built first.
+      - name: Build packages and playground
+        run: pnpm build
+
+      - name: E2E (showcase)
+        run: pnpm test:e2e
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7

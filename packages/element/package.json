@@ -26,7 +26,8 @@
   "scripts": {
     "build": "vite build && tsup src/index.ts --format cjs && vue-tsc --project tsconfig.build.json --emitDeclarationOnly",
     "typecheck": "vue-tsc --noEmit",
-    "test:unit": "vitest run"
+    "test:unit": "vitest run",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@kedata-indonesia/docflow-core": "workspace:*",
@@ -37,6 +38,7 @@
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^6.0.10",
+    "@vitest/coverage-v8": "^2.1.9",
     "autoprefixer": "^10.6.1",
     "postcss": "^8.5.15",
     "tailwindcss": "^3.4.1",

@@ -29,7 +29,8 @@
   "scripts": {
     "build": "tsup src/index.ts src/citations.ts --format esm,cjs --dts --no-splitting",
     "typecheck": "tsc --noEmit",
-    "test:unit": "vitest run"
+    "test:unit": "vitest run",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@kedata-indonesia/docflow-core": "workspace:*",
@@ -101,6 +102,7 @@
     }
   },
   "devDependencies": {
+    "@vitest/coverage-v8": "^2.1.9",
     "happy-dom": "^21.0.1",
     "tsup": "^8.3.0",
     "typescript": "^5.6.3",

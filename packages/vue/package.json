@@ -27,7 +27,8 @@
   "scripts": {
     "build": "vite build && vue-tsc --project tsconfig.build.json --emitDeclarationOnly",
     "typecheck": "vue-tsc --noEmit",
-    "test:unit": "vitest run"
+    "test:unit": "vitest run",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@kedata-indonesia/docflow-core": "workspace:*",
@@ -43,6 +44,7 @@
   "devDependencies": {
     "@tiptap/core": "^2.27.3",
     "@vitejs/plugin-vue": "^6.0.10",
+    "@vitest/coverage-v8": "^2.1.9",
     "@vue/test-utils": "^2.5.1",
     "autoprefixer": "^10.6.1",
     "happy-dom": "^21.0.1",
