@@ -333,7 +333,7 @@ export const citationPlugin = definePlugin({
       const citation = port?.citation
       if (!citation) return // inert without the injected port — like onImageUpload
       const sources = typeof citation.sources === 'function' ? citation.sources() : citation.sources
-      const engine = new CiteEngine({ sources, style: citation.style })
+      const engine = new CiteEngine({ sources, style: citation.style, styles: citation.styles })
       ;(editor.storage as unknown as { citationEngine: CitationStorage }).citationEngine.engine = engine
     },
     onDestroy(editor) {

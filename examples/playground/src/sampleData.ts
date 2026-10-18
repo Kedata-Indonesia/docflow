@@ -7,6 +7,7 @@
  */
 
 import type { Collaborator, CommentItem, DocumentSnapshot } from '@kedata-indonesia/docflow-vue'
+import type { CslStyleInfo } from '@kedata-indonesia/docflow-plugins'
 
 // ---------------------------------------------------------------------------
 // ProseMirror document helpers
@@ -382,4 +383,40 @@ export const SAMPLE_SOURCES = [
     issued: { 'date-parts': [[2026]] },
   },
 ]
+
+/**
+ * A CSL style the *host* injects through `CitationPort.styles` (issue #180) —
+ * the playground has no editor-source of its own, so a style that is not one of
+ * the four the library bundles is exactly what a consumer would pass. Minimal
+ * on purpose: enough CSL for citeproc to render, small enough to read.
+ */
+export const SAMPLE_INJECTED_STYLE: CslStyleInfo = {
+  id: 'harvard-demo',
+  name: 'Harvard (demo — injected by the host)',
+  category: 'in-text',
+  xml: [
+    '<?xml version="1.0" encoding="utf-8"?>',
+    '<style xmlns="http://purl.org/net/xbiblio/csl" class="in-text" version="1.0" default-locale="en-US">',
+    '  <info>',
+    '    <title>Harvard (demo — injected by the host)</title>',
+    '    <id>harvard-demo</id>',
+    '    <updated>2026-01-01T00:00:00+00:00</updated>',
+    '  </info>',
+    '  <citation>',
+    '    <layout prefix="(" suffix=")" delimiter="; ">',
+    '      <names variable="author"><name form="short"/></names>',
+    '      <date prefix=" " variable="issued"><date-part name="year"/></date>',
+    '      <text prefix=", " variable="locator"/>',
+    '    </layout>',
+    '  </citation>',
+    '  <bibliography>',
+    '    <layout suffix=".">',
+    '      <names variable="author"><name name-as-sort-order="all"/></names>',
+    '      <text prefix=" (" suffix=")" variable="title" font-style="italic"/>',
+    '      <date prefix=" " variable="issued"><date-part name="year"/></date>',
+    '    </layout>',
+    '  </bibliography>',
+    '</style>',
+  ].join('\n'),
+}
 

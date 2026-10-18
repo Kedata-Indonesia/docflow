@@ -5,8 +5,38 @@
 // eslint-disable-next-line @typescript-eslint/triple-slash-reference -- citeproc ambient types must load before the import for path-aliased consumers
 /// <reference path="./types/citeproc.d.ts" />
 import CSL from 'citeproc'
-import type { CslItemData } from '@kedata-indonesia/docflow-core'
+import type { CslItemData, CslStyleInfo } from '@kedata-indonesia/docflow-core'
 import { CSL_STYLES, CSL_LOCALE_EN_US, DEFAULT_CSL_STYLE } from './csl/index.js'
+
+export type { CslStyleInfo }
+
+/**
+ * Merge the bundled styles with the ones a host injected (issue #180) — the
+ * single place that decides what this engine can render with.
+ *
+ * Bundled styles stay available unless the host overrides one by id, so a host
+ * that passes nothing (or an empty array) behaves exactly as before and nothing
+ * has to be fetched at runtime for the defaults to work offline.
+ *
+ * A malformed entry fails loudly here rather than inside citeproc, where the
+ * error would arrive as an empty citation with no clue which style caused it.
+ */
+export function resolveCslStyles(extra?: CslStyleInfo[]): Record<string, CslStyleInfo> {
+  const merged: Record<string, CslStyleInfo> = { ...CSL_STYLES }
+  for (const style of extra ?? []) {
+    const id = typeof style?.id === 'string' ? style.id.trim() : ''
+    if (!id || typeof style?.xml !== 'string' || style.xml.trim() === '') {
+      throw new Error(
+        'resolveCslStyles: every style needs a non-empty id and CSL xml (got ' +
+          `id=${JSON.stringify(style?.id)}, xml=${style?.xml === undefined ? 'undefined' : `${
+            typeof style.xml === 'string' ? style.xml.length : typeof style.xml
+          } chars`})`,
+      )
+    }
+    merged[id] = { ...style, id }
+  }
+  return merged
+}
 
 export type CitationMode = 'normal' | 'author-only' | 'suppress-author'
 
@@ -27,6 +57,14 @@ export interface CitationAttrs {
 export interface CiteEngineOptions {
   sources?: CslItemData[]
   style?: string
+  /**
+   * Extra CSL styles for this engine (issue #180). A style whose `id` matches a
+   * bundled one **overrides** it; every other id is added alongside the four
+   * defaults. Omitting this keeps the previous behaviour exactly (offline
+   * bundled styles), and an unknown `style` id always falls back to
+   * `DEFAULT_CSL_STYLE` instead of throwing.
+   */
+  styles?: CslStyleInfo[]
 }
 
 export interface CitationCluster {
@@ -69,6 +107,8 @@ export function sanitizeCiteprocHtml(html: string): string {
 export class CiteEngine {
   private sources = new Map<string, CslItemData>()
   private style: string
+  /** Bundled styles + whatever the host injected (issue #180). */
+  private styles: Record<string, CslStyleInfo>
   private clusters = new Map<string, CitationAttrs>()
   private order: string[] = []
   private rendered = new Map<string, string>()
@@ -76,7 +116,11 @@ export class CiteEngine {
   private listeners = new Set<ChangeListener>()
 
   constructor(options: CiteEngineOptions = {}) {
-    this.style = options.style && CSL_STYLES[options.style] ? options.style : DEFAULT_CSL_STYLE
+    this.styles = resolveCslStyles(options.styles)
+    // An unknown id falls back to the default rather than throwing: the style
+    // can arrive from a persisted document written by a host that had more
+    // styles than this one does.
+    this.style = options.style && this.styles[options.style] ? options.style : DEFAULT_CSL_STYLE
     this.updateSources(options.sources ?? [], false)
   }
 
@@ -84,9 +128,14 @@ export class CiteEngine {
     return this.style
   }
 
+  /** Every style this engine can render with, bundled + host-injected. */
+  getAvailableStyles(): CslStyleInfo[] {
+    return Object.values(this.styles).sort((a, b) => a.id.localeCompare(b.id))
+  }
+
   /** 'note' styles (Chicago notes-bib) cite via footnotes; 'in-text' cite inline. */
   isNoteStyle(): boolean {
-    return CSL_STYLES[this.style]?.category === 'note'
+    return this.styles[this.style]?.category === 'note'
   }
 
   getSource(id: string): CslItemData | undefined {
@@ -107,7 +156,7 @@ export class CiteEngine {
 
   /** Live style switch: reload the CSL, recompute everything, repaint (6A-7). */
   setStyle(styleId: string): void {
-    if (!CSL_STYLES[styleId] || styleId === this.style) return
+    if (!this.styles[styleId] || styleId === this.style) return
     this.style = styleId
     this.recompute()
     this.emitChange()
@@ -170,7 +219,7 @@ export class CiteEngine {
    * any edit — the same derived-view pattern used for pagination/collab.
    */
   private recompute(): void {
-    const styleInfo = CSL_STYLES[this.style]
+    const styleInfo = this.styles[this.style]
     const engine = new CSL.Engine(
       {
         retrieveLocale: () => CSL_LOCALE_EN_US,

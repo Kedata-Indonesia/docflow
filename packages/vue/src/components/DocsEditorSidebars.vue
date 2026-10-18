@@ -22,6 +22,12 @@ const props = defineProps<{
   editor: Editor | null
   citationSources: CslItemData[]
   citationStyleId: string
+  /**
+   * Styles the reference picker offers — the engine's registry, i.e. the bundled
+   * four plus anything the host injected (issue #180). Optional: without it the
+   * sidebar falls back to its bundled list.
+   */
+  citationStyles?: { id: string; name: string }[]
   pendingSourceRequest: boolean
   canImportSources: boolean
   importBusy: boolean
@@ -73,6 +79,7 @@ const emit = defineEmits<{
 const referencesSidebarProps = computed(() => ({
   sources: props.citationSources,
   activeStyle: props.citationStyleId,
+  availableStyles: props.citationStyles,
   pickerMode: props.pendingSourceRequest,
   canImport: props.canImportSources,
   importing: props.importBusy,
@@ -100,6 +107,7 @@ const referencesSidebarProps = computed(() => ({
       v-else
       :sources="citationSources"
       :active-style="citationStyleId"
+      :available-styles="citationStyles"
       :picker-mode="pendingSourceRequest"
       :can-import="canImportSources"
       :importing="importBusy"

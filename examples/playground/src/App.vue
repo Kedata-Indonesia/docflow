@@ -24,6 +24,7 @@ import {
   SAMPLE_COMMENTS,
   SAMPLE_SNAPSHOTS,
   SAMPLE_SOURCES,
+  SAMPLE_INJECTED_STYLE,
   type PresetId,
 } from './sampleData'
 import type { LogEntry } from './types'
@@ -62,7 +63,15 @@ const pageCount = ref(1)
 // `onSourceRequest`, so `DocsEditor` keeps the built-in picker flow (toolbar
 // Citation → sidebar in picker mode). The `#references-sidebar` slot below
 // replaces the built-in sidebar's UI with a custom knowledge-base picker.
-const citation = { sources: SAMPLE_SOURCES, style: 'chicago-notes-bibliography' }
+//
+// `styles` demonstrates the host-injection path of #180: a style the library
+// does not bundle, supplied by the app that embeds the editor. It shows up in
+// the reference sidebar's style picker next to APA/MLA/Chicago.
+const citation = {
+  sources: SAMPLE_SOURCES,
+  style: 'chicago-notes-bibliography',
+  styles: [SAMPLE_INJECTED_STYLE],
+}
 // Playground-only: when on, inject a custom references sidebar via the
 // `#references-sidebar` slot (#22). Off = the library's built-in sidebar.
 const customReferencesSidebar = ref(false)

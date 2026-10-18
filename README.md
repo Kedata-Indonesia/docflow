@@ -285,7 +285,7 @@ const MyPlugin = definePlugin({
 | `documentMeta` | `DocumentMeta` | `—` | Document metadata (id, owner, timestamps, counts) shown in the Details dialog. |
 | `shareUrl` | `string` | `''` | Link used by the share-via-email dialog. |
 | `onImageUpload` | `ImageUploadHandler` | `—` | Async handler for pasted/dropped images; returns the stored `src`. The host owns storage. |
-| `citation` | `CitationPort` | `—` | Citations port: CSL-JSON sources + active style. The host supplies the data. |
+| `citation` | `CitationPort` | `—` | Citations port: CSL-JSON sources + active style, and optionally extra CSL styles (`styles`) the host supplies itself — a hosted/institutional style then appears in the reference sidebar's picker next to the four the library bundles, with no change to the library. The host supplies the data. |
 | `aiStream` | `AIStreamFn` | `—` | Streaming AI handler — the host calls its own LLM. |
 | `aiDraft` | `AIDraftFn` | `—` | Draft-generation handler used by the AI sidebar — the host calls its own LLM. |
 | `debug` | `boolean` | `false` | Enable the debug overlay (CPU + RAM monitor) pinned to the bottom-right corner of the viewport. Pure debug view — never touches document state. Defaults to `false`, so production consumers are unaffected. Read once at mount: the monitor is created together with the editor, so changing this prop later requires a remount (`:key`). |

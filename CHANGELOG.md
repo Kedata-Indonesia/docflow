@@ -20,6 +20,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **Citations:** hosts can register their own CSL styles — `CitationPort.styles` /
+  `CiteEngineOptions.styles` (issue #180). A style whose `id` matches a bundled one overrides
+  it; any other id is added next to the four the library ships, so an institutional or
+  Harvard/IEEE style no longer needs a fork. The reference sidebar's picker now lists the
+  engine's registry (`CiteEngine.getAvailableStyles()`) instead of a hardcoded four, so an
+  injected style is selectable. `resolveCslStyles()` is exported for hosts that build the
+  engine themselves, and a malformed entry (no id, empty XML) throws up front instead of
+  failing inside citeproc. Bundling is unchanged — the four defaults still render offline with
+  nothing fetched, and an unknown style id still falls back to `DEFAULT_CSL_STYLE` rather than
+  blanking citations. `examples/playground` injects one (`harvard-demo`) through the port as a
+  live example.
+  _([#180](https://github.com/Kedata-Indonesia/docflow/issues/180))_
+
 ### Fixed
 
 - **Pagination:** a pasted document with two tables taller than a page no longer
