@@ -20,6 +20,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Pagination:** a pasted document with two tables taller than a page no longer
+  inflates the page count or leaves a blank band above the 2nd table. The 2nd
+  table inherited the leftover of the 1st table's chunk chain as its budget
+  (measured: 282 px left, first row 403 px), which made the splitter leave it
+  whole — a 2.5-page table in one node — and PaginationPlus then inserted empty
+  pages trying to fit it (7 breaks + ~5.100 px of blank pages for ~6 pages of
+  content). A table that cannot fit even one row in the space left on the
+  current page now starts on the next page and chunks normally.
+  _([#163](https://github.com/Kedata-Indonesia/docflow/issues/163))_
+
 ### Changed
 
 - **Packaging:** `@kedataindo/docflow-vue` no longer bundles its runtime

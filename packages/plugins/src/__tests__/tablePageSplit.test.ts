@@ -59,7 +59,7 @@ function makeBigTableDoc(rowCount: number) {
   }
 }
 
-function setup(content: object, opts: { split?: boolean; pageContentPx?: number | null } = {}) {
+function setup(content: object, opts: { split?: boolean; pageContentPx?: number | null; rowHeightPx?: number } = {}) {
   const target = document.createElement('div')
   document.body.appendChild(target)
 
@@ -91,8 +91,10 @@ function setup(content: object, opts: { split?: boolean; pageContentPx?: number 
 
   // Mock heights on the rendered DOM. Tables get 600px total spread across
   // their rows; default row height is 30px so a 20-row table is 600px tall.
+  // `rowHeightPx` simulates the real product case (#163) where a pasted
+  // tracker row is tall — 400+ px for a cell holding a 6-item bullet list.
   const tables = inst.editor.view.dom.querySelectorAll('table')
-  const ROW_H = 30
+  const ROW_H = opts.rowHeightPx ?? 30
   vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
     if (this.tagName === 'TR') {
       const row = this as HTMLElement
@@ -294,6 +296,42 @@ describe('tablePageSplitPlugin', () => {
       tableNodes[7].content.length,
     ]
     expect(tailSizes).toEqual([2, 4])
+  })
+
+  it('splits a table that cannot fit even one row in the leftover space of the previous table (#163)', async () => {
+    // Shape of the reported product case: a 2nd tracker-style table follows a
+    // chain of chunks. The chain's last chunk leaves a remainder smaller than
+    // one row of the 2nd table, so the 2nd table CANNOT start on the current
+    // page — it has to start on the next one. Passing that tiny remainder as
+    // its head budget made `findSplitRow` return -1, left the table whole
+    // (2.5 pages of rows in one node) and let PaginationPlus drag ~5.100 px of
+    // blank pages behind it.
+    //
+    // Rows are 90 px and the page holds 200 px, so a chunk is 2 rows (180 px)
+    // and the leftover after a chunk is 20 px — less than one row.
+    s = setup({
+      type: 'doc',
+      content: [
+        { type: 'paragraph', content: [{ type: 'text', text: 'before' }] },
+        ...makeBigTableDoc(20).content.slice(1, 2),
+        { type: 'paragraph', content: [{ type: 'text', text: 'gap' }] },
+        ...makeBigTableDoc(6).content.slice(1, 2),
+        { type: 'paragraph', content: [{ type: 'text', text: 'after' }] },
+      ],
+    }, { pageContentPx: 200, rowHeightPx: 90 })
+
+    s.inst.editor.view.dispatch(s.inst.editor.state.tr)
+    await s.awaitSplit()
+
+    const tables = docContent(s.inst.editor.getJSON()).filter((n) => n.type === 'table')
+    const rowCounts = tables.map((t) => t.content.length)
+
+    // Nothing may stay taller than one page (200 px / 90 px = 2 rows).
+    expect(Math.max(...rowCounts)).toBeLessThanOrEqual(2)
+    // Source 1 (20 rows) → 10 chunks; source 2 (6 rows) → 3 chunks.
+    expect(rowCounts).toEqual([2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2])
+    // Rows are never lost or duplicated by the extra chain (#192 invariant).
+    expect(rowCounts.reduce((a, b) => a + b, 0)).toBe(26)
   })
 
   it('does not record table splits in undo history (a split is a layout artifact)', async () => {
