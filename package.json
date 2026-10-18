@@ -9,6 +9,8 @@
     "build": "pnpm -r run build",
     "typecheck": "pnpm -r run typecheck",
     "test:unit": "pnpm -r run test:unit",
+    "test:coverage": "pnpm -r run test:coverage",
+    "coverage:summary": "node scripts/coverage-summary.mjs",
     "test:scripts": "node --test scripts/__tests__/*.test.mjs",
     "lint": "eslint . --ext .ts,.vue --max-warnings 0 --report-unused-disable-directives",
     "test:e2e": "playwright test",

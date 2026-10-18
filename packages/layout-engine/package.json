@@ -24,13 +24,15 @@
   "scripts": {
     "build": "tsup src/index.ts --format esm,cjs --dts",
     "typecheck": "tsc --noEmit",
-    "test:unit": "vitest run"
+    "test:unit": "vitest run",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@kedata-indonesia/docflow-core": "workspace:*",
     "@tiptap/pm": "^2.27.3"
   },
   "devDependencies": {
+    "@vitest/coverage-v8": "^2.1.9",
     "happy-dom": "^21.0.1",
     "tsup": "^8.3.0",
     "typescript": "^5.6.3",

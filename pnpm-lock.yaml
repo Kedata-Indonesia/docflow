@@ -130,7 +130,7 @@ importers:
     devDependencies:
       '@vitest/coverage-v8':
         specifier: ^2.1.3
-        version: 2.1.9(vitest@2.1.9(@types/node@25.9.5)(happy-dom@21.0.1))
+        version: 2.1.9(vitest@2.1.9(@types/node@26.6.5)(happy-dom@21.0.1))
       fake-indexeddb:
         specifier: ^6.2.5
         version: 6.2.5
@@ -145,7 +145,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^2.1.3
-        version: 2.1.9(@types/node@25.9.5)(happy-dom@21.0.1)
+        version: 2.1.9(@types/node@26.6.5)(happy-dom@21.0.1)
 
   packages/element:
     dependencies:
@@ -161,7 +161,10 @@ importers:
     devDependencies:
       '@vitejs/plugin-vue':
         specifier: ^6.0.10
-        version: 6.0.10(vite@5.4.21(@types/node@25.9.5))(vue@3.5.44(typescript@5.9.3))
+        version: 6.0.10(vite@5.4.21(@types/node@26.6.5))(vue@3.5.44(typescript@5.9.3))
+      '@vitest/coverage-v8':
+        specifier: ^2.1.9
+        version: 2.1.9(vitest@2.1.9(@types/node@26.6.5)(happy-dom@21.0.1))
       autoprefixer:
         specifier: ^10.6.1
         version: 10.6.1(postcss@8.5.30)
@@ -179,10 +182,10 @@ importers:
         version: 5.9.3
       vite:
         specifier: ^5.4.10
-        version: 5.4.21(@types/node@25.9.5)
+        version: 5.4.21(@types/node@26.6.5)
       vitest:
         specifier: ^2.1.3
-        version: 2.1.9(@types/node@25.9.5)(happy-dom@21.0.1)
+        version: 2.1.9(@types/node@26.6.5)(happy-dom@21.0.1)
       vue-tsc:
         specifier: ^3.3.13
         version: 3.3.13(typescript@5.9.3)
@@ -202,6 +205,9 @@ importers:
         specifier: 1.25.11
         version: 1.25.11
     devDependencies:
+      '@vitest/coverage-v8':
+        specifier: ^2.1.9
+        version: 2.1.9(vitest@2.1.9(@types/node@26.6.5)(happy-dom@21.0.1))
       happy-dom:
         specifier: ^21.0.1
         version: 21.0.1
@@ -213,7 +219,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^2.1.3
-        version: 2.1.9(@types/node@25.9.5)(happy-dom@21.0.1)
+        version: 2.1.9(@types/node@26.6.5)(happy-dom@21.0.1)
 
   packages/layout-engine:
     dependencies:
@@ -224,6 +230,9 @@ importers:
         specifier: ^2.27.3
         version: 2.27.3
     devDependencies:
+      '@vitest/coverage-v8':
+        specifier: ^2.1.9
+        version: 2.1.9(vitest@2.1.9(@types/node@26.6.5)(happy-dom@21.0.1))
       happy-dom:
         specifier: ^21.0.1
         version: 21.0.1
@@ -235,7 +244,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^2.1.3
-        version: 2.1.9(@types/node@25.9.5)(happy-dom@21.0.1)
+        version: 2.1.9(@types/node@26.6.5)(happy-dom@21.0.1)
 
   packages/plugins:
     dependencies:
@@ -262,7 +271,7 @@ importers:
         version: 2.27.2(@tiptap/core@2.27.3(@tiptap/pm@2.27.3))(@tiptap/pm@2.27.3)
       '@tiptap/extension-strike':
         specifier: ^2.11.0
-        version: 2.27.2(@tiptap/core@2.27.3(@tiptap/pm@2.27.3))
+        version: 2.27.3(@tiptap/core@2.27.3(@tiptap/pm@2.27.3))
       '@tiptap/extension-table':
         specifier: ^2.11.0
         version: 2.27.2(@tiptap/core@2.27.3(@tiptap/pm@2.27.3))(@tiptap/pm@2.27.3)
@@ -297,6 +306,9 @@ importers:
         specifier: 0.8.10
         version: 0.8.10(@tiptap/core@2.27.3(@tiptap/pm@2.27.3))
     devDependencies:
+      '@vitest/coverage-v8':
+        specifier: ^2.1.9
+        version: 2.1.9(vitest@2.1.9(@types/node@26.6.5)(happy-dom@21.0.1))
       happy-dom:
         specifier: ^21.0.1
         version: 21.0.1
@@ -308,7 +320,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^2.1.3
-        version: 2.1.9(@types/node@25.9.5)(happy-dom@21.0.1)
+        version: 2.1.9(@types/node@26.6.5)(happy-dom@21.0.1)
       yjs:
         specifier: ^13.6.33
         version: 13.6.33
@@ -337,6 +349,9 @@ importers:
       '@vitejs/plugin-vue':
         specifier: ^6.0.10
         version: 6.0.10(vite@5.4.21(@types/node@26.6.5))(vue@3.5.44(typescript@5.9.3))
+      '@vitest/coverage-v8':
+        specifier: ^2.1.9
+        version: 2.1.9(vitest@2.1.9(@types/node@26.6.5)(happy-dom@21.0.1))
       '@vue/test-utils':
         specifier: ^2.5.1
         version: 2.5.1(@vue/compiler-dom@3.5.44)(@vue/server-renderer@3.5.44)(vue@3.5.44(typescript@5.9.3))
@@ -360,7 +375,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^2.1.3
-        version: 2.1.9(@types/node@25.9.5)(happy-dom@21.0.1)
+        version: 2.1.9(@types/node@26.6.5)(happy-dom@21.0.1)
       vue-tsc:
         specifier: ^3.3.13
         version: 3.3.13(typescript@5.9.3)
@@ -1202,11 +1217,6 @@ packages:
     peerDependencies:
       '@tiptap/core': ^2.7.0
       '@tiptap/pm': ^2.7.0
-
-  '@tiptap/extension-strike@2.27.2':
-    resolution: {integrity: sha512-HHIjhafLhS2lHgfAsCwC1okqMsQzR4/mkGDm4M583Yftyjri1TNA7lzhzXWRFWiiMfJxKtdjHjUAQaHuteRTZw==}
-    peerDependencies:
-      '@tiptap/core': ^2.7.0
 
   '@tiptap/extension-strike@2.27.3':
     resolution: {integrity: sha512-9Ax1UIRDOdPk/bGnHbKM39Bw+Zb0PV8IInlT6hr8K1or0wWZuiyE4zlKP3bhAB6IcDr4mJLJQ6TEmxKihivC5A==}
@@ -2370,10 +2380,6 @@ packages:
     resolution: {integrity: sha512-V7+vQEJ06Z+c5tSye8S+nHUfI51xoXIXjHQ99cQtKUkQqqO1kO/KCJUfZXuB47h/YBlDhah2H3hdUGXn8ie0oA==}
     engines: {node: '>=8.6'}
 
-  picomatch@4.0.5:
-    resolution: {integrity: sha512-RvwwcruNjI1ncT5xRakeyS9Lf8lcItv34KD+aif+VH9kduAyfYBipGh12274xtenIPZ119/R9BdTBa8gAwSh0A==}
-    engines: {node: '>=12'}
-
   picomatch@4.0.7:
     resolution: {integrity: sha512-qcJu88Q2IWqJsDD529JKMdwGm/dvInW4HvQnRwiH9JtihJvzGOscDtHE3x1pBKeUOTysQ8kVmLnJ2kJu7yhcGA==}
     engines: {node: '>=12'}
@@ -3534,10 +3540,6 @@ snapshots:
       '@tiptap/core': 2.27.3(@tiptap/pm@2.27.3)
       '@tiptap/pm': 2.27.3
 
-  '@tiptap/extension-strike@2.27.2(@tiptap/core@2.27.3(@tiptap/pm@2.27.3))':
-    dependencies:
-      '@tiptap/core': 2.27.3(@tiptap/pm@2.27.3)
-
   '@tiptap/extension-strike@2.27.3(@tiptap/core@2.27.3(@tiptap/pm@2.27.3))':
     dependencies:
       '@tiptap/core': 2.27.3(@tiptap/pm@2.27.3)
@@ -3757,19 +3759,13 @@ snapshots:
       vite: 5.4.21(@types/node@22.20.5)
       vue: 3.5.44(typescript@5.9.3)
 
-  '@vitejs/plugin-vue@6.0.10(vite@5.4.21(@types/node@25.9.5))(vue@3.5.44(typescript@5.9.3))':
-    dependencies:
-      '@rolldown/pluginutils': 1.0.1
-      vite: 5.4.21(@types/node@25.9.5)
-      vue: 3.5.44(typescript@5.9.3)
-
   '@vitejs/plugin-vue@6.0.10(vite@5.4.21(@types/node@26.6.5))(vue@3.5.44(typescript@5.9.3))':
     dependencies:
       '@rolldown/pluginutils': 1.0.1
       vite: 5.4.21(@types/node@26.6.5)
       vue: 3.5.44(typescript@5.9.3)
 
-  '@vitest/coverage-v8@2.1.9(vitest@2.1.9(@types/node@25.9.5)(happy-dom@21.0.1))':
+  '@vitest/coverage-v8@2.1.9(vitest@2.1.9(@types/node@26.6.5)(happy-dom@21.0.1))':
     dependencies:
       '@ampproject/remapping': 2.3.0
       '@bcoe/v8-coverage': 0.2.3
@@ -3783,7 +3779,7 @@ snapshots:
       std-env: 3.10.0
       test-exclude: 7.0.2
       tinyrainbow: 1.2.0
-      vitest: 2.1.9(@types/node@25.9.5)(happy-dom@21.0.1)
+      vitest: 2.1.9(@types/node@26.6.5)(happy-dom@21.0.1)
     transitivePeerDependencies:
       - supports-color
 
@@ -4393,9 +4389,9 @@ snapshots:
     dependencies:
       reusify: 1.1.0
 
-  fdir@6.5.0(picomatch@4.0.5):
+  fdir@6.5.0(picomatch@4.0.7):
     optionalDependencies:
-      picomatch: 4.0.5
+      picomatch: 4.0.7
 
   file-entry-cache@6.0.1:
     dependencies:
@@ -4894,8 +4890,6 @@ snapshots:
 
   picomatch@2.3.2: {}
 
-  picomatch@4.0.5: {}
-
   picomatch@4.0.7: {}
 
   pify@2.3.0: {}
@@ -5293,8 +5287,8 @@ snapshots:
 
   tinyglobby@0.2.17:
     dependencies:
-      fdir: 6.5.0(picomatch@4.0.5)
-      picomatch: 4.0.5
+      fdir: 6.5.0(picomatch@4.0.7)
+      picomatch: 4.0.7
 
   tinypool@1.1.1: {}
 
@@ -5411,13 +5405,13 @@ snapshots:
       - supports-color
       - terser
 
-  vite-node@2.1.9(@types/node@25.9.5):
+  vite-node@2.1.9(@types/node@26.6.5):
     dependencies:
       cac: 6.7.14
       debug: 4.4.3
       es-module-lexer: 1.7.0
       pathe: 1.1.2
-      vite: 5.4.21(@types/node@25.9.5)
+      vite: 5.4.21(@types/node@26.6.5)
     transitivePeerDependencies:
       - '@types/node'
       - less
@@ -5436,15 +5430,6 @@ snapshots:
       rollup: 4.62.4
     optionalDependencies:
       '@types/node': 22.20.5
-      fsevents: 2.3.3
-
-  vite@5.4.21(@types/node@25.9.5):
-    dependencies:
-      esbuild: 0.21.5
-      postcss: 8.5.30
-      rollup: 4.62.4
-    optionalDependencies:
-      '@types/node': 25.9.5
       fsevents: 2.3.3
 
   vite@5.4.21(@types/node@26.6.5):
@@ -5492,7 +5477,7 @@ snapshots:
       - supports-color
       - terser
 
-  vitest@2.1.9(@types/node@25.9.5)(happy-dom@21.0.1):
+  vitest@2.1.9(@types/node@26.6.5)(happy-dom@21.0.1):
     dependencies:
       '@vitest/expect': 2.1.9
       '@vitest/mocker': 2.1.9(vite@5.4.21(@types/node@22.20.5))
@@ -5511,11 +5496,11 @@ snapshots:
       tinyexec: 0.3.2
       tinypool: 1.1.1
       tinyrainbow: 1.2.0
-      vite: 5.4.21(@types/node@25.9.5)
-      vite-node: 2.1.9(@types/node@25.9.5)
+      vite: 5.4.21(@types/node@26.6.5)
+      vite-node: 2.1.9(@types/node@26.6.5)
       why-is-node-running: 2.3.0
     optionalDependencies:
-      '@types/node': 25.9.5
+      '@types/node': 26.6.5
       happy-dom: 21.0.1
     transitivePeerDependencies:
       - less
