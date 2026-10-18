@@ -87,6 +87,7 @@ describe('IndentExtension (#189)', () => {
     expect(editor.getHTML()).toContain('data-indent="1"')
     expect(editor.getHTML()).toContain(`margin-left: ${INDENT_STEP_PX}px`)
     expect(editor.getHTML()).toContain(`${INDENT_STYLE_VAR}: 1`)
+    expect(editor.getHTML()).toContain('--docflow-indent-step: 48px')
 
     expect(editor.commands.outdent()).toBe(true)
     expect(blocks(editor)[0].attrs?.indent).toBe(0)
@@ -149,25 +150,38 @@ describe('IndentExtension (#189)', () => {
     expect(countNodes(editor, 'bulletList')).toBe(1)
   })
 
-  it('indents inside a code block as literal whitespace, not as a block level', () => {
+  it('inserts a tab at the caret inside a code block, not a block level', () => {
     const editor = mount('<pre><code>const a = 1</code></pre>')
     cursorAtText(editor, 'const a = 1')
+    // `cursorAtText` lands on the second character; move to just after "const ".
+    editor.commands.setTextSelection(editor.state.selection.from - 1 + 'const '.length)
 
     expect(pressTab(editor)).toBe(true)
-    expect(editor.state.doc.textContent).toBe('\tconst a = 1')
+    // The tab lands where the caret is, not at column 0.
+    expect(editor.state.doc.textContent).toBe('const \ta = 1')
     // codeBlock is not an indentable node — no level is set on the block.
     expect(blocks(editor)[0].attrs?.indent).toBeUndefined()
+  })
+
+  it('removes the leading whitespace of a code block line on Shift-Tab', () => {
+    const editor = mount('<pre><code>\tconst a = 1</code></pre>')
+    cursorAtText(editor, '\tconst a = 1')
 
     expect(pressTab(editor, true)).toBe(true)
     expect(editor.state.doc.textContent).toBe('const a = 1')
   })
 
-  it('reads the level back from data-indent and from margin-left', () => {
+  it('reads the level back from data-indent and from absolute margin-left units', () => {
     const editor = mount(
-      '<p data-indent="3">A</p><p style="margin-left: 96px">B</p><p style="margin-left: 0px">C</p>',
+      '<p data-indent="3">A</p>' +
+        '<p style="margin-left: 96px">B</p>' +
+        '<p style="margin-left: 0.5in">C</p>' +
+        '<p style="margin-left: 108pt">D</p>' +
+        '<p style="margin-left: 2cm">E</p>' +
+        '<p style="margin-left: 0px">F</p>',
     )
 
-    expect(blocks(editor).map((node) => node.attrs?.indent)).toEqual([3, 2, 0])
+    expect(blocks(editor).map((node) => node.attrs?.indent)).toEqual([3, 2, 1, 3, 2, 0])
   })
 
   it('supports absolute levels and resetting them', () => {

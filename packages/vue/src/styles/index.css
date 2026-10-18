@@ -191,13 +191,13 @@
   line-height: 1.6 !important;
 }
 
-/* Block indent (issue #189). The level travels in --docflow-indent (set inline
-   by the IndentExtension) so this single rule can out-rank the `!important`
-   shorthands above — an inline `margin-left` alone would lose to
-   `.ProseMirror p { margin: … !important }`. 48px must match INDENT_STEP_PX in
-   packages/core/src/Indent.ts. */
+/* Block indent (issue #189). The level and the step travel in custom properties
+   (set inline by the IndentExtension) so this single rule can out-rank the
+   `!important` shorthands above — an inline `margin-left` alone would lose to
+   `.ProseMirror p { margin: … !important }`. The step size has one source of
+   truth: INDENT_STEP_PX in packages/core/src/Indent.ts. */
 .ProseMirror [data-indent] {
-  margin-left: calc(var(--docflow-indent, 0) * 48px) !important;
+  margin-left: calc(var(--docflow-indent, 0) * var(--docflow-indent-step)) !important;
 }
 
 .ProseMirror blockquote {

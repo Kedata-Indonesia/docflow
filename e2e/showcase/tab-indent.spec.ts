@@ -7,7 +7,11 @@ import { test, expect, type Page } from '@playwright/test'
  */
 
 interface ExposedEditor {
-  commands: { insertContent: (content: string) => boolean }
+  commands: {
+    insertContent: (content: string) => boolean
+    setTextSelection: (pos: number) => boolean
+    focus: () => boolean
+  }
   state: { doc: { textContent: string } }
 }
 
@@ -30,6 +34,20 @@ async function insertContent(page: Page, html: string): Promise<void> {
     instance.commands.insertContent(content)
   }, html)
   await page.waitForTimeout(200)
+}
+
+/**
+ * Put the caret at an exact document position. Clicking a code block gives a
+ * browser-dependent offset, so the caret is placed through the editor handle.
+ */
+async function focusCaret(page: Page, pos: number): Promise<void> {
+  await page.evaluate((at) => {
+    const instance = (window as unknown as { __docsEditor?: ExposedEditor }).__docsEditor
+    if (!instance) throw new Error('window.__docsEditor is not available')
+    instance.commands.setTextSelection(at)
+    instance.commands.focus()
+  }, pos)
+  await page.waitForTimeout(50)
 }
 
 function focusStaysInsideEditor(page: Page): Promise<boolean> {
@@ -87,21 +105,30 @@ test.describe('Tab indentation (#189)', () => {
     await expect(paper.locator('li p[data-indent]')).toHaveCount(0)
   })
 
-  test('Tab inside a code block inserts a tab character instead of indenting', async ({ page }) => {
+  test('Tab inside a code block inserts a tab at the caret', async ({ page }) => {
     await createBlankDocument(page)
     const paper = editor(page)
 
     await insertContent(page, '<pre><code>const a = 1</code></pre>')
     const code = paper.locator('pre code').first()
-    await code.click()
-    await page.keyboard.press('End')
+    // Code block content starts at document position 1; put the caret after "const ".
+    await focusCaret(page, 1 + 'const '.length)
     await page.keyboard.press('Tab')
 
-    expect(await code.evaluate((el) => el.textContent)).toBe('\tconst a = 1')
+    expect(await code.evaluate((el) => el.textContent)).toBe('const \ta = 1')
     await expect(paper.locator('pre[data-indent]')).toHaveCount(0)
     expect(await focusStaysInsideEditor(page)).toBe(true)
+  })
 
+  test('Shift-Tab removes the leading whitespace of a code line', async ({ page }) => {
+    await createBlankDocument(page)
+    const paper = editor(page)
+
+    await insertContent(page, '<pre><code>\tconst a = 1</code></pre>')
+    const code = paper.locator('pre code').first()
+    await focusCaret(page, 1)
     await page.keyboard.press('Shift+Tab')
+
     expect(await code.evaluate((el) => el.textContent)).toBe('const a = 1')
   })
 

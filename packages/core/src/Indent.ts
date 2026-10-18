@@ -33,6 +33,16 @@ const INDENTABLE_NODES: readonly string[] = ['paragraph', 'heading']
 const LIST_ITEM_NODES: readonly string[] = ['listItem', 'taskItem']
 const CODE_BLOCK = 'codeBlock'
 
+/** Absolute CSS length units → px at 96dpi (the unit `margin-left` may arrive in). */
+const ABSOLUTE_UNIT_PX: Record<string, number> = {
+  px: 1,
+  in: 96,
+  cm: 96 / 2.54,
+  mm: 96 / 25.4,
+  pt: 96 / 72,
+  pc: 16,
+}
+
 /**
  * TipTap's command `dispatch` ignores its argument and commits the `tr` handed
  * to the command, so every mutation below has to happen on that transaction.
@@ -64,27 +74,52 @@ export function indentLevelOf(node: ProseMirrorNode): number {
 
 /**
  * Read the level out of parsed HTML. `data-indent` is preferred (that is what
- * this extension renders); `margin-left` is the fallback so indented text from
- * Google Docs / Word keeps its offset — CSSOM already normalized it to px.
+ * this extension renders). `margin-left` is the fallback for content loaded
+ * through `createEditor({ content })` — stored/imported HTML that already has an
+ * inline offset. It does not fire on paste: `pasteNormalization` keeps only
+ * `color`/`background-color` from `style` and drops `margin-left` before
+ * ProseMirror parses the clipboard.
  */
 function parseIndentLevel(element: Element): number {
   const raw = element.getAttribute(INDENT_DATA_ATTR)
   if (raw !== null) return clampIndentLevel(Number.parseInt(raw, 10))
-  const px = Number.parseFloat((element as HTMLElement).style.marginLeft)
+
+  const px = marginLeftPx(element)
   return Number.isFinite(px) && px > 0 ? clampIndentLevel(Math.round(px / INDENT_STEP_PX)) : 0
+}
+
+/**
+ * Resolve `element.style.marginLeft` to px. `CSSStyleDeclaration` returns the
+ * *specified* value (`0.5in`, `108pt`), not a computed one, so the unit has to
+ * be converted explicitly. Relative units are ignored (0) — there is no layout
+ * box at parse time to resolve them against.
+ */
+function marginLeftPx(element: Element): number {
+  const raw = (element as HTMLElement).style?.marginLeft?.trim() ?? ''
+  if (!raw) return 0
+  const match = /^(-?\d*\.?\d+)\s*([a-z%]*)$/i.exec(raw)
+  if (!match) return 0
+  const value = Number.parseFloat(match[1])
+  const unit = (match[2] || 'px').toLowerCase()
+  const factor = ABSOLUTE_UNIT_PX[unit]
+  return factor === undefined ? 0 : value * factor
 }
 
 /** Custom property the editor stylesheet turns into `margin-left`. */
 export const INDENT_STYLE_VAR = '--docflow-indent'
 
+/** Custom property carrying the step size, so the stylesheet has no 48px copy. */
+export const INDENT_STEP_VAR = '--docflow-indent-step'
+
 function renderIndentAttributes(level: number): Record<string, string> {
   return {
     [INDENT_DATA_ATTR]: String(level),
-    // Two representations on purpose: the custom property lets the stylesheet
-    // out-rank its own `!important` block-margin shorthands (see
-    // packages/vue/src/styles/index.css), while the inline `margin-left` still
-    // works for hosts that do not ship that stylesheet.
-    style: `${INDENT_STYLE_VAR}: ${level}; margin-left: ${level * INDENT_STEP_PX}px`,
+    // Three representations on purpose: the custom properties let the
+    // stylesheet out-rank its own `!important` block-margin shorthands (see
+    // packages/vue/src/styles/index.css) and keep the step size in one place,
+    // while the inline `margin-left` still works for hosts that do not ship
+    // that stylesheet.
+    style: `${INDENT_STYLE_VAR}: ${level}; ${INDENT_STEP_VAR}: ${INDENT_STEP_PX}px; margin-left: ${level * INDENT_STEP_PX}px`,
   }
 }
 
@@ -128,13 +163,22 @@ function coveredCodeLineStarts(state: EditorState): number[] | null {
 const LEADING_INDENT = /^(?:\t| {1,2})/
 
 /**
- * Tab inside a code block edits literal whitespace instead of the outline: the
- * covered lines gain (or lose) one leading tab. Returns false when the
- * selection does not sit inside a single code block.
+ * Tab inside a code block edits literal whitespace instead of the outline: a
+ * collapsed cursor gets a tab at the caret, a multi-line selection gains (or
+ * loses) one leading tab per covered line. Returns false when the selection
+ * does not sit inside a single code block.
  */
 function shiftCodeBlockIndent(props: IndentProps, delta: 1 | -1): boolean {
   const starts = coveredCodeLineStarts(props.state)
   if (!starts) return false
+
+  // Collapsed selection: insert at the caret, like an editor's Tab, instead of
+  // jumping the edit to column 0 of the line.
+  if (delta > 0 && props.state.selection.empty) {
+    props.tr.insertText('\t')
+    props.dispatch?.()
+    return true
+  }
 
   const text = props.state.selection.$from.parent.textContent
   const blockStart = props.state.selection.$from.start()

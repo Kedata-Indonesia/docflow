@@ -15,6 +15,7 @@ export {
   INDENT_STEP_PX,
   INDENT_MAX_LEVEL,
   INDENT_STYLE_VAR,
+  INDENT_STEP_VAR,
 } from './Indent.js'
 export { FontSizeExtension } from './FontSize.js'
 export { FontFamilyExtension } from './FontFamily.js'
