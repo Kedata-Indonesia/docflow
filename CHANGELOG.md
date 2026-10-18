@@ -20,6 +20,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- **Packaging:** `@kedataindo/docflow-vue` no longer bundles its runtime
+  dependencies. `dist/index.js` drops from ~2.17 MB to ~420 kB and the npm
+  tarball from 4.28 MB to ~0.29 MB; the CSL styles, TipTap/ProseMirror and the
+  lucide icon set are now imported from the consumer's `node_modules` instead of
+  being inlined. `@tiptap/core` and `prosemirror-model` are peer dependencies so
+  a host app keeps a single ProseMirror instance — install them if your package
+  manager does not auto-install peers.
+  _([#168](https://github.com/Kedata-Indonesia/docflow/issues/168))_
+
 ## [2026-10-08]
 
 ### Added

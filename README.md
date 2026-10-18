@@ -79,6 +79,11 @@ npm install @kedataindo/docflow-vue @kedataindo/docflow-plugins
 > when `collaboration` is turned off. The providers are only instantiated once
 > `collaboration` is enabled.
 
+> `@kedataindo/docflow-vue` keeps its runtime dependencies external so your app
+> shares a single TipTap/ProseMirror instance: `vue`, `@tiptap/core` and
+> `prosemirror-model` are peer dependencies. npm 7+ installs peers automatically;
+> with pnpm, add them explicitly if `auto-install-peers` is disabled.
+
 ---
 
 ### Vue 3
