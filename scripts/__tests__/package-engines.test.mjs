@@ -83,11 +83,21 @@ test('no package constrains the package manager of its consumers', () => {
   }
 })
 
-/** `node-version:` entries of the workflows that build and publish. */
+/** `node-version:` / `node-version-file:` entries of the workflows that build and publish. */
 function workflowNodeVersions() {
   return ['ci.yml', 'publish.yml'].map((name) => {
     const yaml = readFileSync(join(WORKFLOW_DIR, name), 'utf8')
     const versions = [...yaml.matchAll(/node-version:\s*(\S+)/g)].map(([, v]) => v)
+    const files = [...yaml.matchAll(/node-version-file:\s*(\S+)/g)].map(([, v]) => v)
+
+    for (const file of files) {
+      const filePath = join(ROOT, file)
+      assert.ok(existsSync(filePath), `${name} points at a missing ${file}`)
+      const version = readFileSync(filePath, 'utf8').trim()
+      assert.ok(version, `${file} is empty`)
+      versions.push(version)
+    }
+
     assert.ok(versions.length > 0, `${name} does not pin a Node version`)
     return { name, versions: versions.map(majorOf) }
   })
