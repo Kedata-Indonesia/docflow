@@ -11,6 +11,7 @@ export {
   toAIStreamFn,
   memoryKeyStorage,
   localStorageKeyStorage,
+  sessionStorageKeyStorage,
   httpKeyStorage,
   type OpenAICompatibleConfig,
   type ClaudeConfig,
@@ -20,6 +21,7 @@ export {
   type Auth,
   type KeyStorage,
   type HttpKeyStorageUrls,
+  type BrowserKeyStorageOptions,
   type AIStreamFn,
   type AIDraftFn,
 } from '@kedata-indonesia/docflow-core'
