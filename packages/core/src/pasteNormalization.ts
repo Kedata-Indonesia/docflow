@@ -35,7 +35,10 @@ const KEEP_ATTRS: Record<string, Set<string>> = {
   td: new Set(['colspan', 'rowspan', 'style']),
   th: new Set(['colspan', 'rowspan', 'style']),
   col: new Set(['span']),
-  '*': new Set(['style']),
+  // `data-indent` carries the block indent (issue #189). Without it, copying an
+  // indented paragraph inside the editor and pasting it back would silently
+  // lose the level, because normalization runs on every paste.
+  '*': new Set(['style', 'data-indent']),
 }
 
 export function detectClipboardSource(html: string): ClipboardSource {

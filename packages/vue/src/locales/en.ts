@@ -110,6 +110,8 @@ export default {
     alignCenter: 'Align center',
     alignRight: 'Align right',
     alignJustify: 'Justify',
+    indent: 'Increase indent',
+    outdent: 'Decrease indent',
     bulletsNumbering: 'Bullets & numbering',
     bulletList: 'Bulleted list',
     numberedList: 'Numbered list',

@@ -14,6 +14,7 @@ import {
 } from './Collaboration.js'
 import { BlockAttributesExtension } from './BlockAttributes.js'
 import { EditorContextExtension } from './EditorContext.js'
+import { IndentExtension } from './Indent.js'
 import { ManualColumnResize } from './ManualColumnResize.js'
 import { SearchAndReplaceExtension } from './SearchAndReplace.js'
 import type { ImageUploadHandler, CitationPort } from './ports.js'
@@ -240,6 +241,10 @@ function createTiptapEditor(
     }),
     // Always present — find & replace decorations + state (core editing infra).
     SearchAndReplaceExtension,
+    // Always present — Tab/Shift-Tab block indent (issue #189). Declares
+    // priority 50 so list nesting, table cell navigation and the AI preview
+    // keep their own Tab bindings.
+    IndentExtension,
     ...pluginExtensions,
   ]
   const content = options.collaboration ? undefined : options.content
