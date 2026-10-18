@@ -1,6 +1,5 @@
 import { definePlugin } from '@kedata-indonesia/docflow-core'
-import TaskList from '@tiptap/extension-task-list'
-import TaskItem from '@tiptap/extension-task-item'
+import { TaskItem, TaskList } from '@tiptap/extension-list'
 
 export const listsPlugin = definePlugin({
   id: 'lists',

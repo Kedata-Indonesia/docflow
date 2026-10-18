@@ -1,6 +1,6 @@
 import { AnyExtension, Editor as TiptapEditor } from '@tiptap/core'
-import StarterKit from '@tiptap/starter-kit'
-import TextStyle from '@tiptap/extension-text-style'
+import { StarterKit } from '@tiptap/starter-kit'
+import { TextStyle } from '@tiptap/extension-text-style'
 import {
   collectExtensions,
   createActionMap,
@@ -209,9 +209,22 @@ function createTiptapEditor(
   plugins: DocsEditorPlugin[],
   collaborationSetup?: CollaborationSetup,
 ): TiptapEditor {
+  // TipTap v3's StarterKit already bundles Link and Underline, and our docs plugins
+  // register their own instances (`link.ts` configures openOnClick, `formatting.ts`
+  // the underline mark). Keeping both copies makes v3 log
+  // "Duplicate extension names found: ['link', 'underline']" and leaves two
+  // competing instances in the schema, so the StarterKit copies are disabled here.
+  // `undoRedo` is what v3 renamed `history` to: collaboration ships its own undo
+  // manager, so StarterKit's must stay off.
+  // v3's StarterKit also bundles a `trailingNode` that appends an empty paragraph
+  // after any isolating block, so merely opening a document that ends with a table
+  // mutates it on the first transaction (the trailing paragraph lands in the doc,
+  // in exports, and in page geometry). docflow keeps v2 semantics: documents are
+  // changed only by the user, so the trailing node stays off.
+  const starterKitOptions = { link: false, underline: false, trailingNode: false } as const
   const baseStarterKit = options.collaboration
-    ? StarterKit.configure({ history: false })
-    : StarterKit
+    ? StarterKit.configure({ ...starterKitOptions, undoRedo: false })
+    : StarterKit.configure(starterKitOptions)
   const pluginExtensions = collectExtensions(plugins)
 
   const blockAttrs = options.getPageMap

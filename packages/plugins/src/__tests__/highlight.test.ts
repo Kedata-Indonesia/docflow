@@ -33,8 +33,10 @@ describe('#23 GoogleDocsHighlight span parsing', () => {
   })
 
   afterEach(() => {
+    // v3: reading `view` after destroy() throws, so grab the node first.
+    const domParent = editorInstance.editor.view.dom.parentElement
     editorInstance.destroy()
-    editorInstance.editor.view.dom.parentElement?.remove()
+    domParent?.remove()
   })
 
   it('still parses a Google Docs background-color span as a highlight', () => {

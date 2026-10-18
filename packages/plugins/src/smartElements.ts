@@ -81,7 +81,9 @@ export const DateChipNode = Node.create({
   addNodeView(): NodeViewRenderer {
     return (props) => {
       let currentNode = props.node
-      const getPos = props.getPos
+      // v3: `getPos` is optional on a node view's props (a view can be created
+      // without a position); calling it unconditionally throws.
+      const getPos = () => (typeof props.getPos === 'function' ? props.getPos() : undefined)
       const view = props.view
 
       const dom = document.createElement('span')
@@ -318,7 +320,9 @@ export const DropdownChipNode = Node.create({
   addNodeView(): NodeViewRenderer {
     return (props) => {
       let currentNode = props.node
-      const getPos = props.getPos
+      // v3: `getPos` is optional on a node view's props (a view can be created
+      // without a position); calling it unconditionally throws.
+      const getPos = () => (typeof props.getPos === 'function' ? props.getPos() : undefined)
       const view = props.view
 
       const dom = document.createElement('span')

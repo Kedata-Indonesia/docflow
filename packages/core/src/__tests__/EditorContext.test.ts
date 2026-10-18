@@ -15,7 +15,7 @@ describe('EditorContextExtension (host-injected ports)', () => {
     const onImageUpload: ImageUploadHandler = async (file) => ({ src: `blob:${file.name}` })
     const instance = createEditor({ target, onImageUpload })
 
-    const context = (instance.editor.storage as Record<string, { onImageUpload?: ImageUploadHandler }>).editorContext
+    const context = (instance.editor.storage as unknown as Record<string, { onImageUpload?: ImageUploadHandler }>).editorContext
     expect(context.onImageUpload).toBe(onImageUpload)
     instance.destroy()
   })
@@ -24,7 +24,7 @@ describe('EditorContextExtension (host-injected ports)', () => {
     target = document.createElement('div')
     const instance = createEditor({ target })
 
-    const context = (instance.editor.storage as Record<string, { onImageUpload?: ImageUploadHandler }>).editorContext
+    const context = (instance.editor.storage as unknown as Record<string, { onImageUpload?: ImageUploadHandler }>).editorContext
     expect(context.onImageUpload).toBeUndefined()
     instance.destroy()
   })

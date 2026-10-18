@@ -1,6 +1,6 @@
-import type { AnyExtension } from '@tiptap/core'
+import { Extension, type AnyExtension } from '@tiptap/core'
 import { Collaboration } from '@tiptap/extension-collaboration'
-import { CollaborationCursor } from '@tiptap/extension-collaboration-cursor'
+import { yCursorPlugin } from '@tiptap/y-tiptap'
 import { Awareness } from 'y-protocols/awareness'
 import { IndexeddbPersistence } from 'y-indexeddb'
 import { WebrtcProvider } from 'y-webrtc'
@@ -294,6 +294,34 @@ export function isLocalCursorEnabled(setup: CollaborationSetup): boolean {
   // (it signals "should we publish cursor updates right now").
   return setup.awareness.getLocalState()?.emitCursor !== false
 }
+
+/**
+ * Remote-cursor extension.
+ *
+ * TipTap v3 moved its Yjs integration to the `@tiptap/y-tiptap` fork, and the
+ * standalone `@tiptap/extension-collaboration-cursor` package has no v3 release:
+ * its `3.0.0` build is a mis-tagged 2.5.0 ("we meant to release 2.5.0") that
+ * still registers `y-prosemirror`'s cursor plugin. Under v3's editor mount the
+ * cursor plugin's `init` runs before the fork's `y-sync$` state exists, so it
+ * throws `Cannot read properties of undefined (reading 'doc')` and the editor
+ * never mounts. Until upstream ships a v3 cursor extension, docflow registers
+ * the fork's own `yCursorPlugin` — the awareness contract is unchanged
+ * (`user` / `cursor` fields, as published by `createCollaboration`).
+ */
+const CollaborationCursor = Extension.create<{
+  provider: { awareness: Awareness } | null
+  user: { name: string; color: string }
+}>({
+  name: 'collaborationCursor',
+  addOptions() {
+    return { provider: null, user: { name: '', color: '' } }
+  },
+  addProseMirrorPlugins() {
+    const awareness = this.options.provider?.awareness
+    if (!awareness) return []
+    return [yCursorPlugin(awareness)]
+  },
+})
 
 export function collaborationExtensions(
   options: CollaborationOptions | CollaborationSetup,

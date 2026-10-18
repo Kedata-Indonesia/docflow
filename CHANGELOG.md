@@ -68,6 +68,40 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   manager does not auto-install peers.
   _([#168](https://github.com/Kedata-Indonesia/docflow/issues/168))_
 
+### Changed
+
+- **Editor engine: TipTap 2 → 3** (issue #166). Every `@tiptap/*` dependency and peer floor
+  moves to `^3.32.0`, and `tiptap-markdown` to `0.9.0` (its only v3-compatible release).
+  Hosts must raise the same floors: v3 reshapes the table/list packages, so a host pinning
+  `^2` cannot share the schema. Documents themselves stay compatible — no node type or mark
+  was added or removed, `table`/`tableCell`/`tableRow` keep `tablePageSplit`, `colspan`,
+  `rowspan` and `colwidth`, and the pagination storage contract is unchanged. Documents
+  written under v3 additionally carry the attributes v3 defines (`align` on cells,
+  `width`/`height` on images).
+- **Tables:** the v3 `TableView` node view is disabled (`Table.configure({ View: null })`).
+  It rebuilds the `<table>` element itself and drops what our `renderHTML` puts on it —
+  `data-tps-splittable` (the signal the patched PaginationPlus reads) and `data-colwidth` —
+  and rewrites the inline width without `!important`, which pushed tables past the page
+  margin. Column resizing belongs to `ManualColumnResize`, so the node view bought nothing.
+- **Citations:** the duplicate-`citationId` repair no longer relies on its own dispatch
+  re-running `onUpdate`. TipTap v3 coalesces transactions dispatched from a lifecycle hook,
+  so the repair now falls through to the same-pass recompute — copy-pasted citations keep
+  rendering their own cluster instead of one empty one.
+- **StarterKit:** v3's bundled `Link`/`Underline` duplicates are disabled in favour of the
+  plugin instances (which configure `openOnClick` and the underline mark), and `trailingNode`
+  stays off — it appends an empty paragraph after an isolating block, which would mutate
+  documents that merely end with a table.
+
+### Removed
+
+- **`@tiptap/extension-collaboration-cursor`** is replaced by a `collaborationCursor`
+  extension inside `@kedataindo/docflow-core`, built on `@tiptap/y-tiptap` (the fork v3
+  uses). The package has no v3 release: its `3.0.0` is a mis-tagged 2.5.0 that still
+  registers `y-prosemirror`'s cursor plugin, whose `init` runs before the fork's `y-sync$`
+  state exists and throws `Cannot read properties of undefined (reading 'doc')` on mount, so
+  a collaboration host could not open the editor at all. The awareness contract
+  (`user` / `cursor` fields) is unchanged.
+
 ## [2026-10-08]
 
 ### Added

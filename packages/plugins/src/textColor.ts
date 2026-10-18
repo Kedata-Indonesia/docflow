@@ -1,5 +1,5 @@
 import { definePlugin } from '@kedata-indonesia/docflow-core'
-import Color from '@tiptap/extension-color'
+import { Color } from '@tiptap/extension-color'
 import type { Editor } from '@tiptap/core'
 
 export const textColorPlugin = definePlugin({

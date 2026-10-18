@@ -15,13 +15,15 @@ describe('markdownInsert', () => {
   })
 
   afterEach(() => {
+    // v3: reading `view` after destroy() throws, so grab the node first.
+    const domParent = inst?.editor.view.dom.parentElement
     inst?.destroy()
-    inst?.editor.view.dom.parentElement?.remove()
+    domParent?.remove()
     inst = null
   })
 
   it('exposes the tiptap-markdown parser on editor.storage.markdown', () => {
-    const storage = (inst!.editor.storage as Record<string, unknown>).markdown as
+    const storage = (inst!.editor.storage as unknown as Record<string, unknown>).markdown as
       { parser: { parse: (s: string, o?: { inline?: boolean }) => unknown } } | undefined
     expect(storage).toBeDefined()
     expect(typeof storage!.parser.parse).toBe('function')

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import StarterKit from '@tiptap/starter-kit'
+import { StarterKit } from '@tiptap/starter-kit'
 import {
   definePlugin,
   collectExtensions,

@@ -78,13 +78,13 @@ export interface AIStorage {
 const CONTEXT_CHARS = 1500
 
 export function getAIPreview(editor: Editor): AIPreviewState | null {
-  return (editor.storage as Record<string, unknown>).ai
+  return (editor.storage as unknown as Record<string, unknown>).ai
     ? ((editor.storage as unknown as { ai: AIStorage }).ai.preview ?? null)
     : null
 }
 
 function getAIStreamPort(editor: Editor): AIStreamFn | undefined {
-  return ((editor.storage as Record<string, unknown>).editorContext as EditorContextStorage | undefined)
+  return ((editor.storage as unknown as Record<string, unknown>).editorContext as EditorContextStorage | undefined)
     ?.aiStream
 }
 
