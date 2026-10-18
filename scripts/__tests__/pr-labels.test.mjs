@@ -90,6 +90,16 @@ test('conventional types map to the expected release-note labels', () => {
   assert.match(code, /labels\+=\('dependencies'\)/)
 })
 
+test('development dependency bumps are labelled `dependencies` too', () => {
+  // Dependabot titles devDependency PRs `chore(deps-dev): …`; without this the
+  // release notes drop them into "Other changes".
+  assert.match(
+    code,
+    /case "\$head_lc" in[\s\S]*\*'\(deps-dev\)'\*/,
+    '`chore(deps-dev)` must be matched by the dependency case',
+  )
+})
+
 test('breaking is detected only on a `!` next to the colon', () => {
   assert.match(code, /case "\$head" in \*'!'\)/)
   assert.ok(
