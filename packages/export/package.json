@@ -29,8 +29,8 @@
   "dependencies": {
     "docx": "^9.7.1",
     "jszip": "^3.10.1",
-    "prosemirror-markdown": "^1.13.5",
-    "prosemirror-model": "^1.25.11"
+    "prosemirror-markdown": "^1.13.8",
+    "prosemirror-model": "^1.25.12"
   },
   "devDependencies": {
     "happy-dom": "^20.10.6",

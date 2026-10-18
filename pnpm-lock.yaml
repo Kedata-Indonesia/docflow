@@ -196,8 +196,8 @@ importers:
         specifier: ^3.10.1
         version: 3.10.1
       prosemirror-markdown:
-        specifier: ^1.13.5
-        version: 1.13.5
+        specifier: ^1.13.8
+        version: 1.13.8
       prosemirror-model:
         specifier: 1.25.11
         version: 1.25.11
@@ -5297,7 +5297,7 @@ snapshots:
       '@types/markdown-it': 13.0.9
       markdown-it: 14.3.2
       markdown-it-task-lists: 2.1.1
-      prosemirror-markdown: 1.13.5
+      prosemirror-markdown: 1.13.8
 
   tiptap-pagination-plus@3.1.0(patch_hash=00858351959cd6e40e43520c066de1f40e312b64dcfd6bea6fda7efbe9e7b1c4)(@tiptap/core@2.27.3(@tiptap/pm@2.27.3))(@tiptap/pm@2.27.3):
     dependencies:
