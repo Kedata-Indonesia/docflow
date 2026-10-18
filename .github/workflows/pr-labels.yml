@@ -70,10 +70,12 @@ jobs:
             perf)         labels+=('performance') ;;
           esac
           # `chore(deps):` / `build(deps):` are the common dependency-bump shapes.
+          # Dependabot uses `chore(deps-dev)` for devDependencies (including its
+          # grouped dev-tooling PRs), so that shape must be recognised as well.
           case "$type" in
             chore|build|deps|ci)
               case "$head_lc" in
-                *'(deps)'*|*'(dependencies)'*) labels+=('dependencies') ;;
+                *'(deps)'*|*'(dependencies)'*|*'(deps-dev)'*) labels+=('dependencies') ;;
               esac
               ;;
           esac
