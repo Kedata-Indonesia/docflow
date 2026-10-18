@@ -10,11 +10,16 @@
  * is the overridable `DEFAULT_BASE_URL` default in `claudeProvider.ts`
  * (contract rule 4 exception; see §5 of docs/LIBRARY_CONTRACT.md).
  *
- * ⚠️ Secrets note: `localStorageKeyStorage` keeps an API key in
- * `localStorage` in plaintext — any script running on the same origin can read
- * it. Prefer a non-persistent storage (or `httpKeyStorage`, which keeps the key
- * on the host backend) when the embedding app is not fully trusted
- * (issue #179).
+ * ⚠️ Secrets note (issue #179): `localStorageKeyStorage` **and**
+ * `sessionStorageKeyStorage` keep an API key in the browser in plaintext — any
+ * script running on the same origin can read either one. `sessionStorage` only
+ * shortens the *lifetime* (closing the tab drops it); it is **not** an XSS
+ * mitigation. The only option that keeps the key out of the browser entirely is
+ * `httpKeyStorage` — with `AIConfig.visibility: 'admin-only'` plus the host's
+ * completion proxy, the key never reaches the client. That is the recommended
+ * production path. `ttlMs` (both browser storages) bounds how long a stored key
+ * stays readable, and hosts should call `clear()` on sign-out.
+ * See docs/AI_PROVIDERS.md §5.
  */
 
 export type Auth =
@@ -60,38 +65,136 @@ export function memoryKeyStorage(initial: AIConfig | null = null): KeyStorage {
 }
 
 export const LOCAL_STORAGE_KEY = 'docflow:ai-config'
+/** Same logical key, kept in `sessionStorage` instead (issue #179). */
+export const SESSION_STORAGE_KEY = 'docflow:ai-config'
+
+/**
+ * Shape the browser storages write. The marker lets `get()` tell an envelope
+ * apart from a config written by an older version, which stored the bare
+ * `AIConfig` JSON — those are still read, so upgrading hosts keep their key.
+ */
+interface StoredAIConfig {
+  __docflowKeyStorage: 1
+  config: AIConfig
+  /** Epoch ms after which the entry is dead. Absent = no expiry. */
+  expiresAt?: number
+}
+
+export interface BrowserKeyStorageOptions {
+  /**
+   * Drop the credentials once the entry is older than this many milliseconds:
+   * `get()` then returns null and removes the entry. Rotating a key is the
+   * host's job, but a TTL bounds how long a key the user forgot about stays
+   * readable.
+   */
+  ttlMs?: number
+}
+
+function isStoredAIConfig(value: unknown): value is StoredAIConfig {
+  if (typeof value !== 'object' || value === null) return false
+  const candidate = value as { __docflowKeyStorage?: unknown; config?: unknown }
+  return (
+    candidate.__docflowKeyStorage === 1 &&
+    typeof candidate.config === 'object' &&
+    candidate.config !== null
+  )
+}
+
+/**
+ * Shared implementation behind `localStorageKeyStorage` /
+ * `sessionStorageKeyStorage` (not exported: hosts pass a `Storage` to one of
+ * those instead). The `Storage` is resolved lazily on every call so SSR /
+ * late-hydration environments don't fail at import time.
+ */
+function webStorageKeyStorage(
+  resolve: () => Storage,
+  key: string = LOCAL_STORAGE_KEY,
+  options: BrowserKeyStorageOptions = {},
+): KeyStorage {
+  const { ttlMs } = options
+  if (ttlMs !== undefined && (!Number.isFinite(ttlMs) || ttlMs <= 0)) {
+    throw new Error(
+      `webStorageKeyStorage: ttlMs must be a positive number of milliseconds, got ${String(ttlMs)}`,
+    )
+  }
+  return {
+    async get() {
+      const raw = resolve().getItem(key)
+      if (!raw) return null
+      let parsed: unknown
+      try {
+        parsed = JSON.parse(raw)
+      } catch {
+        return null
+      }
+      if (!isStoredAIConfig(parsed)) {
+        // Written before the envelope existed — still a valid config.
+        return parsed as AIConfig
+      }
+      if (parsed.expiresAt !== undefined && Date.now() >= parsed.expiresAt) {
+        resolve().removeItem(key)
+        return null
+      }
+      return parsed.config
+    },
+    async set(value: AIConfig) {
+      const stored: StoredAIConfig = {
+        __docflowKeyStorage: 1,
+        config: value,
+        ...(ttlMs === undefined ? {} : { expiresAt: Date.now() + ttlMs }),
+      }
+      resolve().setItem(key, JSON.stringify(stored))
+    },
+    async clear() {
+      resolve().removeItem(key)
+    },
+  }
+}
 
 /**
  * Browser `localStorage` persistence — for embedded apps that want the config
  * kept client-side. Note: this stores AI *credentials*, not document data, so
  * it is the host's deliberate choice, not a library persistence leak.
+ *
+ * The key survives browser restarts and is readable by any script on the
+ * origin — see the module secrets note, and prefer `sessionStorageKeyStorage`
+ * (shorter lifetime) or `httpKeyStorage` (key never reaches the client) when the
+ * embedding app is not fully trusted.
  */
 export function localStorageKeyStorage(
   key: string = LOCAL_STORAGE_KEY,
   storage?: Storage,
+  options: BrowserKeyStorageOptions = {},
 ): KeyStorage {
-  const store = (): Storage => {
+  return webStorageKeyStorage(() => {
     const s = storage ?? globalThis.localStorage
-    if (!s) throw new Error('localStorageKeyStorage: no Storage available (SSR?)')
+    if (!s) throw new Error('localStorageKeyStorage: no localStorage available (SSR?)')
     return s
-  }
-  return {
-    async get() {
-      const raw = store().getItem(key)
-      if (!raw) return null
-      try {
-        return JSON.parse(raw) as AIConfig
-      } catch {
-        return null
-      }
-    },
-    async set(value: AIConfig) {
-      store().setItem(key, JSON.stringify(value))
-    },
-    async clear() {
-      store().removeItem(key)
-    },
-  }
+  }, key, options)
+}
+
+/**
+ * Browser `sessionStorage` persistence (issue #179) — the same key/value pair
+ * as `localStorageKeyStorage`, scoped to the tab: closing it (or the browser)
+ * drops the credentials, and a reload keeps them.
+ *
+ * What this does and does not do: it **reduces the lifetime** of a key the user
+ * typed into an embedded app (no "I logged out but the key is still there"
+ * surprise after the tab closes). It is **not** a defence against XSS — a
+ * script running on the origin reads `sessionStorage` as easily as
+ * `localStorage`. Only `httpKeyStorage` (plus `visibility: 'admin-only'` and the
+ * host's completion proxy) keeps the key out of the browser.
+ */
+export function sessionStorageKeyStorage(
+  key: string = SESSION_STORAGE_KEY,
+  storage?: Storage,
+  options: BrowserKeyStorageOptions = {},
+): KeyStorage {
+  return webStorageKeyStorage(() => {
+    const s = storage ?? globalThis.sessionStorage
+    if (!s) throw new Error('sessionStorageKeyStorage: no sessionStorage available (SSR?)')
+    return s
+  }, key, options)
 }
 
 export interface HttpKeyStorageUrls {

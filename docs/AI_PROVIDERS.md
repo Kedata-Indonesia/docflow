@@ -88,3 +88,38 @@ of the library's scope. Wrap your agent backend as a custom `AIProvider`
 (`complete(req) → AsyncIterable<StreamEvent>`) and inject it via
 `toAIStreamFn(...)` exactly like the default provider. See
 [`EMBEDDING_AI.md`](EMBEDDING_AI.md) §4.
+
+## 5. Where the API key lives (`KeyStorage`)
+
+The key is part of `AIConfig.auth`, and the library never picks a store for you: the
+host injects a `KeyStorage` (`get` / `set` / `clear`). Four reference implementations
+ship (issue #179) — pick one knowingly, because three of them put the credential in
+the browser:
+
+| option | lives in | survives | readable by any script on the origin |
+|---|---|---|---|
+| `memoryKeyStorage()` | JS memory | nothing (a reload drops it) | yes |
+| `sessionStorageKeyStorage()` | `sessionStorage` | tab reloads; dropped when the tab closes | yes |
+| `localStorageKeyStorage()` | `localStorage` | browser restarts, indefinitely | yes |
+| `httpKeyStorage({ getUrl, setUrl, deleteUrl })` | your backend | as long as your backend keeps it | **no** |
+
+**`sessionStorage` is not an XSS mitigation.** A script running on the origin reads
+`sessionStorage` exactly as easily as `localStorage` — the difference is *lifetime*,
+not readability. Reach for it when you want the key to disappear when the tab closes
+(and to stop surprising a user who thinks signing out removed it), not as a security
+boundary.
+
+**For production, keep the key on the server:** `httpKeyStorage` plus
+`AIConfig.visibility: 'admin-only'` and a `/api/ai/complete`-style proxy, so the
+browser only ever sends prompts. Host-side wiring: [`EMBEDDING_AI.md`](EMBEDDING_AI.md).
+
+Two bounds the host still owns:
+
+- **TTL** — `localStorageKeyStorage(key, storage, { ttlMs })` (same third argument on
+  the session variant) deletes the entry once it is older than `ttlMs`; `get()` then
+  returns `null`. A "remember my key" switch maps straight onto it. A value stored
+  before this option existed (bare `AIConfig` JSON, no envelope) is still read, so
+  upgrading hosts keep their key.
+- **Sign-out** — call `clear()` yourself when the user logs out; the library cannot
+  know when that happens. `clear()` removes the value from the store rather than
+  blanking in-memory state.

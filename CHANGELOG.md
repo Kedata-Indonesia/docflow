@@ -20,6 +20,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **AI credentials:** `sessionStorageKeyStorage()` — the same key/value pair as
+  `localStorageKeyStorage()`, scoped to the tab so closing it drops the credential. Both
+  browser storages now accept a `ttlMs` option: an entry older than the TTL is deleted and
+  `get()` returns `null`. Configs stored before this release (bare `AIConfig` JSON) are still
+  read, so upgrading hosts keep their key. The risk is stated in the module docblock and
+  [`docs/AI_PROVIDERS.md`](docs/AI_PROVIDERS.md) §5, which names `httpKeyStorage` +
+  `visibility: 'admin-only'` as the production path and `sessionStorage` as a *lifetime*
+  bound — not an XSS mitigation (no browser storage is).
+  _([#179](https://github.com/Kedata-Indonesia/docflow/issues/179))_
+
 ### Fixed
 
 - **Pagination:** a pasted document with two tables taller than a page no longer
