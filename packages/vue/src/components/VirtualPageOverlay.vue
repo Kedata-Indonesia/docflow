@@ -6,7 +6,7 @@
     below are passed through `sanitizeInlineHTML` (inline allowlist, issue
     #51), so `v-html` only ever receives sanitized markup.
   -->
-  <!-- eslint-disable vue/no-v-html -->
+  <!-- eslint-disable vue/no-v-html -- header/footer templates are sanitized via sanitizeInlineHTML (issue #51) -->
   <div v-if="isReady" class="virtual-page-overlay" aria-hidden="true">
     <div
       v-for="p in visiblePages"
