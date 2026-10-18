@@ -13,11 +13,19 @@ Thanks for your interest in contributing! DocFlow is an open-source (Apache-2.0)
 
 ## Development setup
 
-Requires **Node >= 20** and **pnpm >= 9**.
+Requires **pnpm >= 9**.
+
+- **Consumers** of the published packages need **Node >= 20** (declared in every
+  manifest's `engines.node`; the library runs in the browser).
+- **Building this repo** needs **Node >= 22.18** — `tsup@9` (and
+  `@vitejs/plugin-vue@6`) raise the build-time floor above the runtime one.
+  `.nvmrc` pins `22.18.0`; `nvm use` / `fnm use` picks it up. CI and the publish
+  workflow read the same file.
 
 ```bash
 git clone git@github.com:Kedata-Indonesia/docflow.git
 cd docflow
+nvm use           # optional, reads .nvmrc
 pnpm install
 pnpm build        # build the library packages once
 ```
