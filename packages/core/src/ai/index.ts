@@ -8,9 +8,12 @@ export {
   type AIConfig,
   type KeyStorage,
   type HttpKeyStorageUrls,
+  type BrowserKeyStorageOptions,
   LOCAL_STORAGE_KEY,
+  SESSION_STORAGE_KEY,
   memoryKeyStorage,
   localStorageKeyStorage,
+  sessionStorageKeyStorage,
   httpKeyStorage,
 } from './keyStorage.js'
 export { openaiCompatibleProvider, type OpenAICompatibleConfig } from './openaiCompatibleProvider.js'
