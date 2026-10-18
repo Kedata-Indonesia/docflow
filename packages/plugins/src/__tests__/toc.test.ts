@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import type { JSONContent } from '@tiptap/core'
 import { createEditor } from '@kedata-indonesia/docflow-core'
 import { defaultPlugins } from '../index.js'
 
@@ -12,8 +13,10 @@ describe('toc plugin', () => {
   })
 
   afterEach(() => {
+    // v3: reading `view` after destroy() throws, so grab the node first.
+    const domParent = editorInstance.editor.view.dom.parentElement
     editorInstance.destroy()
-    editorInstance.editor.view.dom.parentElement?.remove()
+    domParent?.remove()
   })
 
   it('registers the toc and tocEntry nodes in the schema', () => {
@@ -29,7 +32,7 @@ describe('toc plugin', () => {
     const result = editor.commands.insertToc()
     expect(result).toBe(true)
 
-    const toc = editor.getJSON().content?.find((n) => n.type === 'toc')
+    const toc = (editor.getJSON() as unknown as JSONContent).content?.find((n) => n.type === 'toc')
     expect(toc).toBeDefined()
     // H1–H3 only; the H4 is not listed (sidebar parity).
     expect(toc?.content?.map((e) => e.attrs?.level)).toEqual([1, 2])
@@ -49,7 +52,7 @@ describe('toc plugin', () => {
     view.dispatch(state.tr.insertText('Updated ', 1))
 
     // Stale until refreshed.
-    let toc = editor.getJSON().content?.find((n) => n.type === 'toc')
+    let toc = (editor.getJSON() as unknown as JSONContent).content?.find((n) => n.type === 'toc')
     expect(toc?.content?.[0]?.content?.[0]?.text).toBe('Intro')
 
     const result = editor.commands.refreshToc()
@@ -65,7 +68,7 @@ describe('toc plugin', () => {
     editor.commands.focus('end')
     editor.commands.insertToc()
 
-    const toc = editor.getJSON().content?.find((n) => n.type === 'toc')
+    const toc = (editor.getJSON() as unknown as JSONContent).content?.find((n) => n.type === 'toc')
     expect(toc?.content).toHaveLength(2)
     expect(toc?.content?.[0]?.content?.[0]).toEqual({ type: 'text', text: 'Intro' })
 
@@ -90,7 +93,7 @@ describe('toc plugin', () => {
     editor.commands.focus('end')
     editor.commands.insertToc()
 
-    const toc = editor.getJSON().content?.find((n) => n.type === 'toc')
+    const toc = (editor.getJSON() as unknown as JSONContent).content?.find((n) => n.type === 'toc')
     expect(toc).toBeDefined()
     for (const entry of toc?.content ?? []) {
       expect(entry.content?.some((c) => c.type === 'tocPageNum') ?? false).toBe(false)
@@ -114,7 +117,7 @@ describe('toc plugin', () => {
     editor.commands.focus('end')
     editor.commands.insertToc()
 
-    const toc = editor.getJSON().content?.find((n) => n.type === 'toc')
+    const toc = (editor.getJSON() as unknown as JSONContent).content?.find((n) => n.type === 'toc')
     const pages = toc?.content?.map(
       (e) => e.content?.find((c) => c.type === 'tocPageNum')?.attrs?.page,
     )

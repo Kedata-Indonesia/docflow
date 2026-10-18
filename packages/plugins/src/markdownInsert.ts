@@ -39,7 +39,7 @@ interface MarkdownParserLike {
 }
 
 function mdParser(editor: Editor): MarkdownParserLike | undefined {
-  const storage = (editor.storage as Record<string, unknown>).markdown
+  const storage = (editor.storage as unknown as Record<string, unknown>).markdown
   if (!storage || typeof storage !== 'object') return undefined
   const parser = (storage as { parser?: unknown }).parser
   if (!parser || typeof parser !== 'object' || !('parse' in parser)) return undefined

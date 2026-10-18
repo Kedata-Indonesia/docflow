@@ -1,5 +1,5 @@
 import { definePlugin } from '@kedata-indonesia/docflow-core'
-import Highlight from '@tiptap/extension-highlight'
+import { Highlight } from '@tiptap/extension-highlight'
 import { mergeAttributes } from '@tiptap/core'
 import type { Editor } from '@tiptap/core'
 

@@ -61,8 +61,10 @@ describe('suggesting mode (P1)', () => {
   })
 
   afterEach(() => {
+    // v3: reading `view` after destroy() throws, so grab the node first.
+    const domParent = editorInstance.editor.view.dom.parentElement
     editorInstance.destroy()
-    editorInstance.editor.view.dom.parentElement?.remove()
+    domParent?.remove()
   })
 
   it('editing mode types normally (no suggestion marks)', () => {

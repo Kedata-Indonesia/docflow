@@ -98,7 +98,7 @@ export function useCitations(options: UseCitationsOptions) {
   // ─── Reference library CRUD + style switching (Phase 6B-3) ─────────────────
 
   const getCitationEngineLike = (): CitationEngineLike | null =>
-    (((getEditor()?.storage as Record<string, unknown> | undefined)?.citationEngine) as
+    (((getEditor()?.storage as unknown as Record<string, unknown> | undefined)?.citationEngine) as
       | { engine?: CitationEngineLike | null }
       | undefined)?.engine ?? null
 

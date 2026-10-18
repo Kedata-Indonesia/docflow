@@ -1,5 +1,5 @@
 import { definePlugin } from '@kedata-indonesia/docflow-core'
-import Underline from '@tiptap/extension-underline'
+import { Underline } from '@tiptap/extension-underline'
 
 export const formattingPlugin = definePlugin({
   id: 'formatting',

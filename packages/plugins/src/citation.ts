@@ -19,7 +19,7 @@ export interface CitationStorage {
 }
 
 export function getCitationEngine(editor: Editor): CiteEngine | null {
-  return (editor.storage as Record<string, unknown>).citationEngine as CitationStorage | undefined
+  return (editor.storage as unknown as Record<string, unknown>).citationEngine as CitationStorage | undefined
     ? ((editor.storage as unknown as { citationEngine: CitationStorage }).citationEngine.engine ?? null)
     : null
 }
@@ -53,8 +53,8 @@ export const CitationEngineExtension = Extension.create({
     // Repair duplicate citationIds first: copy-pasting a citation clones the
     // node WITH its id — two clusters sharing an id collapse into one engine
     // entry and every occurrence renders the LAST computed form (wrong).
-    // Assign fresh ids to the later occurrences, then re-run on the next
-    // update (the repair dispatch re-triggers this hook).
+    // Assign fresh ids to the later occurrences, then fall through to the
+    // recompute below so the repaired ids get their own clusters.
     {
       const seen = new Set<string>()
       const repairs: Array<{ pos: number; attrs: Record<string, unknown> }> = []
@@ -77,7 +77,10 @@ export const CitationEngineExtension = Extension.create({
           tr.setNodeMarkup(pos, undefined, { ...attrs, citationId: nextCitationId() })
         }
         editor.view.dispatch(tr)
-        return
+        // Deliberately no `return` here: TipTap v3 coalesces transactions that are
+        // dispatched from inside a lifecycle hook, so this hook does not run again
+        // for our own repair (v2 did). Falling through lets the recompute below
+        // read the repaired ids from `editor.state` in the same pass.
       }
     }
 
@@ -101,7 +104,7 @@ export const CitationEngineExtension = Extension.create({
 
     const changed = engine.syncCitations(ordered)
     if (changed) {
-      const port = (editor.storage as Record<string, unknown>).editorContext as EditorContextStorage | undefined
+      const port = (editor.storage as unknown as Record<string, unknown>).editorContext as EditorContextStorage | undefined
       port?.citation?.onSourcesChange?.(engine.getCitedSourceIds())
     }
 
@@ -297,7 +300,7 @@ export const citationPlugin = definePlugin({
       if (options?.sourceId) {
         return insertCitationWithSource(editor, engine, { sourceId: options.sourceId, locator: options.locator })
       }
-      const port = (editor.storage as Record<string, unknown>).editorContext as EditorContextStorage | undefined
+      const port = (editor.storage as unknown as Record<string, unknown>).editorContext as EditorContextStorage | undefined
       const request = port?.citation?.onSourceRequest
       if (!request) return false
       void request().then((sourceId) => {
@@ -329,7 +332,7 @@ export const citationPlugin = definePlugin({
 
   hooks: {
     onInit(editor) {
-      const port = (editor.storage as Record<string, unknown>).editorContext as EditorContextStorage | undefined
+      const port = (editor.storage as unknown as Record<string, unknown>).editorContext as EditorContextStorage | undefined
       const citation = port?.citation
       if (!citation) return // inert without the injected port — like onImageUpload
       const sources = typeof citation.sources === 'function' ? citation.sources() : citation.sources

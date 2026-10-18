@@ -1,5 +1,5 @@
 import { definePlugin, type ImageUploadHandler } from '@kedata-indonesia/docflow-core'
-import Image from '@tiptap/extension-image'
+import { Image } from '@tiptap/extension-image'
 import type { Editor } from '@tiptap/core'
 
 interface EditorContextStorage {
@@ -49,7 +49,7 @@ export const imagePlugin = definePlugin({
       // Host-injected upload port: pick a file, upload via the host, insert on
       // resolve. The command returns true immediately; insertion happens inside
       // the promise (the plugin command contract stays synchronous).
-      const context = (editor.storage as Record<string, unknown>).editorContext as EditorContextStorage | undefined
+      const context = (editor.storage as unknown as Record<string, unknown>).editorContext as EditorContextStorage | undefined
       const upload = context?.onImageUpload
       if (upload) {
         void pickImageFile().then(async (file) => {

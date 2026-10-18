@@ -15,8 +15,10 @@ describe('insertMarkdownBlock — edge cases', () => {
   })
 
   afterEach(() => {
+    // v3: reading `view` after destroy() throws, so grab the node first.
+    const domParent = inst?.editor.view.dom.parentElement
     inst?.destroy()
-    inst?.editor.view.dom.parentElement?.remove()
+    domParent?.remove()
     inst = null
   })
 

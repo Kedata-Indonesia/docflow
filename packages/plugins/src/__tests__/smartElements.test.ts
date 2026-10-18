@@ -12,8 +12,10 @@ describe('smartElementsPlugin', () => {
   })
 
   afterEach(() => {
+    // v3: reading `view` after destroy() throws, so grab the node first.
+    const domParent = editorInstance.editor.view.dom.parentElement
     editorInstance.destroy()
-    editorInstance.editor.view.dom.parentElement?.remove()
+    domParent?.remove()
   })
 
   it('registers all 5 chip node types', () => {

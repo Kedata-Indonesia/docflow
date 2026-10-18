@@ -1,5 +1,5 @@
 import { definePlugin } from '@kedata-indonesia/docflow-core'
-import TextAlign from '@tiptap/extension-text-align'
+import { TextAlign } from '@tiptap/extension-text-align'
 import type { Editor } from '@tiptap/core'
 
 function setAlign(alignment: 'left' | 'center' | 'right' | 'justify') {

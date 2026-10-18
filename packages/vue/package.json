@@ -37,12 +37,12 @@
     "lucide-vue-next": "^1.0.0"
   },
   "peerDependencies": {
-    "@tiptap/core": "^2.27.3",
+    "@tiptap/core": "^3.32.0",
     "prosemirror-model": "^1.25.12",
     "vue": "^3.5.42"
   },
   "devDependencies": {
-    "@tiptap/core": "^2.27.3",
+    "@tiptap/core": "^3.32.0",
     "@vitejs/plugin-vue": "^6.0.10",
     "@vitest/coverage-v8": "^2.1.9",
     "@vue/test-utils": "^2.5.1",

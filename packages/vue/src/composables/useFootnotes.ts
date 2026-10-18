@@ -65,7 +65,7 @@ export function useFootnotes(options: UseFootnotesOptions) {
 
       if (ref.hasAttribute('data-footnote-source-id')) {
         const citationId = ref.getAttribute('data-citation-id') ?? ''
-        const engine = (editor.value?.storage as Record<string, unknown> | undefined)?.citationEngine as
+        const engine = (editor.value?.storage as unknown as Record<string, unknown> | undefined)?.citationEngine as
           { engine?: { renderCluster: (id: string) => string } | null } | undefined
         const html = engine?.engine?.renderCluster(citationId) ?? ''
         textDiv.classList.add('docs-footnote-item-text--citation')
@@ -303,7 +303,7 @@ export function useFootnotes(options: UseFootnotesOptions) {
 
     // Citation-backed footnotes repaint when the engine emits change
     // (source edit, style switch, citation add/remove).
-    const citationStorage = (editor.value.storage as Record<string, unknown>).citationEngine as
+    const citationStorage = (editor.value.storage as unknown as Record<string, unknown>).citationEngine as
       { engine?: { onChange: (cb: () => void) => () => void } | null } | undefined
     citationStorage?.engine?.onChange(() => { scheduleFootnotes(30) })
 

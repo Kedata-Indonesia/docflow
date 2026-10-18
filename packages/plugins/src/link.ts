@@ -1,5 +1,5 @@
 import { definePlugin } from '@kedata-indonesia/docflow-core'
-import Link from '@tiptap/extension-link'
+import { Link } from '@tiptap/extension-link'
 import type { Editor } from '@tiptap/core'
 
 export const linkPlugin = definePlugin({

@@ -1,9 +1,6 @@
 import { definePlugin } from '@kedata-indonesia/docflow-core'
 import { mergeAttributes } from '@tiptap/core'
-import Table from '@tiptap/extension-table'
-import TableRow from '@tiptap/extension-table-row'
-import TableCell from '@tiptap/extension-table-cell'
-import TableHeader from '@tiptap/extension-table-header'
+import { Table, TableCell, TableHeader, TableRow } from '@tiptap/extension-table'
 import type { DOMOutputSpec } from '@tiptap/pm/model'
 import { Plugin, TextSelection } from '@tiptap/pm/state'
 
@@ -202,7 +199,13 @@ const CustomTableHeader = TableHeader.extend({
 export const tablePlugin = definePlugin({
   id: 'table',
   tiptapExtensions: [
-    CustomTable.configure({ resizable: false }),
+    // v3 ships a `TableView` node view by default (`View: TableView`), which rebuilds
+    // the <table> element itself and drops whatever our `renderHTML` put on it —
+    // `data-tps-splittable`/`data-colwidth` disappear and the inline `!important`
+    // width is rewritten. Column resizing in docflow is handled by
+    // `ManualColumnResize`, so the node view buys nothing here; `View: null` makes
+    // v3 fall back to our `renderHTML` and keeps the rendered DOM identical to v2.
+    CustomTable.configure({ resizable: false, View: null }),
     TableRow,
     CustomTableCell,
     CustomTableHeader,

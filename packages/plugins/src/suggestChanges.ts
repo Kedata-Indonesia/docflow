@@ -217,7 +217,7 @@ const SuggestChanges = Extension.create({
   addProseMirrorPlugins() {
     const editor = this.editor
     const syncStorage = () => {
-      const storage = (editor.storage as Record<string, { suggestions?: SuggestionSummary[] }>)
+      const storage = (editor.storage as unknown as Record<string, { suggestions?: SuggestionSummary[] }>)
         .suggestChanges
       if (storage) storage.suggestions = getSuggestions(editor)
     }

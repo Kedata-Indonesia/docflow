@@ -18,7 +18,7 @@ export function useSuggestions(options: UseSuggestionsOptions) {
   const suggestions = ref<SuggestionSummary[]>([])
 
   const readStorage = (): SuggestionSummary[] => {
-    const storage = (getEditor()?.storage as Record<string, { suggestions?: SuggestionSummary[] }> | undefined)
+    const storage = (getEditor()?.storage as unknown as Record<string, { suggestions?: SuggestionSummary[] }> | undefined)
       ?.suggestChanges
     return storage?.suggestions ? [...storage.suggestions] : []
   }
