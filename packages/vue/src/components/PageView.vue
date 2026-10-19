@@ -143,7 +143,7 @@ const extractBlockHTML = (block: BlockInfo): string | null => {
 
 const blockContentMap = computed(() => {
   // Establish reactive dependency on editor updates
-  domUpdateTrigger.value
+  void domUpdateTrigger.value
   const map = new Map<string, string>()
   if (!props.editor || !editorElement.value) return map
   for (const page of props.pages) {
