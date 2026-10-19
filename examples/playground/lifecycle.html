@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DocFlow lifecycle harness</title>
+  </head>
+  <body>
+    <!--
+      Test-only surface for `e2e/library` (issue #222). The showcase specs drive
+      the demo app, which cannot unmount the editor without tearing down the
+      page; this page mounts a plain `createEditor()` instance on demand so
+      mount → unmount → mount can be exercised. See `src/lifecycle.ts`.
+    -->
+    <div id="controls">
+      <button id="mount" type="button">mount</button>
+      <button id="unmount" type="button">unmount</button>
+    </div>
+    <div id="host"></div>
+    <script type="module" src="/src/lifecycle.ts"></script>
+  </body>
+</html>
