@@ -58,6 +58,14 @@
     "@tiptap/extension-underline": "^3.32.0"
   },
   "devDependencies": {
+    "@tiptap/core": "^3.32.0",
+    "@tiptap/extension-color": "^3.32.0",
+    "@tiptap/extension-highlight": "^3.32.0",
+    "@tiptap/extension-image": "^3.32.0",
+    "@tiptap/extension-link": "^3.32.0",
+    "@tiptap/extension-table": "^3.32.0",
+    "@tiptap/extension-text-align": "^3.32.0",
+    "@tiptap/extension-underline": "^3.32.0",
     "@vitest/coverage-v8": "^2.1.9",
     "happy-dom": "^21.0.3",
     "tsup": "^9.0.0",
