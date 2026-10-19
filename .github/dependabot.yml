@@ -83,19 +83,17 @@ updates:
     #   the weekly batch was spending a slot re-proposing a blocked major instead
     #   of reporting something new. Drop this entry when the vite/vitest migration
     #   is picked up (it is not tracked by an issue yet).
-    # - tailwindcss and tsup: both were already ignored on 18 Oct by the
-    #   `@dependabot ignore this major version` command, which stores the rule on
-    #   GitHub's side and leaves no trace in this file — the reason this file did
-    #   not explain why no Tailwind 4 or tsup 10 pull request ever appeared. They
-    #   are repeated here so the configuration has one readable source of truth;
-    #   the server-side copies can be retired later with a `@dependabot unignore
-    #   <name>` comment on a Dependabot pull request (the ranges below are copied
-    #   verbatim from the live job definition).
+    # - tsup: already ignored on 18 Oct by an `@dependabot ignore this major version`
+    #   command, which stores the rule on GitHub's side and leaves no trace in this
+    #   file. It is repeated here so the configuration has one readable source of
+    #   truth; the server-side copy can be retired with a `@dependabot unignore tsup`
+    #   comment on a Dependabot pull request (the range below is copied verbatim
+    #   from the live job definition).
+    # - tailwindcss is no longer listed: the package moved to v4 (#215), so there is
+    #   no blocked major left to suppress.
     ignore:
       - dependency-name: "vite"
         update-types: ["version-update:semver-major"]
-      - dependency-name: "tailwindcss"
-        versions: [">= 4.a, < 5"]
       - dependency-name: "tsup"
         versions: [">= 9.a, < 10"]
 

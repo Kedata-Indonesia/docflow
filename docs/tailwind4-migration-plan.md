@@ -1,6 +1,7 @@
 # Rencana migrasi Tailwind CSS 3 → 4 (issue #215)
 
-Status: **rencana + harness siap, migrasi belum dilakukan.**
+Status: **migrasi selesai di `packages/vue`, `packages/element`, dan `examples/playground`;
+tinggal verifikasi di `docflow-app` (Fase E).**
 Dokumen ini sengaja ditulis sebelum migrasi supaya "berhasil" punya definisi yang bisa
 diperiksa, bukan sekadar "build hijau".
 
@@ -95,11 +96,11 @@ siapa pun. Ia dipakai sebagai alat bukti selama migrasi.
 
 ## 4. Langkah migrasi
 
-### Fase A — harness + baseline (PR ini)
+### Fase A — harness + baseline
 
 - [x] spec capture 5 state + `scripts/visual-diff.mjs`
 - [x] determinisme diukur (angka di §3)
-- [ ] baseline `visual-runs/before` dibuat dari `main` sebelum dependensi disentuh
+- [x] baseline `visual-runs/before` dibuat dari `main` sebelum dependensi disentuh
 
 ### Fase B — `packages/vue` ke v4
 
@@ -136,13 +137,15 @@ Gate fase B: `pnpm lint`, `typecheck`, `test:unit`, `build`, `e2e` **dan**
 `node scripts/visual-diff.mjs` dengan **0 state di luar toleransi**, atau setiap diff
 di-triage satu per satu dengan catatan penyebabnya.
 
-### Fase C — `packages/element` dan `examples/playground`
+**Status: selesai.** Hasil terukur ada di §8.
+
+### Fase C — `packages/element` dan `examples/playground` (selesai)
 
 Config keduanya berhenti jadi config Tailwind (dihapus atau tinggal `postcss.config.js`),
 token diambil dari CSS yang sama. `playground` hanya butuh konfigurasi tambahan pada
 mode `PLAYGROUND_SOURCE=1`; mode default memakai `dist/style.css` yang sudah terkompilasi.
 
-### Fase D — pembersihan
+### Fase D — pembersihan (selesai)
 
 - hapus `tailwind.config.js` yang sudah tidak dipakai (jangan sisakan config mati yang
   membingungkan);
@@ -187,3 +190,41 @@ arbitrary value untuk diperiksa). Fase C–D mekanis. Perkiraan: **1 sesi kerja 
 untuk B, **setengah sesi** untuk C–D, ditambah waktu tunggu rilis. Yang paling mahal
 bukan menulis CSS-nya, melainkan men-triage diff visual — dan itulah bagian yang tidak
 bisa dipercepat tanpa mengorbankan kejujuran hasil.
+
+---
+
+## 8. Hasil migrasi (terukur)
+
+Dikerjakan pada branch `chore/215-tailwind-4`, dibandingkan dengan baseline `main`
+sebelum dependensi disentuh.
+
+| Ukuran | Sebelum (v3, `vue@0.0.129`) | Sesudah (v4) |
+|---|---|---|
+| `dist/style.css` | 77.895 byte | 99.976 byte (+28%; v4 mengeluarkan `@property` + variabel tema) |
+| `tailwind.config.js` | 3 file | 0 |
+| Plugin PostCSS | `tailwindcss` + `autoprefixer` | `@tailwindcss/postcss` (autoprefixing ikut di dalamnya) |
+| Gate | — | lint, typecheck, unit, `test:scripts` 64, `docs:api:check`, `dedupe --check`, build (dist + `PLAYGROUND_SOURCE=1`), e2e **26/26** |
+
+**Diff visual:** kelima state berada di 0,036–0,040% (ambang 0,05%), jadi lolos — tetapi
+angka itu 25× di atas noise floor (~20 px), sehingga tidak diterima begitu saja.
+Analisis piksel menunjukkan penyebabnya satu: **v4 mengeluarkan warna dalam OKLCH**,
+Chromium mengonversinya ke sRGB dengan pembulatan berbeda.
+
+Buktinya bukan opini — jumlah piksel per warna dominan **identik** sebelum dan sesudah:
+
+```
+header  : slate-800 7852 piksel (before) vs 7852 piksel (after)
+toolbar : slate-900 2615 piksel (before) vs 2615 piksel (after)
+```
+
+Yang bergeser hanya warna sekunder di tepi antialias, mis. slate-600 `71,85,105`
+(#475569) → `69,85,108`, blue-600 `37,99,235` → `21,93,252`. Geometri, tata letak, dan
+warna yang dimaksud tidak berubah; e2e geometri (paginasi, lebar kolom tabel) juga
+tetap hijau.
+
+Perubahan default v4 yang dikhawatirkan di §2 (border `currentColor`, lebar `ring`)
+**tidak** berdampak di sini karena kelas border di repo ini selalu menyebut warnanya
+secara eksplisit — diperiksa lewat diff, bukan diasumsikan.
+
+Sisa satu langkah: Fase E (verifikasi tampilan di `docflow-app` setelah versi baru
+terbit).
