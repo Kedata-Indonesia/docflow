@@ -61,16 +61,11 @@ updates:
         update-types:
           - "minor"
           - "patch"
-    ignore:
-      # TipTap v3 is a migration with its own issue (#166). An automated major
-      # bump would only produce a pull request that cannot pass CI. Remove this
-      # entry when that migration starts.
-      #
-      # `update-types` filters version updates only; a security advisory against
-      # `@tiptap/core` (for example GHSA-cp6q-959q-f8rh) is still reported.
-      - dependency-name: "@tiptap/*"
-        update-types:
-          - "version-update:semver-major"
+    # The `@tiptap/*` semver-major ignore that used to sit here was removed when
+    # the v3 migration landed (#234, released as core 0.0.98 and friends, issue
+    # #166). Majors otherwise arrive as individual pull requests on purpose: a red
+    # one is a signal that the bump needs real work (vite 8 and
+    # @vitest/coverage-v8 5 are exactly that), not noise to be silenced.
 
   - package-ecosystem: "github-actions"
     directory: "/"

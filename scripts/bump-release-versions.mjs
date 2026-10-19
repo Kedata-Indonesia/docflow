@@ -100,7 +100,7 @@ function changedFiles(before, after) {
  *
  * `--no-merges` is load-bearing: the pipeline lands each release commit by
  * opening and merging a PR, so the resulting merge commit's message *quotes*
- * the release subject (`chore(release): bump … [skip ci]`) in its body. A plain
+ * the release subject (`chore(release): bump …`) in its body. A plain
  * `--grep` would match that merge commit — which is newer — and move the anchor
  * past any change merged while the run was in flight, silently marking it
  * released without ever publishing it. Only the pipeline's own non-merge commit

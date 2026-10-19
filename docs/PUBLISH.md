@@ -17,12 +17,56 @@ workflow rewrites names/deps/dist imports to the public `@kedataindo/*` scope:
 | plugins | `@kedata-indonesia/docflow-plugins` | `@kedataindo/docflow-plugins` | Built-in editor plugins |
 | export | `@kedata-indonesia/docflow-export` | `@kedataindo/docflow-export` | DOCX / ODT / RTF / Markdown export |
 
+## Version policy (what our numbers promise)
+
+Every package is **pre-1.0** and versioned independently (they do not move in
+lockstep). Until a package reaches `0.1.0` its version carries no compatibility
+promise at all — that is what `0.0.x` means, and it is where the packages sit
+today. The rules below are the ones we hold ourselves to as we move out of it:
+
+- **patch** (`0.1.1`): fixes only — same public API, same peer ranges, same
+  document schema. A patch must never require the consumer to change code.
+- **minor** (`0.2.0`): additive capability. A document produced by the newer
+  version may use something an older version does not understand, so downgrading
+  is not guaranteed to round-trip.
+- **major** (`1.0.0`): the public API, a peer range or the document schema
+  changes in a way consumers must act on. The release notes carry the migration
+  steps, and anything that cannot be absorbed silently goes out as a prerelease
+  first.
+
+Non-negotiables:
+
+- **A breaking change never ships as a patch.** The TipTap v3 migration is the
+  incident that made this explicit: peer ranges moved and every host had to bump,
+  so it belonged in a minor/major — not in a patch bump (#166).
+- **Published versions are immutable.** Never re-tag, re-publish or unpublish a
+  version; a mistake is fixed by publishing the next patch.
+- **`latest` is the stable channel.** Anything consumers must test before
+  adopting goes out as a prerelease on the `next` dist-tag
+  (`npm i @kedataindo/docflow-core@next`) and is promoted to `latest` only after
+  the app that consumes it has been verified against it.
+- **A release should be traceable.** `git tag` ↔ the npm version ↔ the GitHub
+  Release notes have to tell one story. That link is loose today: tags are only
+  cut for deliberate releases, so three tags cover 100+ published versions.
+  Tightening it — a tag and generated notes per release — belongs to the
+  Changesets move described below.
+- **Deprecation is announced before removal.** A public export that is going away
+  is marked `@deprecated` in the types with the replacement named, and is removed
+  no earlier than the next major.
+- **One release path.** A maintainer merges the version bump (see
+  [Landing the bump](#landing-the-bump-main-ruleset)); nobody publishes by hand
+  outside the workflow except as the documented emergency fallback.
+
 ## Prerequisites
 
 - Node.js >= 20, pnpm >= 9
 - npm account with **publish access to the `@kedataindo` scope/org**
 - An automation token stored as the `NPM_TOKEN` repository secret
   (used by CI as both `NPM_TOKEN` and `NODE_AUTH_TOKEN`)
+- Optional: `RELEASE_TOKEN` — see
+  [Why the bump PR needs one click](#why-the-bump-pr-needs-one-click-and-how-to-remove-it).
+  Provenance needs no secret: it uses the workflow's OIDC token
+  (`permissions: id-token: write`).
 
 ## 1. Authenticate (local, optional)
 
@@ -109,7 +153,10 @@ on:
 6. Rewrites `dist/**` files, which contain hardcoded `@kedata-indonesia/docflow-*`
    import specifiers after the build.
 7. Publishes in dependency order (`core`, `layout-engine`, `plugins`, `vue`,
-   `element`, `export`), **idempotently per package**: a version already on npm
+   `element`, `export`) with `--provenance`: npm stores a signed attestation
+   naming the repository, commit and workflow that built each tarball, so a
+   consumer can verify where an installed version came from. Publishing is
+   **idempotent per package**: a version already on npm
    is skipped — unless the bump chose it, in which case the registry read was
    stale and the run fails rather than going green having published nothing.
 8. Restores the original `package.json` files from their `.bak` copies — which
@@ -120,8 +167,12 @@ on:
    so this polls for up to 15 minutes (20s interval): a version that never
    landed fails the run (`::error::`) before the bump is committed back.
 10. On a push to `main`, lands those bumped versions on `main` as a pull request
-    (`chore(release): bump … [skip ci]`) that it opens and merges itself, so the
-    repo never drifts from npm. See
+    (`chore(release): bump …`). The commit deliberately carries **no `[skip ci]`**,
+    so the required `ci` check reports on it like on any other PR — that leaves
+    only the review, which a maintainer supplies with one click (a `RELEASE_TOKEN`
+    lets the step merge it unattended instead). While it waits, the run stays
+    **green** and reports the PR in the summary: npm is ahead of `main` until that
+    click happens, which is a normal state, not an automation failure. See
     [Landing the bump](#landing-the-bump-main-ruleset).
 
 ### Publish idempotent (per package)
@@ -208,37 +259,46 @@ The commit-back step therefore:
 
 1. pushes the bump commit to a throwaway branch
    `release/bump-<run-id>-<attempt>`;
-2. opens a PR titled `chore(release): bump <packages> [skip ci]` and merges it as
-   `RELEASE_TOKEN` (a `GITHUB_TOKEN` merge cannot re-trigger this workflow either
-   way);
-3. re-checks that the bump commit is an ancestor of `main`, and fails the run
-   (`::error::version bump did not reach main`) if it is not — a green run never
-   means "published but the repo drifted".
+2. opens a PR titled `chore(release): bump <packages>`;
+3. tries to merge it, and asks GitHub for auto-merge when the repository allows
+   it;
+4. if the merge did not happen, checks that an **open PR still carries the bump**;
+5. re-checks that the bump commit is an ancestor of `main` before declaring
+   success.
 
-#### The bot's bypass (`RELEASE_TOKEN`)
+Two outcomes — only one of them is a failure:
 
-`protect-default-branch` requires the **`ci` check** and **one approving review**.
-A `GITHUB_TOKEN` PR can satisfy neither: GitHub does not run workflows for
-`GITHUB_TOKEN` events, so `ci` would never report and the merge would wait
-forever, and a bot PR cannot approve itself. So the step pushes and merges as
-**`RELEASE_TOKEN`** — a PAT owned by an **org admin**, whose repository role
-(`admin`) is a ruleset *bypass actor*.
+- **merged** → the throwaway branch is deleted and the run is green;
+- **waiting for review** → the run is **green**, with a notice and a summary entry
+  pointing at the PR. npm already has the versions; `main` catches up when the
+  review lands;
+- **no open PR carries the bump** → `::error::` and a red run. That is a real
+  automation failure: npm is ahead of `main` with nothing tracking it.
 
-The built-in **GitHub Actions** app (`Integration`, id `15368`) **cannot** be that
-bypass actor on a repository ruleset here — the API rejects it with *"Actor GitHub
-Actions integration must be part of the ruleset source or owner organization"* —
-hence the PAT.
+#### Why the bump PR needs one click, and how to remove it
 
-Setup:
+`protect-default-branch` requires the **`ci` check** and **one approving review**,
+and a bot cannot approve its own PR. The bump commit therefore carries **no
+`[skip ci]`** — the check reports on the bump PR like on any other, so the review
+is the only thing left. (One side effect: merging the bump triggers one more
+publish run. That run finds nothing left to bump and publishes nothing, because
+both the publish and the commit-back step are skipped when the bump list is empty;
+the cost is a couple of minutes of CI, not a second release.)
 
-1. Create a PAT — fine-grained (`Contents: read/write`, `Pull requests:
-   read/write`, this repository) or classic (`repo` + `workflow`) — on an account
-   with **admin** on the repository.
-2. Add it as the repository secret **`RELEASE_TOKEN`**.
+To get to zero clicks:
 
-The workflow falls back to `GITHUB_TOKEN` when the secret is absent, which is only
-safe while the ruleset has **no** required checks/reviews — do not add required
-checks/reviews before the secret exists.
+- **`RELEASE_TOKEN`** — a PAT owned by an account with **admin** on the repository,
+  whose role is a ruleset *bypass actor*, stored as the repository secret
+  `RELEASE_TOKEN`. With it the step merges the bump itself. Create it fine-grained
+  (`Contents: read/write`, `Pull requests: read/write`, this repository) or classic
+  (`repo` + `workflow`).
+  The built-in **GitHub Actions** app (`Integration`, id `15368`) **cannot** be the
+  bypass actor on a repository ruleset here — the API rejects it with *"Actor
+  GitHub Actions integration must be part of the ruleset source or owner
+  organization"* — hence a PAT.
+- **Repository auto-merge enabled** — the step already requests it, so the PR lands
+  itself as soon as someone reviews. That still costs the review, but never a
+  second manual merge.
 
 > **Branch protection alternative:** removing the commit-back step and bumping
 > versions by hand is still supported — the publish step stays idempotent, so a
@@ -284,11 +344,23 @@ npm install @kedataindo/docflow-vue
 
 ## Why not Changesets yet?
 
-Long term, [Changesets](https://github.com/changesets/changesets) is the industry
-standard for multi-package monorepos: contributors add a changeset per PR, then a
-workflow bumps + publishes only the changed packages. Not needed yet — the
-push-triggered workflow already patch-bumps affected packages from the commit
-range (`scripts/bump-release-versions.mjs`), which is enough at this scale.
+[Changesets](https://github.com/changesets/changesets) is the industry standard for
+multi-package monorepos: each PR carries a changeset (bump kind + notes), a bot opens
+a "Version Packages" PR that updates versions and `CHANGELOG.md`, and publishing
+follows the merge of that PR — one human click, tags and release notes included.
+
+The push-triggered workflow already patch-bumps the affected packages from the commit
+range (`scripts/bump-release-versions.mjs`), so what is missing is not automation but
+**intent**: with every change landing as a patch, a version number carries no signal,
+and a breaking change reaches a stable tag looking exactly like a bug fix — the TipTap
+v3 migration (#166) shipped as `0.0.98`. Changesets is how the
+[version policy](#version-policy-what-our-numbers-promise) gets enforced instead of
+merely documented.
+
+What adopting it costs: a changeset file in every PR that touches a package (a habit
+for contributors and for coding agents), a `changesets/action` step in this workflow,
+and retiring `bump-release-versions.mjs` together with its tests. Recommended as the
+next release-machinery change, before the following breaking change has to ship.
 
 ## Pre-publish Checklist
 

@@ -10,6 +10,13 @@ Thanks for your interest in contributing! DocFlow is an open-source (Apache-2.0)
 - **Be honest in comparisons and claims.** Credibility with developers is our core asset.
 - **The core stays Apache-2.0.** We don't accept changes that gate editor features behind paid services.
 - **Open an issue first** for anything non-trivial (features, schema changes, architectural work) so we can align before you invest time. Small fixes (typos, obvious bugs) can go straight to a PR.
+- **Contributions come in under Apache-2.0.** Inbound = outbound: by opening a pull
+  request you license your change under the same terms as the project. Please sign
+  your commits (`git commit -s`, [Developer Certificate of Origin](https://developercertificate.org/)) —
+  the `Signed-off-by:` line is a statement that you wrote the change or otherwise
+  have the right to submit it. We do not use a CLA.
+- **Security problems never go in a public issue** — see [SECURITY.md](./SECURITY.md)
+  for the private channel and what we commit to.
 
 ## Development setup
 

@@ -166,8 +166,8 @@ test('commit-back verifies the bump is on main instead of trusting the merge', (
   )
   assert.match(
     body,
-    /::error::version bump did not reach main/,
-    'the drift guard must fail loudly',
+    /::error::the bump commit did not reach main and no open PR carries it/,
+    'drift with no open PR to explain it is a real automation failure and must still fail loudly',
   )
 })
 
@@ -220,4 +220,67 @@ test('the release step is idempotent and holds a write token', () => {
   assert.notEqual(create, -1, 'the release must actually be created')
   assert.ok(guard < create, 'the existence check must run before creating')
   assert.match(body, /GH_TOKEN/, 'creating a Release needs a write-scoped token')
+})
+
+
+// --- Landing the bump without a ruleset bypass actor -------------------------
+//
+// Before this, the bump commit carried `[skip ci]`, so the required `ci` check
+// never reported on the bump PR and only a ruleset bypass actor (a PAT in
+// `RELEASE_TOKEN`) could merge it. Without that secret the release run went red
+// while npm already had the versions (run 39154257809). These guards keep the
+// three things that changed from regressing.
+
+/** Step body with its shell comments stripped, so prose cannot satisfy a check. */
+function codeLines(body) {
+  return body
+    .split('\n')
+    .filter((line) => !line.trim().startsWith('#'))
+    .join('\n')
+}
+
+test('the bump commit does not carry [skip ci] (ci must report on its PR)', () => {
+  const code = codeLines(stepBody(COMMIT_BACK_STEP))
+  assert.doesNotMatch(
+    code,
+    /\[skip ci\]/,
+    'a [skip ci] bump commit keeps the required `ci` check unreported, so only a ruleset bypass actor could merge the bump PR',
+  )
+})
+
+test('a bump PR waiting for review is reported, not failed', () => {
+  const body = stepBody(COMMIT_BACK_STEP)
+  assert.match(
+    body,
+    /gh pr list --head "\$BRANCH" --state open/,
+    'the step must check whether its bump PR is still open before deciding the outcome',
+  )
+  assert.match(
+    body,
+    /GITHUB_STEP_SUMMARY/,
+    'the waiting state belongs in the run summary instead of a red run',
+  )
+  // The hard failure is still there, but only for a real automation failure: it
+  // must sit after the open-PR check.
+  const openPrCheck = body.indexOf('OPEN_PR=')
+  const hardError = body.indexOf('did not reach main and no open PR')
+  assert.notEqual(openPrCheck, -1, 'the open-PR check is missing')
+  assert.notEqual(hardError, -1, 'the automation-failure error is missing')
+  assert.ok(
+    openPrCheck < hardError,
+    'the error must only fire when no open PR carries the bump (automation failed)',
+  )
+})
+
+test('publishing carries provenance (id-token + --provenance)', () => {
+  assert.match(
+    stepBody('Publish @kedataindo/* to npm'),
+    /--provenance/,
+    'releases should be signed so a consumer can verify which commit built them',
+  )
+  assert.match(
+    yaml,
+    /permissions:[\s\S]*?id-token:\s*write/,
+    'provenance needs the `id-token: write` permission',
+  )
 })
