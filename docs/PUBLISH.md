@@ -279,17 +279,30 @@ Two outcomes — only one of them is a failure:
 - **no open PR carries the bump** → `::error::` and a red run. That is a real
   automation failure: npm is ahead of `main` with nothing tracking it.
 
-#### Why the bump PR needs one click, and how to remove it
+#### How the bump lands, and what the bypass token buys
 
 `protect-default-branch` requires the **`ci` check** and **one approving review**,
-and a bot cannot approve its own PR. The bump commit therefore carries **no
-`[skip ci]`** — the check reports on the bump PR like on any other, so the review
-is the only thing left. (One side effect: merging the bump triggers one more
-publish run. That run finds nothing left to bump and publishes nothing, because
-both the publish and the commit-back step are skipped when the bump list is empty;
-the cost is a couple of minutes of CI, not a second release.)
+and a bot cannot approve its own PR. The bump commit carries **no `[skip ci]`** so
+that `ci` exists on the bump PR like on any other one — but in practice that check
+does **not** gate the landing: with a bypass-capable token the step merges the PR
+itself seconds after opening it, long before `ci` reports.
 
-To get to zero clicks:
+Measured on 2026-10-19 (runs `39197234061` and `39198325730`): both bump PRs
+(`#244`, `#245`) were merged by the workflow, their throwaway branches deleted
+after the ancestor check, and `main` came back into parity with npm
+(`core 0.0.99`, `plugins 0.0.106`, `vue 0.0.120`, `element 0.0.117`,
+`layout-engine 0.0.98`, `export 0.0.14`). The token is what restores parity, not
+the check.
+
+That is acceptable because the bump commit contains nothing but version strings,
+and the tree it lands on already passed lint, typecheck, unit, release-script and
+docs gates in the same run that published it. (One side effect: merging the bump
+triggers one more publish run. That run finds nothing left to bump and publishes
+nothing, because both the publish and the commit-back step are skipped when the
+bump list is empty; the cost is a couple of minutes of CI, not a second release.)
+
+`RELEASE_TOKEN` is already set in this repository (2026-10-11), which is why the
+landings above needed no human. The two knobs, if it ever has to be reproduced:
 
 - **`RELEASE_TOKEN`** — a PAT owned by an account with **admin** on the repository,
   whose role is a ruleset *bypass actor*, stored as the repository secret
