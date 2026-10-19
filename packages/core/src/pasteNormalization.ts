@@ -41,6 +41,46 @@ const KEEP_ATTRS: Record<string, Set<string>> = {
   '*': new Set(['style', 'data-indent']),
 }
 
+/** Attributes whose value is a URL and must pass the scheme allowlist. */
+const URL_ATTRS = new Set(['href', 'src'])
+
+/**
+ * Schemes allowed in pasted `href`/`src` values (issue #178). Relative URLs
+ * resolve against a fixed base and therefore report `http:`/`https:`; only
+ * `mailto:` is additionally allowed, and only on links.
+ */
+const SAFE_URL_SCHEMES = new Set(['http:', 'https:'])
+
+/** Base used purely to resolve URLs while validating their scheme. */
+const URL_VALIDATION_BASE = 'https://docflow.invalid/'
+
+/**
+ * Defense-in-depth URL check: TipTap validates URIs today, but this seam must
+ * not rely on it staying strict. The parsed scheme is inspected on a normalized
+ * value, so casing, whitespace and control characters cannot smuggle
+ * `javascript:`/`data:`/`vbscript:` past the check.
+ */
+function isSafeUrlValue(value: string, allowMailto: boolean): boolean {
+  if (!value.trim()) return false
+  let scheme: string
+  try {
+    scheme = new URL(value, URL_VALIDATION_BASE).protocol
+  } catch {
+    return false
+  }
+  if (SAFE_URL_SCHEMES.has(scheme)) return true
+  return allowMailto && scheme === 'mailto:'
+}
+
+function cleanUrlAttrs(el: Element): void {
+  const allowMailto = el.tagName === 'A'
+  for (const attr of Array.from(el.attributes)) {
+    if (URL_ATTRS.has(attr.name) && !isSafeUrlValue(attr.value, allowMailto)) {
+      el.removeAttribute(attr.name)
+    }
+  }
+}
+
 export function detectClipboardSource(html: string): ClipboardSource {
   if (/id\s*=\s*["']docs-internal/i.test(html)) return 'google-docs'
   if (/<o:p[\s>]|xmlns(:w|:o)?=|class\s*=\s*["']?Mso|mso-/i.test(html)) return 'word'
@@ -76,6 +116,7 @@ function cleanAttrs(el: Element): void {
   for (const attr of Array.from(el.attributes)) {
     if (!keep.has(attr.name)) el.removeAttribute(attr.name)
   }
+  cleanUrlAttrs(el)
 }
 
 /** Replace an element with its children. */
