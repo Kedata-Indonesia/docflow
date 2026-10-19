@@ -1,5 +1,10 @@
 <script setup lang="ts">
-import type { BlockInfo, LayoutOptions, Page } from '@kedata-indonesia/docflow-layout-engine'
+import {
+  DEFAULT_KEEP_TOGETHER_TYPES,
+  type BlockInfo,
+  type LayoutOptions,
+  type Page,
+} from '@kedata-indonesia/docflow-layout-engine'
 import type { DocsEditor } from '@kedata-indonesia/docflow-core'
 import { computed, ref, watch, onUnmounted } from 'vue'
 import { sanitizeInlineHTML } from '@kedata-indonesia/docflow-core'
@@ -63,6 +68,9 @@ const resolvedLayout = computed<Required<LayoutOptions>>(() => ({
     right: 96,
   },
   maxCharsPerPage: 0,
+  // #249: quote and code blocks must not be cut in half when they fit a page.
+  // Hosts can override the list through `layoutOptions.keepTogetherTypes`.
+  keepTogetherTypes: props.layoutOptions?.keepTogetherTypes ?? DEFAULT_KEEP_TOGETHER_TYPES,
 }))
 
 const pageStyle = computed(() => {

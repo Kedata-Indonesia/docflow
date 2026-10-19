@@ -1,5 +1,11 @@
 import { PageBreaker } from './PageBreaker'
-import type { BlockInfo, LayoutOptions, LayoutResult, Page } from './types'
+import {
+  DEFAULT_KEEP_TOGETHER_TYPES,
+  type BlockInfo,
+  type LayoutOptions,
+  type LayoutResult,
+  type Page,
+} from './types'
 
 export interface EditorLike {
   dom: HTMLElement
@@ -40,6 +46,7 @@ export class PageLayout {
       pageWidth: options.pageWidth ?? 0,
       margins: options.margins ?? { top: 0, bottom: 0, left: 0, right: 0 },
       maxCharsPerPage: options.maxCharsPerPage ?? 0,
+      keepTogetherTypes: options.keepTogetherTypes ?? DEFAULT_KEEP_TOGETHER_TYPES,
     }
     this.debounceMs = debounceMs
     this.breaker = new PageBreaker((block, offset) =>
@@ -80,6 +87,9 @@ export class PageLayout {
 
       const rect = child.getBoundingClientRect()
       const canSplit = this.isTextBlock(nodeType)
+      // Measured here, honoured by PageBreaker: quote and code blocks are still
+      // splittable (they can exceed a page) but must not be cut when they fit.
+      const keepTogether = this.options.keepTogetherTypes.includes(nodeType)
       const forceBreak =
         child.getAttribute('data-page-break') === 'true' ||
         nodeType === 'pageBreak'
@@ -100,6 +110,7 @@ export class PageLayout {
         bottom: rect.bottom - containerRect.top,
         rect,
         canSplit,
+        keepTogether,
         forceBreak,
         marginTop,
         marginBottom,

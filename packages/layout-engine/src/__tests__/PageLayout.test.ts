@@ -174,4 +174,31 @@ describe('PageLayout', () => {
 
     layout.destroy()
   })
+
+  it('marks quote and code blocks keep-together while prose stays splittable', () => {
+    const viaDefault = createMockContainer(`
+      <div data-node-type="paragraph" data-from="0" data-to="5">Hello</div>
+      <div data-node-type="blockquote" data-from="5" data-to="10">Quote</div>
+      <div data-node-type="codeBlock" data-from="10" data-to="20">code</div>
+    `)
+
+    const layout = new PageLayout(viaDefault, { pageHeight: 100 })
+    const flags = layout
+      .measureBlocks()
+      .map((block) => [block.nodeType, block.keepTogether ?? false])
+    expect(flags).toEqual([
+      ['paragraph', false],
+      ['blockquote', true],
+      ['codeBlock', true],
+    ])
+    layout.destroy()
+
+    // The list is configurable: hosts can opt out (issue #249).
+    const optedOut = createMockContainer(
+      `<div data-node-type="blockquote" data-from="0" data-to="5">q</div>`,
+    )
+    const plain = new PageLayout(optedOut, { pageHeight: 100, keepTogetherTypes: [] })
+    expect(plain.measureBlocks()[0].keepTogether).toBe(false)
+    plain.destroy()
+  })
 })

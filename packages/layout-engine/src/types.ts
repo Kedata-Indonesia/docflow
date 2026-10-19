@@ -6,6 +6,12 @@ export interface BlockInfo {
   bottom: number
   rect?: DOMRect
   canSplit: boolean
+  /**
+   * Keep this block on one page when it fits on a page of its own: the breaker
+   * moves it whole to the next page instead of splitting mid-block. Blocks
+   * taller than a page are still split — there is no whole-page placement.
+   */
+  keepTogether?: boolean
   forceBreak?: boolean
   splitOffset?: number
   /** True when this block's height exceeds the available page height.
@@ -38,7 +44,20 @@ export interface LayoutOptions {
    * and page dimensions so it adapts to font-size / orientation changes.
    */
   maxCharsPerPage?: number
+  /**
+   * Node types measured with `keepTogether` (issue #249). Defaults to
+   * `DEFAULT_KEEP_TOGETHER_TYPES`; pass `[]` to return to plain splitting.
+   */
+  keepTogetherTypes?: string[]
 }
+
+/**
+ * Blocks that read as one unit and should not be cut in half when they fit on a
+ * page: a quote or a code listing broken across pages loses its meaning.
+ * `paragraph`, `heading` and `list` stay splittable on purpose — prose is
+ * expected to flow.
+ */
+export const DEFAULT_KEEP_TOGETHER_TYPES = ['blockquote', 'codeBlock']
 
 export interface LayoutResult {
   pages: Page[]
