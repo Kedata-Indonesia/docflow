@@ -284,3 +284,13 @@ test('publishing carries provenance (id-token + --provenance)', () => {
     'provenance needs the `id-token: write` permission',
   )
 })
+
+
+test('the published manifest declares the repository (provenance requires it)', () => {
+  const body = stepBody('Publish @kedataindo/* to npm')
+  assert.match(
+    body,
+    /p\.repository = \{ type: 'git', url: 'git\+https:\/\/github\.com\/Kedata-Indonesia\/docflow\.git' \}/,
+    'npm rejects a `--provenance` publish with 422 when package.json has no repository.url (seen on @kedataindo/docflow-export@0.0.13), so the rewrite must set it',
+  )
+})

@@ -149,7 +149,11 @@ on:
 5. Rewrites every `packages/*/package.json`: source name → `@kedataindo/docflow-*`,
    internal `@kedata-indonesia/*` deps → `@kedataindo/*` (resolving
    `workspace:*` to the local version), and sets
+   `repository` / `homepage` / `bugs` plus
    `publishConfig = { registry: 'https://registry.npmjs.org', access: 'public' }`.
+   The `repository` field is not decoration: npm validates `repository.url`
+   against the provenance bundle and rejects the publish with
+   `422 Failed to validate repository information` when it is empty.
 6. Rewrites `dist/**` files, which contain hardcoded `@kedata-indonesia/docflow-*`
    import specifiers after the build.
 7. Publishes in dependency order (`core`, `layout-engine`, `plugins`, `vue`,
