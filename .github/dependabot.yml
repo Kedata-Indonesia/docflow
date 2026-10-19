@@ -1,10 +1,13 @@
 # Dependabot configuration.
 #
-# Version updates only. The audit that produced #165/#166 found five advisories
-# that had accumulated with nothing watching the manifests, so this file exists
-# to make the next one show up as a pull request instead of as a quarterly
-# surprise. Security updates do not need an entry: Dependabot raises them for
-# supported ecosystems as soon as an advisory lands.
+# Version updates only — this file configures the weekly sweep. Security updates
+# are a repository setting, not an entry here: they were enabled on 2026-10-19
+# (Settings -> Code security -> Dependabot security updates), which is what makes
+# Dependabot open a fix pull request for every alert that has an available patch.
+# Before that switch was flipped an advisory produced an alert and nothing else —
+# the gap the audit behind #165/#166 fell into. If those PRs ever get too broad,
+# the documented alternative is to leave the switch off and filter with
+# auto-triage rules instead.
 #
 # A single `npm` entry at the root is deliberate. This is a pnpm workspace with
 # one lockfile (`pnpm-lock.yaml`) at the root, so `directory: "/"` already covers
@@ -25,6 +28,13 @@ updates:
     # for the production dependencies that are deliberately not grouped (11 of
     # them, measured over the workspace manifests) so they are not queued forever.
     open-pull-requests-limit: 10
+    # Published packages are libraries, and with the default (`auto`) Dependabot
+    # widens the allowed range for a library manifest — which lets a consumer
+    # resolve a version this repository never tested. `increase` moves the declared
+    # floor instead. It is also the candidate fix for the `prosemirror-model`
+    # NoChangeError that turned the whole weekly run red on 2026-10-19: a bump
+    # inside the existing range leaves the pnpm file updater with nothing to write.
+    versioning-strategy: "increase"
     labels:
       - "dependencies"
     commit-message:
@@ -61,19 +71,33 @@ updates:
         update-types:
           - "minor"
           - "patch"
-    # Majors arrive as individual pull requests on purpose: a red one is a signal
+    # Majors arrive as individual pull requests by default: a red one is a signal
     # that the bump needs real work, not noise to be silenced. (`@tiptap/*` was
     # ignored while its v3 migration was pending; that entry came out with #234.)
     #
-    # Vite is now the exception, and only because the signal has been read: #239
-    # established that vite 8 cannot pass `e2e` here — the playground's own
-    # `vite build` exits 1 while the surrounding toolchain is still on vite 5 — so
-    # the weekly batch spends a slot re-proposing a known-blocked major instead of
-    # reporting something new. Delete this entry when the vite/vitest migration is
-    # picked up; the migration itself is not tracked by an issue yet.
+    # Three majors are suppressed on purpose, each because its signal has already
+    # been read:
+    #
+    # - vite: #239 showed vite 8 cannot pass `e2e` here — the playground's own
+    #   `vite build` exits 1 while the toolchain around it is still on vite 5 — so
+    #   the weekly batch was spending a slot re-proposing a blocked major instead
+    #   of reporting something new. Drop this entry when the vite/vitest migration
+    #   is picked up (it is not tracked by an issue yet).
+    # - tailwindcss and tsup: both were already ignored on 18 Oct by the
+    #   `@dependabot ignore this major version` command, which stores the rule on
+    #   GitHub's side and leaves no trace in this file — the reason this file did
+    #   not explain why no Tailwind 4 or tsup 10 pull request ever appeared. They
+    #   are repeated here so the configuration has one readable source of truth;
+    #   the server-side copies can be retired later with a `@dependabot unignore
+    #   <name>` comment on a Dependabot pull request (the ranges below are copied
+    #   verbatim from the live job definition).
     ignore:
       - dependency-name: "vite"
         update-types: ["version-update:semver-major"]
+      - dependency-name: "tailwindcss"
+        versions: [">= 4.a, < 5"]
+      - dependency-name: "tsup"
+        versions: [">= 9.a, < 10"]
 
   - package-ecosystem: "github-actions"
     directory: "/"
