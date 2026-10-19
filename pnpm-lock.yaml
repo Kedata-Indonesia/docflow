@@ -50,7 +50,7 @@ importers:
         version: 5.4.21(@types/node@26.6.5)
       vitest:
         specifier: ^2.1.3
-        version: 2.1.9(@types/node@26.6.5)(happy-dom@21.0.1)
+        version: 2.1.9(@types/node@26.6.5)(happy-dom@21.0.3)
 
   examples/playground:
     dependencies:
@@ -130,13 +130,13 @@ importers:
     devDependencies:
       '@vitest/coverage-v8':
         specifier: ^2.1.3
-        version: 2.1.9(vitest@2.1.9(@types/node@26.6.5)(happy-dom@21.0.1))
+        version: 2.1.9(vitest@2.1.9(@types/node@26.6.5)(happy-dom@21.0.3))
       fake-indexeddb:
         specifier: ^6.2.5
         version: 6.2.5
       happy-dom:
-        specifier: ^21.0.1
-        version: 21.0.1
+        specifier: ^21.0.3
+        version: 21.0.3
       tsup:
         specifier: ^9.0.0
         version: 9.0.0(jiti@1.21.7)(postcss@8.5.30)(tsx@4.23.12)(typescript@5.9.3)
@@ -145,7 +145,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^2.1.3
-        version: 2.1.9(@types/node@26.6.5)(happy-dom@21.0.1)
+        version: 2.1.9(@types/node@26.6.5)(happy-dom@21.0.3)
 
   packages/element:
     dependencies:
@@ -164,7 +164,7 @@ importers:
         version: 6.0.10(vite@5.4.21(@types/node@26.6.5))(vue@3.5.44(typescript@5.9.3))
       '@vitest/coverage-v8':
         specifier: ^2.1.9
-        version: 2.1.9(vitest@2.1.9(@types/node@26.6.5)(happy-dom@21.0.1))
+        version: 2.1.9(vitest@2.1.9(@types/node@26.6.5)(happy-dom@21.0.3))
       autoprefixer:
         specifier: ^10.6.1
         version: 10.6.1(postcss@8.5.30)
@@ -185,7 +185,7 @@ importers:
         version: 5.4.21(@types/node@26.6.5)
       vitest:
         specifier: ^2.1.3
-        version: 2.1.9(@types/node@26.6.5)(happy-dom@21.0.1)
+        version: 2.1.9(@types/node@26.6.5)(happy-dom@21.0.3)
       vue-tsc:
         specifier: ^3.3.13
         version: 3.3.13(typescript@5.9.3)
@@ -207,10 +207,10 @@ importers:
     devDependencies:
       '@vitest/coverage-v8':
         specifier: ^2.1.9
-        version: 2.1.9(vitest@2.1.9(@types/node@26.6.5)(happy-dom@21.0.1))
+        version: 2.1.9(vitest@2.1.9(@types/node@26.6.5)(happy-dom@21.0.3))
       happy-dom:
-        specifier: ^21.0.1
-        version: 21.0.1
+        specifier: ^21.0.3
+        version: 21.0.3
       tsup:
         specifier: ^9.0.0
         version: 9.0.0(jiti@1.21.7)(postcss@8.5.30)(tsx@4.23.12)(typescript@5.9.3)
@@ -219,7 +219,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^2.1.3
-        version: 2.1.9(@types/node@26.6.5)(happy-dom@21.0.1)
+        version: 2.1.9(@types/node@26.6.5)(happy-dom@21.0.3)
 
   packages/layout-engine:
     dependencies:
@@ -232,10 +232,10 @@ importers:
     devDependencies:
       '@vitest/coverage-v8':
         specifier: ^2.1.9
-        version: 2.1.9(vitest@2.1.9(@types/node@26.6.5)(happy-dom@21.0.1))
+        version: 2.1.9(vitest@2.1.9(@types/node@26.6.5)(happy-dom@21.0.3))
       happy-dom:
-        specifier: ^21.0.1
-        version: 21.0.1
+        specifier: ^21.0.3
+        version: 21.0.3
       tsup:
         specifier: ^9.0.0
         version: 9.0.0(jiti@1.21.7)(postcss@8.5.30)(tsx@4.23.12)(typescript@5.9.3)
@@ -244,7 +244,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^2.1.3
-        version: 2.1.9(@types/node@26.6.5)(happy-dom@21.0.1)
+        version: 2.1.9(@types/node@26.6.5)(happy-dom@21.0.3)
 
   packages/plugins:
     dependencies:
@@ -314,10 +314,10 @@ importers:
     devDependencies:
       '@vitest/coverage-v8':
         specifier: ^2.1.9
-        version: 2.1.9(vitest@2.1.9(@types/node@26.6.5)(happy-dom@21.0.1))
+        version: 2.1.9(vitest@2.1.9(@types/node@26.6.5)(happy-dom@21.0.3))
       happy-dom:
-        specifier: ^21.0.1
-        version: 21.0.1
+        specifier: ^21.0.3
+        version: 21.0.3
       tsup:
         specifier: ^9.0.0
         version: 9.0.0(jiti@1.21.7)(postcss@8.5.30)(tsx@4.23.12)(typescript@5.9.3)
@@ -326,7 +326,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^2.1.3
-        version: 2.1.9(@types/node@26.6.5)(happy-dom@21.0.1)
+        version: 2.1.9(@types/node@26.6.5)(happy-dom@21.0.3)
       yjs:
         specifier: ^13.6.33
         version: 13.6.33
@@ -357,7 +357,7 @@ importers:
         version: 6.0.10(vite@5.4.21(@types/node@26.6.5))(vue@3.5.44(typescript@5.9.3))
       '@vitest/coverage-v8':
         specifier: ^2.1.9
-        version: 2.1.9(vitest@2.1.9(@types/node@26.6.5)(happy-dom@21.0.1))
+        version: 2.1.9(vitest@2.1.9(@types/node@26.6.5)(happy-dom@21.0.3))
       '@vue/test-utils':
         specifier: ^2.5.1
         version: 2.5.1(@vue/compiler-dom@3.5.44)(@vue/server-renderer@3.5.44)(vue@3.5.44(typescript@5.9.3))
@@ -365,8 +365,8 @@ importers:
         specifier: ^10.6.1
         version: 10.6.1(postcss@8.5.30)
       happy-dom:
-        specifier: ^21.0.1
-        version: 21.0.1
+        specifier: ^21.0.3
+        version: 21.0.3
       postcss:
         specifier: ^8.5.15
         version: 8.5.30
@@ -381,7 +381,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^2.1.3
-        version: 2.1.9(@types/node@26.6.5)(happy-dom@21.0.1)
+        version: 2.1.9(@types/node@26.6.5)(happy-dom@21.0.3)
       vue-tsc:
         specifier: ^3.3.13
         version: 3.3.13(typescript@5.9.3)
@@ -1804,8 +1804,8 @@ packages:
   graphemer@1.4.0:
     resolution: {integrity: sha512-EtKwoO6kxCL9WO5xipiHTZlSzBm7WLT627TqC/uVRd0HKmq8NXyebnNYxDoBi7wt8eTWrUrKXCOVaFq9x1kgag==}
 
-  happy-dom@21.0.1:
-    resolution: {integrity: sha512-pRBs/u9fhrncyByOl58DMex0R2uAj6ZPKWIjV5j5yNGZBqLw3P6BTRhlc0DD5b/Ht4/6JYTMuE2LJhUWRC6SGw==}
+  happy-dom@21.0.3:
+    resolution: {integrity: sha512-PesNgu5BnIEmAwzKGewB3K1ORFeznFZJ4JrRz89ea1wkHnxskdpzX9sN/+zb4KO6k8oSMhyJSj/cwXAFrYBBNA==}
     engines: {node: '>=20.0.0'}
 
   has-flag@4.0.0:
@@ -3499,7 +3499,7 @@ snapshots:
       vite: 5.4.21(@types/node@26.6.5)
       vue: 3.5.44(typescript@5.9.3)
 
-  '@vitest/coverage-v8@2.1.9(vitest@2.1.9(@types/node@26.6.5)(happy-dom@21.0.1))':
+  '@vitest/coverage-v8@2.1.9(vitest@2.1.9(@types/node@26.6.5)(happy-dom@21.0.3))':
     dependencies:
       '@ampproject/remapping': 2.3.0
       '@bcoe/v8-coverage': 0.2.3
@@ -3513,7 +3513,7 @@ snapshots:
       std-env: 3.10.0
       test-exclude: 7.0.2
       tinyrainbow: 1.2.0
-      vitest: 2.1.9(@types/node@26.6.5)(happy-dom@21.0.1)
+      vitest: 2.1.9(@types/node@26.6.5)(happy-dom@21.0.3)
     transitivePeerDependencies:
       - supports-color
 
@@ -4187,7 +4187,7 @@ snapshots:
 
   graphemer@1.4.0: {}
 
-  happy-dom@21.0.1:
+  happy-dom@21.0.3:
     dependencies:
       '@types/node': 26.6.5
       '@types/whatwg-mimetype': 3.0.2
@@ -5091,7 +5091,7 @@ snapshots:
       '@types/node': 26.6.5
       fsevents: 2.3.3
 
-  vitest@2.1.9(@types/node@26.6.5)(happy-dom@21.0.1):
+  vitest@2.1.9(@types/node@26.6.5)(happy-dom@21.0.3):
     dependencies:
       '@vitest/expect': 2.1.9
       '@vitest/mocker': 2.1.9(vite@5.4.21(@types/node@26.6.5))
@@ -5115,7 +5115,7 @@ snapshots:
       why-is-node-running: 2.3.0
     optionalDependencies:
       '@types/node': 26.6.5
-      happy-dom: 21.0.1
+      happy-dom: 21.0.3
     transitivePeerDependencies:
       - less
       - lightningcss
