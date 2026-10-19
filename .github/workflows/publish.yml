@@ -163,6 +163,14 @@ jobs:
                   }
                 });
               });
+              // npm validates `repository.url` against the provenance bundle when
+              // publishing with `--provenance`: an empty field rejects the publish
+              // with a 422 Failed to validate repository information error (observed
+              // on @kedataindo/docflow-export@0.0.13). Declare it on every manifest
+              // we publish, together with the usual metadata.
+              p.repository = { type: 'git', url: 'git+https://github.com/Kedata-Indonesia/docflow.git' };
+              p.homepage = 'https://github.com/Kedata-Indonesia/docflow#readme';
+              p.bugs = { url: 'https://github.com/Kedata-Indonesia/docflow/issues' };
               p.publishConfig = { registry: 'https://registry.npmjs.org', access: 'public' };
               fs.writeFileSync(fp, JSON.stringify(p, null, 2) + '\n');
             "
