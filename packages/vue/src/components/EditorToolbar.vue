@@ -662,6 +662,7 @@ function cancelFontSize(event: KeyboardEvent) {
           :disabled="!editor"
           :aria-expanded="activeDropdown === 'heading'"
           aria-haspopup="menu"
+          data-testid="toolbar-heading"
           @mousedown.prevent
           @click.stop="toggleDropdown('heading')"
         >
@@ -671,6 +672,7 @@ function cancelFontSize(event: KeyboardEvent) {
         <div
           v-if="activeDropdown === 'heading'"
           class="absolute left-0 top-full z-50 mt-1 min-w-[180px] rounded-lg border border-slate-200 bg-white py-1 text-sm shadow-xl dark:border-slate-700 dark:bg-[#0e1525]"
+          data-testid="toolbar-heading-menu"
         >
           <button
             v-for="opt in PARAGRAPH_OPTIONS"
@@ -796,6 +798,7 @@ function cancelFontSize(event: KeyboardEvent) {
           :disabled="!editor"
           :aria-expanded="activeDropdown === 'textColor'"
           aria-haspopup="menu"
+          data-testid="toolbar-text-color"
           @mousedown.prevent
           @click.stop="toggleDropdown('textColor')"
         >

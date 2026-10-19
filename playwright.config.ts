@@ -30,6 +30,19 @@ export default defineConfig({
       use: { baseURL: demoURL, viewport: { width: 1512, height: 900 } },
     },
     {
+      // Screenshot capture for the Tailwind 3 -> 4 migration (#215). Not a CI gate:
+      // run it manually and compare two runs with scripts/visual-diff.mjs.
+      name: 'visual',
+      testDir: './e2e/visual',
+      use: {
+        baseURL: demoURL,
+        viewport: { width: 1512, height: 900 },
+        deviceScaleFactor: 1,
+        reducedMotion: 'reduce',
+        colorScheme: 'light',
+      },
+    },
+    {
       name: 'showcase',
       testDir: './e2e/showcase',
       // The playground has a 300px control rail, so the editor column is narrower

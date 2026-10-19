@@ -28,3 +28,6 @@ opencode.json
 
 # Scratch footage from `node scripts/record-demo.mjs` (the GIF is committed).
 .demo-recording/
+
+# Tailwind 4 migration captures (issue #215) — reproducible, never committed
+visual-runs/
