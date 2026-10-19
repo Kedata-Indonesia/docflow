@@ -274,27 +274,37 @@ All requests need: `credentials: 'include'` (cookie-based) or `Authorization: Be
 
 ## Peer Dependencies
 
-Your project must also install these:
+A host app must provide the packages that have to stay singletons (one Vue, one
+TipTap core, one ProseMirror model). Install them next to the DocFlow packages:
+
+```bash
+npm install @kedataindo/docflow-vue @kedataindo/docflow-plugins vue @tiptap/core prosemirror-model
+```
 
 ```json
 {
   "dependencies": {
-    "vue": "^3.5.0",
-    "@tiptap/core": "^2.11.0",
-    "@tiptap/starter-kit": "^2.11.0",
-    "tiptap-pagination-plus": "3.1.0",
-    "yjs": "^13.6.0",
-    "y-prosemirror": "^1.2.0",
-    "y-webrtc": "^10.3.0",
-    "y-websocket": "^2.0.4"
+    "vue": "^3.5.42",
+    "@tiptap/core": "^3.32.0",
+    "prosemirror-model": "^1.25.12"
   }
 }
 ```
 
-Or just install the vue package — npm 7+ and pnpm auto-install its *required* peers.
-The optional peers that are **not** also regular dependencies (`y-webrtc`,
-`y-websocket`) are not auto-installed, so add them yourself:
+npm 7+ and pnpm auto-install required peers; if your package manager has
+`auto-install-peers` disabled, add them explicitly.
 
-```bash
-npm install y-webrtc y-websocket
-```
+Everything else the barrels import at load time ships as a **regular
+dependency**, so no manual install is needed:
+
+- the TipTap extension packages behind `defaultPlugins`
+  (`@tiptap/extension-image`, `-link`, `-table`, `-text-align`, `-underline`, …)
+  are dependencies of `@kedataindo/docflow-plugins`;
+- the collaboration providers `y-webrtc` and `y-websocket` are dependencies of
+  `@kedataindo/docflow-core` (they are only instantiated when `collaboration`
+  is enabled).
+
+Declaring a package as an *optional* peer while importing it statically is what
+broke Vite/Rollup host builds: the bundler replaced the missing peer with an
+empty stub and the named import failed (#229). Optional now means truly lazy —
+no optional peer is statically imported.

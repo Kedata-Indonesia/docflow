@@ -10,10 +10,6 @@ Ships a complete Google-Docs-like UI: toolbar, bubble/slash menus, rulers, sideb
 npm install @kedataindo/docflow-vue @kedataindo/docflow-plugins
 ```
 
-> Peers: also add `y-webrtc` and `y-websocket` (`npm install y-webrtc y-websocket`).
-> The core barrel imports them at load time, so strict ESM bundlers fail to
-> resolve it even when `collaboration` is off.
-
 ## Usage
 
 ```vue
