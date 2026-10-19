@@ -47,6 +47,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- **Packaging:** statically imported runtime packages are no longer declared as
+  *optional* peers. `y-webrtc`/`y-websocket` (core) and the TipTap extensions
+  behind `defaultPlugins` (plugins) are regular dependencies now, and the
+  optional-peer flags were removed. A host no longer has to install them by
+  hand: before, Vite/Rollup resolved the missing optional peers to
+  `__vite-optional-peer-dep:` stubs and the host build failed with
+  `"Collaboration" is not exported …`, while `pnpm peers check` stayed clean.
+  The stale v2 peer entries (`extension-table-cell`/`-header`/`-row`,
+  `-task-item`/`-task-list`, `-placeholder`, `-strike`) were dropped too — v3
+  re-exports them from packages that already ship. A new `package-peers` guard
+  fails `pnpm test:scripts` if an optional peer is ever statically imported again.
+  _([#229](https://github.com/Kedata-Indonesia/docflow/issues/229))_
+
 - **Pagination:** a pasted document with two tables taller than a page no longer
   inflates the page count or leaves a blank band above the 2nd table. The 2nd
   table inherited the leftover of the 1st table's chunk chain as its budget

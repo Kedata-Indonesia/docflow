@@ -14,6 +14,6 @@ export default defineConfig({
   // cause ERR_MODULE_NOT_FOUND at runtime in Node ESM contexts.
   noExternal: ['tiptap-pagination-plus'],
   external: ['@tiptap/core', '@tiptap/pm', '@tiptap/extension-collaboration',
-    '@tiptap/extension-collaboration-cursor', 'prosemirror-state', 'prosemirror-view',
+    'prosemirror-state', 'prosemirror-view',
     'prosemirror-model', 'yjs', 'y-websocket', 'y-webrtc', 'y-protocols/awareness'],
 })

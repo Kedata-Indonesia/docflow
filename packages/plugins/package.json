@@ -36,7 +36,12 @@
     "@kedata-indonesia/docflow-core": "workspace:*",
     "@tiptap/extension-color": "^3.32.0",
     "@tiptap/extension-highlight": "^3.32.0",
+    "@tiptap/extension-image": "^3.32.0",
+    "@tiptap/extension-link": "^3.32.0",
     "@tiptap/extension-list": "^3.32.0",
+    "@tiptap/extension-table": "^3.32.0",
+    "@tiptap/extension-text-align": "^3.32.0",
+    "@tiptap/extension-underline": "^3.32.0",
     "@tiptap/extensions": "^3.32.0",
     "@tiptap/pm": "^3.32.0",
     "citeproc": "^2.4.63",
@@ -48,60 +53,9 @@
     "@tiptap/extension-highlight": "^3.32.0",
     "@tiptap/extension-image": "^3.32.0",
     "@tiptap/extension-link": "^3.32.0",
-    "@tiptap/extension-placeholder": "^3.32.0",
-    "@tiptap/extension-strike": "^3.32.0",
     "@tiptap/extension-table": "^3.32.0",
-    "@tiptap/extension-table-cell": "^3.32.0",
-    "@tiptap/extension-table-header": "^3.32.0",
-    "@tiptap/extension-table-row": "^3.32.0",
-    "@tiptap/extension-task-item": "^3.32.0",
-    "@tiptap/extension-task-list": "^3.32.0",
     "@tiptap/extension-text-align": "^3.32.0",
     "@tiptap/extension-underline": "^3.32.0"
-  },
-  "peerDependenciesMeta": {
-    "@tiptap/extension-image": {
-      "optional": true
-    },
-    "@tiptap/extension-link": {
-      "optional": true
-    },
-    "@tiptap/extension-placeholder": {
-      "optional": true
-    },
-    "@tiptap/extension-strike": {
-      "optional": true
-    },
-    "@tiptap/extension-table": {
-      "optional": true
-    },
-    "@tiptap/extension-table-cell": {
-      "optional": true
-    },
-    "@tiptap/extension-table-header": {
-      "optional": true
-    },
-    "@tiptap/extension-table-row": {
-      "optional": true
-    },
-    "@tiptap/extension-task-item": {
-      "optional": true
-    },
-    "@tiptap/extension-task-list": {
-      "optional": true
-    },
-    "@tiptap/extension-text-align": {
-      "optional": true
-    },
-    "@tiptap/extension-underline": {
-      "optional": true
-    },
-    "@tiptap/extension-color": {
-      "optional": true
-    },
-    "@tiptap/extension-highlight": {
-      "optional": true
-    }
   },
   "devDependencies": {
     "@vitest/coverage-v8": "^2.1.9",

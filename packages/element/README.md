@@ -10,10 +10,6 @@ Framework-agnostic: works in any HTML page, React, Angular, Svelte, or plain JS.
 npm install @kedataindo/docflow-element @kedataindo/docflow-plugins
 ```
 
-> Peers: also add `y-webrtc` and `y-websocket` (`npm install y-webrtc y-websocket`).
-> The core barrel imports them at load time, so strict ESM bundlers fail to
-> resolve it even when `collaboration` is off.
-
 ## Usage
 
 ```html

@@ -72,11 +72,9 @@ Packages are published publicly on **npm** under the `@kedataindo` scope — no 
 npm install @kedataindo/docflow-vue @kedataindo/docflow-plugins
 ```
 
-> The core barrel imports `y-webrtc` and `y-websocket` at load time (they are
-> declared as *optional* peers, so npm will not install them for you). Install
-> them explicitly — `npm install y-webrtc y-websocket` — otherwise strict ESM
-> runtimes and bundlers (Vite / Rollup / esbuild) fail to resolve the barrel even
-> when `collaboration` is turned off. The providers are only instantiated once
+> The core barrel imports the collaboration providers (`y-webrtc`,
+> `y-websocket`) at load time. They are regular dependencies, so they install
+> with the package — no extra step — but they are only instantiated once
 > `collaboration` is enabled.
 
 > `@kedataindo/docflow-vue` keeps its runtime dependencies external so your app
