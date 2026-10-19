@@ -12,9 +12,15 @@ name: Publish to npm
 # On a push to `main`, scripts/bump-release-versions.mjs patch-bumps everything
 # changed since the last `chore(release):` commit (plus their dependents) on the
 # current tip of `main`, and the new versions are landed back on `main` as a pull
-# request that this workflow opens and merges itself, so merging is all it takes
-# to release. Publishing itself stays idempotent: a version already on npm is
-# skipped, never a hard failure.
+# request that this workflow opens — and merges when it is allowed to. `main`'s
+# ruleset requires the `ci` check and one approving review, so the merge needs a
+# human click (or a ruleset bypass actor via RELEASE_TOKEN); when the merge does
+# not happen, the PR is left open with a notice instead of failing the run, and
+# `docs/PUBLISH.md` documents the follow-up. Publishing itself stays idempotent: a
+# version already on npm is skipped, never a hard failure.
+# The bump commit deliberately does NOT carry `[skip ci]`: with it, the required
+# `ci` check could never report on the bump PR, and only a bypass actor could land
+# it — which is what made the old flow depend on a PAT.
 #
 # The bump is registry-aware: it raises each affected package above everything
 # npm already has, so a repo that drifted behind the registry self-heals instead
@@ -34,6 +40,10 @@ permissions:
   # request, so a direct push is rejected with GH013).
   contents: write
   pull-requests: write
+  # `id-token: write` is what lets `npm publish --provenance` sign each package
+  # with this workflow's OIDC identity, so a consumer can verify which commit,
+  # workflow and run produced the tarball they installed.
+  id-token: write
 
 concurrency:
   # Never let two pushes race to publish the same registry packages.
@@ -184,7 +194,10 @@ jobs:
               echo "@kedataindo/docflow-$pkg@$VERSION already published, skipping"
             else
               echo "Publishing @kedataindo/docflow-$pkg@$VERSION..."
-              pnpm publish --filter @kedataindo/docflow-$pkg --no-git-checks --access public
+              # `--provenance` attaches a signed attestation (which repo, commit
+              # and workflow built this tarball) from the OIDC token granted by
+              # `permissions: id-token: write`.
+              pnpm publish --filter @kedataindo/docflow-$pkg --no-git-checks --access public --provenance
             fi
           done
 
@@ -233,17 +246,17 @@ jobs:
       # bumped version. `main` is protected by a ruleset that routes every change
       # through a pull request — a direct push is rejected with GH013 and the bump
       # is stranded (incident: run 37713844249), so the bump is pushed to a
-      # throwaway branch and merged as a PR by this step itself. `[skip ci]`
-      # documents that this must not re-trigger the workflow.
+      # throwaway branch and opened as a PR by this step itself.
       #
-      # The ruleset also requires the `ci` check and one approval, which a
-      # `GITHUB_TOKEN` PR can never satisfy — GitHub does not run workflows for
-      # GITHUB_TOKEN events, so `ci` would never report and the merge would wait
-      # forever. So the push and merge run as RELEASE_TOKEN: a PAT owned by an org
-      # admin, whose repository role is a ruleset bypass actor (the built-in
-      # GitHub Actions app cannot be one). Without the secret it falls back to
-      # GITHUB_TOKEN, which is only safe while the ruleset has no required
-      # checks/reviews.
+      # That ruleset requires the `ci` check and one approving review. A bot PR
+      # cannot approve itself, and a commit carrying `[skip ci]` would keep `ci`
+      # from ever reporting — the combination is why this used to depend on a PAT
+      # owned by a ruleset bypass actor. The bump commit therefore carries no
+      # `[skip ci]`: `ci` runs and reports like on any other PR, and the review is
+      # the only thing left. With a `RELEASE_TOKEN` (PAT of a bypass actor) this
+      # step merges the PR itself and nobody has to click; without one the PR is
+      # left open with a notice instead of a failed run, because "waiting for a
+      # review" is not an automation failure.
       - name: Land version bumps on main via PR
         if: steps.bump.outputs.bumped != ''
         env:
@@ -268,7 +281,10 @@ jobs:
           fi
 
           git checkout -b "$BRANCH"
-          git commit -m "chore(release): bump ${BUMPED} [skip ci]"
+          # Deliberately no `[skip ci]`: the ruleset requires the `ci` check on
+          # this PR, and a skipped commit would leave that check unreported — the
+          # reason landing the bump used to need a ruleset bypass actor.
+          git commit -m "chore(release): bump ${BUMPED}"
 
           # The bump commit above is the only tree change that must reach main;
           # anything else is an ephemeral side effect of the build/publish steps.
@@ -279,9 +295,14 @@ jobs:
           Automated release commit for \`${BUMPED}\`.
 
           Produced by the push-to-main publish workflow
-          (\`.github/workflows/publish.yml\`). \`main\` routes every change through a
-          pull request, so the workflow opens and merges this one itself: the repo
-          must not drift behind the versions already published to npm.
+          (\`.github/workflows/publish.yml\`). The versions above are **already on
+          npm**; \`main\` routes every change through a pull request, so merging this
+          one is what restores parity between the repository and the registry.
+
+          \`ci\` runs here like on any other PR. A maintainer merges it (auto-merge is
+          requested when the repository allows it); with a \`RELEASE_TOKEN\` secret the
+          workflow merges it itself. Until it lands, npm is ahead of \`main\` — see
+          \`docs/PUBLISH.md\` → "Landing the bump".
           EOF
 
           # A human merge can land while this run publishes (the concurrency group
@@ -296,11 +317,17 @@ jobs:
             fi
             if [ -z "$PR" ]; then
               PR=$(gh pr create --base main --head "$BRANCH" \
-                --title "chore(release): bump ${BUMPED} [skip ci]" \
+                --title "chore(release): bump ${BUMPED}" \
                 --body-file "$RUNNER_TEMP/bump-pr-body.md" | tail -n 1) || PR=""
             fi
-            if [ -n "$PR" ] && gh pr merge "$PR" --merge; then
-              break
+            if [ -n "$PR" ]; then
+              if gh pr merge "$PR" --merge; then
+                break
+              fi
+              # Ask GitHub to land it as soon as the review arrives. Best effort:
+              # repository auto-merge has to be enabled, and with a RELEASE_TOKEN
+              # the direct merge above already succeeded.
+              gh pr merge "$PR" --merge --auto >/dev/null 2>&1 || true
             fi
             # Drop our handle so the next attempt re-lists (or re-creates) the PR:
             # the one we held may have been closed without being merged.
@@ -311,15 +338,33 @@ jobs:
             fi
           done
 
-          # Never stay green while the repo drifts behind npm.
+          # The bump must not silently stay behind the registry — but "waiting for
+          # a maintainer's review" is not an automation failure either. Separate
+          # the two outcomes instead of turning both into a red run.
           git fetch --quiet "$REMOTE" main
-          if ! git merge-base --is-ancestor HEAD FETCH_HEAD; then
-            echo "::error::version bump did not reach main — repo and npm may drift. Check that the RELEASE_TOKEN secret is set to a PAT owned by a ruleset bypass actor (an org admin); a GITHUB_TOKEN merge cannot satisfy the required ci check + review (docs/PUBLISH.md)."
+          if git merge-base --is-ancestor HEAD FETCH_HEAD; then
+            # Disposable once merged.
+            git push "$REMOTE" --delete "$BRANCH" || true
+            exit 0
+          fi
+
+          OPEN_PR=$(gh pr list --head "$BRANCH" --state open --json url \
+            --jq '.[0].url // ""' 2>/dev/null || echo "")
+          if [ -z "$OPEN_PR" ]; then
+            echo "::error::the bump commit did not reach main and no open PR carries it (branch ${BRANCH}) — the automation itself failed, and main has drifted behind npm. See docs/PUBLISH.md."
             exit 1
           fi
 
-          # Disposable once merged.
-          git push "$REMOTE" --delete "$BRANCH" || true
+          {
+            echo "### Release bump is waiting for review"
+            echo
+            echo "npm already serves the versions this run published; main gets them when ${OPEN_PR} is merged (one click)."
+            echo
+            echo "The run is green on purpose: waiting for a review is a normal state, not an automation failure."
+            echo "A RELEASE_TOKEN secret (PAT owned by a ruleset bypass actor) lets this step merge the bump unattended."
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::notice title=Release bump awaiting review::${OPEN_PR} — npm is ahead of main until it is merged (docs/PUBLISH.md)."
+          exit 0
 
   # A `v*` tag is the deliberate "ship it" marker. The publish job above has
   # already sent the packages to npm, so this job only announces the release:
