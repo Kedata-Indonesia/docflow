@@ -33,6 +33,7 @@ function formatDate(ts: number): string {
         </h2>
         <button
           type="button"
+          :aria-label="t('a11y.close')"
           class="rounded p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-white/5 dark:hover:text-slate-300"
           @click="emit('close')"
         >

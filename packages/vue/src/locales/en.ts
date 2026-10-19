@@ -25,6 +25,14 @@ export default {
     selectAll: 'Select all',
     clearSelection: 'Clear selection',
   },
+  a11y: {
+    close: 'Close',
+    clearSearch: 'Clear search',
+    addCustomColor: 'Add custom color',
+    tabActions: 'Tab actions',
+    sendReply: 'Send reply',
+    removeAuthor: 'Remove author',
+  },
   header: {
     file: 'File',
     new: 'New',

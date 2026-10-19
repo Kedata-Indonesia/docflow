@@ -321,6 +321,7 @@ async function handleBibFileChange(event: Event) {
             v-if="searchQuery"
             type="button"
             class="absolute right-2.5 rounded-md p-0.5 text-slate-400 hover:bg-slate-200 hover:text-slate-600 dark:hover:bg-white/10 dark:hover:text-white"
+            :aria-label="t('a11y.clearSearch')"
             @click="searchQuery = ''"
           >
             <X class="h-3 w-3" />
@@ -538,6 +539,7 @@ async function handleBibFileChange(event: Event) {
                 <button
                   type="button"
                   class="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10"
+                  :aria-label="t('a11y.removeAuthor')"
                   @click="removeAuthor(index)"
                 >
                   <X class="h-3.5 w-3.5" />

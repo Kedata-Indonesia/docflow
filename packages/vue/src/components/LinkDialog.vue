@@ -98,6 +98,7 @@ function handleKeydown(e: KeyboardEvent) {
         <button
           type="button"
           class="rounded-md p-1 text-sm text-slate-400 transition-all hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-700 dark:hover:text-slate-300"
+          :aria-label="t('a11y.close')"
           @click="close"
         >
           <X class="h-4 w-4" />

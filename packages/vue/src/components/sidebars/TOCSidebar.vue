@@ -207,6 +207,7 @@ function dotColor(level: number) {
           v-if="searchQuery"
           type="button"
           class="absolute right-2.5 rounded-md p-0.5 text-slate-400 hover:bg-slate-200 hover:text-slate-600 dark:hover:bg-white/10 dark:hover:text-white"
+          :aria-label="t('a11y.clearSearch')"
           @click="searchQuery = ''"
         >
           <X class="h-3 w-3" />

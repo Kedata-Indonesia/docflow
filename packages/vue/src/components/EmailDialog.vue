@@ -83,6 +83,7 @@ watch(() => props.isOpen, (open) => {
         <button
           type="button"
           class="rounded p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-white/5 dark:hover:text-slate-300"
+          :aria-label="t('a11y.close')"
           @click="emit('close')"
         >
           <X class="h-4 w-4" />
