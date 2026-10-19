@@ -206,6 +206,9 @@ const scrollToHeading = (heading: { text: string; pos: number }) => {
               type="button"
               class="rounded-full p-1 text-slate-500 opacity-0 transition-opacity hover:bg-slate-200/70 group-hover:opacity-100 dark:hover:bg-slate-700/70"
               :class="{ 'opacity-100': activeMenuTabId === tab.id }"
+              :aria-label="t('a11y.tabActions')"
+              :aria-expanded="activeMenuTabId === tab.id"
+              aria-haspopup="menu"
               @click.stop="toggleMenu(tab.id)"
             >
               <MoreVertical class="h-3.5 w-3.5" />

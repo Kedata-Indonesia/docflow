@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { Pencil, Plus } from 'lucide-vue-next'
+import { useLocale } from '../composables/useLocale.js'
 
 export interface ColorPickerProps {
   isOpen: boolean
@@ -52,6 +53,8 @@ function handleClickOutside(e: MouseEvent) {
     emit('close')
   }
 }
+
+const { t } = useLocale()
 </script>
 
 <template>
@@ -93,6 +96,7 @@ function handleClickOutside(e: MouseEvent) {
       <div class="flex items-center gap-2">
         <button
           type="button"
+          :aria-label="t('a11y.addCustomColor')"
           class="flex h-6 w-6 items-center justify-center rounded-full border border-slate-200 bg-slate-50 hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-800 dark:hover:bg-slate-700"
           @click="customInput?.click()"
         >

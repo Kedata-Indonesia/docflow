@@ -25,6 +25,14 @@ export default {
     selectAll: 'Pilih semua',
     clearSelection: 'Hapus pilihan',
   },
+  a11y: {
+    close: 'Tutup',
+    clearSearch: 'Hapus pencarian',
+    addCustomColor: 'Tambah warna kustom',
+    tabActions: 'Aksi tab',
+    sendReply: 'Kirim balasan',
+    removeAuthor: 'Hapus penulis',
+  },
   header: {
     file: 'Berkas',
     new: 'Baru',

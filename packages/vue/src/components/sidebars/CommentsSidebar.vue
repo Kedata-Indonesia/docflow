@@ -214,6 +214,7 @@ function handleDeleteComment(commentId: string) {
             <button
               type="button"
               class="rounded-lg bg-cyan-500 p-1.5 font-bold text-black shadow-cyan hover:bg-cyan-400"
+              :aria-label="t('a11y.sendReply')"
               @click="handleSubmitReply(comment.id)"
             >
               <Send class="h-3.5 w-3.5" />
