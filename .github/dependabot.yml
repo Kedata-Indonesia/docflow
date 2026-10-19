@@ -61,11 +61,19 @@ updates:
         update-types:
           - "minor"
           - "patch"
-    # The `@tiptap/*` semver-major ignore that used to sit here was removed when
-    # the v3 migration landed (#234, released as core 0.0.98 and friends, issue
-    # #166). Majors otherwise arrive as individual pull requests on purpose: a red
-    # one is a signal that the bump needs real work (vite 8 and
-    # @vitest/coverage-v8 5 are exactly that), not noise to be silenced.
+    # Majors arrive as individual pull requests on purpose: a red one is a signal
+    # that the bump needs real work, not noise to be silenced. (`@tiptap/*` was
+    # ignored while its v3 migration was pending; that entry came out with #234.)
+    #
+    # Vite is now the exception, and only because the signal has been read: #239
+    # established that vite 8 cannot pass `e2e` here — the playground's own
+    # `vite build` exits 1 while the surrounding toolchain is still on vite 5 — so
+    # the weekly batch spends a slot re-proposing a known-blocked major instead of
+    # reporting something new. Delete this entry when the vite/vitest migration is
+    # picked up; the migration itself is not tracked by an issue yet.
+    ignore:
+      - dependency-name: "vite"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "github-actions"
     directory: "/"
