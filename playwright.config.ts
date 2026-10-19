@@ -23,6 +23,13 @@ export default defineConfig({
   },
   projects: [
     {
+      // Library-level specs that need their own harness page rather than the
+      // demo app: mount/unmount lifecycles and the paste pipeline (issue #222).
+      name: 'library',
+      testDir: './e2e/library',
+      use: { baseURL: demoURL, viewport: { width: 1512, height: 900 } },
+    },
+    {
       name: 'showcase',
       testDir: './e2e/showcase',
       // The playground has a 300px control rail, so the editor column is narrower

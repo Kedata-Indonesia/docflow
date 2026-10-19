@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "description": "Backend-free playground mounting <DocsEditor> via the public API — local UI review surface.",
+  "description": "Backend-free playground mounting <DocsEditor> via the public API \u2014 local UI review surface.",
   "scripts": {
     "dev": "vite",
     "dev:source": "PLAYGROUND_SOURCE=1 vite",
@@ -12,6 +12,7 @@
     "typecheck": "vue-tsc --noEmit"
   },
   "dependencies": {
+    "@kedata-indonesia/docflow-core": "workspace:*",
     "@kedata-indonesia/docflow-plugins": "workspace:*",
     "@kedata-indonesia/docflow-vue": "workspace:*",
     "vue": "^3.5.42"

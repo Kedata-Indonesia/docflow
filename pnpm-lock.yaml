@@ -54,6 +54,9 @@ importers:
 
   examples/playground:
     dependencies:
+      '@kedata-indonesia/docflow-core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@kedata-indonesia/docflow-plugins':
         specifier: workspace:*
         version: link:../../packages/plugins
