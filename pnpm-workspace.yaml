@@ -6,12 +6,10 @@ packages:
 # registry entries (https://pnpm.io/settings), so the three lines that used to live
 # there were inert and the repo ran on pnpm's defaults (issue #177).
 #
-# `autoInstallPeers` stays true: workspace packages declare their peers without also
-# listing them in devDependencies, so turning auto-install off removes the packages
-# that unit tests and builds resolve (`@tiptap/core` and friends) and they fail to
-# import. Promoting each peer to a devDependency is the change that would allow
-# `autoInstallPeers: false`; until then, peer *conflicts* are what this catches.
-autoInstallPeers: true
+# Every peer is also a devDependency now, so the packages resolve what they import
+# without relying on auto-install; `autoInstallPeers: false` therefore stays honest —
+# a peer that is missing gets reported instead of silently installed.
+autoInstallPeers: false
 strictPeerDependencies: true
 allowBuilds:
   '@percy/core': false
