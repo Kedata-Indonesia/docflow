@@ -289,9 +289,11 @@ jobs:
           fi
 
           git checkout -b "$BRANCH"
-          # Deliberately no `[skip ci]`: the ruleset requires the `ci` check on
-          # this PR, and a skipped commit would leave that check unreported — the
-          # reason landing the bump used to need a ruleset bypass actor.
+          # Deliberately no `[skip ci]`: a skipped commit leaves the required `ci`
+          # check unreported on the bump PR, so a human lander would face a check
+          # that can never go green. It is not what makes the landing work, though
+          # — `RELEASE_TOKEN` is: the merges below use a bypass actor's token and
+          # typically land seconds after the PR opens, before `ci` reports.
           git commit -m "chore(release): bump ${BUMPED}"
 
           # The bump commit above is the only tree change that must reach main;
@@ -307,9 +309,11 @@ jobs:
           npm**; \`main\` routes every change through a pull request, so merging this
           one is what restores parity between the repository and the registry.
 
-          \`ci\` runs here like on any other PR. A maintainer merges it (auto-merge is
-          requested when the repository allows it); with a \`RELEASE_TOKEN\` secret the
-          workflow merges it itself. Until it lands, npm is ahead of \`main\` — see
+          Merging is what restores parity, and the publish workflow does it itself
+          when the repository secret \`RELEASE_TOKEN\` is set — a PAT that is a
+          ruleset bypass actor — usually seconds after this PR opens, before \`ci\`
+          here reports. Without that secret the run stays green and waits for a
+          maintainer. Either way, until this lands, npm is ahead of \`main\` — see
           \`docs/PUBLISH.md\` → "Landing the bump".
           EOF
 

@@ -225,11 +225,14 @@ test('the release step is idempotent and holds a write token', () => {
 
 // --- Landing the bump without a ruleset bypass actor -------------------------
 //
-// Before this, the bump commit carried `[skip ci]`, so the required `ci` check
-// never reported on the bump PR and only a ruleset bypass actor (a PAT in
-// `RELEASE_TOKEN`) could merge it. Without that secret the release run went red
-// while npm already had the versions (run 39154257809). These guards keep the
-// three things that changed from regressing.
+// Before this, the bump commit carried `[skip ci]`, so no `ci` check existed on
+// the bump PR and the merge had to come from a ruleset bypass actor (a PAT in
+// `RELEASE_TOKEN`). Without that secret the release run went red while npm
+// already had the versions (run 39154257809). Measured afterwards (runs
+// 39197234061 / 39198325730): with the token the step merges the bump itself
+// seconds after opening the PR, so `ci` is created but never gates the landing —
+// the gates that matter ran in the same run before it published. These guards
+// keep the things that changed from regressing.
 
 /** Step body with its shell comments stripped, so prose cannot satisfy a check. */
 function codeLines(body) {
@@ -239,12 +242,12 @@ function codeLines(body) {
     .join('\n')
 }
 
-test('the bump commit does not carry [skip ci] (ci must report on its PR)', () => {
+test('the bump commit does not carry [skip ci] (so ci exists on its PR)', () => {
   const code = codeLines(stepBody(COMMIT_BACK_STEP))
   assert.doesNotMatch(
     code,
     /\[skip ci\]/,
-    'a [skip ci] bump commit keeps the required `ci` check unreported, so only a ruleset bypass actor could merge the bump PR',
+    'a [skip ci] bump commit leaves the required `ci` check non-existent on the bump PR, so a human lander can never satisfy it',
   )
 })
 
