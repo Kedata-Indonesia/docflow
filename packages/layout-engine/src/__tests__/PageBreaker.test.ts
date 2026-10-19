@@ -190,4 +190,46 @@ describe('PageBreaker', () => {
     expect(pages[1].blocks[0].from).toBe(112)
     expect(pages[1].blocks[0].to).toBe(120)
   })
+
+  it('moves a keep-together block whole to the next page when it fits one', () => {
+    const blocks: BlockInfo[] = [
+      makeBlock(0, 10, 400, { nodeType: 'paragraph', prevBottom: 0 }),
+      makeBlock(10, 20, 300, { nodeType: 'blockquote', keepTogether: true, prevBottom: 400 }),
+    ]
+
+    const measure = (block: BlockInfo, offset: number) =>
+      (offset / (block.to - block.from)) * (block.bottom - block.top)
+
+    const breaker = new PageBreaker(measure)
+    const pages = breaker.computePages(blocks, 600)
+
+    // The quote (300 px) does not fit the 200 px left on page 1, but fits a page
+    // of its own → it moves whole instead of being split at the page boundary.
+    // A split would leave a fragment on page 1 and keep the split flag, so both
+    // are asserted: page 1 holds the paragraph alone, and page 2 holds the quote
+    // with its original bounds.
+    expect(pages).toHaveLength(2)
+    expect(pages[0].blocks).toHaveLength(1)
+    expect(pages[1].blocks).toHaveLength(1)
+    expect(pages[1].blocks[0].nodeType).toBe('blockquote')
+    expect(pages[1].blocks[0].from).toBe(10)
+    expect(pages[1].blocks[0].to).toBe(20)
+    expect(pages[1].blocks[0].splitOffset).toBeUndefined()
+  })
+
+  it('still splits a keep-together block that is taller than one page', () => {
+    const blocks: BlockInfo[] = [
+      makeBlock(0, 30, 900, { nodeType: 'codeBlock', keepTogether: true, prevBottom: 0 }),
+    ]
+
+    const measure = (block: BlockInfo, offset: number) =>
+      (offset / (block.to - block.from)) * (block.bottom - block.top)
+
+    const breaker = new PageBreaker(measure)
+    const pages = breaker.computePages(blocks, 300)
+
+    // No page can hold it whole, so the split fallback must still apply.
+    expect(pages.length).toBeGreaterThanOrEqual(2)
+    expect(pages[0].blocks[0].to).toBeLessThan(30)
+  })
 })

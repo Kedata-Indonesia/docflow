@@ -111,8 +111,14 @@ export class PageBreaker {
         continue
       }
 
-      // ── Block doesn't fit — try splitting it ─────────────────────────────
-      if (block.canSplit) {
+      // ── Block doesn't fit ────────────────────────────────────────────────
+      // A keep-together block that fits on a page of its own moves whole to the
+      // next page (quote, code listing). One taller than a page has no
+      // whole-page placement, so splitting stays the fallback there.
+      const fitsPageOfItsOwn = blockSpan <= pageHeight
+      const maySplit = block.canSplit && !(block.keepTogether && fitsPageOfItsOwn)
+
+      if (maySplit) {
         // remaining space in this page for the block's content.
         // This also covers the case where the block is the first one on a page
         // (currentBlocks.length === 0): remaining = pageHeight.
