@@ -660,6 +660,8 @@ function cancelFontSize(event: KeyboardEvent) {
           :title="t('toolbar.paragraphStyle')"
           :aria-label="t('toolbar.paragraphStyle')"
           :disabled="!editor"
+          :aria-expanded="activeDropdown === 'heading'"
+          aria-haspopup="menu"
           @mousedown.prevent
           @click.stop="toggleDropdown('heading')"
         >
@@ -692,6 +694,8 @@ function cancelFontSize(event: KeyboardEvent) {
           :title="t('toolbar.fontFamily')"
           :aria-label="t('toolbar.fontFamily')"
           :disabled="!editor"
+          :aria-expanded="activeDropdown === 'font'"
+          aria-haspopup="menu"
           @mousedown.prevent
           @click.stop="toggleDropdown('font')"
         >
@@ -765,6 +769,7 @@ function cancelFontSize(event: KeyboardEvent) {
           isItemActive(item) ? activeClass : inactiveClass,
         ]"
         :disabled="!editor"
+        :aria-pressed="isItemActive(item)"
         @mousedown.prevent
         @click="runPluginItem(item)"
       >
@@ -789,6 +794,8 @@ function cancelFontSize(event: KeyboardEvent) {
           :title="textColorItem.label ?? 'Text color'"
           :aria-label="textColorItem.label ?? 'Text color'"
           :disabled="!editor"
+          :aria-expanded="activeDropdown === 'textColor'"
+          aria-haspopup="menu"
           @mousedown.prevent
           @click.stop="toggleDropdown('textColor')"
         >
@@ -812,6 +819,8 @@ function cancelFontSize(event: KeyboardEvent) {
           :title="highlightItem.label ?? 'Highlight'"
           :aria-label="highlightItem.label ?? 'Highlight'"
           :disabled="!editor"
+          :aria-expanded="activeDropdown === 'highlight'"
+          aria-haspopup="menu"
           @mousedown.prevent
           @click.stop="toggleDropdown('highlight')"
         >
@@ -840,6 +849,8 @@ function cancelFontSize(event: KeyboardEvent) {
           :title="t('toolbar.lists')"
           :aria-label="t('toolbar.lists')"
           :disabled="!editor"
+          :aria-expanded="activeDropdown === 'lists'"
+          aria-haspopup="menu"
           @mousedown.prevent
           @click.stop="toggleDropdown('lists')"
         >
@@ -873,6 +884,8 @@ function cancelFontSize(event: KeyboardEvent) {
           :title="t('toolbar.alignment')"
           :aria-label="t('toolbar.alignment')"
           :disabled="!editor"
+          :aria-expanded="activeDropdown === 'align'"
+          aria-haspopup="menu"
           @mousedown.prevent
           @click.stop="toggleDropdown('align')"
         >
@@ -906,6 +919,8 @@ function cancelFontSize(event: KeyboardEvent) {
           :title="t('toolbar.insert')"
           :aria-label="t('toolbar.insert')"
           :disabled="!editor"
+          :aria-expanded="activeDropdown === 'insert'"
+          aria-haspopup="menu"
           @mousedown.prevent
           @click.stop="toggleDropdown('insert')"
         >
