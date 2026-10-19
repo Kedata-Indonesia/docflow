@@ -297,3 +297,27 @@ test('the published manifest declares the repository (provenance requires it)', 
     'npm rejects a `--provenance` publish with 422 when package.json has no repository.url (seen on @kedataindo/docflow-export@0.0.13), so the rewrite must set it',
   )
 })
+
+
+test('the dist rewrite covers every extension that can carry the scope', () => {
+  const code = codeLines(stepBody('Publish @kedataindo/* to npm'))
+  for (const ext of ['*.css', '*.map', '*.json']) {
+    assert.ok(
+      code.includes(`-name '${ext}'`),
+      `the rewrite must include ${ext}: a file left behind would publish an internal scope that no other check looks at (issue #173)`,
+    )
+  }
+})
+
+test('the rewritten artifact is verified before anything is published', () => {
+  const code = codeLines(stepBody('Publish @kedataindo/* to npm'))
+  assert.match(
+    code,
+    /grep -rl '@kedata-indonesia' \.\/packages\/\*\/dist/,
+    'the publish step must scan the rewritten dist for the internal scope (issue #173)',
+  )
+  assert.match(code, /::error::published artifact still references @kedata-indonesia/)
+  const gate = code.indexOf("grep -rl '@kedata-indonesia'")
+  const publish = code.indexOf('pnpm publish')
+  assert.ok(gate > -1 && publish > -1 && gate < publish, 'the check must run before the first publish')
+})

@@ -176,13 +176,29 @@ jobs:
             "
           done
 
-          # Step 2: Rewrite dist files (built JS still has @kedata-indonesia/* hardcoded)
+          # Step 2: Rewrite dist files (built JS still has @kedata-indonesia/* hardcoded).
+          # Every extension dist can contain is listed: `.css` (vue, element), `.map`
+          # (source maps, which carry `sourcesContent`) and `.json` were missing and
+          # would have shipped an internal scope unreachable by any other check
+          # (issue #173).
           for pkg in core layout-engine plugins vue element export; do
             if [ -d "./packages/$pkg/dist" ]; then
-              find "./packages/$pkg/dist" -type f \( -name '*.js' -o -name '*.cjs' -o -name '*.mjs' -o -name '*.d.ts' -o -name '*.d.cts' -o -name '*.mts' \) -exec sed -i 's|@kedata-indonesia/docflow-|@kedataindo/docflow-|g' {} +
+              find "./packages/$pkg/dist" -type f \( -name '*.js' -o -name '*.cjs' -o -name '*.mjs' -o -name '*.d.ts' -o -name '*.d.cts' -o -name '*.mts' -o -name '*.css' -o -name '*.map' -o -name '*.json' \) -exec sed -i 's|@kedata-indonesia/docflow-|@kedataindo/docflow-|g' {} +
               echo "Rewrote dist imports for $pkg"
             fi
           done
+
+          # Step 2b: the artefact is what ships, so verify it rather than trusting the
+          # sed above. A leftover internal scope is a silent failure — the publish
+          # succeeds and the consumer's build breaks later with an error that names
+          # nothing recognisable (issue #173). `grep -rl` exits 1 when clean, which is
+          # why this runs as the condition of an `if`.
+          if leftovers=$(grep -rl '@kedata-indonesia' ./packages/*/dist ./packages/*/package.json 2>/dev/null); then
+            echo "::error::published artifact still references @kedata-indonesia:"
+            echo "$leftovers"
+            exit 1
+          fi
+          echo "Verified: no internal scope left in any dist"
 
           # Step 3: Publish in dependency order (idempotent)
           for pkg in core layout-engine plugins vue element export; do
