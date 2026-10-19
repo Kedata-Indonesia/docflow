@@ -285,6 +285,7 @@ async function handleBibFileChange(event: Event) {
         type="button"
         class="rounded-lg p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-white/5 dark:hover:text-white"
         :title="t('sidebars.references.close')"
+        :aria-label="t('sidebars.references.close')"
         @click="emit('close')"
       >
         <X class="h-4 w-4" />
@@ -331,6 +332,7 @@ async function handleBibFileChange(event: Event) {
           type="button"
           class="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow transition-colors hover:bg-blue-700"
           :title="t('sidebars.references.addSource')"
+          :aria-label="t('sidebars.references.addSource')"
           @click="openCreate"
         >
           <Plus class="h-4 w-4" />
@@ -393,6 +395,7 @@ async function handleBibFileChange(event: Event) {
                 type="button"
                 class="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-200 hover:text-slate-600 dark:hover:bg-white/10 dark:hover:text-white"
                 :title="t('sidebars.references.edit')"
+                :aria-label="t('sidebars.references.edit')"
                 @click="openEdit(source)"
               >
                 <Pencil class="h-3.5 w-3.5" />
@@ -401,6 +404,7 @@ async function handleBibFileChange(event: Event) {
                 type="button"
                 class="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10"
                 :title="t('sidebars.references.delete')"
+                :aria-label="t('sidebars.references.delete')"
                 @click="handleRemove(source)"
               >
                 <Trash2 class="h-3.5 w-3.5" />
@@ -441,6 +445,7 @@ async function handleBibFileChange(event: Event) {
                 :disabled="importing || !doiInput.trim()"
                 class="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-blue-600 text-white transition-colors hover:bg-blue-700 disabled:opacity-40"
                 :title="t('sidebars.references.import.importDoi')"
+                :aria-label="t('sidebars.references.import.importDoi')"
                 @click="submitDoiImport"
               >
                 <Globe class="h-3.5 w-3.5" />
@@ -486,6 +491,7 @@ async function handleBibFileChange(event: Event) {
           type="button"
           class="rounded-lg p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-white/5 dark:hover:text-white"
           :title="t('sidebars.references.back')"
+          :aria-label="t('sidebars.references.back')"
           @click="mode = 'list'"
         >
           <ChevronLeft class="h-4 w-4" />

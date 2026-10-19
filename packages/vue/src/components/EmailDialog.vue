@@ -105,6 +105,7 @@ watch(() => props.isOpen, (open) => {
             type="button"
             class="flex h-7 w-7 items-center justify-center rounded-md border border-slate-300 text-slate-500 transition hover:bg-slate-100 dark:border-slate-600 dark:text-slate-400 dark:hover:bg-slate-700"
             :title="t('editor.email.copyLink')"
+            :aria-label="t('editor.email.copyLink')"
             @click="handleCopyLink"
           >
             <Link2 class="h-3.5 w-3.5" />

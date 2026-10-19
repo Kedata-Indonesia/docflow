@@ -26,6 +26,7 @@ export default {
     clearSelection: 'Clear selection',
   },
   a11y: {
+    more: 'More',
     close: 'Close',
     clearSearch: 'Clear search',
     addCustomColor: 'Add custom color',
