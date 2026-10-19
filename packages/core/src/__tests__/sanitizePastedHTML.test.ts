@@ -97,4 +97,50 @@ describe('sanitizePastedHTML', () => {
     const once = sanitizePastedHTML(gdocs)
     expect(sanitizePastedHTML(once)).toBe(once)
   })
+
+  // Regression tests for issue #178: href/src values must pass a scheme
+  // allowlist instead of relying on TipTap's URI validation alone.
+  describe('URL scheme validation', () => {
+    it('drops javascript: href from pasted links', () => {
+      expect(sanitizePastedHTML('<a href="javascript:alert(1)">x</a>')).toBe('<a>x</a>')
+    })
+
+    it('drops obfuscated javascript: href (casing, whitespace, entities)', () => {
+      expect(sanitizePastedHTML('<a href=" JaVaScRiPt:alert(1)">x</a>')).toBe('<a>x</a>')
+      expect(sanitizePastedHTML('<a href="java\tscript:alert(1)">x</a>')).toBe('<a>x</a>')
+      expect(sanitizePastedHTML('<a href="&#106;avascript:alert(1)">x</a>')).toBe('<a>x</a>')
+    })
+
+    it('drops data: URLs from pasted images', () => {
+      expect(sanitizePastedHTML('<img src="data:image/svg+xml;base64,PHN2Zz4=" alt="x">')).toBe(
+        '<img alt="x">',
+      )
+    })
+
+    it('drops vbscript: and javascript: src values', () => {
+      expect(sanitizePastedHTML('<img src="javascript:alert(1)">')).toBe('<img>')
+      expect(sanitizePastedHTML('<img src="vbscript:msgbox(1)">')).toBe('<img>')
+    })
+
+    it('keeps http(s) and mailto links', () => {
+      expect(sanitizePastedHTML('<a href="https://example.com/x">x</a>')).toBe(
+        '<a href="https://example.com/x">x</a>',
+      )
+      expect(sanitizePastedHTML('<a href="mailto:a@example.com">x</a>')).toBe(
+        '<a href="mailto:a@example.com">x</a>',
+      )
+    })
+
+    it('keeps relative, root-relative and fragment links unchanged', () => {
+      for (const href of ['/docs/page', '#anchor', './local', '../up', 'page.html']) {
+        expect(sanitizePastedHTML(`<a href="${href}">x</a>`)).toBe(`<a href="${href}">x</a>`)
+      }
+    })
+
+    it('keeps safe image sources', () => {
+      expect(sanitizePastedHTML('<img src="https://example.com/a.png" alt="x">')).toBe(
+        '<img src="https://example.com/a.png" alt="x">',
+      )
+    })
+  })
 })
