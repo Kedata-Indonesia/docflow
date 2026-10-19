@@ -33,7 +33,7 @@ function stepBody(name) {
   const rest = yaml.slice(start)
   // A step body ends at the next step (6-space `- `) or, failing that, at the
   // next job key (2-space `name:`), so one job never bleeds into the next.
-  const ends = [rest.indexOf('\n      - '), rest.search(/\n  \S/)]
+  const ends = [rest.indexOf('\n      - '), rest.search(/\n {2}\S/)]
     .filter((at) => at !== -1)
   return ends.length ? rest.slice(0, Math.min(...ends)) : rest
 }

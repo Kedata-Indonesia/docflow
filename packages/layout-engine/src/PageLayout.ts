@@ -72,7 +72,7 @@ export class PageLayout {
         try {
           pmFrom = this.editorView.posAtDOM(child, 0)
           pmTo = this.editorView.posAtDOM(child, child.childNodes.length)
-        } catch (e) {
+        } catch {
           // fallback below
         }
       }
