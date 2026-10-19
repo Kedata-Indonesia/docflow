@@ -26,6 +26,7 @@ export default {
     clearSelection: 'Hapus pilihan',
   },
   a11y: {
+    more: 'Lainnya',
     close: 'Tutup',
     clearSearch: 'Hapus pencarian',
     addCustomColor: 'Tambah warna kustom',

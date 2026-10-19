@@ -131,6 +131,7 @@ onUnmounted(() => {
         class="flex h-7 w-7 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-100 disabled:opacity-30 dark:text-slate-400 dark:hover:bg-slate-800"
         :disabled="searchState.matches.length === 0"
         :title="t('editor.findReplace.previous')"
+        :aria-label="t('editor.findReplace.previous')"
         @click="prev"
       >
         <ChevronUp class="h-4 w-4" />
@@ -140,6 +141,7 @@ onUnmounted(() => {
         class="flex h-7 w-7 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-100 disabled:opacity-30 dark:text-slate-400 dark:hover:bg-slate-800"
         :disabled="searchState.matches.length === 0"
         :title="t('editor.findReplace.next')"
+        :aria-label="t('editor.findReplace.next')"
         @click="next"
       >
         <ChevronDown class="h-4 w-4" />
@@ -148,6 +150,7 @@ onUnmounted(() => {
         type="button"
         class="flex h-7 w-7 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800"
         :title="t('editor.findReplace.close')"
+        :aria-label="t('editor.findReplace.close')"
         @click="closeAndClear"
       >
         <X class="h-4 w-4" />

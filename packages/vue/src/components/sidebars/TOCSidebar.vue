@@ -188,6 +188,7 @@ function dotColor(level: number) {
         type="button"
         class="rounded-lg p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-white/5 dark:hover:text-white"
         :title="t('sidebars.toc.closeOutline')"
+        :aria-label="t('sidebars.toc.closeOutline')"
         @click="emit('close')"
       >
         <X class="h-4 w-4" />

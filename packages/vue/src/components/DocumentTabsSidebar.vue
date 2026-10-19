@@ -141,6 +141,7 @@ const scrollToHeading = (heading: { text: string; pos: number }) => {
         type="button"
         class="flex h-8 w-8 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-slate-200/80 dark:text-slate-400 dark:hover:bg-slate-800/80"
         :title="effectiveBackTitle"
+        :aria-label="effectiveBackTitle"
         @click="emit('collapse')"
       >
         <ArrowLeft class="h-[18px] w-[18px]" />
@@ -156,6 +157,7 @@ const scrollToHeading = (heading: { text: string; pos: number }) => {
           type="button"
           class="flex h-6 w-6 items-center justify-center rounded-full text-slate-600 hover:bg-slate-200 dark:text-slate-400 dark:hover:bg-slate-800 transition-colors"
           :title="t('documentTabs.addTab')"
+          :aria-label="t('documentTabs.addTab')"
           @click="emit('add-tab')"
         >
           <Plus class="h-4 w-4" />
@@ -283,6 +285,7 @@ const scrollToHeading = (heading: { text: string; pos: number }) => {
             : 'text-slate-500 hover:bg-slate-200 dark:text-slate-400 dark:hover:bg-slate-800'
         ]"
         :title="tab.label"
+        :aria-label="tab.label"
         @click="emit('select-tab', tab.id)"
       >
         <FileText class="h-4 w-4" />

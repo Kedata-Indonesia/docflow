@@ -280,6 +280,7 @@ onUnmounted(() => {
           type="button"
           class="flex h-9 cursor-pointer items-center justify-center hover:opacity-90 transition-opacity"
           :title="t('header.backToDocuments')"
+          :aria-label="t('header.backToDocuments')"
           @click="emit('back')"
         >
           <img
@@ -314,6 +315,7 @@ onUnmounted(() => {
               type="button"
               class="flex h-6 w-6 items-center justify-center rounded-full text-slate-400 transition-colors hover:text-amber-500"
               :title="starred ? t('header.unstarDocument') : t('header.starDocument')"
+              :aria-label="starred ? t('header.unstarDocument') : t('header.starDocument')"
               @click="emit('toggle-star')"
             >
               <Star class="h-4 w-4" :class="starred ? 'fill-amber-400 text-amber-500' : ''" />
@@ -525,6 +527,7 @@ onUnmounted(() => {
             ? 'animate-pulse bg-emerald-600 text-white hover:bg-emerald-700'
             : 'text-indigo-600 hover:bg-slate-100 dark:text-indigo-300 dark:hover:bg-slate-800'"
           :title="t('header.sandbox')"
+          :aria-label="t('header.sandbox')"
           @click="emit('toggle-simulators')"
         >
           <Users class="h-[18px] w-[18px]" />
@@ -594,7 +597,9 @@ onUnmounted(() => {
           <button
             type="button"
             class="flex h-8 w-8 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
-            title="More"
+            :title="t('a11y.more')"
+            :aria-label="t('a11y.more')"
+            aria-haspopup="menu"
             @click.stop="toggleMore"
           >
             <MoreVertical class="h-[18px] w-[18px]" />

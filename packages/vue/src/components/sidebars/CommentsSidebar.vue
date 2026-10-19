@@ -149,6 +149,7 @@ function handleDeleteComment(commentId: string) {
               type="button"
               class="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-green-500/10 hover:text-green-500"
               :title="t('sidebars.comments.resolve')"
+              :aria-label="t('sidebars.comments.resolve')"
               @click="emit('resolve-comment', comment.id)"
             >
               <CheckCircle class="h-4 w-4" />
@@ -158,6 +159,7 @@ function handleDeleteComment(commentId: string) {
               type="button"
               class="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-red-500/10 hover:text-red-500"
               :title="t('sidebars.comments.delete')"
+              :aria-label="t('sidebars.comments.delete')"
               @click="handleDeleteComment(comment.id)"
             >
               <Trash2 class="h-4 w-4" />
