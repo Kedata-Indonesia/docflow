@@ -210,15 +210,12 @@ const headerBarHandlers: HeaderBarActionHandlers = {
   exportDocument: (format) => handleExport(format),
   share: () => {
     emit('share')
-    activeMenu.value = null
   },
   toggleStar: () => {
     emit('toggle-star')
-    activeMenu.value = null
   },
   rename: () => {
     void startRenaming()
-    activeMenu.value = null
   },
   setLocale: (locale) => handleSetLocale(locale),
 }
@@ -230,6 +227,11 @@ const handleMenuAction = (action: string) => {
   } else {
     emit('menu-click', action)
   }
+  // Every action closes the dropdown. Menu items use @click.stop, so the
+  // document-level closeMenus() listener deliberately ignores clicks inside
+  // `.header-menu-container`; without this, dialogs (e.g. Details) leave the
+  // menu open behind the modal.
+  activeMenu.value = null
   hoveredSub.value = null
   menuNavActive.value = false
 }
@@ -374,6 +376,7 @@ onUnmounted(() => {
               >
                 <div
                   v-if="activeMenu === key"
+                  data-testid="header-menu-panel"
                   class="absolute left-0 top-full z-50 mt-1 min-w-[220px] rounded-lg border border-slate-200 bg-white py-1 text-sm text-slate-700 shadow-xl dark:border-slate-700 dark:bg-[#0e1525] dark:text-slate-200"
                   style="transform-origin: top left;"
                 >

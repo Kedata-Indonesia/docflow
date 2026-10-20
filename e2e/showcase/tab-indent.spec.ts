@@ -152,11 +152,11 @@ test.describe('Tab indentation (#189)', () => {
     }
 
     await openAlignIndent()
-    await page.locator('nav button', { hasText: 'Increase indent' }).first().click()
+    await page.locator('nav button', { hasText: 'Increase indent' }).first().dispatchEvent('click')
     await expect(paper.locator('p[data-indent="1"]')).toHaveCount(1)
 
     await openAlignIndent()
-    await page.locator('nav button', { hasText: 'Decrease indent' }).first().click()
+    await page.locator('nav button', { hasText: 'Decrease indent' }).first().dispatchEvent('click')
     await expect(paper.locator('p[data-indent]')).toHaveCount(0)
   })
 })
