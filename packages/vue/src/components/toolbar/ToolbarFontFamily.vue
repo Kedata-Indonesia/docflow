@@ -27,6 +27,7 @@ const emit = defineEmits<{
       :title="t('toolbar.fontFamily')"
       :aria-label="t('toolbar.fontFamily')"
       :disabled="!editor"
+      :style="{ fontFamily: currentFont }"
       :aria-expanded="open"
       aria-haspopup="menu"
       @mousedown.prevent
@@ -44,6 +45,7 @@ const emit = defineEmits<{
         :key="opt.value"
         type="button"
         :class="['flex w-full items-center px-3 py-1.5 text-left hover:bg-slate-50 dark:hover:bg-white/5', currentFont === opt.value ? 'text-blue-600 dark:text-blue-300' : 'text-slate-700 dark:text-slate-200']"
+        :style="{ fontFamily: opt.value }"
         @mousedown.prevent
         @click="emit('apply', opt.value)"
       >
