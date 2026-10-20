@@ -1,7 +1,7 @@
 import { onMounted, onUnmounted, type Ref } from 'vue'
 import { DOMSerializer } from 'prosemirror-model'
 import { sanitizePastedHTML, type DocsEditor } from '@kedata-indonesia/docflow-core'
-import { writeClipboard, readClipboardHtml, readClipboardText } from './useClipboard.js'
+import { writeClipboard, readClipboardHtml, readClipboardText, readClipboardImage } from './useClipboard.js'
 
 export interface UseEditCommandsOptions {
   editor: Ref<DocsEditor['editor'] | null>
@@ -149,6 +149,40 @@ export function useEditCommands(options: UseEditCommandsOptions) {
 
   const handlePaste = async () => {
     if (!editor.value) return
+
+    // 1. Check if clipboard contains an image first
+    try {
+      const imageFile = await readClipboardImage()
+      if (imageFile) {
+        const context = (editor.value.storage as unknown as Record<string, unknown>).editorContext as { onImageUpload?: (file: File) => Promise<{ src: string; alt?: string; title?: string } | null | undefined> } | undefined
+        const upload = context?.onImageUpload
+        if (upload) {
+          try {
+            const result = await upload(imageFile)
+            if (result?.src) {
+              editor.value.chain().focus().setImage({ src: result.src, alt: result.alt, title: result.title }).run()
+              return
+            }
+          } catch (err) {
+            console.error('[useEditCommands] pasted image upload failed:', err)
+          }
+        }
+        // Fallback to data URL if no upload handler or upload failed/returned nothing
+        const reader = new FileReader()
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          reader.onload = () => resolve(reader.result as string)
+          reader.onerror = reject
+          reader.readAsDataURL(imageFile)
+        })
+        if (dataUrl) {
+          editor.value.chain().focus().setImage({ src: dataUrl }).run()
+          return
+        }
+      }
+    } catch (imgErr) {
+      console.error('[useEditCommands] clipboard image read failed:', imgErr)
+    }
+
     // Rich first (keeps formatting); falls back to plain text inside the helper.
     // Sanitize pasted HTML (strip <meta>, <style>, etc.) to prevent crashes
     // from non-content tags commonly produced by Google Docs.
@@ -218,8 +252,53 @@ export function useEditCommands(options: UseEditCommandsOptions) {
     }
   }
 
-  onMounted(() => document.addEventListener('keydown', handleEditKeydown))
-  onUnmounted(() => document.removeEventListener('keydown', handleEditKeydown))
+  // Native paste event handler for Ctrl/Cmd+V containing images in clipboardData.items
+  const handleNativePaste = (e: ClipboardEvent) => {
+    if (!editor.value) return
+    const items = e.clipboardData?.items
+    if (!items) return
+
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        const file = item.getAsFile()
+        if (!file) continue
+        e.preventDefault()
+
+        const context = (editor.value.storage as unknown as Record<string, unknown>).editorContext as { onImageUpload?: (file: File) => Promise<{ src: string; alt?: string; title?: string } | null | undefined> } | undefined
+        const upload = context?.onImageUpload
+        if (upload) {
+          void upload(file).then(async (result) => {
+            if (result?.src && editor.value) {
+              editor.value.chain().focus().setImage({ src: result.src, alt: result.alt, title: result.title }).run()
+            }
+          }).catch((err) => {
+            console.error('[useEditCommands] native pasted image upload failed:', err)
+          })
+          return
+        }
+
+        // Fallback to data URL if no upload handler
+        const reader = new FileReader()
+        reader.onload = () => {
+          const dataUrl = reader.result as string
+          if (dataUrl && editor.value) {
+            editor.value.chain().focus().setImage({ src: dataUrl }).run()
+          }
+        }
+        reader.readAsDataURL(file)
+        return
+      }
+    }
+  }
+
+  onMounted(() => {
+    document.addEventListener('keydown', handleEditKeydown)
+    document.addEventListener('paste', handleNativePaste as EventListener)
+  })
+  onUnmounted(() => {
+    document.removeEventListener('keydown', handleEditKeydown)
+    document.removeEventListener('paste', handleNativePaste as EventListener)
+  })
 
   const editFormatMenuCommands: Record<string, () => void> = {
     // Edit menu

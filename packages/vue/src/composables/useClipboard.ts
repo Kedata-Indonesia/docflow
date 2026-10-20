@@ -46,6 +46,29 @@ export async function writeClipboard(text: string, html?: string): Promise<boole
 }
 
 /**
+ * Read image blob from the clipboard. Returns a File or Blob when an image type
+ * is present; otherwise null.
+ */
+export async function readClipboardImage(): Promise<File | null> {
+  if (typeof navigator === 'undefined' || !navigator.clipboard?.read) return null
+  try {
+    const items = await navigator.clipboard.read()
+    for (const item of items) {
+      for (const type of item.types) {
+        if (type.startsWith('image/')) {
+          const blob = await item.getType(type)
+          // Convert blob to a File if possible with a nice name
+          return new File([blob], `clipboard-image.${type.split('/')[1] || 'png'}`, { type })
+        }
+      }
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+/**
  * Read rich HTML from the clipboard; falls back to plain text if no HTML type
  * is present. Returns null when the API is unavailable or permission denied.
  */
