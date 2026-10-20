@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useLocale } from '../composables/useLocale.js'
 import { useDraftModel } from '../composables/useDraftModel.js'
+import { CHECKBOX_LABEL } from '../styles/classes.js'
 
 const { t } = useLocale()
 
@@ -74,11 +75,11 @@ const differentOddEven = useDraftModel(
       <div class="mb-8">
         <h3 class="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-3">{{ t('editor.headerFooter.layoutSection') }}</h3>
         <div class="space-y-3">
-          <label class="flex items-center gap-3 cursor-pointer text-xs font-medium text-slate-700 dark:text-slate-300 select-none">
+          <label :class="CHECKBOX_LABEL">
             <input v-model="differentFirstPage" type="checkbox" class="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
             <span>{{ t('editor.headerFooter.differentFirstPage') }}</span>
           </label>
-          <label class="flex items-center gap-3 cursor-pointer text-xs font-medium text-slate-700 dark:text-slate-300 select-none">
+          <label :class="CHECKBOX_LABEL">
             <input v-model="differentOddEven" type="checkbox" class="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
             <span>{{ t('editor.headerFooter.differentOddEven') }}</span>
           </label>

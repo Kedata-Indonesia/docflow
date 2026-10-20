@@ -10,6 +10,7 @@ import { useToolbarSelection } from '../composables/useToolbarSelection.js'
 import { useToolbarDropdowns } from '../composables/useToolbarDropdowns.js'
 import { useToolbarItems } from '../composables/useToolbarItems.js'
 import { toolbarCommands } from './toolbar/toolbarCommands.js'
+import { TOOLBAR_DIVIDER } from '../styles/classes.js'
 import ToolbarDocControls from './toolbar/ToolbarDocControls.vue'
 import ToolbarParagraphStyle from './toolbar/ToolbarParagraphStyle.vue'
 import ToolbarFontFamily from './toolbar/ToolbarFontFamily.vue'
@@ -110,7 +111,7 @@ function applyFont(value: string) {
         @print="emit('print')"
       />
 
-      <span class="mx-1 h-5 w-px flex-shrink-0 bg-slate-200 dark:bg-white/10" />
+      <span :class="TOOLBAR_DIVIDER" />
 
       <ToolbarParagraphStyle
         :editor="editor"
@@ -131,7 +132,7 @@ function applyFont(value: string) {
 
       <ToolbarFontSize :editor="editor" :selection-tick="selectionTick" />
 
-      <span class="mx-1 h-5 w-px flex-shrink-0 bg-slate-200 dark:bg-white/10" />
+      <span :class="TOOLBAR_DIVIDER" />
 
       <ToolbarInlineFormat
         :editor="editor"
@@ -155,7 +156,7 @@ function applyFont(value: string) {
 
       <span
         v-if="listItems.length || alignItems.length || insertItems.length"
-        class="mx-1 h-5 w-px flex-shrink-0 bg-slate-200 dark:bg-white/10"
+        :class="TOOLBAR_DIVIDER"
       />
 
       <ToolbarPluginMenu
@@ -203,7 +204,7 @@ function applyFont(value: string) {
         @run="runFromDropdown"
       />
 
-      <span class="mx-1 h-5 w-px flex-shrink-0 bg-slate-200 dark:bg-white/10" />
+      <span :class="TOOLBAR_DIVIDER" />
 
       <ToolbarSidebarToggles
         :active-sidebar="activeSidebar"
