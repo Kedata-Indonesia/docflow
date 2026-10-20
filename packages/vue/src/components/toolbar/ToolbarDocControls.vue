@@ -1,8 +1,9 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 import type { Editor } from '@tiptap/core'
 import { Printer, Redo2, SpellCheck, Undo2 } from 'lucide-vue-next'
 import { useLocale } from '../../composables/useLocale.js'
-import { controlBaseClass } from './toolbarConfig.js'
+import { activeClass, controlBaseClass, inactiveClass } from './toolbarConfig.js'
 import { toolbarCommands } from './toolbarCommands.js'
 import { TOOLBAR_DIVIDER } from '../../styles/classes.js'
 
@@ -16,6 +17,7 @@ const emit = defineEmits<{
   undo: []
   redo: []
   print: []
+  'toggle-spellcheck': [enabled: boolean]
 }>()
 
 function handleUndo() {
@@ -36,6 +38,24 @@ function handleRedo() {
 
 function handlePrint() {
   emit('print')
+}
+
+/**
+ * Issue #306 — this button had a title and no handler at all. Spell checking is a
+ * browser feature: it reads the `spellcheck` attribute of the editable element, so the
+ * toggle writes that attribute and mirrors it in `aria-pressed`. Nothing else in the
+ * editor has to know about it, and the attribute is applied to the live DOM node so it
+ * survives re-renders (ProseMirror keeps the same element).
+ */
+const spellcheckEnabled = ref(props.editor?.view.dom.getAttribute('spellcheck') !== 'false')
+
+function handleSpellcheck() {
+  const editor = props.editor
+  if (!editor) return
+  spellcheckEnabled.value = !spellcheckEnabled.value
+  editor.view.dom.setAttribute('spellcheck', spellcheckEnabled.value ? 'true' : 'false')
+  emit('toggle-spellcheck', spellcheckEnabled.value)
+  editor.commands.focus()
 }
 </script>
 
@@ -79,11 +99,14 @@ function handlePrint() {
 
   <button
     type="button"
-    :class="[controlBaseClass, 'w-8']"
+    :class="[controlBaseClass, 'w-8', spellcheckEnabled ? activeClass : inactiveClass]"
     :title="t('toolbar.spelling')"
     :aria-label="t('toolbar.spelling')"
+    :aria-pressed="spellcheckEnabled"
+    data-testid="toolbar-spelling"
     :disabled="!editor"
     @mousedown.prevent
+    @click="handleSpellcheck"
   >
     <SpellCheck class="h-[18px] w-[18px]" />
   </button>
