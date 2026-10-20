@@ -32,6 +32,8 @@ const props = defineProps<{
   canImportSources: boolean
   importBusy: boolean
   importMessage: string
+  /** Issue #251 — result message for a `.csl` style import. */
+  styleImportMessage: string
   /** True when the host supplied the `#references-sidebar` slot (issue #22). */
   hasReferencesSidebarSlot?: boolean
   comments?: CommentItem[]
@@ -57,6 +59,7 @@ const emit = defineEmits<{
   'update:style': [styleId: string]
   'import-doi': [doi: string]
   'import-bibliography': [payload: { format: 'bibtex' | 'ris'; text: string }]
+  'import-style': [payload: { text: string; filename?: string }]
   'add-comment': [content: string, anchorText?: string, anchorIndex?: number]
   'add-reply': [commentId: string, content: string]
   'resolve-comment': [commentId: string]
@@ -84,6 +87,7 @@ const referencesSidebarProps = computed(() => ({
   canImport: props.canImportSources,
   importing: props.importBusy,
   importMessage: props.importMessage,
+  styleImportMessage: props.styleImportMessage,
   onInsert: (sourceId: string) => emit('insert', sourceId),
   onClose: () => emit('close'),
   onCreate: (source: CslItemData) => emit('create', source),
@@ -93,6 +97,7 @@ const referencesSidebarProps = computed(() => ({
   onImportDoi: (doi: string) => emit('import-doi', doi),
   onImportBibliography: (payload: { format: 'bibtex' | 'ris'; text: string }) =>
     emit('import-bibliography', payload),
+  onImportStyle: (payload: { text: string; filename?: string }) => emit('import-style', payload),
 }))
 </script>
 
@@ -112,6 +117,7 @@ const referencesSidebarProps = computed(() => ({
       :can-import="canImportSources"
       :importing="importBusy"
       :import-message="importMessage"
+      :style-import-message="styleImportMessage"
       @close="emit('close')"
       @insert="(sourceId) => emit('insert', sourceId)"
       @create="(source) => emit('create', source)"
@@ -120,6 +126,7 @@ const referencesSidebarProps = computed(() => ({
       @update:style="(styleId) => emit('update:style', styleId)"
       @import-doi="(doi) => emit('import-doi', doi)"
       @import-bibliography="(payload) => emit('import-bibliography', payload)"
+      @import-style="(payload) => emit('import-style', payload)"
     />
   </template>
 

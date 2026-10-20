@@ -197,6 +197,92 @@ describe('host-injected CSL styles (#180)', () => {
   })
 })
 
+describe('runtime style registration (#251)', () => {
+  /** A minimal valid in-text CSL style, distinctive enough to assert on. */
+  const importedLite: CslStyleInfo = {
+    id: 'imported-lite',
+    name: 'Imported (test)',
+    category: 'in-text',
+    xml: [
+      '<?xml version="1.0" encoding="utf-8"?>',
+      '<style xmlns="http://purl.org/net/xbiblio/csl" class="in-text" version="1.0" default-locale="en-US">',
+      '  <info><title>Imported (test)</title><id>imported-lite</id><updated>2026-01-01T00:00:00+00:00</updated></info>',
+      '  <citation><layout prefix="IMP(" suffix=")" delimiter="; "><text variable="title" font-style="italic"/></layout></citation>',
+      '  <bibliography><layout suffix="."><text variable="title"/></layout></bibliography>',
+      '</style>',
+    ].join('\n'),
+  }
+
+  it('registers a style at runtime and renders with it', () => {
+    const engine = new CiteEngine({ sources: [bookDoe] })
+    engine.syncCitations([{ citationId: 'c1', attrs: { sourceId: 'doe-2020' } }])
+
+    engine.registerStyle(importedLite)
+    expect(engine.getAvailableStyles().map((s) => s.id)).toContain('imported-lite')
+
+    engine.setStyle('imported-lite')
+    expect(engine.getStyle()).toBe('imported-lite')
+    expect(engine.renderCluster('c1')).toBe('IMP(<i>The Design of Tests</i>)')
+  })
+
+  it('marks an imported note style as a note style (footnote path)', () => {
+    const engine = new CiteEngine()
+    engine.registerStyle({ ...importedLite, id: 'imported-note', category: 'note' })
+    engine.setStyle('imported-note')
+
+    expect(engine.isNoteStyle()).toBe(true)
+  })
+
+  it('replaces a bundled style by id, the same rule as CitationPort.styles', () => {
+    const engine = new CiteEngine({ sources: [bookDoe] })
+    engine.registerStyle({ ...importedLite, id: 'apa', name: 'Imported APA' })
+
+    // Still four styles: the imported one took apa's slot.
+    expect(engine.getAvailableStyles()).toHaveLength(4)
+    expect(engine.getAvailableStyles().find((s) => s.id === 'apa')?.name).toBe('Imported APA')
+
+    engine.setStyle('apa')
+    engine.syncCitations([{ citationId: 'c1', attrs: { sourceId: 'doe-2020' } }])
+    expect(engine.renderCluster('c1')).toContain('IMP(')
+  })
+
+  it('rejects malformed XML without touching the registry, the active style, or the output', () => {
+    const engine = new CiteEngine({ sources: [bookDoe], style: 'apa' })
+    engine.syncCitations([{ citationId: 'c1', attrs: { sourceId: 'doe-2020' } }])
+    const before = engine.renderCluster('c1')
+    const stylesBefore = engine.getAvailableStyles().map((s) => s.id)
+
+    expect(() =>
+      engine.registerStyle({ ...importedLite, id: 'broken', xml: '<style id="broken">' }),
+    ).toThrow(/citeproc could not parse/)
+
+    expect(engine.getAvailableStyles().map((s) => s.id)).toEqual(stylesBefore)
+    expect(engine.getStyle()).toBe('apa')
+    expect(engine.renderCluster('c1')).toBe(before)
+  })
+
+  it('rejects an entry without an id or XML', () => {
+    const engine = new CiteEngine()
+
+    expect(() => engine.registerStyle({ ...importedLite, id: '  ' })).toThrow(/non-empty id/)
+    expect(() => engine.registerStyle({ ...importedLite, xml: '  ' })).toThrow(/imported-lite/)
+  })
+
+  it('re-renders when the active style is replaced in place', () => {
+    const engine = new CiteEngine({ sources: [bookDoe], style: 'apa' })
+    engine.syncCitations([{ citationId: 'c1', attrs: { sourceId: 'doe-2020' } }])
+    const before = engine.renderCluster('c1')
+
+    const changes: number[] = []
+    engine.onChange(() => changes.push(1))
+    engine.registerStyle({ ...importedLite, id: 'apa' })
+
+    expect(changes.length).toBeGreaterThan(0)
+    expect(engine.renderCluster('c1')).not.toBe(before)
+    expect(engine.renderCluster('c1')).toContain('IMP(')
+  })
+})
+
 describe('sanitizeCiteprocHtml', () => {
   it('keeps citeproc formatting tags and escapes everything else', () => {
     expect(sanitizeCiteprocHtml('<i>ok</i>')).toBe('<i>ok</i>')

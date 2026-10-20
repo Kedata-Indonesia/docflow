@@ -14,6 +14,7 @@ import {
   type Locale,
 } from '@kedata-indonesia/docflow-vue'
 import { defaultPlugins } from '@kedata-indonesia/docflow-plugins'
+import type { CslStyleInfo } from '@kedata-indonesia/docflow-core'
 import EventLog from './EventLog.vue'
 import ReviewPanel from './ReviewPanel.vue'
 import AiPlayground from './AiPlayground.vue'
@@ -67,10 +68,38 @@ const pageCount = ref(1)
 // `styles` demonstrates the host-injection path of #180: a style the library
 // does not bundle, supplied by the app that embeds the editor. It shows up in
 // the reference sidebar's style picker next to APA/MLA/Chicago.
-const citation = {
+//
+// Issue #251 — imported `.csl` styles are persisted here, the same way a real
+// host would: `citation-style-imported` stores the style object in
+// localStorage, and it is fed back through `citation.styles` on the next mount.
+const IMPORTED_STYLE_KEY = 'docflow.playground.imported-csl-style'
+
+function loadImportedStyle(): CslStyleInfo[] {
+  try {
+    const raw = window.localStorage.getItem(IMPORTED_STYLE_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw) as CslStyleInfo
+    return parsed?.id && parsed?.xml ? [parsed] : []
+  } catch {
+    return []
+  }
+}
+
+const importedStyles = ref<CslStyleInfo[]>(loadImportedStyle())
+const citation = computed(() => ({
   sources: SAMPLE_SOURCES,
   style: 'chicago-notes-bibliography',
-  styles: [SAMPLE_INJECTED_STYLE],
+  styles: [SAMPLE_INJECTED_STYLE, ...importedStyles.value],
+}))
+
+function onCitationStyleImported(style: CslStyleInfo) {
+  importedStyles.value = [style]
+  try {
+    window.localStorage.setItem(IMPORTED_STYLE_KEY, JSON.stringify(style))
+  } catch {
+    // Private mode / storage full — the style still works for this session.
+  }
+  log('citation-style-imported', `${style.name} (${style.id})`)
 }
 // Playground-only: when on, inject a custom references sidebar via the
 // `#references-sidebar` slot (#22). Off = the library's built-in sidebar.
@@ -352,6 +381,7 @@ function onReady(docsEditor: { editor: unknown; pluginActions?: unknown }): void
         @update:pageless="pageless = $event; log('update:pageless', String($event))"
         @update:page-count="pageCount = $event; log('update:pageCount', $event)"
         @update:locale="locale = $event; log('update:locale', $event)"
+        @citation-style-imported="onCitationStyleImported"
         @menu-click="onMenuClick"
         @export="onExport"
         @ready="onReady"

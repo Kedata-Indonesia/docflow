@@ -1,5 +1,6 @@
 import { computed, ref, watch, type Ref } from 'vue'
-import type { CitationPort, CslItemData, DocsEditor } from '@kedata-indonesia/docflow-core'
+import type { CitationPort, CslItemData, CslStyleInfo, DocsEditor } from '@kedata-indonesia/docflow-core'
+import { parseCslStyle } from '@kedata-indonesia/docflow-plugins'
 import type { SidebarKey } from '../types.js'
 import type { LocaleContext } from './useLocale.js'
 
@@ -11,6 +12,11 @@ interface CitationEngineLike {
    * Optional: older/minimal engines only need the two methods above.
    */
   getAvailableStyles?: () => { id: string; name: string }[]
+  /**
+   * Register a style at runtime (issue #251, the `.csl` import path). Optional:
+   * minimal/older engines can still render, they just cannot import files.
+   */
+  registerStyle?: (style: CslStyleInfo) => CslStyleInfo
 }
 
 /**
@@ -29,6 +35,8 @@ export const BUNDLED_REFERENCE_STYLES: { id: string; name: string }[] = [
 export interface CitationsEmit {
   (event: 'citation-sources-change', sources: CslItemData[]): void
   (event: 'update:citation-style', style: string): void
+  /** Issue #251 — a `.csl` file was imported; hosts persist + re-supply `citation.styles`. */
+  (event: 'citation-style-imported', style: CslStyleInfo): void
 }
 
 export interface UseCitationsOptions {
@@ -228,6 +236,42 @@ export function useCitations(options: UseCitationsOptions) {
     }
   }
 
+  // ─── Import a CSL style file (issue #251) ───────────────────────────────────
+  // This one is a library capability, not a host port: the browser reads the
+  // `.csl` file, `parseCslStyle` derives the metadata, and the engine registers
+  // it for this session. The host only hears `citation-style-imported` so it
+  // can persist the XML and re-supply it through `CitationPort.styles`.
+
+  const styleImportMessage = ref('')
+
+  const handleStyleImport = (payload: { text: string; filename?: string }) => {
+    styleImportMessage.value = ''
+    // `.bst` (BibTeX) and `.ens` (EndNote) are not CSL — citeproc cannot render
+    // them directly. Fail loudly with a next step instead of silently ignoring.
+    if (/\.(bst|ens)$/i.test(payload.filename ?? '')) {
+      styleImportMessage.value = t('sidebars.references.styleImport.unsupported')
+      return
+    }
+    try {
+      const info = parseCslStyle(payload.text)
+      const engine = getCitationEngineLike()
+      if (!engine?.registerStyle) {
+        styleImportMessage.value = t('sidebars.references.styleImport.unavailable')
+        return
+      }
+      const registered = engine.registerStyle(info)
+      refreshCitationStyles()
+      // The user just imported it — select it so the effect is visible at once.
+      handleCitationStyleChange(registered.id)
+      emit('citation-style-imported', registered)
+      styleImportMessage.value = t('sidebars.references.styleImport.success')
+        .replace('{name}', registered.name)
+    } catch (err) {
+      console.error('Failed to import citation style:', err)
+      styleImportMessage.value = t('sidebars.references.styleImport.invalid')
+    }
+  }
+
   return {
     citationSources,
     citationStyleId,
@@ -244,5 +288,7 @@ export function useCitations(options: UseCitationsOptions) {
     canImportSources,
     handleImportDoi,
     handleImportBibliography,
+    styleImportMessage,
+    handleStyleImport,
   }
 }

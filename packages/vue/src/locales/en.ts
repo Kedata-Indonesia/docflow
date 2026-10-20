@@ -475,6 +475,14 @@ export default {
         partial: '{ok} imported, {failed} failed.',
         failed: 'Import failed.',
       },
+      styleImport: {
+        title: 'Import CSL style',
+        pick: 'Import .csl style',
+        success: 'Style "{name}" imported.',
+        unsupported: '.bst and .ens styles are not supported yet — export them as CSL (.csl) first.',
+        invalid: 'That file is not a valid CSL style.',
+        unavailable: 'This editor cannot register a new style at runtime.',
+      },
       types: {
         book: 'Book',
         'article-journal': 'Journal article',

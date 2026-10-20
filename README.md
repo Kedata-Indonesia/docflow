@@ -316,6 +316,7 @@ const MyPlugin = definePlugin({
 | `update:locale` | `locale: Locale` | UI language changed. |
 | `citation-sources-change` | `sources: CslItemData[]` | The citation source list changed. |
 | `update:citation-style` | `style: string` | The active CSL style changed. |
+| `citation-style-imported` | `style: CslStyleInfo` | A `.csl` style was imported and registered for this session. Hosts that want it after a reload persist this object and re-supply it through `citation.styles` on the next mount. |
 | `toggle-star` | — | The star toggle was clicked. |
 | `back` | — | The back button was clicked. |
 | `share` | — | The share button was clicked. |

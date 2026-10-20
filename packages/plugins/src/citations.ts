@@ -20,3 +20,4 @@ export {
 // server-side consumers.
 export { buildCitationNodes } from './citationNodeSpec.js'
 export { CSL_STYLES, DEFAULT_CSL_STYLE, CSL_LOCALE_EN_US } from './csl/index.js'
+export { parseCslStyle } from './csl/parseCslStyle.js'

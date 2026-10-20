@@ -42,6 +42,7 @@ export { smartElementsPlugin, DateChipNode, PeopleChipNode, FileChipNode, Dropdo
 export { BibliographyNode } from './bibliography.js'
 export { CiteEngine, nextCitationId, sanitizeCiteprocHtml, resolveCslStyles, type CitationAttrs, type CitationMode, type CitationCluster, type CiteEngineOptions, type CslStyleInfo } from './citeEngine.js'
 export { CSL_STYLES, DEFAULT_CSL_STYLE, CSL_LOCALE_EN_US } from './csl/index.js'
+export { parseCslStyle } from './csl/parseCslStyle.js'
 export { tablePageSplitPlugin } from './tablePageSplit.js'
 export { slashMenuPlugin, SlashMenuExtension, slashState, onSlashStateChange, registerSlashCommands } from './slashMenu.js'
 

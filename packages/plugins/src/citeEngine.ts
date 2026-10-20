@@ -162,6 +162,55 @@ export class CiteEngine {
     this.emitChange()
   }
 
+  /**
+   * Register a CSL style at runtime (issue #251) — the import-file path. The XML
+   * is validated by citeproc *before* the registry is touched, so a malformed
+   * file can never break an open document: the registry, the active style and
+   * the rendered output stay exactly as they were.
+   *
+   * An id that already exists **replaces** that entry, the same rule as
+   * `CitationPort.styles` / `CiteEngineOptions.styles` (issue #180). Returns the
+   * normalized style (trimmed id, name fallback, category default).
+   */
+  registerStyle(style: CslStyleInfo): CslStyleInfo {
+    const id = typeof style?.id === 'string' ? style.id.trim() : ''
+    if (!id || typeof style?.xml !== 'string' || style.xml.trim() === '') {
+      throw new Error(
+        'registerStyle: every style needs a non-empty id and CSL xml (got ' +
+          `id=${JSON.stringify(style?.id)}, xml=${style?.xml === undefined ? 'undefined' : `${
+            typeof style.xml === 'string' ? style.xml.length : typeof style.xml
+          } chars`})`,
+      )
+    }
+    const normalized: CslStyleInfo = {
+      id,
+      name: typeof style.name === 'string' && style.name.trim() ? style.name.trim() : id,
+      category: style.category === 'note' ? 'note' : 'in-text',
+      xml: style.xml,
+    }
+    // Fail before mutating: citeproc is the authority on whether this XML is a
+    // usable CSL style. Throwing here leaves the registry and the active style
+    // untouched, so an invalid import cannot blank an open document.
+    try {
+      new CSL.Engine(
+        { retrieveLocale: () => CSL_LOCALE_EN_US, retrieveItem: () => undefined },
+        normalized.xml,
+        'en-US',
+      )
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error)
+      throw new Error(
+        `registerStyle: citeproc could not parse the CSL for ${JSON.stringify(id)}: ${detail}`,
+      )
+    }
+    this.styles[id] = normalized
+    // Replacing the active style must repaint now; any other registration only
+    // notifies listeners (the picker refreshes through the Vue layer).
+    if (id === this.style) this.recompute()
+    this.emitChange()
+    return normalized
+  }
+
   updateSources(sources: CslItemData[], emit = true): void {
     this.sources = new Map(sources.map((s) => [s.id, s]))
     this.recompute()
