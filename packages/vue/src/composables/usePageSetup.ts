@@ -7,8 +7,11 @@ import { ref, type Ref } from 'vue'
  */
 export const CM_TO_PX = 37.795
 
-/** Largest body margin (px) the page-setup modal allows. */
-const PAGE_MARGIN_MAX = 189
+/** Largest body margin (px) the page-setup modal and the ruler allow. */
+export const PAGE_MARGIN_MAX_PX = 189
+
+/** Alias kept for the dialog internals. */
+const PAGE_MARGIN_MAX = PAGE_MARGIN_MAX_PX
 
 export interface PageMargins {
   top: number

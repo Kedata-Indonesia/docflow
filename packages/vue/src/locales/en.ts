@@ -32,6 +32,8 @@ export default {
     addCustomColor: 'Add custom color',
     tabActions: 'Tab actions',
     sendReply: 'Send reply',
+    leftMargin: 'Left margin',
+    rightMargin: 'Right margin',
     removeAuthor: 'Remove author',
   },
   header: {

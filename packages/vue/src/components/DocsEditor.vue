@@ -218,6 +218,16 @@ const {
   getZoomScale: () => scale.value,
 })
 
+/**
+ * Issue #295 — the ruler's margin markers write the same `margins` ref the Page Setup
+ * dialog uses, so the paper re-lays out live (usePageStats watches
+ * `resolvedLayoutOptions`) and the two controls cannot disagree.
+ */
+function applyRulerMargins(next: { top: number; bottom: number; left: number; right: number }) {
+  margins.value = { ...next }
+  emit('update:margins', { ...next })
+}
+
 // ─── Ready hook + lifecycle cleanup ──────────────────────────────────────────
 useDocsEditorBootstrap({
   isReady, editor, docEditor, userHeaderLeft, userHeaderRight, userFooterLeft, userFooterRight, headerMarginCm,
@@ -291,6 +301,7 @@ void [openHeaderFormatModal, openPageNumberModal]
         :zoom="zoom"
         :page-left-px="rulerPageLeft"
         :page-width-px="rulerPageWidth"
+        @update:margins="applyRulerMargins"
       />
     </div>
     <!-- Floating exit button shown only while focus mode is active -->
