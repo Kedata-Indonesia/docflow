@@ -17,8 +17,37 @@
 
 export type ClipboardSource = 'google-docs' | 'word' | 'generic'
 
-/** Inline style properties that survive normalization. */
-const KEEP_STYLE_PROPS = new Set(['color', 'background-color'])
+/**
+ * Inline style properties that survive normalization.
+ *
+ * The font properties are listed for issue #304: copying text between two Docflow
+ * documents used to drop `font-family`/`font-size`, so the pasted text silently took
+ * the destination's default font. Properties that are not listed are still dropped.
+ */
+const KEEP_STYLE_PROPS = new Set([
+  'color',
+  'background-color',
+  'font-family',
+  'font-size',
+  'font-weight',
+  'font-style',
+  'text-decoration',
+  'line-height',
+  'letter-spacing',
+])
+
+/**
+ * The value is still attacker-controlled HTML, so even a whitelisted property is
+ * refused when it could fetch a resource (`url()`, `image-set()`), execute
+ * (`expression()`, `javascript:`) or reach a custom property (`var()`).
+ */
+const UNSAFE_STYLE_VALUE = /url\s*\(|image-set\s*\(|expression\s*\(|javascript:|var\s*\(|@import|</i
+/** Plain CSS keyword/number/list values only — no escapes, no comments, no markup. */
+const SAFE_STYLE_CHARS = /^[#a-zA-Z0-9\s,.%()'"+/-]+$/
+
+function isSafeStyleValue(value: string): boolean {
+  return SAFE_STYLE_CHARS.test(value) && !UNSAFE_STYLE_VALUE.test(value)
+}
 
 /** Elements removed with all their children (non-content or dangerous). */
 const REMOVE_TAGS = new Set([
@@ -105,7 +134,7 @@ function cleanStyleAttr(el: Element): void {
   if (!style) return
   const kept: string[] = []
   parseStyleDeclarations(style).forEach((val, prop) => {
-    if (KEEP_STYLE_PROPS.has(prop)) kept.push(`${prop}: ${val}`)
+    if (KEEP_STYLE_PROPS.has(prop) && isSafeStyleValue(val)) kept.push(`${prop}: ${val}`)
   })
   if (kept.length) el.setAttribute('style', kept.join('; '))
   else el.removeAttribute('style')
