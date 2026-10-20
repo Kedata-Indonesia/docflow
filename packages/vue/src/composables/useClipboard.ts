@@ -4,6 +4,7 @@
  * Every function degrades gracefully (false / null) instead of throwing —
  * clipboard access is permission-gated and can be denied by the user.
  */
+import { toPastedImageFile } from './pasteImage.js'
 
 /**
  * Write text (and optionally rich HTML) to the clipboard.
@@ -80,6 +81,30 @@ export async function readClipboardText(): Promise<string | null> {
   if (typeof navigator === 'undefined' || !navigator.clipboard?.readText) return null
   try {
     return await navigator.clipboard.readText()
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Read the first image from the clipboard. Returns null when the API is
+ * unavailable, permission is denied, or the item is not a supported/oversized
+ * image. Used by Edit ▸ Paste (and by Ctrl/Cmd+Shift+V) so an image-only
+ * clipboard no longer falls through to an empty text paste.
+ */
+export async function readClipboardImage(): Promise<File | null> {
+  if (typeof navigator === 'undefined' || !navigator.clipboard?.read) return null
+  try {
+    const items = await navigator.clipboard.read()
+    for (const item of items) {
+      for (const type of item.types) {
+        if (!type.startsWith('image/')) continue
+        const blob = await item.getType(type)
+        const file = toPastedImageFile(blob)
+        if (file) return file
+      }
+    }
+    return null
   } catch {
     return null
   }

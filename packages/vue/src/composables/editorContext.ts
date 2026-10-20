@@ -8,12 +8,18 @@
  * absent.
  */
 import type { Editor } from '@tiptap/core'
-import type { AIDraftFn, AIStreamFn } from '@kedata-indonesia/docflow-core'
+import type {
+  AIDraftFn,
+  AIStreamFn,
+  ImageUploadHandler,
+} from '@kedata-indonesia/docflow-core'
 
-/** Shape of the host-injected AI ports kept on `editor.storage.editorContext`. */
+/** Shape of the host-injected ports kept on `editor.storage.editorContext`. */
 export interface EditorContextStorage {
   aiStream?: AIStreamFn
   aiDraft?: AIDraftFn
+  /** Storage port used when an image is picked or pasted (issue #296). */
+  onImageUpload?: ImageUploadHandler
 }
 
 /**

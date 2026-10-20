@@ -1,7 +1,8 @@
 import { onMounted, onUnmounted, type Ref } from 'vue'
 import { DOMSerializer } from 'prosemirror-model'
 import { sanitizePastedHTML, type DocsEditor } from '@kedata-indonesia/docflow-core'
-import { writeClipboard, readClipboardHtml, readClipboardText } from './useClipboard.js'
+import { writeClipboard, readClipboardHtml, readClipboardText, readClipboardImage } from './useClipboard.js'
+import { insertPastedImage, pickImageFile } from './pasteImage.js'
 
 export interface UseEditCommandsOptions {
   editor: Ref<DocsEditor['editor'] | null>
@@ -146,9 +147,19 @@ export function useEditCommands(options: UseEditCommandsOptions) {
     editor.value?.commands.focus()
   }
 
+  /** Insert the clipboard image through the shared upload/data-URL path. */
+  const pasteClipboardImage = async (): Promise<boolean> => {
+    const current = editor.value
+    if (!current) return false
+    const image = await readClipboardImage()
+    if (!image) return false
+    return insertPastedImage(current, image)
+  }
+
   const handlePaste = async () => {
     if (!editor.value) return
-    // Rich first (keeps formatting); falls back to plain text inside the helper.
+    // Rich text first (keeps formatting); a browser-copied image usually ships
+    // an `<img>` in text/html, which the upload/insert path must not replace.
     // Sanitize pasted HTML (strip <meta>, <style>, etc.) to prevent crashes
     // from non-content tags commonly produced by Google Docs.
     const html = await readClipboardHtml()
@@ -169,6 +180,8 @@ export function useEditCommands(options: UseEditCommandsOptions) {
       }
       return
     }
+    // Image-only clipboard (screenshot / “Copy image” without text/html).
+    if (await pasteClipboardImage()) return
     const text = await readClipboardText()
     if (text) {
       try {
@@ -182,7 +195,12 @@ export function useEditCommands(options: UseEditCommandsOptions) {
   const handlePastePlain = async () => {
     if (!editor.value) return
     const text = await readClipboardText()
-    if (text) editor.value.chain().focus().insertContent(text).run()
+    if (text) {
+      editor.value.chain().focus().insertContent(text).run()
+      return
+    }
+    // “Paste without formatting” still has to handle an image-only clipboard.
+    await pasteClipboardImage()
   }
 
   const handleDeleteSelection = () => {
@@ -217,8 +235,32 @@ export function useEditCommands(options: UseEditCommandsOptions) {
     }
   }
 
-  onMounted(() => document.addEventListener('keydown', handleEditKeydown))
-  onUnmounted(() => document.removeEventListener('keydown', handleEditKeydown))
+  // Ctrl/Cmd+V on an image-only clipboard would otherwise fall through to
+  // ProseMirror's text/HTML paste path (and insert nothing). Capture on the
+  // document so this runs before ProseMirror's own listener on the editor; leave
+  // rich HTML alone so pasting a browser image keeps its surrounding markup.
+  const handleNativePaste = (event: ClipboardEvent) => {
+    const current = editor.value
+    if (!current) return
+    const target = event.target
+    if (!(target instanceof Node) || !current.view.dom.contains(target)) return
+    const data = event.clipboardData
+    if (!data || Array.from(data.types).includes('text/html')) return
+    const file = pickImageFile(data)
+    if (!file) return
+    event.preventDefault()
+    event.stopPropagation()
+    void insertPastedImage(current, file)
+  }
+
+  onMounted(() => {
+    document.addEventListener('keydown', handleEditKeydown)
+    document.addEventListener('paste', handleNativePaste, true)
+  })
+  onUnmounted(() => {
+    document.removeEventListener('keydown', handleEditKeydown)
+    document.removeEventListener('paste', handleNativePaste, true)
+  })
 
   const editFormatMenuCommands: Record<string, () => void> = {
     // Edit menu
