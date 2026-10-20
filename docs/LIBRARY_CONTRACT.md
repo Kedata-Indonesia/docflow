@@ -73,6 +73,7 @@ A change that respects this principle touches either the library *or* the app �
 |-------|------|-------|
 | `sources` | `CslItemData[] \| (() => CslItemData[])` | Required. CSL-JSON snapshot of the host's reference library — an array or a getter for live data. ⚠️ **Read once at setup, not reactive** — see integration rules below. |
 | `style` | `string` | Optional CSL style id; defaults to `'chicago-notes-bibliography'`. |
+| `styles` | `CslStyleInfo[]` | Optional (issue #180). Extra CSL styles for this document's engine. A style whose `id` matches a bundled one overrides it; every other id is added next to the four defaults. The engine also accepts runtime registrations through `CiteEngine.registerStyle()` (issue #251) — that is the path the sidebar's `.csl` import uses. |
 | `onSourceRequest` | `() => Promise<string \| null>` | Optional. Opens the host's source picker when the user inserts a citation. Must resolve with the chosen **`sourceId`**, or `null` when cancelled. When absent, the Vue component falls back to the built-in references sidebar picker. |
 | `onSourcesChange` | `(ids: string[]) => void` | Optional. Fires with the list of **source ids cited in the document** (`engine.getCitedSourceIds()`) — *not* the source objects and *not* a library-snapshot event (for that, see `citation-sources-change` in §2.3). |
 | `onImportDoi` | `(doi: string) => Promise<CslItemData \| null>` | Optional. Resolve a DOI via the host backend (e.g. CrossRef) and return the persisted source (`null` on failure). Enables the DOI importer UI. |
@@ -86,6 +87,7 @@ A change that respects this principle touches either the library *or* the app �
 4. **`onSourceRequest` returns `Promise<string | null>`** — resolve with a `sourceId`, or `null` to cancel. A `void` promise leaves the pending citation hanging.
 5. **`onSourcesChange` receives ids, not objects.** It is the *document-level* cited-id set, useful for embedding a per-document snapshot. Library-level CRUD persistence uses the `citation-sources-change` emit (§2.3).
 6. **Insert citations via `pluginActions.insertCitation({ sourceId })`.** The internal `insertCitationWithSource` is not exported — `packages/plugins` public surface is `citationPlugin`, `CitationNode`, `CitationEngineExtension`, `getCitationEngine`, `buildCitationNodes`.
+7. **Runtime style import (issue #251).** The sidebar imports `.csl` files itself: `parseCslStyle()` derives `{ id, name, category }` from the XML and `CiteEngine.registerStyle()` validates it with citeproc before the registry changes — a malformed file throws and the active style/output stay untouched. The newly imported style appears in the picker immediately and is selected. `.bst` (BibTeX) and `.ens` (EndNote) are **not CSL** and are rejected with a message rather than converted. Imported styles are session-only unless the host persists them: listen to `citation-style-imported` (§2.3) and re-supply the object through `citation.styles` on the next mount.
 
 **Custom references sidebar (`#references-sidebar` slot, issue #22).** Hosts that need a picker
 richer than the built-in sidebar — e.g. semantic knowledge-base search returning snippets with
@@ -105,9 +107,9 @@ page numbers/relevance — can replace it wholesale:
   The scoped props are typed as **`ReferencesSidebarSlotProps`** (re-exported from the package),
   so consuming apps get `vue-tsc`/IDE checking on the slot.
 - **Scoped props:** `sources`, `activeStyle`, `pickerMode`, `canImport`, `importing`,
-  `importMessage`; **actions:** `onInsert(sourceId)`, `onClose()`, `onCreate(source)`,
+  `importMessage`, `styleImportMessage`; **actions:** `onInsert(sourceId)`, `onClose()`, `onCreate(source)`,
   `onUpdate(source)`, `onRemove(id)`, `onStyleChange(styleId)`, `onImportDoi(doi)`,
-  `onImportBibliography(payload)`.
+  `onImportBibliography(payload)`, `onImportStyle({ text, filename? })`.
 - **Picker flow:** leave `CitationPort.onSourceRequest` **unset** so the built-in
   `defaultSourceRequest` opens the sidebar in picker mode (`pickerMode === true`); call
   `onInsert(sourceId)` to complete the pending citation, or `onClose()` to cancel. (If the host
@@ -150,6 +152,8 @@ they are listed here so reviewers don't mistake them for leaks:
     @update:citation-style="persistStyle"
   />
   ```
+- `citation-style-imported` emit — [docsEditorContracts.ts](../packages/vue/src/components/docsEditorContracts.ts), fired from [useCitations.ts](../packages/vue/src/composables/useCitations.ts):
+  `[style: CslStyleInfo]`. Fired after the user imports a `.csl` file and the engine registers it. The style is available (and selected) for this session immediately; hosts that want it after a reload persist `{ id, name, category, xml }` and re-supply it through `citation.styles` on the next mount. Only `.csl` files are CSL — `.bst` (BibTeX) and `.ens` (EndNote) are rejected with a message, not converted.
 - `share`, `toggle-star`, `back`, `menu-click`, `update:title`, `update:pageSize`,
   `update:pageCount`, `update:locale` emits — pure UI intent signals.
 - `shareUrl`, `documentMeta`, `collaborators`, `connectionState`, `userName`, `userAvatar`

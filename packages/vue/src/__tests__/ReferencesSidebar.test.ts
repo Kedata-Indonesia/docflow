@@ -1,4 +1,4 @@
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
 import type { CslItemData } from '@kedata-indonesia/docflow-core'
 import ReferencesSidebar from '../components/sidebars/ReferencesSidebar.vue'
@@ -66,6 +66,42 @@ describe('ReferencesSidebar', () => {
     const select = wrapper.find('select')
     await select.setValue('apa')
     expect(wrapper.emitted('update:style')?.[0]).toEqual(['apa'])
+    wrapper.unmount()
+  })
+
+  it('offers the .csl style import without host import ports', () => {
+    const wrapper = mountSidebar()
+    expect(wrapper.find('[data-testid="citation-style-import-button"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="citation-style-import-input"]').exists()).toBe(true)
+    wrapper.unmount()
+  })
+
+  it('emits import-style with the file text and name', async () => {
+    const csl = [
+      '<style xmlns="http://purl.org/net/xbiblio/csl" class="in-text" version="1.0" id="custom">',
+      '<info><title>Custom</title></info>',
+      '<citation><layout><text variable="title"/></layout></citation>',
+      '</style>',
+    ].join('')
+    const wrapper = mountSidebar()
+    const input = wrapper.find('[data-testid="citation-style-import-input"]')
+    Object.defineProperty(input.element, 'files', {
+      value: [new File([csl], 'custom.csl', { type: 'application/xml' })],
+      configurable: true,
+    })
+
+    await input.trigger('change')
+    await flushPromises()
+
+    expect(wrapper.emitted('import-style')?.[0]).toEqual([{ text: csl, filename: 'custom.csl' }])
+    wrapper.unmount()
+  })
+
+  it('renders the style import message', () => {
+    const wrapper = mountSidebar({ styleImportMessage: 'Style "Custom" imported.' })
+    expect(wrapper.get('[data-testid="citation-style-import-message"]').text()).toBe(
+      'Style "Custom" imported.',
+    )
     wrapper.unmount()
   })
 

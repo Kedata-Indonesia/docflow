@@ -95,6 +95,8 @@ export interface ReferencesSidebarSlotProps {  /** Live reference library (mutat
   importing: boolean
   /** Host-provided import result message (success or error). */
   importMessage: string
+  /** Issue #251 — result message for a `.csl` style import (success or error). */
+  styleImportMessage: string
   /** Complete the pending citation with a chosen source, or insert one directly. */
   onInsert: (sourceId: string) => void
   /** Close the sidebar (cancels any pending pick). */
@@ -111,6 +113,8 @@ export interface ReferencesSidebarSlotProps {  /** Live reference library (mutat
   onImportDoi: (doi: string) => void
   /** Import a BibTeX/RIS blob (only when `canImport`). */
   onImportBibliography: (payload: { format: 'bibtex' | 'ris'; text: string }) => void
+  /** Issue #251 — import a CSL style from its XML (library-parsed, no host port). */
+  onImportStyle: (payload: { text: string; filename?: string }) => void
 }
 
 /**

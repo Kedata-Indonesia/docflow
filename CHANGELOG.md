@@ -46,6 +46,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   live example.
   _([#180](https://github.com/Kedata-Indonesia/docflow/issues/180))_
 
+- **Runtime CSL style import (issue #251):** the references sidebar can import a `.csl` file.
+  `parseCslStyle()` derives `{ id, name, category }` from the XML, and the new
+  `CiteEngine.registerStyle()` validates the style with citeproc **before** changing the
+  registry — a malformed file leaves the registry, the active style and the rendered output
+  untouched. The imported style appears in the Citation Style picker immediately and is
+  selected; `.bst` (BibTeX) and `.ens` (EndNote) are reported as unsupported because they are
+  not CSL. Hosts persist imported styles through the new `citation-style-imported` emit and
+  re-supply them via `CitationPort.styles`. `parseCslStyle()` is exported from both the main
+  and the `/citations` entry points.
+  _([#251](https://github.com/Kedata-Indonesia/docflow/issues/251))_
+
 - **AI credentials:** `sessionStorageKeyStorage()` — the same key/value pair as
   `localStorageKeyStorage()`, scoped to the tab so closing it drops the credential. Both
   browser storages now accept a `ttlMs` option: an entry older than the TTL is deleted and

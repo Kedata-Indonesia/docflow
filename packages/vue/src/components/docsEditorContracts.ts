@@ -5,6 +5,7 @@ import type {
   ImageUploadHandler,
   CitationPort,
   CslItemData,
+  CslStyleInfo,
   AIStreamFn,
   AIDraftFn,
   DocumentMode,
@@ -181,6 +182,12 @@ export interface DocsEditorEmits {
   'citation-sources-change': [sources: CslItemData[]]
   /** The active CSL style changed. */
   'update:citation-style': [style: string]
+  /**
+   * Issue #251 — a `.csl` style was imported and registered for this session.
+   * Hosts that want it after a reload persist this object and re-supply it
+   * through `citation.styles` on the next mount.
+   */
+  'citation-style-imported': [style: CslStyleInfo]
   /** The star toggle was clicked. */
   'toggle-star': []
   /** The back button was clicked. */

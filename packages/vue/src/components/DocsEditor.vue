@@ -90,7 +90,8 @@ const {
   lastSaved, activeSidebar, showRuler, focusMode, scrollContainerRef, handleScroll, toggleSidebar, handlePrint,
   citationSources, citationStyleId, citationStyles, pendingSourceRequest, handleSourceCreate, handleSourceUpdate,
   handleSourceRemove, handleCitationStyleChange, handleReferenceInsert, importBusy, importMessage,
-  canImportSources, handleImportDoi, handleImportBibliography, editorRef, editor, pluginActions, isReady,
+  canImportSources, handleImportDoi, handleImportBibliography, styleImportMessage, handleStyleImport,
+  editorRef, editor, pluginActions, isReady,
   docEditor, orphanedCommentIds, scheduleCommentAnchorScan, showBubbleMenu, bubblePosition, updateBubbleMenu,
   computeBubblePosition, showLinkDialog, linkDialogInitialText, linkDialogInitialUrl, linkDialogIsEditing,
   openLinkDialog, applyLinkDialog, removeLink,
@@ -310,6 +311,7 @@ void [openHeaderFormatModal, openPageNumberModal]
         :active-sidebar="activeSidebar" :editor="editor" :citation-sources="citationSources"
         :citation-style-id="citationStyleId" :citation-styles="citationStyles" :pending-source-request="pendingSourceRequest"
         :can-import-sources="canImportSources" :import-busy="importBusy" :import-message="importMessage"
+        :style-import-message="styleImportMessage"
         :has-references-sidebar-slot="Boolean($slots['references-sidebar'])"
         :comments="props.comments" :selected-text-snippet="props.selectedTextSnippet"
         :selected-text-index="props.selectedTextIndex" :orphaned-comment-ids="orphanedCommentIds"
@@ -319,7 +321,7 @@ void [openHeaderFormatModal, openPageNumberModal]
         @close="activeSidebar = null" @insert="handleReferenceInsert" @create="handleSourceCreate"
         @update="handleSourceUpdate" @remove="handleSourceRemove"
         @update:style="handleCitationStyleChange" @import-doi="handleImportDoi"
-        @import-bibliography="handleImportBibliography"
+        @import-bibliography="handleImportBibliography" @import-style="handleStyleImport"
         @add-comment="(c, t, i) => $emit('add-comment', c, t, i)"
         @add-reply="(id, c) => $emit('add-reply', id, c)" @resolve-comment="(id) => $emit('resolve-comment', id)"
         @delete-comment="(id) => $emit('delete-comment', id)"

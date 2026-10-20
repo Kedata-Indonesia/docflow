@@ -43,24 +43,31 @@ const openSidebar = async (key: string) => {
   return mounted
 }
 
+const sidebarProps = (overrides: Record<string, unknown> = {}) => ({
+  activeSidebar: 'references' as const,
+  editor: null,
+  citationSources: [],
+  citationStyleId: 'apa',
+  pendingSourceRequest: false,
+  canImportSources: false,
+  importBusy: false,
+  importMessage: '',
+  styleImportMessage: '',
+  orphanedCommentIds: [],
+  ...overrides,
+})
+
 describe('DocsEditor sidebar bridge', () => {
   it('passes the style list it is given to the reference picker (#180)', async () => {
     const wrapper = mount(DocsEditorSidebars, {
-      props: {
-        activeSidebar: 'references',
-        editor: null,
+      props: sidebarProps({
         citationSources: [{ id: 'doe-2020', type: 'book', title: 'The Design of Tests' }],
         citationStyleId: 'harvard-lite',
         citationStyles: [
           { id: 'harvard-lite', name: 'Harvard (test)' },
           { id: 'apa', name: 'APA' },
         ],
-        pendingSourceRequest: false,
-        canImportSources: false,
-        importBusy: false,
-        importMessage: '',
-        orphanedCommentIds: [],
-      },
+      }),
     })
     await wrapper.vm.$nextTick()
 
@@ -69,6 +76,21 @@ describe('DocsEditor sidebar bridge', () => {
     expect((sidebar.props('availableStyles') as { id: string }[]).map((s) => s.id)).toEqual([
       'harvard-lite',
       'apa',
+    ])
+  })
+
+  it('passes the style-import message and bubbles import-style (#251)', async () => {
+    const wrapper = mount(DocsEditorSidebars, {
+      props: sidebarProps({ styleImportMessage: 'Style imported.' }),
+    })
+    await wrapper.vm.$nextTick()
+
+    const sidebar = wrapper.findComponent(ReferencesSidebar)
+    expect(sidebar.props('styleImportMessage')).toBe('Style imported.')
+
+    sidebar.vm.$emit('import-style', { text: '<style/>', filename: 'custom.csl' })
+    expect(wrapper.emitted('import-style')?.[0]).toEqual([
+      { text: '<style/>', filename: 'custom.csl' },
     ])
   })
 

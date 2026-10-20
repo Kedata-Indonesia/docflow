@@ -42,6 +42,8 @@ const props = withDefaults(
     importing?: boolean
     /** Host-provided import result message (success or error). */
     importMessage?: string
+    /** Issue #251 — result message for a `.csl` style import (success or error). */
+    styleImportMessage?: string
   }>(),
   {
     pickerMode: false,
@@ -54,6 +56,7 @@ const props = withDefaults(
     canImport: false,
     importing: false,
     importMessage: '',
+    styleImportMessage: '',
   },
 )
 
@@ -66,6 +69,7 @@ const emit = defineEmits<{
   'update:style': [styleId: string]
   'import-doi': [doi: string]
   'import-bibliography': [payload: { format: 'bibtex' | 'ris'; text: string }]
+  'import-style': [payload: { text: string; filename?: string }]
 }>()
 
 const { t } = useLocale()
@@ -270,6 +274,29 @@ async function handleBibFileChange(event: Event) {
   const text = await file.text()
   emit('import-bibliography', { format, text })
 }
+
+// Issue #251 — a `.csl` style file is parsed + registered by the library (no
+// host port), so this control lives with the style picker, not in the
+// host-gated Import footer above.
+const styleFileInput = ref<HTMLInputElement | null>(null)
+
+function pickStyleFile() {
+  styleFileInput.value?.click()
+}
+
+async function handleStyleFileChange(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = '' // allow re-picking the same file
+  if (!file) return
+  try {
+    const text = await file.text()
+    emit('import-style', { text, filename: file.name })
+  } catch {
+    // An unreadable file is not a valid style; let the composable report it.
+    emit('import-style', { text: '', filename: file.name })
+  }
+}
 </script>
 
 <template>
@@ -301,12 +328,42 @@ async function handleBibFileChange(event: Event) {
           {{ t('sidebars.references.citationStyle') }}
         </label>
         <select
+          data-testid="citation-style-select"
           :value="activeStyle"
           class="w-full rounded-xl border border-slate-200/80 bg-slate-50 px-3 py-2 text-xs text-slate-700 transition-all focus:outline-none focus:ring-1 focus:ring-cyan-500/50 dark:border-white/10 dark:bg-slate-900/40 dark:text-slate-200"
           @change="emit('update:style', ($event.target as HTMLSelectElement).value)"
         >
           <option v-for="style in availableStyles" :key="style.id" :value="style.id">{{ style.name }}</option>
         </select>
+        <!-- Issue #251 — import a CSL style; parsed + registered by the library,
+             so it is not gated on the host's reference-import ports. -->
+        <button
+          type="button"
+          data-testid="citation-style-import-button"
+          class="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-slate-300 px-3 py-1.5 text-[10px] font-semibold text-slate-500 transition-colors hover:border-slate-400 hover:text-slate-700 dark:border-white/15 dark:text-slate-400 dark:hover:border-white/30 dark:hover:text-slate-200"
+          :title="t('sidebars.references.styleImport.title')"
+          :aria-label="t('sidebars.references.styleImport.title')"
+          @click="pickStyleFile"
+        >
+          <FileUp class="h-3.5 w-3.5" />
+          {{ t('sidebars.references.styleImport.pick') }}
+        </button>
+        <input
+          ref="styleFileInput"
+          data-testid="citation-style-import-input"
+          type="file"
+          accept=".csl,.bst,.ens,application/xml,text/xml"
+          class="hidden"
+          @change="handleStyleFileChange"
+        >
+        <p
+          v-if="styleImportMessage"
+          data-testid="citation-style-import-message"
+          role="status"
+          class="mt-2 text-[10px] leading-relaxed text-slate-500 dark:text-slate-400"
+        >
+          {{ styleImportMessage }}
+        </p>
       </div>
 
       <!-- Search + add -->

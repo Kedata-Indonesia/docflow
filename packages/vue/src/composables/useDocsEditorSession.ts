@@ -116,6 +116,8 @@ export function useDocsEditorSession(options: UseDocsEditorSessionOptions) {
     canImportSources,
     handleImportDoi,
     handleImportBibliography,
+    styleImportMessage,
+    handleStyleImport,
   } = useCitations({
     getEditor: () => editor.value,
     getPluginActions: () => pluginActions.value,
@@ -205,6 +207,8 @@ export function useDocsEditorSession(options: UseDocsEditorSessionOptions) {
     canImportSources,
     handleImportDoi,
     handleImportBibliography,
+    styleImportMessage,
+    handleStyleImport,
     editorRef,
     editor,
     pluginActions,

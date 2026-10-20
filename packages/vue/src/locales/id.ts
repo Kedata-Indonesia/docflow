@@ -475,6 +475,14 @@ export default {
         partial: '{ok} berhasil, {failed} gagal.',
         failed: 'Impor gagal.',
       },
+      styleImport: {
+        title: 'Impor gaya CSL',
+        pick: 'Impor gaya .csl',
+        success: 'Gaya "{name}" berhasil diimpor.',
+        unsupported: 'Gaya .bst dan .ens belum didukung — ekspor dulu sebagai CSL (.csl).',
+        invalid: 'File tersebut bukan gaya CSL yang valid.',
+        unavailable: 'Editor ini tidak bisa mendaftarkan gaya baru saat runtime.',
+      },
       types: {
         book: 'Buku',
         'article-journal': 'Artikel jurnal',
