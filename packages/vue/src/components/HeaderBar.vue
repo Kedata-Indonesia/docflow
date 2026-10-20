@@ -42,6 +42,8 @@ const props = withDefaults(
      * event fire in the log.
      */
     unimplementedActions?: Array<string | { action: string; reason?: string }>
+    /** Enables Insert ▸ Bibliography (requires the citation plugin). */
+    hasCitationPlugin?: boolean
   }>(),
   {
     title: 'Untitled Document',
@@ -58,6 +60,7 @@ const props = withDefaults(
     userName: '',
     userAvatar: '',
     unimplementedActions: () => [],
+    hasCitationPlugin: false,
   },
 )
 
@@ -134,6 +137,7 @@ const menus = computed(() => buildMenus({
   pageless: !!props.pageless,
   supportedLocales,
   getLocaleName,
+  hasCitationPlugin: !!props.hasCitationPlugin,
 }))
 
 const menuKeys = computed(() => Object.keys(menus.value))

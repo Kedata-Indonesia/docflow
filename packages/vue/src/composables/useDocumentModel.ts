@@ -111,10 +111,10 @@ export function useDocumentModel(options: UseDocumentModelOptions) {
 
   // Collect slash commands from all plugins
   const slashCommands = computed(() => {
-    const cmds: Array<{ name: string; command: string }> = []
+    const cmds: Array<{ name: string; nameKey?: string; command: string }> = []
     for (const plugin of getPlugins()) {
       for (const sc of plugin.slashCommands || []) {
-        cmds.push({ name: sc.name, command: sc.command })
+        cmds.push({ name: sc.name, nameKey: sc.nameKey, command: sc.command })
       }
     }
     return cmds

@@ -10,7 +10,7 @@ import {
   IndentDecrease,
   AlignLeft, AlignCenter, AlignRight, AlignJustify, ListOrdered, ListChecks,
   RemoveFormatting, SpellCheck, SlidersHorizontal, Puzzle, Keyboard, Bug, CircleHelp,
-  Sparkles, LayoutTemplate, Calendar, MapPin, Eye, PenLine, GitPullRequest,
+  Sparkles, LayoutTemplate, Calendar, MapPin, Eye, PenLine, GitPullRequest, BookOpen,
 } from 'lucide-vue-next'
 import type { Locale } from '../composables/useLocale.js'
 
@@ -58,6 +58,8 @@ export interface MenuStructureContext {
   pageless: boolean
   supportedLocales: readonly Locale[]
   getLocaleName: (locale: Locale) => string
+  /** Bibliography insertion needs the citation plugin (node + command). */
+  hasCitationPlugin: boolean
 }
 
 /**
@@ -187,6 +189,9 @@ export function buildMenus(ctx: MenuStructureContext): Record<string, { label: s
         { label: t('header.header'), action: 'insert-header', icon: Heading },
         { label: t('header.footer'), action: 'insert-footer', icon: PanelBottom },
         { label: t('header.footnote'), action: 'insert-footnote', icon: List },
+        ...(ctx.hasCitationPlugin
+          ? [{ label: t('header.bibliography'), action: 'insert-bibliography', icon: BookOpen }]
+          : []),
         { label: t('header.tableOfContents'), action: 'insert-toc', icon: List },
         { label: 'divider', divider: true },
         {
@@ -294,4 +299,6 @@ export const ALL_MENU_ACTIONS: string[] = collectMenuActions(buildMenus({
   pageless: false,
   supportedLocales: ['en', 'id'],
   getLocaleName: (locale) => locale,
+  // The stub must include conditional items so `ALL_MENU_ACTIONS` is complete.
+  hasCitationPlugin: true,
 }))

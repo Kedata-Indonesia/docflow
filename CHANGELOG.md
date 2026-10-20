@@ -22,6 +22,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Bibliography in the Insert menu:** when the citation plugin is loaded,
+  **Insert ▸ Bibliography** (directly below Footnote) inserts the derived
+  bibliography block — one per document, re-rendered from the cited sources and
+  the active CSL style. It stays hidden when the citation plugin is not part of
+  the plugin set.
+
+- **Localized plugin labels:** toolbar items and slash commands can now carry a
+  locale key (`labelKey` / `nameKey`) that the Vue layer resolves. The footnote
+  item uses it, so the Insert dropdown and slash menu show “Footnote” in English
+  and “Catatan Kaki” in Indonesian instead of the hardcoded Indonesian label.
+
 - **Citations:** hosts can register their own CSL styles — `CitationPort.styles` /
   `CiteEngineOptions.styles` (issue #180). A style whose `id` matches a bundled one overrides
   it; any other id is added next to the four the library ships, so an institutional or

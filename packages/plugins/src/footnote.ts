@@ -96,9 +96,15 @@ export const footnotePlugin = definePlugin({
   id: 'footnote',
   tiptapExtensions: [FootnoteNode],
   toolbar: [
-    { id: 'insert-footnote', label: 'Catatan Kaki', action: 'insertFootnote', iconComponent: 'FileText' },
+    {
+      id: 'insert-footnote',
+      label: 'Footnote',
+      labelKey: 'header.footnote',
+      action: 'insertFootnote',
+      iconComponent: 'FileText',
+    },
   ],
-  slashCommands: [{ name: 'Catatan Kaki', command: 'insertFootnote' }],
+  slashCommands: [{ name: 'Footnote', nameKey: 'header.footnote', command: 'insertFootnote' }],
   commands: {
     insertFootnote: (editor: Editor, ...args: unknown[]) => {
       const attrs = args[0] as { content?: string } | undefined

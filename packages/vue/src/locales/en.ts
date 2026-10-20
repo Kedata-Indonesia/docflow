@@ -104,6 +104,7 @@ export default {
     header: 'Header',
     footer: 'Footer',
     footnote: 'Footnote',
+    bibliography: 'Bibliography',
     tableOfContents: 'Table of contents',
     bold: 'Bold text',
     italic: 'Italic text',

@@ -104,6 +104,7 @@ export default {
     header: 'Header',
     footer: 'Footer',
     footnote: 'Catatan Kaki',
+    bibliography: 'Daftar Pustaka',
     tableOfContents: 'Daftar isi',
     bold: 'Teks Tebal',
     italic: 'Teks Miring',

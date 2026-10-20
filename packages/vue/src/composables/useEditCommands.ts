@@ -57,6 +57,7 @@ export const EDIT_FORMAT_MENU_ACTIONS: readonly string[] = [
   'insert-table',
   'insert-code',
   'insert-page-break',
+  'insert-bibliography',
   'insert-toc',
   'insert-date-chip',
   'insert-people-chip',
@@ -266,6 +267,9 @@ export function useEditCommands(options: UseEditCommandsOptions) {
     'insert-table': () => runPluginMenuAction('insertTable', { rows: 3, cols: 3, withHeaderRow: true }),
     'insert-code': () => runPluginMenuAction('toggleCodeBlock'),
     'insert-page-break': () => runPluginMenuAction('insertPageBreak'),
+    // Citation plugin command: inserts the derived bibliography block (one per
+    // document; the command refuses duplicates).
+    'insert-bibliography': () => runPluginMenuAction('insertBibliography'),
     'insert-toc': () => runPluginMenuAction('insertToc'),
     'insert-date-chip': () => runPluginMenuAction('insertDateChip'),
     'insert-people-chip': () => runPluginMenuAction('insertPeopleChip'),
