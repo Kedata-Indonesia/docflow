@@ -223,6 +223,29 @@ function runIndent(props: IndentProps, delta: 1 | -1): boolean {
 }
 
 /**
+ * Issue #189 (second round): with the caret at the very start of an indented block,
+ * Backspace/Delete must step the block out one level instead of deleting content —
+ * Google Docs behaviour. Before this the only way back was Shift-Tab, and pressing
+ * Backspace at the start of an indented paragraph left the indent behind.
+ *
+ * Only blocks carrying the `indent` attribute are affected: code blocks keep their
+ * literal indentation and list items un-nest through the list keymap.
+ */
+function outdentAtBlockStart(editor: Editor): boolean {
+  const { state } = editor
+  const { selection } = state
+  if (!selection.empty) return false
+  if (editor.isActive(CODE_BLOCK)) return false
+
+  const { $from } = selection
+  if ($from.parentOffset > 0) return false
+  if (!INDENTABLE_NODES.includes($from.parent.type.name)) return false
+  if (indentLevelOf($from.parent) <= 0) return false
+
+  return editor.commands.outdent()
+}
+
+/**
  * IndentExtension — keyboard block indentation for the docs editor.
  *
  * Issue #189: Tab used to leave the editor because nothing bound it. The
@@ -291,6 +314,28 @@ export const IndentExtension = Extension.create({
     return {
       Tab: () => this.editor.commands.indent(),
       'Shift-Tab': () => this.editor.commands.outdent(),
+    }
+  },
+})
+
+/**
+ * Backspace/Delete outdent (#189, second round).
+ *
+ * A separate extension on purpose: `IndentExtension` declares `priority: 50` so Tab
+ * yields to list nesting, table cell navigation and the AI preview, and a keymap at
+ * that priority never sees Backspace at all — `baseKeymap` (priority 100) consumes it
+ * first. This extension only claims Backspace/Delete, so it can sit above the base
+ * keymap without taking Tab away from anyone.
+ */
+export const IndentBackspaceExtension = Extension.create({
+  name: 'indentBackspace',
+  priority: 150,
+
+  addKeyboardShortcuts() {
+    const outdent = () => outdentAtBlockStart(this.editor)
+    return {
+      Backspace: outdent,
+      Delete: outdent,
     }
   },
 })

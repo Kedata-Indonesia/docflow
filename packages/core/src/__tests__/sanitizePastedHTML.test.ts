@@ -143,4 +143,36 @@ describe('sanitizePastedHTML', () => {
       )
     })
   })
+
+  describe('keeps the font of Docflow-to-Docflow pastes (#304)', () => {
+    it('keeps font-family and font-size', () => {
+      const html = '<p><span style="font-family: Courier New; font-size: 30pt">Test</span></p>'
+      const out = sanitizePastedHTML(html)
+      expect(out).toContain('font-family: Courier New')
+      expect(out).toContain('font-size: 30pt')
+    })
+
+    it('keeps bold/italic/underline declarations too', () => {
+      const html =
+        '<p><span style="font-weight: 700; font-style: italic; text-decoration: underline">Hi</span></p>'
+      const out = sanitizePastedHTML(html)
+      expect(out).toContain('font-weight: 700')
+      expect(out).toContain('font-style: italic')
+      expect(out).toContain('text-decoration: underline')
+    })
+
+    it('still drops properties nobody whitelisted', () => {
+      const html = '<p><span style="font-family: Inter; text-shadow: 0 0 4px red">Hi</span></p>'
+      const out = sanitizePastedHTML(html)
+      expect(out).toContain('font-family: Inter')
+      expect(out).not.toContain('text-shadow')
+    })
+
+    it('refuses values that could load a resource', () => {
+      const url = sanitizePastedHTML('<p><span style="font-family: url(http://evil.test/x)">x</span></p>')
+      expect(url).not.toContain('url(')
+      const expr = sanitizePastedHTML('<p><span style="font-size: expression(alert(1))">x</span></p>')
+      expect(expr).not.toContain('expression')
+    })
+  })
 })

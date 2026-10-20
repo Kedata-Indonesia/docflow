@@ -1,6 +1,7 @@
 import { AnyExtension, Editor as TiptapEditor } from '@tiptap/core'
 import { StarterKit } from '@tiptap/starter-kit'
 import { TextStyle } from '@tiptap/extension-text-style'
+import { Code } from '@tiptap/extension-code'
 import {
   collectExtensions,
   createActionMap,
@@ -14,7 +15,7 @@ import {
 } from './Collaboration.js'
 import { BlockAttributesExtension } from './BlockAttributes.js'
 import { EditorContextExtension } from './EditorContext.js'
-import { IndentExtension } from './Indent.js'
+import { IndentBackspaceExtension, IndentExtension } from './Indent.js'
 import { ManualColumnResize } from './ManualColumnResize.js'
 import { SearchAndReplaceExtension } from './SearchAndReplace.js'
 import type { ImageUploadHandler, CitationPort } from './ports.js'
@@ -204,6 +205,17 @@ export function createEditor(options: EditorOptions = {}): DocsEditor {
   return editor
 }
 
+/**
+ * Issue #305: StarterKit's inline code ships markdown input rules, so typing
+ * `` `text` `` converted the sentence into a code mark while the user was still
+ * writing — surprising in a word processor, and it also swallowed the backticks the
+ * user wanted to keep. The mark itself stays (pasted HTML that contains `<code>` still
+ * renders as inline code); only the rule that rewrites typed input is dropped.
+ */
+const InlineCode = Code.extend({
+  addInputRules: () => [],
+})
+
 function createTiptapEditor(
   options: EditorOptions,
   plugins: DocsEditorPlugin[],
@@ -221,7 +233,13 @@ function createTiptapEditor(
   // mutates it on the first transaction (the trailing paragraph lands in the doc,
   // in exports, and in page geometry). docflow keeps v2 semantics: documents are
   // changed only by the user, so the trailing node stays off.
-  const starterKitOptions = { link: false, underline: false, trailingNode: false } as const
+  const starterKitOptions = {
+    link: false,
+    underline: false,
+    trailingNode: false,
+    // Replaced by `InlineCode` below, which keeps the mark but not its input rules.
+    code: false,
+  } as const
   const baseStarterKit = options.collaboration
     ? StarterKit.configure({ ...starterKitOptions, undoRedo: false })
     : StarterKit.configure(starterKitOptions)
@@ -241,6 +259,8 @@ function createTiptapEditor(
   let extensions: AnyExtension[] = [
     ManualColumnResize,
     baseStarterKit,
+    // Inline code mark without the `` `x` `` input rule (#305).
+    InlineCode,
     TextStyle,
     blockAttrs,
     paginationExt,
@@ -258,6 +278,9 @@ function createTiptapEditor(
     // priority 50 so list nesting, table cell navigation and the AI preview
     // keep their own Tab bindings.
     IndentExtension,
+    // Backspace/Delete outdent (#189, second round) — registered separately because it
+    // needs a priority above `baseKeymap`, unlike Tab.
+    IndentBackspaceExtension,
     ...pluginExtensions,
   ]
   const content = options.collaboration ? undefined : options.content

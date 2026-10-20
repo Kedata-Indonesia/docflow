@@ -88,6 +88,34 @@ test.describe('Tab indentation (#189)', () => {
     await expect(paper.locator('p[data-indent]')).toHaveCount(0)
   })
 
+  test('Backspace at the start of an indented block steps out one level', async ({ page }) => {
+    await createBlankDocument(page)
+    const paper = editor(page)
+
+    await paper.click()
+    await page.keyboard.type('Outdent me')
+    await page.keyboard.press('Tab')
+    await page.keyboard.press('Tab')
+    await expect(paper.locator('p[data-indent="2"]')).toHaveCount(1)
+
+    // Put the caret at the very start of the block — that is where Backspace has to
+    // outdent instead of deleting content. (A `Home` key press does not move the caret
+    // in headless Chromium, so the position is set through the editor handle; the
+    // behaviour under test is Backspace, not how the caret got there.)
+    await page.evaluate(() => {
+      const instance = (window as unknown as { __docsEditor?: ExposedEditor }).__docsEditor
+      if (!instance) throw new Error('window.__docsEditor is not available')
+      instance.commands.setTextSelection(1)
+    })
+    await page.keyboard.press('Backspace')
+    await expect(paper.locator('p[data-indent="1"]')).toHaveCount(1)
+    expect((await paper.locator('p').first().innerText()).trim()).toBe('Outdent me')
+
+    await page.keyboard.press('Backspace')
+    await expect(paper.locator('p[data-indent]')).toHaveCount(0)
+    expect((await paper.locator('p').first().innerText()).trim()).toBe('Outdent me')
+  })
+
   test('Tab nests a list item instead of indenting its text', async ({ page }) => {
     await createBlankDocument(page)
     const paper = editor(page)
