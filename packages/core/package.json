@@ -34,28 +34,29 @@
   },
   "dependencies": {
     "@tiptap/core": "^3.32.0",
+    "@tiptap/extension-code": "^3.32.0",
     "@tiptap/extension-collaboration": "^3.32.0",
     "@tiptap/extension-text-style": "^3.32.0",
     "@tiptap/pm": "^3.32.0",
     "@tiptap/starter-kit": "^3.32.0",
+    "@tiptap/y-tiptap": "^3.0.10",
     "tiptap-pagination-plus": "3.1.0",
     "y-indexeddb": "^9.0.12",
     "y-protocols": "^1.0.7",
     "y-webrtc": "^10.3.0",
     "y-websocket": "^2.0.4 || ^3.1.0",
-    "yjs": "^13.6.33",
-    "@tiptap/y-tiptap": "^3.0.10"
+    "yjs": "^13.6.33"
   },
   "peerDependencies": {
     "@tiptap/core": "^3.32.0",
     "@tiptap/extension-collaboration": "^3.32.0",
     "@tiptap/extension-text-style": "^3.32.0",
     "@tiptap/starter-kit": "^3.32.0",
+    "@tiptap/y-tiptap": "^3.0.10",
     "tiptap-pagination-plus": "3.1.0",
     "y-webrtc": "^10.3.0",
     "y-websocket": "^2.0.4 || ^3.1.0",
-    "yjs": "^13.6.33",
-    "@tiptap/y-tiptap": "^3.0.10"
+    "yjs": "^13.6.33"
   },
   "devDependencies": {
     "@tiptap/core": "^3.32.0",
