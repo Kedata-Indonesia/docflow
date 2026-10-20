@@ -113,6 +113,19 @@ const {
 const pageCount = ref(1)
 const currentPage = ref(1)
 
+// Document details must reflect the document currently open in the editor.
+// Word/char/page counts already live in the editor (the same values the status
+// bar uses); the host-supplied meta still provides title/owner/folder/dates.
+const detailsMeta = computed(() => {
+  if (!props.documentMeta) return undefined
+  return {
+    ...props.documentMeta,
+    wordCount: wordCount.value,
+    charCount: charCount.value,
+    pageCount: pageCount.value,
+  }
+})
+
 // Push the mode + author into the suggestChanges plugin (issues #27/#28). The
 // plugin is inert in `editing` mode, so this is a no-op for existing hosts.
 watch([isReady, documentMode], ([ready, mode]) => {
@@ -344,7 +357,7 @@ void [openHeaderFormatModal, openPageNumberModal]
       :header-margin-min="HEADER_MARGIN_CM_MIN" :header-margin-max="HEADER_MARGIN_CM_MAX"
       :header-margin-step="HEADER_MARGIN_CM_STEP" :page-margin-min="PAGE_MARGIN_CM_MIN"
       :page-margin-max="PAGE_MARGIN_CM_MAX"
-      :document-title="props.title" :share-url="props.shareUrl" :document-meta="props.documentMeta"
+      :document-title="props.title" :share-url="props.shareUrl" :document-meta="detailsMeta"
       :link-dialog-initial-text="linkDialogInitialText" :link-dialog-initial-url="linkDialogInitialUrl"
       :link-dialog-is-editing="linkDialogIsEditing"
       @close-footer="showFooterModal = false" @close-header-format="showHeaderFormatModal = false"

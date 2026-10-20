@@ -129,15 +129,15 @@ function formatDate(ts: number): string {
           </div>
           <div class="grid grid-cols-3 gap-3 text-center">
             <div>
-              <p class="text-lg font-bold text-slate-800 dark:text-slate-100">{{ meta.wordCount }}</p>
+              <p data-testid="details-word-count" class="text-lg font-bold text-slate-800 dark:text-slate-100">{{ meta.wordCount }}</p>
               <p class="text-[10px] uppercase tracking-wide text-slate-500 dark:text-slate-400">{{ t('editor.details.words') }}</p>
             </div>
             <div>
-              <p class="text-lg font-bold text-slate-800 dark:text-slate-100">{{ meta.charCount }}</p>
+              <p data-testid="details-char-count" class="text-lg font-bold text-slate-800 dark:text-slate-100">{{ meta.charCount }}</p>
               <p class="text-[10px] uppercase tracking-wide text-slate-500 dark:text-slate-400">{{ t('editor.details.characters') }}</p>
             </div>
             <div>
-              <p class="text-lg font-bold text-slate-800 dark:text-slate-100">{{ meta.pageCount }}</p>
+              <p data-testid="details-page-count" class="text-lg font-bold text-slate-800 dark:text-slate-100">{{ meta.pageCount }}</p>
               <p class="text-[10px] uppercase tracking-wide text-slate-500 dark:text-slate-400">{{ t('editor.details.pages') }}</p>
             </div>
           </div>
