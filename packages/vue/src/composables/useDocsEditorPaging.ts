@@ -28,6 +28,8 @@ export interface UseDocsEditorPagingOptions {
   getUpdateFootnotes: () => void
   /** `pageless` is read lazily so prop changes stay reactive. */
   getPagelessProp: () => boolean | undefined
+  /** Issue #144 — visual zoom factor (1 at 100 %). */
+  getZoomScale?: () => number
 }
 
 /**
@@ -41,7 +43,7 @@ export function useDocsEditorPaging(options: UseDocsEditorPagingOptions) {
   const {
     emit, pageSizeId, orientation, margins, resolvedLayoutOptions, useVirtual, paginationOptions, isPageless,
     pageCount, currentPage, editor, isReady, scrollContainerRef, userHeaderLeft, userHeaderRight,
-    userFooterLeft, userFooterRight, getUpdateFootnotes, getPagelessProp,
+    userFooterLeft, userFooterRight, getUpdateFootnotes, getPagelessProp, getZoomScale,
   } = options
 
   // ─── Page Setup ──────────────────────────────────────────────────────────────
@@ -111,6 +113,7 @@ export function useDocsEditorPaging(options: UseDocsEditorPagingOptions) {
     currentPage,
     getUpdateFootnotes,
     getPagelessProp,
+    getZoomScale,
     emit,
   })
 

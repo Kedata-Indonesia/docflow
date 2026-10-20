@@ -23,8 +23,10 @@ export function positionHeaderOverlay(session: HeaderOverlaySession, root: HTMLE
   const paperRect = root.getBoundingClientRect()
 
   const paperStyle = getComputedStyle(root)
-  const bodyMarginLeft = parseFloat(paperStyle.getPropertyValue('--rm-margin-left')) || 0
-  const bodyMarginRight = parseFloat(paperStyle.getPropertyValue('--rm-margin-right')) || 0
+  // Issue #144 — rects below are visual px; the CSS margins are layout px.
+  const zoom = Math.max(0.01, parseFloat(paperStyle.getPropertyValue('--docflow-zoom')) || 1)
+  const bodyMarginLeft = (parseFloat(paperStyle.getPropertyValue('--rm-margin-left')) || 0) * zoom
+  const bodyMarginRight = (parseFloat(paperStyle.getPropertyValue('--rm-margin-right')) || 0) * zoom
   const contentEl = session.targetHeader.querySelector('.rm-page-header-content')
   const contentRect = contentEl?.getBoundingClientRect() ?? headerRect
   const contentLeft = session.isFirstPage ? headerRect.left : headerRect.left + bodyMarginLeft
@@ -33,6 +35,7 @@ export function positionHeaderOverlay(session: HeaderOverlaySession, root: HTMLE
   const leftInset = Math.max(0, contentLeft - paperRect.left)
   const rightInset = Math.max(0, paperRect.right - contentRight)
 
+  session.overlay.style.setProperty('--docflow-zoom', String(zoom))
   session.overlay.style.left = `${contentLeft}px`
   session.overlay.style.top = `${contentRect.top}px`
   session.overlay.style.width = `${Math.max(contentRight - contentLeft, 1)}px`

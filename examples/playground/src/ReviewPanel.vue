@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import type { ConnectionState, Locale } from '@kedata-indonesia/docflow-vue'
 import type { DocumentMode } from '@kedata-indonesia/docflow-vue'
+import { ZOOM_PRESETS } from '@kedata-indonesia/docflow-vue'
 import { PAGE_SIZE_OPTIONS, type PresetId } from './sampleData'
 
 /**
@@ -17,6 +18,7 @@ const pageSize = defineModel<string>('pageSize', { required: true })
 const orientation = defineModel<'portrait' | 'landscape'>('orientation', { required: true })
 const pageless = defineModel<boolean>('pageless', { required: true })
 const virtualPages = defineModel<boolean>('virtualPages', { required: true })
+const zoom = defineModel<number>('zoom', { required: true })
 const editable = defineModel<boolean>('editable', { required: true })
 const mode = defineModel<DocumentMode>('mode', { required: true })
 const debug = defineModel<boolean>('debug', { required: true })
@@ -89,6 +91,12 @@ const CONNECTION_OPTIONS: ConnectionState[] = ['connected', 'connecting', 'disco
         <select v-model="orientation" class="pg-input pg-select">
           <option value="portrait">Portrait</option>
           <option value="landscape">Landscape</option>
+        </select>
+      </label>
+      <label class="pg-field">
+        <span class="pg-field__label">Zoom <code>zoom</code></span>
+        <select v-model.number="zoom" class="pg-input pg-select" :disabled="virtualPages">
+          <option v-for="preset in ZOOM_PRESETS" :key="preset" :value="preset">{{ preset }}%</option>
         </select>
       </label>
       <label class="pg-check"><input v-model="pageless" type="checkbox" /><span>pageless</span></label>

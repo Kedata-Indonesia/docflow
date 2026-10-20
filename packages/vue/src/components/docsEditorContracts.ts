@@ -50,6 +50,13 @@ export interface DocsEditorProps {
   /** Continuous mode: disables pagination so the document flows without page breaks. */
   pageless?: boolean
   /**
+   * Issue #144 — rendered zoom of the page surface, in percent (50–200, default
+   * 100). Reactive: the paper and its content scale visually while the layout
+   * (and therefore pagination) stays at 100 %. Disabled/pinned to 100 while
+   * `virtualPages` is on.
+   */
+  zoom?: number
+  /**
    * Enable virtual page overlay (experimental).
    * When true, only visible pages are rendered in DOM instead of all pages.
    * Uses PageLayout for measurement + viewport-based visibility tracking.
@@ -130,6 +137,7 @@ export const docsEditorPropDefaults = {
   collaboration: undefined,
   pageSize: 'a4',
   pageless: false,
+  zoom: 100,
   virtualPages: false,
   title: 'Untitled Document',
   collaborators: () => [],
@@ -172,6 +180,8 @@ export interface DocsEditorEmits {
   'update:header-footer-margins': [margins: { headerMarginCm: number; footerMarginCm: number }]
   /** Pageless (continuous) mode was toggled. */
   'update:pageless': [pageless: boolean]
+  /** Issue #144 — the page-surface zoom changed (percent). */
+  'update:zoom': [zoom: number]
   /** Document mode changed (issues #27/#28). */
   'update:mode': [mode: DocumentMode]
   /** The rendered page count changed. */

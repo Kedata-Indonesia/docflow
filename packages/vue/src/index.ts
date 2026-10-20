@@ -26,6 +26,14 @@ export {
   type AIDraftFn,
 } from '@kedata-indonesia/docflow-core'
 export { useTheme } from './composables/useTheme.js'
+// Issue #144 — zoom presets shared with hosts that build their own zoom UI.
+export {
+  ZOOM_PRESETS,
+  MIN_ZOOM,
+  MAX_ZOOM,
+  DEFAULT_ZOOM,
+  normalizeZoom,
+} from './composables/useEditorZoom.js'
 export { useLocale, provideLocale, getLocaleName, getSupportedLocales, type Locale } from './composables/useLocale.js'
 export { messages, defaultLocale, getLocaleMessages, isLocale, type Messages, type TranslationKey } from './locales/index.js'
 // Issue #153 — the derived list of header menu actions a host has to implement

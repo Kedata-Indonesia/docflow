@@ -42,6 +42,8 @@ export interface UsePageStatsOptions {
   getUpdateFootnotes: () => void
   /** `props.pageless` is read lazily so prop changes stay reactive. */
   getPagelessProp: () => boolean | undefined
+  /** Issue #144 — visual zoom factor (1 at 100 %), read lazily. */
+  getZoomScale?: () => number
   emit: (event: 'update:pageless', pageless: boolean) => void
 }
 
@@ -62,6 +64,7 @@ export function usePageStats(options: UsePageStatsOptions) {
     currentPage,
     getUpdateFootnotes,
     getPagelessProp,
+    getZoomScale,
     emit,
   } = options
 
@@ -86,7 +89,10 @@ export function usePageStats(options: UsePageStatsOptions) {
       if (coords && paginationElement) {
         const pageBreaks = Array.from(paginationElement.querySelectorAll(".rm-page-break"))
         const editorRect = editorDom.getBoundingClientRect()
-        const selectionTopRelativeToEditor = coords.top - editorRect.top + editorDom.scrollTop
+        // coords/rects are visual px (a zoom wrapper may scale them); the
+        // breaker offsets below are layout px, so normalize before comparing.
+        const zoomScale = Math.max(0.01, getZoomScale?.() ?? 1)
+        const selectionTopRelativeToEditor = (coords.top - editorRect.top) / zoomScale + editorDom.scrollTop
 
         let pageIndex = 1
         let found = false

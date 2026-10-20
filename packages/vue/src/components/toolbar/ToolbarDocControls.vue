@@ -87,14 +87,4 @@ function handlePrint() {
   >
     <SpellCheck class="h-[18px] w-[18px]" />
   </button>
-
-  <button
-    type="button"
-    :class="[controlBaseClass, 'px-2 text-xs']"
-    :title="t('toolbar.zoom')"
-    :aria-label="t('toolbar.zoom')"
-    @mousedown.prevent
-  >
-    {{ t('toolbar.zoom') }}
-  </button>
 </template>

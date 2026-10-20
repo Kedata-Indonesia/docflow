@@ -12,6 +12,7 @@ import { useToolbarItems } from '../composables/useToolbarItems.js'
 import { toolbarCommands } from './toolbar/toolbarCommands.js'
 import { TOOLBAR_DIVIDER } from '../styles/classes.js'
 import ToolbarDocControls from './toolbar/ToolbarDocControls.vue'
+import ToolbarZoom from './toolbar/ToolbarZoom.vue'
 import ToolbarParagraphStyle from './toolbar/ToolbarParagraphStyle.vue'
 import ToolbarFontFamily from './toolbar/ToolbarFontFamily.vue'
 import ToolbarFontSize from './toolbar/ToolbarFontSize.vue'
@@ -27,6 +28,10 @@ const props = defineProps<{
   plugins?: DocsEditorPlugin[]
   editor?: Editor | null
   activeSidebar?: SidebarKey | null
+  /** Issue #144 — page-surface zoom in percent (default 100). */
+  zoom?: number
+  /** Virtual pages are not zoom-aware; the control is disabled with a reason. */
+  zoomDisabled?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -35,6 +40,7 @@ const emit = defineEmits<{
   undo: []
   redo: []
   'toggle-left-sidebar': []
+  'update:zoom': [zoom: number]
 }>()
 
 const {
@@ -96,6 +102,11 @@ function applyFont(value: string) {
   closeAll()
   props.editor?.commands.focus()
 }
+
+function applyZoom(value: number) {
+  emit('update:zoom', value)
+  closeAll()
+}
 </script>
 
 <template>
@@ -109,6 +120,14 @@ function applyFont(value: string) {
         @undo="emit('undo')"
         @redo="emit('redo')"
         @print="emit('print')"
+      />
+
+      <ToolbarZoom
+        :zoom="zoom ?? 100"
+        :open="activeDropdown === 'zoom'"
+        :disabled="zoomDisabled"
+        @toggle="toggleDropdown('zoom')"
+        @apply="applyZoom"
       />
 
       <span :class="TOOLBAR_DIVIDER" />

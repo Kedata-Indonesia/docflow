@@ -12,6 +12,7 @@ import {
   type DocumentSnapshot,
   type DocumentMode,
   type Locale,
+  normalizeZoom,
 } from '@kedata-indonesia/docflow-vue'
 import { defaultPlugins } from '@kedata-indonesia/docflow-plugins'
 import type { CslStyleInfo } from '@kedata-indonesia/docflow-core'
@@ -49,6 +50,23 @@ const headerMarginCm = ref(0.5)
 const footerMarginCm = ref(0.5)
 const pageless = ref(false)
 const virtualPages = ref(false)
+const ZOOM_STORAGE_KEY = 'docflow.playground.zoom'
+const zoom = ref(
+  (() => {
+    try {
+      return normalizeZoom(Number(localStorage.getItem(ZOOM_STORAGE_KEY)) || 100)
+    } catch {
+      return 100
+    }
+  })(),
+)
+watch(zoom, (value) => {
+  try {
+    localStorage.setItem(ZOOM_STORAGE_KEY, String(value))
+  } catch {
+    // ignore private-mode storage failures
+  }
+})
 const editable = ref(true)
 const mode = ref<DocumentMode>('editing')
 const debug = ref(false)
@@ -306,6 +324,7 @@ function onReady(docsEditor: { editor: unknown; pluginActions?: unknown }): void
         v-model:orientation="orientation"
         v-model:pageless="pageless"
         v-model:virtual-pages="virtualPages"
+        v-model:zoom="zoom"
         v-model:editable="editable"
         v-model:mode="mode"
         v-model:debug="debug"
@@ -362,6 +381,7 @@ function onReady(docsEditor: { editor: unknown; pluginActions?: unknown }): void
         :footer-margin-cm="footerMarginCm"
         :pageless="pageless"
         :virtual-pages="virtualPages"
+        :zoom="zoom"
         :title="title"
         :user-name="userName"
         :locale="locale"
@@ -379,6 +399,7 @@ function onReady(docsEditor: { editor: unknown; pluginActions?: unknown }): void
         @update:margins="margins = $event; log('update:margins', JSON.stringify($event))"
         @update:header-footer-margins="onHeaderFooterMargins"
         @update:pageless="pageless = $event; log('update:pageless', String($event))"
+        @update:zoom="zoom = $event; log('update:zoom', `${$event}%`)"
         @update:page-count="pageCount = $event; log('update:pageCount', $event)"
         @update:locale="locale = $event; log('update:locale', $event)"
         @citation-style-imported="onCitationStyleImported"
