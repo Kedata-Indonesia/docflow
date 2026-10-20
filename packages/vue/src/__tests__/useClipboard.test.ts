@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { writeClipboard, readClipboardHtml, readClipboardText } from '../composables/useClipboard.js'
+import {
+  writeClipboard,
+  readClipboardHtml,
+  readClipboardText,
+  readClipboardImage,
+} from '../composables/useClipboard.js'
 
 describe('useClipboard', () => {
   afterEach(() => {
@@ -82,5 +87,46 @@ describe('useClipboard', () => {
   it('readClipboardHtml returns null when the API is absent', async () => {
     vi.stubGlobal('navigator', {})
     expect(await readClipboardHtml()).toBeNull()
+  })
+
+  it('readClipboardImage returns the first supported image as a File', async () => {
+    const png = new Blob([new Uint8Array([137, 80, 78, 71])], { type: 'image/png' })
+    vi.stubGlobal('navigator', {
+      clipboard: {
+        read: vi.fn().mockResolvedValue([
+          {
+            types: ['text/plain', 'image/png'],
+            getType: vi.fn(async (type: string) =>
+              type === 'image/png' ? png : new Blob(['x'], { type: 'text/plain' }),
+            ),
+          },
+        ]),
+      },
+    })
+
+    const file = await readClipboardImage()
+    expect(file?.type).toBe('image/png')
+    expect(file?.name).toBe('pasted-image.png')
+  })
+
+  it('readClipboardImage skips unsupported image formats', async () => {
+    vi.stubGlobal('navigator', {
+      clipboard: {
+        read: vi.fn().mockResolvedValue([
+          {
+            types: ['image/svg+xml'],
+            getType: vi.fn().mockResolvedValue(new Blob(['<svg />'], { type: 'image/svg+xml' })),
+          },
+        ]),
+      },
+    })
+    expect(await readClipboardImage()).toBeNull()
+  })
+
+  it('readClipboardImage returns null when permission is denied', async () => {
+    vi.stubGlobal('navigator', {
+      clipboard: { read: vi.fn().mockRejectedValue(new Error('denied')) },
+    })
+    expect(await readClipboardImage()).toBeNull()
   })
 })
