@@ -2,6 +2,7 @@
 import { PAGE_SIZES } from '@kedata-indonesia/docflow-layout-engine'
 import { useLocale } from '../composables/useLocale.js'
 import { useDraftModel } from '../composables/useDraftModel.js'
+import { DIALOG_INPUT } from '../styles/classes.js'
 
 const { t } = useLocale()
 
@@ -100,19 +101,19 @@ const marginRight = useDraftModel(
         <div class="grid grid-cols-2 gap-3">
           <div>
             <label class="text-[11px] text-slate-500 dark:text-slate-400 block mb-1">{{ t('editor.pageSetup.top') }}</label>
-            <input v-model.number="marginTop" type="number" :min="marginMin" :max="marginMax" step="0.1" class="w-full rounded-md border border-slate-200 bg-transparent px-3 py-1.5 text-xs focus:outline-none dark:border-slate-700">
+            <input v-model.number="marginTop" type="number" :min="marginMin" :max="marginMax" step="0.1" :class="DIALOG_INPUT">
           </div>
           <div>
             <label class="text-[11px] text-slate-500 dark:text-slate-400 block mb-1">{{ t('editor.pageSetup.bottom') }}</label>
-            <input v-model.number="marginBottom" type="number" :min="marginMin" :max="marginMax" step="0.1" class="w-full rounded-md border border-slate-200 bg-transparent px-3 py-1.5 text-xs focus:outline-none dark:border-slate-700">
+            <input v-model.number="marginBottom" type="number" :min="marginMin" :max="marginMax" step="0.1" :class="DIALOG_INPUT">
           </div>
           <div>
             <label class="text-[11px] text-slate-500 dark:text-slate-400 block mb-1">{{ t('editor.pageSetup.left') }}</label>
-            <input v-model.number="marginLeft" type="number" :min="marginMin" :max="marginMax" step="0.1" class="w-full rounded-md border border-slate-200 bg-transparent px-3 py-1.5 text-xs focus:outline-none dark:border-slate-700">
+            <input v-model.number="marginLeft" type="number" :min="marginMin" :max="marginMax" step="0.1" :class="DIALOG_INPUT">
           </div>
           <div>
             <label class="text-[11px] text-slate-500 dark:text-slate-400 block mb-1">{{ t('editor.pageSetup.right') }}</label>
-            <input v-model.number="marginRight" type="number" :min="marginMin" :max="marginMax" step="0.1" class="w-full rounded-md border border-slate-200 bg-transparent px-3 py-1.5 text-xs focus:outline-none dark:border-slate-700">
+            <input v-model.number="marginRight" type="number" :min="marginMin" :max="marginMax" step="0.1" :class="DIALOG_INPUT">
           </div>
         </div>
       </div>

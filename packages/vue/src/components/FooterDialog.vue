@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useLocale } from '../composables/useLocale.js'
 import { useDraftModel } from '../composables/useDraftModel.js'
+import { DIALOG_INPUT } from '../styles/classes.js'
 
 const { t } = useLocale()
 
@@ -42,11 +43,11 @@ const right = useDraftModel(
         <div class="grid grid-cols-2 gap-3">
           <div>
             <label class="text-[11px] font-medium block mb-1">{{ t('editor.headerFooter.left') }}</label>
-            <input v-model="left" type="text" class="w-full rounded-md border border-slate-200 bg-transparent px-3 py-1.5 text-xs focus:outline-none dark:border-slate-700" :placeholder="t('editor.headerFooter.footerLeftPlaceholder')">
+            <input v-model="left" type="text" :class="DIALOG_INPUT" :placeholder="t('editor.headerFooter.footerLeftPlaceholder')">
           </div>
           <div>
             <label class="text-[11px] font-medium block mb-1">{{ t('editor.headerFooter.right') }}</label>
-            <input v-model="right" type="text" class="w-full rounded-md border border-slate-200 bg-transparent px-3 py-1.5 text-xs focus:outline-none dark:border-slate-700" :placeholder="t('editor.headerFooter.footerRightPlaceholder')">
+            <input v-model="right" type="text" :class="DIALOG_INPUT" :placeholder="t('editor.headerFooter.footerRightPlaceholder')">
           </div>
         </div>
       </div>

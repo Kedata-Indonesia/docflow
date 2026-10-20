@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useLocale } from '../composables/useLocale.js'
 import { useDraftModel } from '../composables/useDraftModel.js'
+import { CHECKBOX_LABEL } from '../styles/classes.js'
 
 const { t } = useLocale()
 
@@ -51,11 +52,11 @@ const startAt = useDraftModel(
       <div class="mb-6">
         <h3 class="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-3">{{ t('editor.headerFooter.positionSection') }}</h3>
         <div class="space-y-3">
-          <label class="flex items-center gap-3 cursor-pointer text-xs font-medium text-slate-700 dark:text-slate-300 select-none">
+          <label :class="CHECKBOX_LABEL">
             <input v-model="position" type="radio" value="header" class="w-4 h-4 text-blue-600 focus:ring-blue-500" />
             <span>{{ t('editor.headerFooter.positionHeader') }}</span>
           </label>
-          <label class="flex items-center gap-3 cursor-pointer text-xs font-medium text-slate-700 dark:text-slate-300 select-none">
+          <label :class="CHECKBOX_LABEL">
             <input v-model="position" type="radio" value="footer" class="w-4 h-4 text-blue-600 focus:ring-blue-500" />
             <span>{{ t('editor.headerFooter.positionFooter') }}</span>
           </label>
@@ -71,13 +72,13 @@ const startAt = useDraftModel(
         <h3 class="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-3">{{ t('editor.headerFooter.numberingSection') }}</h3>
         <div class="space-y-3">
           <div class="flex items-center gap-3">
-            <label class="flex items-center gap-3 cursor-pointer text-xs font-medium text-slate-700 dark:text-slate-300 select-none">
+            <label :class="CHECKBOX_LABEL">
               <input v-model="mode" type="radio" value="startAt" class="w-4 h-4 text-blue-600 focus:ring-blue-500" />
               <span>{{ t('editor.headerFooter.startAt') }}</span>
             </label>
             <input v-model="startAt" type="number" min="1" class="w-16 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a2332] px-2.5 py-1 text-xs text-slate-800 dark:text-slate-100 focus:border-blue-600 focus:outline-none" />
           </div>
-          <label class="flex items-center gap-3 cursor-pointer text-xs font-medium text-slate-700 dark:text-slate-300 select-none">
+          <label :class="CHECKBOX_LABEL">
             <input v-model="mode" type="radio" value="continue" class="w-4 h-4 text-blue-600 focus:ring-blue-500" />
             <span>{{ t('editor.headerFooter.continueFromPrevious') }}</span>
           </label>

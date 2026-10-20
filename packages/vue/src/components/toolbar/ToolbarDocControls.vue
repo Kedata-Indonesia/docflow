@@ -4,6 +4,7 @@ import { Printer, Redo2, SpellCheck, Undo2 } from 'lucide-vue-next'
 import { useLocale } from '../../composables/useLocale.js'
 import { controlBaseClass } from './toolbarConfig.js'
 import { toolbarCommands } from './toolbarCommands.js'
+import { TOOLBAR_DIVIDER } from '../../styles/classes.js'
 
 const { t } = useLocale()
 
@@ -63,7 +64,7 @@ function handlePrint() {
     <Redo2 class="h-[18px] w-[18px]" />
   </button>
 
-  <span class="mx-1 h-5 w-px flex-shrink-0 bg-slate-200 dark:bg-white/10" />
+  <span :class="TOOLBAR_DIVIDER" />
 
   <button
     type="button"

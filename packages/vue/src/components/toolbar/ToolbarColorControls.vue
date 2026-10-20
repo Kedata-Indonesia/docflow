@@ -6,6 +6,7 @@ import { useLocale } from '../../composables/useLocale.js'
 import ColorPickerDropdown from '../ColorPickerDropdown.vue'
 import { controlBaseClass, toolbarItemLabel } from './toolbarConfig.js'
 import { runToolbarAction } from './toolbarCommands.js'
+import { TOOLBAR_DIVIDER } from '../../styles/classes.js'
 
 const { t } = useLocale()
 
@@ -57,7 +58,7 @@ function resetColor(action: string) {
 <template>
   <span
     v-if="textColorItem || highlightItem"
-    class="mx-1 h-5 w-px flex-shrink-0 bg-slate-200 dark:bg-white/10"
+    :class="TOOLBAR_DIVIDER"
   />
 
   <div v-if="textColorItem" class="toolbar-dropdown relative flex-shrink-0">

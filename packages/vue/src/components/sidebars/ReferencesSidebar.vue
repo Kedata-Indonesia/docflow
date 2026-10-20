@@ -15,6 +15,7 @@ import {
 } from 'lucide-vue-next'
 import type { CslItemData, CslName } from '@kedata-indonesia/docflow-core'
 import { useLocale } from '../../composables/useLocale.js'
+import { FIELD_INPUT, FIELD_LABEL } from '../../styles/classes.js'
 
 /**
  * Reference manager — a backend-agnostic UI shell (Phase 6B-3). It owns no
@@ -429,7 +430,7 @@ async function handleBibFileChange(event: Event) {
         <div v-if="importOpen" class="space-y-3 px-4 pb-4">
           <!-- DOI -->
           <div>
-            <label class="mb-1 block text-[10px] font-semibold text-slate-500 dark:text-slate-400">
+            <label :class="FIELD_LABEL">
               {{ t('sidebars.references.import.fromDoi') }}
             </label>
             <div class="flex items-center gap-1.5">
@@ -455,7 +456,7 @@ async function handleBibFileChange(event: Event) {
 
           <!-- BibTeX / RIS file -->
           <div>
-            <label class="mb-1 block text-[10px] font-semibold text-slate-500 dark:text-slate-400">
+            <label :class="FIELD_LABEL">
               {{ t('sidebars.references.import.fromFile') }}
             </label>
             <button
@@ -505,10 +506,10 @@ async function handleBibFileChange(event: Event) {
         <form class="space-y-3.5" @submit.prevent="submitForm">
           <!-- Type -->
           <div>
-            <label class="mb-1 block text-[10px] font-semibold text-slate-500 dark:text-slate-400">{{ t('sidebars.references.form.type') }}</label>
+            <label :class="FIELD_LABEL">{{ t('sidebars.references.form.type') }}</label>
             <select
               v-model="formType"
-              class="w-full rounded-lg border border-slate-200/80 bg-slate-50 px-3 py-2 text-xs dark:border-white/10 dark:bg-slate-900/40 dark:text-slate-200"
+              :class="FIELD_INPUT"
             >
               <option v-for="type in sourceTypes" :key="type" :value="type">{{ typeLabel(type) }}</option>
             </select>
@@ -516,18 +517,18 @@ async function handleBibFileChange(event: Event) {
 
           <!-- Title -->
           <div>
-            <label class="mb-1 block text-[10px] font-semibold text-slate-500 dark:text-slate-400">{{ t('sidebars.references.form.title') }} *</label>
+            <label :class="FIELD_LABEL">{{ t('sidebars.references.form.title') }} *</label>
             <input
               v-model="formTitle"
               type="text"
               required
-              class="w-full rounded-lg border border-slate-200/80 bg-slate-50 px-3 py-2 text-xs dark:border-white/10 dark:bg-slate-900/40 dark:text-slate-200"
+              :class="FIELD_INPUT"
             >
           </div>
 
           <!-- Authors -->
           <div>
-            <label class="mb-1 block text-[10px] font-semibold text-slate-500 dark:text-slate-400">{{ t('sidebars.references.form.authors') }}</label>
+            <label :class="FIELD_LABEL">{{ t('sidebars.references.form.authors') }}</label>
             <div class="space-y-2">
               <div v-for="(author, index) in formAuthors" :key="index" class="flex items-center gap-1.5">
                 <input
@@ -563,43 +564,43 @@ async function handleBibFileChange(event: Event) {
 
           <!-- Year -->
           <div>
-            <label class="mb-1 block text-[10px] font-semibold text-slate-500 dark:text-slate-400">{{ t('sidebars.references.form.year') }}</label>
+            <label :class="FIELD_LABEL">{{ t('sidebars.references.form.year') }}</label>
             <input
               v-model="formYear"
               type="number"
               min="0"
-              class="w-full rounded-lg border border-slate-200/80 bg-slate-50 px-3 py-2 text-xs dark:border-white/10 dark:bg-slate-900/40 dark:text-slate-200"
+              :class="FIELD_INPUT"
             >
           </div>
 
           <!-- Container (journal / book title for chapters) -->
           <div v-if="showContainerFields">
-            <label class="mb-1 block text-[10px] font-semibold text-slate-500 dark:text-slate-400">
+            <label :class="FIELD_LABEL">
               {{ formType === 'chapter' ? t('sidebars.references.form.bookTitle') : t('sidebars.references.form.journal') }}
             </label>
             <input
               v-model="formContainerTitle"
               type="text"
-              class="w-full rounded-lg border border-slate-200/80 bg-slate-50 px-3 py-2 text-xs dark:border-white/10 dark:bg-slate-900/40 dark:text-slate-200"
+              :class="FIELD_INPUT"
             >
           </div>
 
           <!-- Publisher -->
           <div v-if="showPublisherFields" class="grid grid-cols-2 gap-2">
             <div>
-              <label class="mb-1 block text-[10px] font-semibold text-slate-500 dark:text-slate-400">{{ t('sidebars.references.form.publisher') }}</label>
+              <label :class="FIELD_LABEL">{{ t('sidebars.references.form.publisher') }}</label>
               <input
                 v-model="formPublisher"
                 type="text"
-                class="w-full rounded-lg border border-slate-200/80 bg-slate-50 px-3 py-2 text-xs dark:border-white/10 dark:bg-slate-900/40 dark:text-slate-200"
+                :class="FIELD_INPUT"
               >
             </div>
             <div>
-              <label class="mb-1 block text-[10px] font-semibold text-slate-500 dark:text-slate-400">{{ t('sidebars.references.form.publisherPlace') }}</label>
+              <label :class="FIELD_LABEL">{{ t('sidebars.references.form.publisherPlace') }}</label>
               <input
                 v-model="formPublisherPlace"
                 type="text"
-                class="w-full rounded-lg border border-slate-200/80 bg-slate-50 px-3 py-2 text-xs dark:border-white/10 dark:bg-slate-900/40 dark:text-slate-200"
+                :class="FIELD_INPUT"
               >
             </div>
           </div>
@@ -607,50 +608,50 @@ async function handleBibFileChange(event: Event) {
           <!-- Volume / issue / pages -->
           <div v-if="showLocatorFields" class="grid grid-cols-3 gap-2">
             <div>
-              <label class="mb-1 block text-[10px] font-semibold text-slate-500 dark:text-slate-400">{{ t('sidebars.references.form.volume') }}</label>
+              <label :class="FIELD_LABEL">{{ t('sidebars.references.form.volume') }}</label>
               <input
                 v-model="formVolume"
                 type="text"
-                class="w-full rounded-lg border border-slate-200/80 bg-slate-50 px-3 py-2 text-xs dark:border-white/10 dark:bg-slate-900/40 dark:text-slate-200"
+                :class="FIELD_INPUT"
               >
             </div>
             <div>
-              <label class="mb-1 block text-[10px] font-semibold text-slate-500 dark:text-slate-400">{{ t('sidebars.references.form.issue') }}</label>
+              <label :class="FIELD_LABEL">{{ t('sidebars.references.form.issue') }}</label>
               <input
                 v-model="formIssue"
                 type="text"
-                class="w-full rounded-lg border border-slate-200/80 bg-slate-50 px-3 py-2 text-xs dark:border-white/10 dark:bg-slate-900/40 dark:text-slate-200"
+                :class="FIELD_INPUT"
               >
             </div>
             <div>
-              <label class="mb-1 block text-[10px] font-semibold text-slate-500 dark:text-slate-400">{{ t('sidebars.references.form.pages') }}</label>
+              <label :class="FIELD_LABEL">{{ t('sidebars.references.form.pages') }}</label>
               <input
                 v-model="formPage"
                 type="text"
-                class="w-full rounded-lg border border-slate-200/80 bg-slate-50 px-3 py-2 text-xs dark:border-white/10 dark:bg-slate-900/40 dark:text-slate-200"
+                :class="FIELD_INPUT"
               >
             </div>
           </div>
 
           <!-- DOI -->
           <div v-if="formType === 'article-journal'">
-            <label class="mb-1 block text-[10px] font-semibold text-slate-500 dark:text-slate-400">DOI</label>
+            <label :class="FIELD_LABEL">DOI</label>
             <input
               v-model="formDOI"
               type="text"
               placeholder="10.xxxx/xxxxx"
-              class="w-full rounded-lg border border-slate-200/80 bg-slate-50 px-3 py-2 text-xs dark:border-white/10 dark:bg-slate-900/40 dark:text-slate-200"
+              :class="FIELD_INPUT"
             >
           </div>
 
           <!-- URL -->
           <div v-if="showUrlField">
-            <label class="mb-1 block text-[10px] font-semibold text-slate-500 dark:text-slate-400">URL</label>
+            <label :class="FIELD_LABEL">URL</label>
             <input
               v-model="formURL"
               type="url"
               placeholder="https://…"
-              class="w-full rounded-lg border border-slate-200/80 bg-slate-50 px-3 py-2 text-xs dark:border-white/10 dark:bg-slate-900/40 dark:text-slate-200"
+              :class="FIELD_INPUT"
             >
           </div>
 
