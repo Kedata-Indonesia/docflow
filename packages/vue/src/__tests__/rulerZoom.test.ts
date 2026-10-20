@@ -17,10 +17,12 @@ describe('rulers at zoom (#144)', () => {
     // Centred before the measured track arrives.
     expect(track.attributes('style')).toContain('translateX(-50%)')
 
-    const markers = wrapper.findAll('.border-t-blue-400')
+    // Markers are the draggable wrappers (#295); the triangle inside is decoration.
+    const markers = wrapper.findAll('[data-testid^="ruler-margin-"]')
     expect(markers).toHaveLength(2)
     expect(markers[0].attributes('style')).toContain('left: 144px')
     expect(markers[1].attributes('style')).toContain('left: 1047px')
+    expect(wrapper.findAll('.border-t-blue-400')).toHaveLength(2)
 
     // Tick spacing is 48px × 1.5; labels are emitted every 96px (every 2 ticks).
     const labels = wrapper.findAll('.docs-editor-ruler span')

@@ -22,6 +22,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Draggable ruler margins (issue #295):** the ruler's two margin markers are no
+  longer decoration — drag one to change the page margin, or focus it and use the
+  arrow keys (8 px a press, 24 px with Shift). The ruler owns no state: it reports
+  the margins it wants and `DocsEditor` writes them into the same ref the Page Setup
+  dialog uses, so the paper re-lays out live and both controls always agree. Values
+  are clamped to the dialog's 5 cm cap and never more than half the page; dragging
+  is zoom-aware (a 60 px drag at 150 % is 40 layout px) and emits `update:margins`.
+  Margins stay view state — the document is untouched.
+  _([#295](https://github.com/Kedata-Indonesia/docflow/issues/295))_
+
 - **Zoom control (issue #144):** the toolbar's static `100 %` button is now a
   preset dropdown (50/75/100/125/150/200 %). The page surface scales visually
   while the layout — and therefore PaginationPlus — stays at 100 %: the patched
