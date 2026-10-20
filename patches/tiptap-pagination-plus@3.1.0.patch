@@ -1,5 +1,5 @@
 diff --git a/dist/PaginationPlus.js b/dist/PaginationPlus.js
-index 186b6759ba503bbc707e3d8efa98e8b6e396b026..48c3df4ff492d44d2255743155880578736fb4ed 100644
+index 186b6759ba503bbc707e3d8efa98e8b6e396b026..277c48cb281483dcd899d849c0aaf39de38032f0 100644
 --- a/dist/PaginationPlus.js
 +++ b/dist/PaginationPlus.js
 @@ -171,11 +171,6 @@ export const PaginationPlus = Extension.create({
@@ -24,8 +24,20 @@ index 186b6759ba503bbc707e3d8efa98e8b6e396b026..48c3df4ff492d44d2255743155880578
  const calculatePageCount = (view, pageOptions, headerHeight = 0, footerHeight = 0) => {
      var _a;
      const editorDom = view.dom;
-@@ -541,9 +539,55 @@ const calculatePageCount = (view, pageOptions, headerHeight = 0, footerHeight =
-                 lastPageBreakRect.bottom;
+@@ -537,13 +535,65 @@ const calculatePageCount = (view, pageOptions, headerHeight = 0, footerHeight =
+         if (lastElementOfEditor && lastPageBreak) {
+             const lastElementRect = lastElementOfEditor.getBoundingClientRect();
+             const lastPageBreakRect = lastPageBreak.getBoundingClientRect();
+-            const lastPageGap = lastElementRect.bottom -
+-                lastPageBreakRect.bottom;
++            const zoomRaw = typeof getComputedStyle === "function"
++                ? parseFloat(getComputedStyle(editorDom).getPropertyValue("--docflow-zoom"))
++                : 1;
++            const pageZoom = Number.isFinite(zoomRaw) && zoomRaw > 0 ? zoomRaw : 1;
++            // docflow zoom (#144): getBoundingClientRect is visual px while the page
++            // options above are layout px. Normalize the rect-derived gap so a visual
++            // scale on an ancestor does not multiply the page count.
++            const lastPageGap = (lastElementRect.bottom - lastPageBreakRect.bottom) / pageZoom;
              if (lastPageGap > 0) {
                  const addPage = Math.ceil(lastPageGap / pageContentAreaHeight);
 +                // docflow #19: a tall last block is NOT a reason to freeze the
@@ -61,7 +73,7 @@ index 186b6759ba503bbc707e3d8efa98e8b6e396b026..48c3df4ff492d44d2255743155880578
 +                    if (!(child instanceof HTMLElement)) continue;
 +                    if (child.hasAttribute('data-rm-pagination')) continue;
 +                    if (child.classList.contains('rm-page-break')) continue;
-+                    totalEditorContentHeight += child.getBoundingClientRect().height;
++                    totalEditorContentHeight += child.getBoundingClientRect().height / pageZoom;
 +                }
 +                const maxPagesByContent = Math.ceil(totalEditorContentHeight / pageContentAreaHeight);
 +                const contentCap = Math.max(currentPageCount, maxPagesByContent + 1);

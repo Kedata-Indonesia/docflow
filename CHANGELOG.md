@@ -22,6 +22,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Zoom control (issue #144):** the toolbar's static `100 %` button is now a
+  preset dropdown (50/75/100/125/150/200 %). The page surface scales visually
+  while the layout — and therefore PaginationPlus — stays at 100 %: the patched
+  pagination normalizes its `getBoundingClientRect` math through
+  `--docflow-zoom`, so page breaks and page counts stay correct at every zoom.
+  The rulers scale and track the paper (including horizontal scroll), print
+  resets the transform, and `zoom` is host-owned via the new `update:zoom` emit
+  (default 100, clamped to 50–200). Virtual pages are not zoom-aware yet: the
+  control is disabled and the value pinned to 100 while `virtualPages` is on.
+  _([#144](https://github.com/Kedata-Indonesia/docflow/issues/144))_
+
 - **Bibliography in the Insert menu:** when the citation plugin is loaded,
   **Insert ▸ Bibliography** (directly below Footnote) inserts the derived
   bibliography block — one per document, re-rendered from the cited sources and

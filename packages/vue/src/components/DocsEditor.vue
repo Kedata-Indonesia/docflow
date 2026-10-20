@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { PAGE_SIZES } from '@kedata-indonesia/docflow-layout-engine'
 import { useDocsEditorPageSurface } from '../composables/useDocsEditorPageSurface.js'
+import { useEditorZoom } from '../composables/useEditorZoom.js'
+import { useZoomSurface } from '../composables/useZoomSurface.js'
+import { useRulerSync } from '../composables/useRulerSync.js'
 import { useDocsEditorSession } from '../composables/useDocsEditorSession.js'
 import { useDocsEditorHeaderFooterState } from '../composables/useDocsEditorHeaderFooterState.js'
 import { useDocsEditorPaging } from '../composables/useDocsEditorPaging.js'
@@ -114,6 +117,27 @@ const {
 const pageCount = ref(1)
 const currentPage = ref(1)
 
+// ─── Zoom (issue #144) ───────────────────────────────────────────────────────
+// Visual scale on a wrapper around the paper: the layout (and pagination) stays
+// at 100 %, `--docflow-zoom` lets the pagination patch normalize its rect math.
+const { zoom, scale, disabled: zoomDisabled, setZoom } = useEditorZoom({
+  getZoom: () => props.zoom,
+  isVirtual: () => useVirtual.value,
+  emit: (value) => emit('update:zoom', value),
+})
+const {
+  surfaceRef: zoomSurfaceRef,
+  outerStyle: zoomOuterStyle,
+  innerStyle: zoomInnerStyle,
+} = useZoomSurface(scale)
+const rulerRef = ref<HTMLElement | null>(null)
+const { pageLeft: rulerPageLeft, pageWidth: rulerPageWidth } = useRulerSync({
+  rulerRef,
+  paperRef: zoomSurfaceRef,
+  scrollRef: scrollContainerRef,
+  watchSource: () => `${zoom.value}:${pageSizeId.value}:${orientation.value}:${isPageless.value}`,
+})
+
 // Document details must reflect the document currently open in the editor.
 // Word/char/page counts already live in the editor (the same values the status
 // bar uses); the host-supplied meta still provides title/owner/folder/dates.
@@ -191,6 +215,7 @@ const {
   // Footnotes are created last; read lazily.
   getUpdateFootnotes: () => updateFootnotes(),
   getPagelessProp: () => props.pageless,
+  getZoomScale: () => scale.value,
 })
 
 // ─── Ready hook + lifecycle cleanup ──────────────────────────────────────────
@@ -199,6 +224,7 @@ useDocsEditorBootstrap({
   footerMarginCm, applyHeaderFooter, openFooterModal, startInlineHeaderEdit, updateBubbleMenu, updatePageStats,
   updateCounts, scheduleCommentAnchorScan, openLinkDialog, emit, finishHeaderEdit, saveTimer,
   getCollaboration: () => props.collaboration,
+  getZoomScale: () => scale.value,
 })
 
 const showDetailsModal = ref(false)
@@ -257,8 +283,16 @@ void [openHeaderFormatModal, openPageNumberModal]
     <EditorToolbar
       v-if="!focusMode"
       :actions="pluginActions" :plugins="plugins" :editor="editor" :active-sidebar="activeSidebar"
-      @toggle-sidebar="toggleSidebar" @print="handlePrint" />
-    <RulerBar v-if="showRuler && !focusMode" :layout-options="resolvedLayoutOptions" />
+      :zoom="zoom" :zoom-disabled="zoomDisabled"
+      @toggle-sidebar="toggleSidebar" @print="handlePrint" @update:zoom="setZoom" />
+    <div v-if="showRuler && !focusMode" ref="rulerRef" class="w-full flex-shrink-0">
+      <RulerBar
+        :layout-options="resolvedLayoutOptions"
+        :zoom="zoom"
+        :page-left-px="rulerPageLeft"
+        :page-width-px="rulerPageWidth"
+      />
+    </div>
     <!-- Floating exit button shown only while focus mode is active -->
     <button
       v-if="focusMode" type="button"
@@ -289,17 +323,23 @@ void [openHeaderFormatModal, openPageNumberModal]
       </button>
 
       <div ref="scrollContainerRef" class="docs-editor-scroll relative flex flex-1 overflow-auto px-4 py-6 bg-slate-100 dark:bg-[#02040a]" @scroll="handleScroll">
-        <VerticalRuler v-if="showRuler && !focusMode" :layout-options="resolvedLayoutOptions" />
+        <VerticalRuler v-if="showRuler && !focusMode" :layout-options="resolvedLayoutOptions" :zoom="zoom" />
         <div class="flex flex-1 flex-col items-center gap-4 w-full relative">
-          <div class="relative w-full" :style="{ maxWidth: paperMaxWidth }">
-            <!-- Virtual Page Overlay (experimental) — renders only visible pages,
-                 absolutely positioned over the editor, behind content (z-index: 0) -->
-            <VirtualPageOverlay v-if="useVirtual" :data="virtualData" :is-ready="virtualReady" />
-            <!-- Loading Indicator Overlay -->
-            <div v-if="!isReady" class="absolute inset-0 z-10 flex flex-col items-center justify-center bg-white dark:bg-[#0e1525]/60 backdrop-blur-[2px] gap-3 rounded-lg" :aria-label="t('editor.loadingDocument')"></div>
+          <div class="docs-editor-zoom w-full" data-testid="docs-editor-zoom" :style="zoomOuterStyle">
+            <div
+              ref="zoomSurfaceRef"
+              class="docs-editor-zoom__inner relative w-full"
+              :style="[zoomInnerStyle, { maxWidth: paperMaxWidth }]"
+            >
+              <!-- Virtual Page Overlay (experimental) — renders only visible pages,
+                   absolutely positioned over the editor, behind content (z-index: 0) -->
+              <VirtualPageOverlay v-if="useVirtual" :data="virtualData" :is-ready="virtualReady" />
+              <!-- Loading Indicator Overlay -->
+              <div v-if="!isReady" class="absolute inset-0 z-10 flex flex-col items-center justify-center bg-white dark:bg-[#0e1525]/60 backdrop-blur-[2px] gap-3 rounded-lg" :aria-label="t('editor.loadingDocument')"></div>
 
-            <!-- Editor -->
-            <div ref="editorRef" class="docs-editor__paper outline-none text-slate-800 dark:text-[#e2e8f0]" :class="{ 'opacity-40': !isReady }" />
+              <!-- Editor -->
+              <div ref="editorRef" class="docs-editor__paper outline-none text-slate-800 dark:text-[#e2e8f0]" :class="{ 'opacity-40': !isReady }" />
+            </div>
           </div>
         </div>
       </div>

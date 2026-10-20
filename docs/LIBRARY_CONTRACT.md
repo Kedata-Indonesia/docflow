@@ -155,7 +155,14 @@ they are listed here so reviewers don't mistake them for leaks:
 - `citation-style-imported` emit — [docsEditorContracts.ts](../packages/vue/src/components/docsEditorContracts.ts), fired from [useCitations.ts](../packages/vue/src/composables/useCitations.ts):
   `[style: CslStyleInfo]`. Fired after the user imports a `.csl` file and the engine registers it. The style is available (and selected) for this session immediately; hosts that want it after a reload persist `{ id, name, category, xml }` and re-supply it through `citation.styles` on the next mount. Only `.csl` files are CSL — `.bst` (BibTeX) and `.ens` (EndNote) are rejected with a message, not converted.
 - `share`, `toggle-star`, `back`, `menu-click`, `update:title`, `update:pageSize`,
-  `update:pageCount`, `update:locale` emits — pure UI intent signals.
+  `update:zoom` (issue #144), `update:pageCount`, `update:locale` emits — pure UI intent signals.
+- `zoom` prop (issue #144) — host-owned page-surface zoom in percent (50–200,
+  default 100). The paper and its content are scaled visually; the layout — and
+  therefore pagination — stays at 100 % because the patched PaginationPlus
+  normalizes its `getBoundingClientRect` math through `--docflow-zoom`. The
+  rulers scale and track the paper (including horizontal scroll) and print
+  resets the transform. Virtual pages are not zoom-aware yet: the control is
+  disabled and the value pinned to 100 while `virtualPages` is on.
 - `shareUrl`, `documentMeta`, `collaborators`, `connectionState`, `userName`, `userAvatar`
   props — host-supplied display data, rendered but never fetched by the library.
 - `HOST_OWNED_ACTIONS` + `unimplementedActions` prop (issue #153) — the header menu

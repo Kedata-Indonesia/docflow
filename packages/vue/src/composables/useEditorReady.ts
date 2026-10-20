@@ -19,6 +19,8 @@ export interface UseEditorReadyOptions {
   updateCounts: () => void
   scheduleCommentAnchorScan: () => void
   openLinkDialog: () => void
+  /** Issue #144 — visual zoom factor (1 at 100 %), read lazily. */
+  getZoomScale?: () => number
   emit: (event: 'ready', docsEditor: DocsEditor) => void
 }
 
@@ -50,6 +52,7 @@ export function useEditorReady(options: UseEditorReadyOptions) {
     updateCounts,
     scheduleCommentAnchorScan,
     openLinkDialog,
+    getZoomScale,
     emit,
   } = options
 
@@ -127,7 +130,9 @@ export function useEditorReady(options: UseEditorReadyOptions) {
         const pageWrap = target.closest<HTMLElement>('.rm-with-pagination, .rm-page-break, .page, .docs-editor-page')
         if (pageWrap) {
           const rect = pageWrap.getBoundingClientRect()
-          const relativeY = e.clientY - rect.top
+          // Rects are visual px under the zoom transform; margins are layout px.
+          const zoomScale = Math.max(0.01, getZoomScale?.() ?? 1)
+          const relativeY = (e.clientY - rect.top) / zoomScale
           const topMarginPx = headerMarginCm.value * 37.795
           if (relativeY >= 0 && relativeY <= Math.max(topMarginPx, 40) + 15) {
             let targetHeader: HTMLElement | null = null
@@ -158,7 +163,8 @@ export function useEditorReady(options: UseEditorReadyOptions) {
         const pageWrap = target.closest<HTMLElement>('.rm-with-pagination, .rm-page-break, .page, .docs-editor-page')
         if (pageWrap) {
           const rect = pageWrap.getBoundingClientRect()
-          const relativeY = rect.bottom - e.clientY
+          const zoomScale = Math.max(0.01, getZoomScale?.() ?? 1)
+          const relativeY = (rect.bottom - e.clientY) / zoomScale
           const bottomMarginPx = footerMarginCm.value * 37.795
           if (relativeY >= 0 && relativeY <= Math.max(bottomMarginPx, 40) + 15) {
             openFooterModal()

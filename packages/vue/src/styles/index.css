@@ -1336,6 +1336,33 @@
   pointer-events: auto !important;
 }
 
+/* Issue #144 — visual zoom surface. The outer wrapper carries the scaled box
+   (its width/height are set inline by useZoomSurface); the inner wrapper keeps
+   the paper at its 100 % layout size and is scaled with a transform, so layout
+   and pagination stay stable. `--docflow-zoom` is read by the pagination patch
+   to normalize getBoundingClientRect values against layout px. */
+.docs-editor-zoom {
+  position: relative;
+  margin-inline: auto;
+}
+
+.docs-editor-zoom__inner {
+  will-change: transform;
+}
+
+@media print {
+  .docs-editor-zoom {
+    width: auto !important;
+    height: auto !important;
+    margin: 0 !important;
+  }
+
+  .docs-editor-zoom__inner {
+    width: auto !important;
+    transform: none !important;
+  }
+}
+
 /* Google Docs-style header editing is rendered outside the ProseMirror view.
    The generated PaginationPlus header remains display-only, so typing here
    cannot be parsed into the body document by ProseMirror's DOM observer. */
@@ -1359,7 +1386,7 @@
   user-select: text !important;
   white-space: pre-wrap !important;
   overflow-wrap: anywhere !important;
-  font-size: 14px !important;
+  font-size: calc(14px * var(--docflow-zoom, 1)) !important;
   line-height: 1.5 !important;
   color: inherit !important;
   background: transparent !important;

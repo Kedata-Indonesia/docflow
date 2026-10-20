@@ -272,6 +272,7 @@ const MyPlugin = definePlugin({
 | `collaboration` | `CollaborationOptions \| CollaborationSetup` | `—` | Collaboration config (`room`, `provider`, `user`) — the host owns the transport. |
 | `pageSize` | `string` | `'a4'` | Page size id (`a4`, `f4`, `letter`, `legal`, `a5`). Reactive after mount: changing it re-lays out the paper instead of requiring a remount. |
 | `pageless` | `boolean` | `false` | Continuous mode: disables pagination so the document flows without page breaks. |
+| `zoom` | `number` | `100` | Rendered zoom of the page surface, in percent (50–200, default 100). Reactive: the paper and its content scale visually while the layout (and therefore pagination) stays at 100 %. Disabled/pinned to 100 while `virtualPages` is on. |
 | `virtualPages` | `boolean` | `false` | Enable virtual page overlay (experimental). When true, only visible pages are rendered in DOM instead of all pages. Uses PageLayout for measurement + viewport-based visibility tracking. |
 | `title` | `string` | `'Untitled Document'` | Document title shown in the header bar. |
 | `collaborators` | `Collaborator[]` | `[]` | Other users shown as the presence avatar stack in the header. |
@@ -311,6 +312,7 @@ const MyPlugin = definePlugin({
 | `update:margins` | `margins: { top: number; bottom: number; left: number; right: number }` | Page margins changed (points). |
 | `update:header-footer-margins` | `margins: { headerMarginCm: number; footerMarginCm: number }` | Header/footer margin offsets changed (cm). |
 | `update:pageless` | `pageless: boolean` | Pageless (continuous) mode was toggled. |
+| `update:zoom` | `zoom: number` | The page-surface zoom changed (percent). |
 | `update:mode` | `mode: DocumentMode` | Document mode changed (issues #27/#28). |
 | `update:pageCount` | `pageCount: number` | The rendered page count changed. |
 | `update:locale` | `locale: Locale` | UI language changed. |

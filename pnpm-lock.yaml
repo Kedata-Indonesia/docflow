@@ -12,7 +12,7 @@ overrides:
   prosemirror-transform: ^1.12.2
 
 patchedDependencies:
-  tiptap-pagination-plus@3.1.0: 00858351959cd6e40e43520c066de1f40e312b64dcfd6bea6fda7efbe9e7b1c4
+  tiptap-pagination-plus@3.1.0: 69b3276c69cbff0663e9cd0f58d4843d6068e9fa94af67317d93bb567acf7749
 
 importers:
 
@@ -129,7 +129,7 @@ importers:
         version: 3.0.10(prosemirror-model@1.25.12)(prosemirror-state@1.4.4)(prosemirror-view@1.42.6)(y-protocols@1.0.7(yjs@13.6.33))(yjs@13.6.33)
       tiptap-pagination-plus:
         specifier: 3.1.0
-        version: 3.1.0(patch_hash=00858351959cd6e40e43520c066de1f40e312b64dcfd6bea6fda7efbe9e7b1c4)(@tiptap/core@3.32.0(@tiptap/pm@3.32.0))(@tiptap/pm@3.32.0)
+        version: 3.1.0(patch_hash=69b3276c69cbff0663e9cd0f58d4843d6068e9fa94af67317d93bb567acf7749)(@tiptap/core@3.32.0(@tiptap/pm@3.32.0))(@tiptap/pm@3.32.0)
       y-indexeddb:
         specifier: ^9.0.12
         version: 9.0.12(yjs@13.6.33)
@@ -4822,7 +4822,7 @@ snapshots:
       markdown-it-task-lists: 2.1.1
       prosemirror-markdown: 1.13.8
 
-  tiptap-pagination-plus@3.1.0(patch_hash=00858351959cd6e40e43520c066de1f40e312b64dcfd6bea6fda7efbe9e7b1c4)(@tiptap/core@3.32.0(@tiptap/pm@3.32.0))(@tiptap/pm@3.32.0):
+  tiptap-pagination-plus@3.1.0(patch_hash=69b3276c69cbff0663e9cd0f58d4843d6068e9fa94af67317d93bb567acf7749)(@tiptap/core@3.32.0(@tiptap/pm@3.32.0))(@tiptap/pm@3.32.0):
     dependencies:
       '@tiptap/core': 3.32.0(@tiptap/pm@3.32.0)
       '@tiptap/pm': 3.32.0
