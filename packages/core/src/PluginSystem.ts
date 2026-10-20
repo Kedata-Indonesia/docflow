@@ -5,12 +5,16 @@ export interface ToolbarItem {
   icon?: string
   iconComponent?: string
   label?: string
+  /** Locale key resolved by the UI layer; falls back to `label`. */
+  labelKey?: string
   action: string
   args?: unknown[]
 }
 
 export interface SlashCommand {
   name: string
+  /** Locale key resolved by the UI layer; falls back to `name`. */
+  nameKey?: string
   description?: string
   command: string
 }

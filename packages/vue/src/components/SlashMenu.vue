@@ -3,11 +3,11 @@ import { ref, watch, onMounted, onUnmounted } from 'vue'
 import type { Editor } from '@tiptap/core'
 import { useLocale } from '../composables/useLocale.js'
 
-const { t } = useLocale()
+const { t, locale } = useLocale()
 
 const props = defineProps<{
   editor: Editor | null
-  commands: Array<{ name: string; command: string }>
+  commands: Array<{ name: string; nameKey?: string; command: string }>
 }>()
 
 const visible = ref(false)
@@ -15,7 +15,11 @@ const query = ref('')
 const selectedIndex = ref(0)
 const position = ref({ top: 0, left: 0 })
 
-const filteredCommands = ref<Array<{ name: string; command: string }>>([])
+const filteredCommands = ref<Array<{ name: string; nameKey?: string; command: string }>>([])
+
+function commandLabel(cmd: { name: string; nameKey?: string }): string {
+  return cmd.nameKey ? t(cmd.nameKey) : cmd.name
+}
 
 /**
  * Structural view of `editor.commands` / a Tiptap chain so slash commands can
@@ -113,10 +117,12 @@ watch(() => props.editor, (ed) => {
   }
 })
 
-watch([query, () => props.commands], () => {
+watch([query, () => props.commands, locale], () => {
   const q = query.value.toLowerCase()
   filteredCommands.value = q
-    ? props.commands.filter(c => c.name.toLowerCase().includes(q))
+    ? props.commands.filter(
+        (c) => commandLabel(c).toLowerCase().includes(q) || c.name.toLowerCase().includes(q),
+      )
     : props.commands
 })
 
@@ -153,7 +159,7 @@ onUnmounted(() => {
         @click="selectCommand(cmd)"
         @mouseenter="selectedIndex = i"
       >
-        <span class="text-slate-500 dark:text-slate-400">{{ cmd.name }}</span>
+        <span class="text-slate-500 dark:text-slate-400">{{ commandLabel(cmd) }}</span>
       </button>
     </div>
   </Teleport>

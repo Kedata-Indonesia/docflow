@@ -172,6 +172,10 @@ onUnmounted(() => {
   }
 })
 
+function localizeItemLabel(item: ToolbarItem): string {
+  return item.labelKey ? t(item.labelKey) : (item.label ?? item.id)
+}
+
 function isItemActive(item: ToolbarItem): boolean {
   // Establish reactive dependency
   void selectionTick.value
@@ -764,8 +768,8 @@ function cancelFontSize(event: KeyboardEvent) {
         v-for="item in flatItems"
         :key="item.id"
         type="button"
-        :title="item.label ?? item.id"
-        :aria-label="item.label ?? item.id"
+        :title="localizeItemLabel(item)"
+        :aria-label="localizeItemLabel(item)"
         :class="[
           'docs-editor-toolbar__button inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md p-1 transition-all disabled:opacity-40',
           isItemActive(item) ? activeClass : inactiveClass,
@@ -780,7 +784,7 @@ function cancelFontSize(event: KeyboardEvent) {
           v-if="resolveIcon(item.iconComponent)"
           class="h-[18px] w-[18px]"
         />
-        <span v-else-if="item.label" class="text-xs font-medium leading-none">{{ item.label.charAt(0) }}</span>
+        <span v-else-if="localizeItemLabel(item)" class="text-xs font-medium leading-none">{{ localizeItemLabel(item).charAt(0) }}</span>
       </button>
 
       <span
@@ -793,8 +797,8 @@ function cancelFontSize(event: KeyboardEvent) {
         <button
           type="button"
           :class="[controlBaseClass, 'w-8']"
-          :title="textColorItem.label ?? 'Text color'"
-          :aria-label="textColorItem.label ?? 'Text color'"
+          :title="localizeItemLabel(textColorItem)"
+          :aria-label="localizeItemLabel(textColorItem)"
           :disabled="!editor"
           :aria-expanded="activeDropdown === 'textColor'"
           aria-haspopup="menu"
@@ -819,8 +823,8 @@ function cancelFontSize(event: KeyboardEvent) {
         <button
           type="button"
           :class="[controlBaseClass, 'w-8']"
-          :title="highlightItem.label ?? 'Highlight'"
-          :aria-label="highlightItem.label ?? 'Highlight'"
+          :title="localizeItemLabel(highlightItem)"
+          :aria-label="localizeItemLabel(highlightItem)"
           :disabled="!editor"
           :aria-expanded="activeDropdown === 'highlight'"
           aria-haspopup="menu"
@@ -874,7 +878,7 @@ function cancelFontSize(event: KeyboardEvent) {
             @click="runFromDropdown(item)"
           >
             <component :is="resolveIcon(item.iconComponent)" v-if="resolveIcon(item.iconComponent)" class="h-4 w-4" />
-            <span>{{ item.label ?? item.id }}</span>
+            <span>{{ localizeItemLabel(item) }}</span>
           </button>
         </div>
       </div>
@@ -909,7 +913,7 @@ function cancelFontSize(event: KeyboardEvent) {
             @click="runFromDropdown(item)"
           >
             <component :is="resolveIcon(item.iconComponent)" v-if="resolveIcon(item.iconComponent)" class="h-4 w-4" />
-            <span>{{ item.label ?? item.id }}</span>
+            <span>{{ localizeItemLabel(item) }}</span>
           </button>
         </div>
       </div>
@@ -945,7 +949,7 @@ function cancelFontSize(event: KeyboardEvent) {
             @click="runFromDropdown(item)"
           >
             <component :is="resolveIcon(item.iconComponent)" v-if="resolveIcon(item.iconComponent)" class="h-4 w-4" />
-            <span>{{ item.label ?? item.id }}</span>
+            <span>{{ localizeItemLabel(item) }}</span>
           </button>
         </div>
       </div>

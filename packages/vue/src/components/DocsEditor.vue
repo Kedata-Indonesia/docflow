@@ -75,6 +75,11 @@ const documentMode = computed<DocumentMode>(
 const effectiveEditable = computed(() =>
   documentMode.value === 'viewing' ? false : (props.editable ?? true),
 )
+// Insert ▸ Bibliography is only meaningful when the citation plugin (which
+// registers the node + insertBibliography command) is part of the plugin set.
+const hasCitationPlugin = computed(
+  () => props.plugins?.some((plugin) => plugin.id === 'citation') ?? false,
+)
 const setDocumentMode = (mode: DocumentMode) => {
   internalMode.value = mode
   emit('update:mode', mode)
@@ -231,6 +236,7 @@ void [openHeaderFormatModal, openPageNumberModal]
       v-if="!focusMode"
       :title="title" :editable="editable" :collaborators="collaborators" :starred="starred" :user-name="userName" :user-avatar="userAvatar"
       :pageless="isPageless" :outline-open="activeSidebar === 'toc'" :show-ruler="showRuler" :focus-mode="focusMode" :mode="documentMode"
+      :has-citation-plugin="hasCitationPlugin"
       :unimplemented-actions="unimplementedActions"
       @menu-click="menuClick" @back="$emit('back')" @update:title="$emit('update:title', $event)" @toggle-star="$emit('toggle-star')"
       @export="$emit('export', $event)" @share="$emit('share')"><template #actions><slot name="header-actions" /></template><template #overflow-actions="slotProps"><slot name="overflow-actions" v-bind="slotProps" /></template><template #user-menu="slotProps"><slot name="user-menu" v-bind="slotProps" /></template></HeaderBar>
