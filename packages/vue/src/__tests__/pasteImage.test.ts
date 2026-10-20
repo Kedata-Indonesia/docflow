@@ -14,7 +14,7 @@ interface FakeEditor {
     }
   }
   commands: {
-    setImage: (attrs: { src: string; alt?: string }) => boolean
+    insertContent: (content: { type: string; attrs?: Record<string, unknown> }) => boolean
   }
 }
 
@@ -63,32 +63,41 @@ describe('pasteImage helpers (#296)', () => {
 
   it('insertPastedImage uses the host upload port when present', async () => {
     const upload = vi.fn().mockResolvedValue({ src: 'https://cdn.test/shot.png' })
-    const setImage = vi.fn().mockReturnValue(true)
-    const editor = asEditor({ storage: { editorContext: { onImageUpload: upload } }, commands: { setImage } })
+    const insertContent = vi.fn().mockReturnValue(true)
+    const editor = asEditor({
+      storage: { editorContext: { onImageUpload: upload } },
+      commands: { insertContent },
+    })
 
     await expect(insertPastedImage(editor, imageFile())).resolves.toBe(true)
     expect(upload).toHaveBeenCalledOnce()
     expect(upload.mock.calls[0][0]).toMatchObject({ name: 'shot.png', type: 'image/png' })
-    expect(setImage).toHaveBeenCalledWith({ src: 'https://cdn.test/shot.png', alt: 'shot.png' })
+    expect(insertContent).toHaveBeenCalledWith({
+      type: 'image',
+      attrs: { src: 'https://cdn.test/shot.png', alt: 'shot.png' },
+    })
   })
 
   it('insertPastedImage falls back to a data URL without an upload port', async () => {
-    const setImage = vi.fn().mockReturnValue(true)
-    const editor = asEditor({ storage: {}, commands: { setImage } })
+    const insertContent = vi.fn().mockReturnValue(true)
+    const editor = asEditor({ storage: {}, commands: { insertContent } })
 
     await expect(insertPastedImage(editor, imageFile())).resolves.toBe(true)
-    const attrs = setImage.mock.calls[0][0] as { src: string }
-    expect(attrs.src.startsWith('data:image/png;base64,')).toBe(true)
+    const content = insertContent.mock.calls[0][0] as { attrs: { src: string } }
+    expect(content.attrs.src.startsWith('data:image/png;base64,')).toBe(true)
   })
 
   it('insertPastedImage inserts nothing when the host upload rejects', async () => {
     const upload = vi.fn().mockRejectedValue(new Error('offline'))
-    const setImage = vi.fn()
-    const editor = asEditor({ storage: { editorContext: { onImageUpload: upload } }, commands: { setImage } })
+    const insertContent = vi.fn()
+    const editor = asEditor({
+      storage: { editorContext: { onImageUpload: upload } },
+      commands: { insertContent },
+    })
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
 
     await expect(insertPastedImage(editor, imageFile())).resolves.toBe(false)
-    expect(setImage).not.toHaveBeenCalled()
+    expect(insertContent).not.toHaveBeenCalled()
     errorSpy.mockRestore()
   })
 })

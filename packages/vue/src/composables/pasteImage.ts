@@ -81,7 +81,7 @@ export async function insertPastedImage(editor: Editor, file: File): Promise<boo
     const upload = readEditorContext(editor)?.onImageUpload
     const src = upload ? (await upload(accepted)).src : await readAsDataUrl(accepted)
     if (!src) return false
-    return editor.commands.setImage({ src, alt: accepted.name })
+    return editor.commands.insertContent({ type: 'image', attrs: { src, alt: accepted.name } })
   } catch (error) {
     console.error('[DocsEditor] pasted image could not be inserted:', error)
     return false
