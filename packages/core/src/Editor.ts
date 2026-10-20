@@ -14,7 +14,7 @@ import {
 } from './Collaboration.js'
 import { BlockAttributesExtension } from './BlockAttributes.js'
 import { EditorContextExtension } from './EditorContext.js'
-import { IndentExtension } from './Indent.js'
+import { IndentBackspaceExtension, IndentExtension } from './Indent.js'
 import { ManualColumnResize } from './ManualColumnResize.js'
 import { SearchAndReplaceExtension } from './SearchAndReplace.js'
 import type { ImageUploadHandler, CitationPort } from './ports.js'
@@ -258,6 +258,9 @@ function createTiptapEditor(
     // priority 50 so list nesting, table cell navigation and the AI preview
     // keep their own Tab bindings.
     IndentExtension,
+    // Backspace/Delete outdent (#189, second round) — registered separately because it
+    // needs a priority above `baseKeymap`, unlike Tab.
+    IndentBackspaceExtension,
     ...pluginExtensions,
   ]
   const content = options.collaboration ? undefined : options.content
