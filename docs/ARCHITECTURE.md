@@ -542,7 +542,7 @@ Per-AGENTS.md gate order after any non-trivial change: **lint → typecheck → 
 
 | You want to change… | Go to |
 |---------------------|-------|
-| Toolbar buttons / sidebar tabs | `packages/vue/src/components/EditorToolbar.vue`, `packages/vue/src/components/DocsEditor.vue` |
+| Toolbar buttons / sidebar tabs | Toolbar controls: `packages/vue/src/components/toolbar/` + `composables/useToolbar*.ts` / `useFontSize.ts`; orchestration: `components/EditorToolbar.vue`; sidebars: `components/sidebars/`; wiring: `components/DocsEditor.vue` |
 | AI streaming wire shape | `apps/server/src/ai/openaiCompatibleAdapter.ts` |
 | Document role semantics | `apps/server/src/models/Document.ts` (`effectiveRole`, `canRead`, `canMutate`, `canComment`) |
 | Yjs read-only wrapper | `apps/server/src/index.ts` (`setupReadOnlyWSConnection`) + `apps/server/src/utils/roomAccess.ts` |

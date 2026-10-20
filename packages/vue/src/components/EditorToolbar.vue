@@ -1,49 +1,23 @@
 <script setup lang="ts">
-import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
+import { computed } from 'vue'
 import type { Editor } from '@tiptap/core'
-import type { DocsEditorPlugin, ToolbarItem } from '@kedata-indonesia/docflow-core'
-import {
-  Bold,
-  Italic,
-  Underline,
-  Strikethrough,
-  Heading1,
-  Heading2,
-  Heading3,
-  Heading4,
-  Heading5,
-  Heading6,
-  List,
-  ListOrdered,
-  CheckSquare,
-  Quote,
-  Link as LinkIcon,
-  Code,
-  Image,
-  Table,
-  AlignLeft,
-  AlignCenter,
-  AlignRight,
-  AlignJustify,
-  MessageSquare,
-  History,
-  Sparkles,
-  FileText,
-  BookOpen,
-  Undo2,
-  Redo2,
-  Printer,
-  SpellCheck,
-  Minus,
-  Plus,
-  ChevronDown,
-  Palette,
-  Highlighter,
-} from 'lucide-vue-next'
+import type { DocsEditorPlugin } from '@kedata-indonesia/docflow-core'
+import { List, Plus } from 'lucide-vue-next'
 import type { SidebarKey } from '../types.js'
 import { useLocale } from '../composables/useLocale.js'
 import { readEditorContext } from '../composables/editorContext.js'
-import ColorPickerDropdown from './ColorPickerDropdown.vue'
+import { useToolbarSelection } from '../composables/useToolbarSelection.js'
+import { useToolbarDropdowns } from '../composables/useToolbarDropdowns.js'
+import { useToolbarItems } from '../composables/useToolbarItems.js'
+import { toolbarCommands } from './toolbar/toolbarCommands.js'
+import ToolbarDocControls from './toolbar/ToolbarDocControls.vue'
+import ToolbarParagraphStyle from './toolbar/ToolbarParagraphStyle.vue'
+import ToolbarFontFamily from './toolbar/ToolbarFontFamily.vue'
+import ToolbarFontSize from './toolbar/ToolbarFontSize.vue'
+import ToolbarInlineFormat from './toolbar/ToolbarInlineFormat.vue'
+import ToolbarColorControls from './toolbar/ToolbarColorControls.vue'
+import ToolbarPluginMenu from './toolbar/ToolbarPluginMenu.vue'
+import ToolbarSidebarToggles from './toolbar/ToolbarSidebarToggles.vue'
 
 const { t } = useLocale()
 
@@ -62,340 +36,39 @@ const emit = defineEmits<{
   'toggle-left-sidebar': []
 }>()
 
-type IconMapKey =
-  | 'Bold'
-  | 'Italic'
-  | 'Underline'
-  | 'Strikethrough'
-  | 'Heading1'
-  | 'Heading2'
-  | 'Heading3'
-  | 'Heading4'
-  | 'Heading5'
-  | 'Heading6'
-  | 'List'
-  | 'ListOrdered'
-  | 'CheckSquare'
-  | 'Quote'
-  | 'Link'
-  | 'Code'
-  | 'Image'
-  | 'Table'
-  | 'AlignLeft'
-  | 'AlignCenter'
-  | 'AlignRight'
-  | 'AlignJustify'
-  | 'FileText'
-  | 'Palette'
-  | 'Highlighter'
+const {
+  selectionTick,
+  currentTextColor,
+  currentHighlightColor,
+  currentAlignIcon,
+  currentParagraphStyle,
+  currentFont,
+  currentFontLabel,
+} = useToolbarSelection(() => props.editor ?? null)
 
-const iconMap: Record<IconMapKey, unknown> = {
-  Bold,
-  Italic,
-  Underline,
-  Strikethrough,
-  Heading1,
-  Heading2,
-  Heading3,
-  Heading4,
-  Heading5,
-  Heading6,
-  List,
-  ListOrdered,
-  CheckSquare,
-  Quote,
-  Link: LinkIcon,
-  Code,
-  Image,
-  Table,
-  AlignLeft,
-  AlignCenter,
-  AlignRight,
-  AlignJustify,
-  FileText,
-  Palette,
-  Highlighter,
-}
+const { activeDropdown, toggleDropdown, closeAll } = useToolbarDropdowns()
 
-function resolveIcon(name?: string) {
-  if (!name) return null
-  return (iconMap as Record<string, unknown>)[name] ?? null
-}
-
-interface ToolbarGroup {
-  pluginId: string
-  items: ToolbarItem[]
-}
-
-const toolbarGroups = computed<ToolbarGroup[]>(() => {
-  const groups: ToolbarGroup[] = []
-  for (const plugin of props.plugins ?? []) {
-    if (!plugin.toolbar || plugin.toolbar.length === 0) continue
-    groups.push({ pluginId: plugin.id, items: plugin.toolbar })
-  }
-  return groups
-})
-
-const activeClass = 'bg-slate-200 text-slate-900 dark:bg-slate-700 dark:text-slate-100'
-const inactiveClass =
-  'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-white/5'
-
-const controlBaseClass =
-  'docs-editor-toolbar__control inline-flex h-8 flex-shrink-0 items-center justify-center rounded-md p-1 text-slate-600 transition-all disabled:opacity-40 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5'
-
-const sidebarActiveClass = 'bg-slate-200 text-slate-900 dark:bg-slate-700 dark:text-slate-100'
-const sidebarInactiveClass =
-  'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-white/5'
-
-const selectionTick = ref(0)
-
-function handleTransaction() {
-  selectionTick.value++
-}
-
-watch(
-  () => props.editor,
-  (newEditor, oldEditor) => {
-    if (oldEditor) {
-      oldEditor.off('transaction', handleTransaction)
-    }
-    if (newEditor) {
-      newEditor.on('transaction', handleTransaction)
-    }
-  },
-  { immediate: true }
+const {
+  alignItems,
+  listItems,
+  insertItems,
+  flatItems,
+  textColorItem,
+  highlightItem,
+  runPluginItem,
+  runFromDropdown,
+} = useToolbarItems(
+  () => props.plugins,
+  () => props.actions,
+  () => props.editor ?? null,
+  closeAll,
 )
-
-onUnmounted(() => {
-  if (props.editor) {
-    props.editor.off('transaction', handleTransaction)
-  }
-})
-
-function localizeItemLabel(item: ToolbarItem): string {
-  return item.labelKey ? t(item.labelKey) : (item.label ?? item.id)
-}
-
-function isItemActive(item: ToolbarItem): boolean {
-  // Establish reactive dependency
-  void selectionTick.value
-  const editor = props.editor
-  if (!editor) return false
-
-  switch (item.action) {
-    case 'toggleBold':
-      return editor.isActive('bold')
-    case 'toggleItalic':
-      return editor.isActive('italic')
-    case 'toggleUnderline':
-      return editor.isActive('underline')
-    case 'toggleStrike':
-      return editor.isActive('strike')
-    case 'toggleHeading1':
-      return editor.isActive('heading', { level: 1 })
-    case 'toggleHeading2':
-      return editor.isActive('heading', { level: 2 })
-    case 'toggleHeading3':
-      return editor.isActive('heading', { level: 3 })
-    case 'toggleHeading4':
-      return editor.isActive('heading', { level: 4 })
-    case 'toggleHeading5':
-      return editor.isActive('heading', { level: 5 })
-    case 'toggleHeading6':
-      return editor.isActive('heading', { level: 6 })
-    case 'toggleBulletList':
-      return editor.isActive('bulletList')
-    case 'toggleOrderedList':
-      return editor.isActive('orderedList')
-    case 'toggleTaskList':
-      return editor.isActive('taskList')
-    case 'toggleBlockquote':
-      return editor.isActive('blockquote')
-    case 'toggleCodeBlock':
-      return editor.isActive('codeBlock')
-    case 'setLink':
-      return editor.isActive('link')
-    case 'alignLeft':
-      return editor.isActive({ textAlign: 'left' })
-    case 'alignCenter':
-      return editor.isActive({ textAlign: 'center' })
-    case 'alignRight':
-      return editor.isActive({ textAlign: 'right' })
-    case 'alignJustify':
-      return editor.isActive({ textAlign: 'justify' })
-    default:
-      return false
-  }
-}
-
-function runPluginItem(item: ToolbarItem) {
-  if (!props.editor) return
-  const fn = props.actions[item.action]
-  if (typeof fn === 'function') {
-    fn(...(item.args ?? []))
-    props.editor.commands.focus()
-    return
-  }
-  // fallback to built-in editor command
-  const command = (props.editor.commands as Record<string, (...args: unknown[]) => boolean>)[item.action]
-  if (typeof command === 'function') {
-    command(...(item.args ?? []))
-    props.editor.commands.focus()
-  }
-}
-
-const currentTextColor = computed(() => {
-  void selectionTick.value
-  return props.editor?.getAttributes('textStyle').color as string | undefined
-})
-
-const currentHighlightColor = computed(() => {
-  void selectionTick.value
-  const highlight = props.editor?.getAttributes('highlight')
-  if (highlight?.color) return highlight.color as string
-  if (props.editor?.isActive('highlight')) return '#ffff00' // default yellow
-  return undefined
-})
-
-function applyColor(action: string, color: string) {
-  const fn = props.actions[action]
-  if (typeof fn === 'function') {
-    fn(color)
-  } else {
-    const command = (props.editor?.commands as Record<string, (...args: unknown[]) => boolean> | undefined)?.[action]
-    if (typeof command === 'function') command(color)
-  }
-  props.editor?.commands.focus()
-  activeDropdown.value = null
-}
-
-function resetColor(action: string) {
-  const chain = props.editor?.chain().focus() as unknown as { unsetColor?: () => { run: () => boolean }; unsetHighlight?: () => { run: () => boolean } } | undefined
-  if (!chain) {
-    activeDropdown.value = null
-    return
-  }
-  if (action === 'setTextColor') {
-    chain.unsetColor?.().run()
-  } else if (action === 'setHighlight') {
-    chain.unsetHighlight?.().run()
-  }
-  props.editor?.commands.focus()
-  activeDropdown.value = null
-}
-
-// ── Grouped toolbar items ────────────────────────────────────────────────
-// Plugin toolbar items are categorized so common groups collapse into compact
-// dropdowns (Google-Docs style). Headings are dropped here — they're covered by
-// the paragraph-style <select>. Anything uncategorized renders as a flat button.
-const HEADING_ACTIONS = ['toggleHeading1', 'toggleHeading2', 'toggleHeading3', 'toggleHeading4', 'toggleHeading5', 'toggleHeading6']
-const ALIGN_ACTIONS = ['alignLeft', 'alignCenter', 'alignRight', 'alignJustify']
-const LIST_ACTIONS = ['toggleBulletList', 'toggleOrderedList', 'toggleTaskList']
-const INSERT_ACTIONS = ['setLink', 'insertImage', 'insertTable', 'toggleBlockquote', 'toggleCodeBlock', 'insertFootnote', 'insertPageBreak', 'setPageBreak', 'togglePageBreak', 'addPageBreak']
-const COLOR_ACTIONS = ['setTextColor', 'setHighlight']
-
-const allPluginItems = computed(() => toolbarGroups.value.flatMap((g) => g.items))
-const alignItems = computed(() => allPluginItems.value.filter((i) => ALIGN_ACTIONS.includes(i.action)))
-const listItems = computed(() => allPluginItems.value.filter((i) => LIST_ACTIONS.includes(i.action)))
-const insertItems = computed(() => allPluginItems.value.filter((i) => INSERT_ACTIONS.includes(i.action)))
-const colorItems = computed(() => allPluginItems.value.filter((i) => COLOR_ACTIONS.includes(i.action)))
-const textColorItem = computed(() => colorItems.value.find((i) => i.action === 'setTextColor'))
-const highlightItem = computed(() => colorItems.value.find((i) => i.action === 'setHighlight'))
-const flatItems = computed(() =>
-  allPluginItems.value.filter(
-    (i) =>
-      !HEADING_ACTIONS.includes(i.action) &&
-      !ALIGN_ACTIONS.includes(i.action) &&
-      !LIST_ACTIONS.includes(i.action) &&
-      !INSERT_ACTIONS.includes(i.action) &&
-      !COLOR_ACTIONS.includes(i.action),
-  ),
-)
-
-const currentAlignIcon = computed(() => {
-  void selectionTick.value
-  const editor = props.editor
-  if (editor) {
-    if (editor.isActive({ textAlign: 'center' })) return AlignCenter
-    if (editor.isActive({ textAlign: 'right' })) return AlignRight
-    if (editor.isActive({ textAlign: 'justify' })) return AlignJustify
-  }
-  return AlignLeft
-})
-
-type DropdownKey = 'heading' | 'font' | 'align' | 'lists' | 'insert' | 'textColor' | 'highlight'
-const activeDropdown = ref<DropdownKey | null>(null)
-function toggleDropdown(key: DropdownKey) {
-  activeDropdown.value = activeDropdown.value === key ? null : key
-}
-function runFromDropdown(item: ToolbarItem) {
-  runPluginItem(item)
-  activeDropdown.value = null
-}
-function closeDropdowns(e: MouseEvent) {
-  const target = e.target as HTMLElement
-  if (!target.closest('.toolbar-dropdown')) activeDropdown.value = null
-}
-onMounted(() => document.addEventListener('click', closeDropdowns, true))
-onUnmounted(() => document.removeEventListener('click', closeDropdowns, true))
-
-function sidebarClass(key: SidebarKey) {
-  return props.activeSidebar === key ? sidebarActiveClass : sidebarInactiveClass
-}
 
 // The references sidebar is only meaningful when the citation plugin is loaded.
 const hasCitationPlugin = computed(() => props.plugins?.some((p) => p.id === 'citation') ?? false)
 
 // The AI sidebar is only meaningful when the host injects an aiStream port.
 const hasAI = computed(() => Boolean(readEditorContext(props.editor ?? null)?.aiStream))
-
-/**
- * Commands from extensions `docflow-vue` does not depend on directly (history,
- * paragraph, heading). TipTap augments `Commands` from those packages, but the
- * declaration build resolves `docflow-*` to `dist` (`tsconfig.build.json`
- * clears `paths`), so those augmentations are not part of this program. Type
- * the slice used here instead of `any`.
- */
-interface ToolbarOnlyCommands {
-  undo: () => boolean
-  redo: () => boolean
-  setParagraph: () => boolean
-  toggleHeading: (attributes: { level: 1 | 2 | 3 | 4 | 5 | 6 }) => boolean
-}
-
-function toolbarCommands(editor: Editor): ToolbarOnlyCommands {
-  return editor.commands as unknown as ToolbarOnlyCommands
-}
-
-function handleUndo() {
-  if (props.editor) {
-    toolbarCommands(props.editor).undo()
-    props.editor.commands.focus()
-  }
-  emit('undo')
-}
-
-function handleRedo() {
-  if (props.editor) {
-    toolbarCommands(props.editor).redo()
-    props.editor.commands.focus()
-  }
-  emit('redo')
-}
-
-function handlePrint() {
-  emit('print')
-}
-
-const PARAGRAPH_OPTIONS = computed(() => [
-  { value: 'paragraph', label: t('toolbar.normalText') },
-  { value: 'heading-1', label: t('header.heading1') },
-  { value: 'heading-2', label: t('header.heading2') },
-  { value: 'heading-3', label: t('header.heading3') },
-  { value: 'heading-4', label: t('header.heading4') },
-  { value: 'heading-5', label: t('header.heading5') },
-  { value: 'heading-6', label: t('header.heading6') },
-])
 
 function applyParagraphStyle(value: string) {
   const editor = props.editor
@@ -414,596 +87,130 @@ function applyParagraphStyle(value: string) {
     }
     editor.commands.focus()
   }
-  activeDropdown.value = null
+  closeAll()
 }
 
-const currentParagraphStyle = computed(() => {
-  // Establish reactive dependency
-  void selectionTick.value
-  const editor = props.editor
-  if (!editor) return 'paragraph'
-  for (let level = 1; level <= 6; level++) {
-    if (editor.isActive('heading', { level })) return `heading-${level}`
-  }
-  return 'paragraph'
-})
-
-const currentParagraphLabel = computed(
-  () => PARAGRAPH_OPTIONS.value.find((o) => o.value === currentParagraphStyle.value)?.label ?? t('toolbar.normalText'),
-)
-
-// Font family. Each option carries the actual CSS stack — stored on the
-// TextStyle mark via setFontFamily (FontFamilyExtension) so switching a font
-// works and round-trips with the document — plus a label for the dropdown.
-const FONT_OPTIONS = [
-  { value: 'Inter, ui-sans-serif, system-ui, sans-serif', label: 'Inter' },
-  { value: 'Arial, Helvetica, sans-serif', label: 'Arial' },
-  { value: '"Times New Roman", Times, serif', label: 'Times New Roman' },
-  { value: 'Georgia, "Times New Roman", serif', label: 'Georgia' },
-  { value: 'Garamond, "Times New Roman", serif', label: 'Garamond' },
-  { value: 'Calibri, "Segoe UI", sans-serif', label: 'Calibri' },
-  { value: '"Segoe UI", Tahoma, sans-serif', label: 'Segoe UI' },
-  { value: 'Verdana, Geneva, sans-serif', label: 'Verdana' },
-  { value: 'Roboto, Arial, sans-serif', label: 'Roboto' },
-  { value: '"Open Sans", Helvetica, sans-serif', label: 'Open Sans' },
-  { value: 'Lora, Georgia, serif', label: 'Lora' },
-  { value: 'Merriweather, Georgia, serif', label: 'Merriweather' },
-  { value: '"JetBrains Mono", "Courier New", monospace', label: 'JetBrains Mono' },
-  { value: '"Courier New", Courier, monospace', label: 'Courier New' },
-]
-const DEFAULT_FONT_STACK = FONT_OPTIONS[0].value
-
-/** Reactively read the font family from the current selection's TextStyle mark. */
-const currentFont = computed<string>(() => {
-  void selectionTick.value
-  const attrs = props.editor?.getAttributes('textStyle')
-  return (attrs?.fontFamily as string | undefined) || DEFAULT_FONT_STACK
-})
-const currentFontLabel = computed(() => {
-  const match = FONT_OPTIONS.find((o) => o.value === currentFont.value)
-  if (match) return match.label
-  // Stored family from a paste / older doc that isn't in the list — show its
-  // first family name rather than a misleading default.
-  const first = (currentFont.value || '').split(',')[0].trim().replace(/^["']|["']$/g, '')
-  return first || 'Inter'
-})
 function applyFont(value: string) {
   props.editor?.commands.setFontFamily(value)
-  activeDropdown.value = null
-  props.editor?.commands.focus()
-}
-
-/**
- * Font-size ladder used by the `−` / `+` stepper: each click moves one entry, so
- * the list must stay gap-free in the ranges users step through — a missing entry
- * makes the control jump (28 → 36, #158).
- */
-const FONT_SIZES = [8, 9, 10, 11, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 48, 72]
-const DEFAULT_FONT_SIZE = 11
-
-/** Reactively read the font-size from the current selection's TextStyle mark. */
-const currentFontSize = computed<number>(() => {
-  void selectionTick.value
-  const editor = props.editor
-  if (!editor) return DEFAULT_FONT_SIZE
-
-  // Check document textStyle mark at selection first
-  const attrs = editor.getAttributes('textStyle')
-  if (attrs?.fontSize) {
-    const parsed = parseInt(attrs.fontSize, 10)
-    if (!isNaN(parsed)) return parsed
-  }
-
-  // Check stored marks (marks set at cursor position but not yet applied)
-  const storedMarks = editor.state.storedMarks
-  if (storedMarks) {
-    for (const mark of storedMarks) {
-      if (mark.type.name === 'textStyle' && mark.attrs.fontSize) {
-        const parsed = parseInt(mark.attrs.fontSize as string, 10)
-        if (!isNaN(parsed)) return parsed
-      }
-    }
-  }
-
-  // Headings take their size from CSS, not a textStyle mark, so the control
-  // would otherwise report the body size (#143). Reflect the heading's real
-  // size for H1–H3; H4–H6 have no explicit size, so they fall through to base.
-  const HEADING_FONT_SIZES: Record<number, number> = { 1: 30, 2: 24, 3: 20 }
-  for (const level of [1, 2, 3]) {
-    if (editor.isActive('heading', { level })) return HEADING_FONT_SIZES[level]
-  }
-
-  // Fallback: read actual rendered font size from the DOM
-  if (editor.view?.dom) {
-    const baseSize = parseFloat(getComputedStyle(editor.view.dom).fontSize)
-    if (!isNaN(baseSize)) {
-      const px = Math.round(baseSize)
-      // Clamp to nearest FONT_SIZE
-      const nearest = FONT_SIZES.reduce((prev, curr) =>
-        Math.abs(curr - px) < Math.abs(prev - px) ? curr : prev
-      )
-      return nearest
-    }
-  }
-
-  return DEFAULT_FONT_SIZE
-})
-
-function handleFontSize(delta: number) {
-  if (!props.editor) return
-  const current = currentFontSize.value
-  const idx = FONT_SIZES.indexOf(current)
-  let nextSize: number
-  if (idx >= 0) {
-    nextSize = FONT_SIZES[Math.min(Math.max(idx + delta, 0), FONT_SIZES.length - 1)]
-  } else if (delta < 0) {
-    // Non-preset size (typed manually): step to the nearest preset below.
-    nextSize = [...FONT_SIZES].reverse().find((s) => s < current) ?? FONT_SIZES[0]
-  } else {
-    // Non-preset size: step to the nearest preset above. Sizes beyond the
-    // largest preset have no step up, so keep the current size.
-    nextSize = FONT_SIZES.find((s) => s > current) ?? current
-  }
-  // Use direct command (not chain) to avoid chaining-proxy conflict with the
-  // inner setMark calls inside FontSizeExtension.
-  props.editor.commands.setFontSize(`${nextSize}px`)
-  props.editor.commands.focus()
-}
-
-const MIN_FONT_SIZE = 1
-const MAX_FONT_SIZE = 400
-
-/** Non-null while the user is typing into the font-size box. */
-const fontSizeDraft = ref<string | null>(null)
-
-function onFontSizeFocus(event: FocusEvent) {
-  fontSizeDraft.value = String(currentFontSize.value)
-  ;(event.target as HTMLInputElement).select()
-}
-
-function onFontSizeInput(event: Event) {
-  fontSizeDraft.value = (event.target as HTMLInputElement).value
-}
-
-function applyFontSize(size: number) {
-  if (!props.editor) return
-  const clamped = Math.min(Math.max(size, MIN_FONT_SIZE), MAX_FONT_SIZE)
-  props.editor.commands.setFontSize(`${clamped}px`)
-}
-
-function commitFontSize(event: FocusEvent) {
-  const parsed = parseInt((event.target as HTMLInputElement).value, 10)
-  if (!isNaN(parsed) && parsed !== currentFontSize.value) {
-    applyFontSize(parsed)
-  }
-  fontSizeDraft.value = null
-  props.editor?.commands.focus()
-}
-
-function cancelFontSize(event: KeyboardEvent) {
-  fontSizeDraft.value = null
-  // Restore the displayed value before blurring so the blur handler's commit
-  // sees no change and does not apply the discarded input.
-  const input = event.target as HTMLInputElement
-  input.value = String(currentFontSize.value)
-  input.blur()
+  closeAll()
   props.editor?.commands.focus()
 }
 </script>
 
 <template>
-  <div id="editor-toolbar-row" class="docs-editor-toolbar w-full border-b border-slate-200 bg-white py-1.5 text-slate-600 shadow-sm dark:border-slate-800 dark:bg-[#0b1120] dark:text-slate-300">
+  <div
+    id="editor-toolbar-row"
+    class="docs-editor-toolbar w-full border-b border-slate-200 bg-white py-1.5 text-slate-600 shadow-sm dark:border-slate-800 dark:bg-[#0b1120] dark:text-slate-300"
+  >
     <div class="flex min-h-9 w-full items-center gap-1 px-3 flex-nowrap">
-      <!-- Left: undo/redo, print, zoom. (Document-outline toggle is a floating
-           button next to the page — see DocsEditor.) -->
-      <button
-        type="button"
-        :class="[controlBaseClass, 'w-8']"
-        :title="t('toolbar.undo')"
-        :aria-label="t('toolbar.undo')"
-        :disabled="!editor"
-        @mousedown.prevent
-        @click="handleUndo"
-      >
-        <Undo2 class="h-[18px] w-[18px]" />
-      </button>
-
-      <button
-        type="button"
-        :class="[controlBaseClass, 'w-8']"
-        :title="t('toolbar.redo')"
-        :aria-label="t('toolbar.redo')"
-        :disabled="!editor"
-        @mousedown.prevent
-        @click="handleRedo"
-      >
-        <Redo2 class="h-[18px] w-[18px]" />
-      </button>
-
-      <span class="mx-1 h-5 w-px flex-shrink-0 bg-slate-200 dark:bg-white/10" />
-
-      <button
-        type="button"
-        :class="[controlBaseClass, 'w-8']"
-        :title="t('toolbar.print')"
-        :aria-label="t('toolbar.print')"
-        @mousedown.prevent
-        @click="handlePrint"
-      >
-        <Printer class="h-[18px] w-[18px]" />
-      </button>
-
-      <button
-        type="button"
-        :class="[controlBaseClass, 'w-8']"
-        :title="t('toolbar.spelling')"
-        :aria-label="t('toolbar.spelling')"
-        :disabled="!editor"
-        @mousedown.prevent
-      >
-        <SpellCheck class="h-[18px] w-[18px]" />
-      </button>
-
-      <button
-        type="button"
-        :class="[controlBaseClass, 'px-2 text-xs']"
-        :title="t('toolbar.zoom')"
-        :aria-label="t('toolbar.zoom')"
-        @mousedown.prevent
-      >
-        {{ t('toolbar.zoom') }}
-      </button>
-
-      <span class="mx-1 h-5 w-px flex-shrink-0 bg-slate-200 dark:bg-white/10" />
-
-      <!-- Paragraph style -->
-      <div class="toolbar-dropdown relative flex-shrink-0">
-        <button
-          type="button"
-          :class="[controlBaseClass, 'w-[116px] justify-between gap-1 px-2 text-xs font-medium']"
-          :title="t('toolbar.paragraphStyle')"
-          :aria-label="t('toolbar.paragraphStyle')"
-          :disabled="!editor"
-          :aria-expanded="activeDropdown === 'heading'"
-          aria-haspopup="menu"
-          data-testid="toolbar-heading"
-          @mousedown.prevent
-          @click.stop="toggleDropdown('heading')"
-        >
-          <span class="truncate">{{ currentParagraphLabel }}</span>
-          <ChevronDown class="h-3.5 w-3.5 flex-shrink-0 text-slate-400" />
-        </button>
-        <div
-          v-if="activeDropdown === 'heading'"
-          class="absolute left-0 top-full z-50 mt-1 min-w-[180px] rounded-lg border border-slate-200 bg-white py-1 text-sm shadow-xl dark:border-slate-700 dark:bg-[#0e1525]"
-          data-testid="toolbar-heading-menu"
-        >
-          <button
-            v-for="opt in PARAGRAPH_OPTIONS"
-            :key="opt.value"
-            type="button"
-            :class="['flex w-full items-center px-3 py-1.5 text-left hover:bg-slate-50 dark:hover:bg-white/5', currentParagraphStyle === opt.value ? 'text-blue-600 dark:text-blue-300' : 'text-slate-700 dark:text-slate-200']"
-            :disabled="!editor"
-            @mousedown.prevent
-            @click="applyParagraphStyle(opt.value)"
-          >
-            {{ opt.label }}
-          </button>
-        </div>
-      </div>
-
-      <!-- Font family -->
-      <div class="toolbar-dropdown relative flex-shrink-0">
-        <button
-          type="button"
-          :class="[controlBaseClass, 'w-[100px] justify-between gap-1 px-2 text-xs font-medium']"
-          :title="t('toolbar.fontFamily')"
-          :aria-label="t('toolbar.fontFamily')"
-          :disabled="!editor"
-          :aria-expanded="activeDropdown === 'font'"
-          aria-haspopup="menu"
-          @mousedown.prevent
-          @click.stop="toggleDropdown('font')"
-        >
-          <span class="truncate">{{ currentFontLabel }}</span>
-          <ChevronDown class="h-3.5 w-3.5 flex-shrink-0 text-slate-400" />
-        </button>
-        <div
-          v-if="activeDropdown === 'font'"
-          class="absolute left-0 top-full z-50 mt-1 min-w-[160px] rounded-lg border border-slate-200 bg-white py-1 text-sm shadow-xl dark:border-slate-700 dark:bg-[#0e1525]"
-        >
-          <button
-            v-for="opt in FONT_OPTIONS"
-            :key="opt.value"
-            type="button"
-            :class="['flex w-full items-center px-3 py-1.5 text-left hover:bg-slate-50 dark:hover:bg-white/5', currentFont === opt.value ? 'text-blue-600 dark:text-blue-300' : 'text-slate-700 dark:text-slate-200']"
-            @mousedown.prevent
-            @click="applyFont(opt.value)"
-          >
-            {{ opt.label }}
-          </button>
-        </div>
-      </div>
-
-      <!-- Font size -->
-      <button
-        type="button"
-        :class="[controlBaseClass, 'w-7 text-sm']"
-        :title="t('toolbar.decreaseFontSize')"
-        :aria-label="t('toolbar.decreaseFontSize')"
-        :disabled="!editor"
-        @mousedown.prevent="handleFontSize(-1)"
-      >
-        <Minus class="h-3.5 w-3.5" />
-      </button>
-      <input
-        type="text"
-        inputmode="numeric"
-        class="h-8 w-8 flex-shrink-0 rounded border border-transparent bg-transparent text-center text-xs text-slate-700 outline-none transition hover:border-slate-300 focus:border-cyan-400 focus:bg-white disabled:opacity-40 dark:text-slate-200 dark:hover:border-slate-600 dark:focus:bg-slate-800"
-        :value="fontSizeDraft ?? String(currentFontSize)"
-        :title="t('toolbar.fontSize')"
-        :aria-label="t('toolbar.fontSize')"
-        :disabled="!editor"
-        @focus="onFontSizeFocus"
-        @input="onFontSizeInput"
-        @keydown.enter.prevent="($event.target as HTMLInputElement).blur()"
-        @keydown.esc.prevent="cancelFontSize"
-        @blur="commitFontSize"
-      />
-      <button
-        type="button"
-        :class="[controlBaseClass, 'w-7 text-sm']"
-        :title="t('toolbar.increaseFontSize')"
-        :aria-label="t('toolbar.increaseFontSize')"
-        :disabled="!editor"
-        @mousedown.prevent="handleFontSize(1)"
-      >
-        <Plus class="h-3.5 w-3.5" />
-      </button>
-
-      <span class="mx-1 h-5 w-px flex-shrink-0 bg-slate-200 dark:bg-white/10" />
-
-      <!-- Primary formatting (bold / italic / underline / strike, etc.) -->
-      <button
-        v-for="item in flatItems"
-        :key="item.id"
-        type="button"
-        :title="localizeItemLabel(item)"
-        :aria-label="localizeItemLabel(item)"
-        :class="[
-          'docs-editor-toolbar__button inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md p-1 transition-all disabled:opacity-40',
-          isItemActive(item) ? activeClass : inactiveClass,
-        ]"
-        :disabled="!editor"
-        :aria-pressed="isItemActive(item)"
-        @mousedown.prevent
-        @click="runPluginItem(item)"
-      >
-        <component
-          :is="resolveIcon(item.iconComponent)"
-          v-if="resolveIcon(item.iconComponent)"
-          class="h-[18px] w-[18px]"
-        />
-        <span v-else-if="localizeItemLabel(item)" class="text-xs font-medium leading-none">{{ localizeItemLabel(item).charAt(0) }}</span>
-      </button>
-
-      <span
-        v-if="colorItems.length"
-        class="mx-1 h-5 w-px flex-shrink-0 bg-slate-200 dark:bg-white/10"
+      <ToolbarDocControls
+        :editor="editor"
+        @undo="emit('undo')"
+        @redo="emit('redo')"
+        @print="emit('print')"
       />
 
-      <!-- Text color dropdown -->
-      <div v-if="textColorItem" class="toolbar-dropdown relative flex-shrink-0">
-        <button
-          type="button"
-          :class="[controlBaseClass, 'w-8']"
-          :title="localizeItemLabel(textColorItem)"
-          :aria-label="localizeItemLabel(textColorItem)"
-          :disabled="!editor"
-          :aria-expanded="activeDropdown === 'textColor'"
-          aria-haspopup="menu"
-          data-testid="toolbar-text-color"
-          @mousedown.prevent
-          @click.stop="toggleDropdown('textColor')"
-        >
-          <Palette class="h-[18px] w-[18px]" />
-        </button>
-        <ColorPickerDropdown
-          :is-open="activeDropdown === 'textColor'"
-          :active-color="currentTextColor"
-          label="Custom"
-          @select="applyColor('setTextColor', $event)"
-          @reset="resetColor('setTextColor')"
-          @close="activeDropdown = null"
-        />
-      </div>
+      <span class="mx-1 h-5 w-px flex-shrink-0 bg-slate-200 dark:bg-white/10" />
 
-      <!-- Highlight color dropdown -->
-      <div v-if="highlightItem" class="toolbar-dropdown relative flex-shrink-0">
-        <button
-          type="button"
-          :class="[controlBaseClass, 'w-8']"
-          :title="localizeItemLabel(highlightItem)"
-          :aria-label="localizeItemLabel(highlightItem)"
-          :disabled="!editor"
-          :aria-expanded="activeDropdown === 'highlight'"
-          aria-haspopup="menu"
-          @mousedown.prevent
-          @click.stop="toggleDropdown('highlight')"
-        >
-          <Highlighter class="h-[18px] w-[18px]" />
-        </button>
-        <ColorPickerDropdown
-          :is-open="activeDropdown === 'highlight'"
-          :active-color="currentHighlightColor"
-          label="Custom"
-          @select="applyColor('setHighlight', $event)"
-          @reset="resetColor('setHighlight')"
-          @close="activeDropdown = null"
-        />
-      </div>
+      <ToolbarParagraphStyle
+        :editor="editor"
+        :open="activeDropdown === 'heading'"
+        :current-style="currentParagraphStyle"
+        @toggle="toggleDropdown('heading')"
+        @apply="applyParagraphStyle"
+      />
+
+      <ToolbarFontFamily
+        :editor="editor"
+        :open="activeDropdown === 'font'"
+        :current-font="currentFont"
+        :current-label="currentFontLabel"
+        @toggle="toggleDropdown('font')"
+        @apply="applyFont"
+      />
+
+      <ToolbarFontSize :editor="editor" :selection-tick="selectionTick" />
+
+      <span class="mx-1 h-5 w-px flex-shrink-0 bg-slate-200 dark:bg-white/10" />
+
+      <ToolbarInlineFormat
+        :editor="editor"
+        :items="flatItems"
+        :selection-tick="selectionTick"
+        @run="runPluginItem"
+      />
+
+      <ToolbarColorControls
+        :editor="editor"
+        :actions="actions"
+        :text-color-item="textColorItem"
+        :highlight-item="highlightItem"
+        :current-text-color="currentTextColor"
+        :current-highlight-color="currentHighlightColor"
+        :text-color-open="activeDropdown === 'textColor'"
+        :highlight-open="activeDropdown === 'highlight'"
+        @toggle="toggleDropdown"
+        @close="closeAll"
+      />
 
       <span
         v-if="listItems.length || alignItems.length || insertItems.length"
         class="mx-1 h-5 w-px flex-shrink-0 bg-slate-200 dark:bg-white/10"
       />
 
-      <!-- Lists dropdown -->
-      <div v-if="listItems.length" class="toolbar-dropdown relative flex-shrink-0">
-        <button
-          type="button"
-          :class="[controlBaseClass, 'gap-0.5 px-1.5']"
-          :title="t('toolbar.lists')"
-          :aria-label="t('toolbar.lists')"
-          :disabled="!editor"
-          :aria-expanded="activeDropdown === 'lists'"
-          aria-haspopup="menu"
-          @mousedown.prevent
-          @click.stop="toggleDropdown('lists')"
-        >
-          <List class="h-[18px] w-[18px]" />
-          <ChevronDown class="h-3 w-3 text-slate-400" />
-        </button>
-        <div
-          v-if="activeDropdown === 'lists'"
-          class="absolute left-0 top-full z-50 mt-1 min-w-[180px] rounded-lg border border-slate-200 bg-white py-1 text-sm shadow-xl dark:border-slate-700 dark:bg-[#0e1525]"
-        >
-          <button
-            v-for="item in listItems"
-            :key="item.id"
-            type="button"
-            :class="['flex w-full items-center gap-2.5 px-3 py-1.5 text-left hover:bg-slate-50 dark:hover:bg-white/5', isItemActive(item) ? 'text-blue-600 dark:text-blue-300' : 'text-slate-700 dark:text-slate-200']"
-            :disabled="!editor"
-            @mousedown.prevent
-            @click="runFromDropdown(item)"
-          >
-            <component :is="resolveIcon(item.iconComponent)" v-if="resolveIcon(item.iconComponent)" class="h-4 w-4" />
-            <span>{{ localizeItemLabel(item) }}</span>
-          </button>
-        </div>
-      </div>
+      <ToolbarPluginMenu
+        v-if="listItems.length"
+        :editor="editor"
+        :items="listItems"
+        :open="activeDropdown === 'lists'"
+        :title="t('toolbar.lists')"
+        :trigger-icon="List"
+        trigger-class="gap-0.5 px-1.5"
+        panel-class="min-w-[180px]"
+        :selection-tick="selectionTick"
+        @toggle="toggleDropdown('lists')"
+        @run="runFromDropdown"
+      />
 
-      <!-- Alignment dropdown -->
-      <div v-if="alignItems.length" class="toolbar-dropdown relative flex-shrink-0">
-        <button
-          type="button"
-          :class="[controlBaseClass, 'gap-0.5 px-1.5']"
-          :title="t('toolbar.alignment')"
-          :aria-label="t('toolbar.alignment')"
-          :disabled="!editor"
-          :aria-expanded="activeDropdown === 'align'"
-          aria-haspopup="menu"
-          @mousedown.prevent
-          @click.stop="toggleDropdown('align')"
-        >
-          <component :is="currentAlignIcon" class="h-[18px] w-[18px]" />
-          <ChevronDown class="h-3 w-3 text-slate-400" />
-        </button>
-        <div
-          v-if="activeDropdown === 'align'"
-          class="absolute left-0 top-full z-50 mt-1 min-w-[160px] rounded-lg border border-slate-200 bg-white py-1 text-sm shadow-xl dark:border-slate-700 dark:bg-[#0e1525]"
-        >
-          <button
-            v-for="item in alignItems"
-            :key="item.id"
-            type="button"
-            :class="['flex w-full items-center gap-2.5 px-3 py-1.5 text-left hover:bg-slate-50 dark:hover:bg-white/5', isItemActive(item) ? 'text-blue-600 dark:text-blue-300' : 'text-slate-700 dark:text-slate-200']"
-            :disabled="!editor"
-            @mousedown.prevent
-            @click="runFromDropdown(item)"
-          >
-            <component :is="resolveIcon(item.iconComponent)" v-if="resolveIcon(item.iconComponent)" class="h-4 w-4" />
-            <span>{{ localizeItemLabel(item) }}</span>
-          </button>
-        </div>
-      </div>
+      <ToolbarPluginMenu
+        v-if="alignItems.length"
+        :editor="editor"
+        :items="alignItems"
+        :open="activeDropdown === 'align'"
+        :title="t('toolbar.alignment')"
+        :trigger-icon="currentAlignIcon"
+        trigger-class="gap-0.5 px-1.5"
+        panel-class="min-w-[160px]"
+        :selection-tick="selectionTick"
+        @toggle="toggleDropdown('align')"
+        @run="runFromDropdown"
+      />
 
-      <!-- Insert dropdown -->
-      <div v-if="insertItems.length" class="toolbar-dropdown relative flex-shrink-0">
-        <button
-          type="button"
-          :class="[controlBaseClass, 'gap-1 px-2 text-xs font-medium']"
-          :title="t('toolbar.insert')"
-          :aria-label="t('toolbar.insert')"
-          :disabled="!editor"
-          :aria-expanded="activeDropdown === 'insert'"
-          aria-haspopup="menu"
-          @mousedown.prevent
-          @click.stop="toggleDropdown('insert')"
-        >
-          <Plus class="h-4 w-4" />
-          <span class="hidden md:inline">{{ t('toolbar.insert') }}</span>
-          <ChevronDown class="h-3 w-3 text-slate-400" />
-        </button>
-        <div
-          v-if="activeDropdown === 'insert'"
-          class="absolute left-0 top-full z-50 mt-1 min-w-[190px] rounded-lg border border-slate-200 bg-white py-1 text-sm shadow-xl dark:border-slate-700 dark:bg-[#0e1525]"
-        >
-          <button
-            v-for="item in insertItems"
-            :key="item.id"
-            type="button"
-            :class="['flex w-full items-center gap-2.5 px-3 py-1.5 text-left hover:bg-slate-50 dark:hover:bg-white/5', isItemActive(item) ? 'text-blue-600 dark:text-blue-300' : 'text-slate-700 dark:text-slate-200']"
-            :disabled="!editor"
-            @mousedown.prevent
-            @click="runFromDropdown(item)"
-          >
-            <component :is="resolveIcon(item.iconComponent)" v-if="resolveIcon(item.iconComponent)" class="h-4 w-4" />
-            <span>{{ localizeItemLabel(item) }}</span>
-          </button>
-        </div>
-      </div>
+      <ToolbarPluginMenu
+        v-if="insertItems.length"
+        :editor="editor"
+        :items="insertItems"
+        :open="activeDropdown === 'insert'"
+        :title="t('toolbar.insert')"
+        :trigger-icon="Plus"
+        trigger-icon-class="h-4 w-4"
+        :show-label="true"
+        :label="t('toolbar.insert')"
+        trigger-class="gap-1 px-2 text-xs font-medium"
+        panel-class="min-w-[190px]"
+        :selection-tick="selectionTick"
+        @toggle="toggleDropdown('insert')"
+        @run="runFromDropdown"
+      />
 
       <span class="mx-1 h-5 w-px flex-shrink-0 bg-slate-200 dark:bg-white/10" />
 
-      <!-- Sidebar toggles -->
-      <button
-        type="button"
-        :class="['docs-editor-toolbar__control flex h-8 w-8 items-center justify-center rounded-md transition-all relative', sidebarClass('comments')]"
-        :title="t('toolbar.comments')"
-        :aria-label="t('toolbar.comments')"
-        @click="emit('toggle-sidebar', 'comments')"
-      >
-        <MessageSquare class="h-[18px] w-[18px]" />
-      </button>
-      <button
-        type="button"
-        :class="['docs-editor-toolbar__control flex h-8 w-8 items-center justify-center rounded-md transition-all', sidebarClass('history')]"
-        :title="t('toolbar.history')"
-        :aria-label="t('toolbar.history')"
-        @click="emit('toggle-sidebar', 'history')"
-      >
-        <History class="h-[18px] w-[18px]" />
-      </button>
-      <button
-        v-if="hasAI"
-        type="button"
-        :class="['docs-editor-toolbar__control flex h-8 w-8 items-center justify-center rounded-md transition-all', sidebarClass('ai')]"
-        :title="t('toolbar.ai')"
-        :aria-label="t('toolbar.ai')"
-        @click="emit('toggle-sidebar', 'ai')"
-      >
-        <Sparkles class="h-[18px] w-[18px]" />
-      </button>
-      <button
-        type="button"
-        :class="['docs-editor-toolbar__control flex h-8 w-8 items-center justify-center rounded-md transition-all', sidebarClass('toc')]"
-        :title="t('toolbar.tableOfContents')"
-        :aria-label="t('toolbar.tableOfContents')"
-        @click="emit('toggle-sidebar', 'toc')"
-      >
-        <FileText class="h-[18px] w-[18px]" />
-      </button>
-      <button
-        v-if="hasCitationPlugin"
-        type="button"
-        :class="['docs-editor-toolbar__control flex h-8 w-8 items-center justify-center rounded-md transition-all', sidebarClass('references')]"
-        :title="t('toolbar.references')"
-        :aria-label="t('toolbar.references')"
-        @click="emit('toggle-sidebar', 'references')"
-      >
-        <BookOpen class="h-[18px] w-[18px]" />
-      </button>
+      <ToolbarSidebarToggles
+        :active-sidebar="activeSidebar"
+        :has-ai="hasAI"
+        :has-citation-plugin="hasCitationPlugin"
+        @toggle-sidebar="emit('toggle-sidebar', $event)"
+      />
     </div>
   </div>
 </template>
