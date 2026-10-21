@@ -115,6 +115,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **Tailwind CSS 3 → 4 (issue #215):** `packages/vue`, `packages/element` and
+  `examples/playground` compile their stylesheet with `tailwindcss@4` and
+  `@tailwindcss/postcss`; the three `tailwind.config.js` files are gone and their tokens
+  live in the CSS entry (`@theme` for font/shadow tokens, `@custom-variant dark` for the
+  class-based dark mode, `@source` for the component globs). Consumers get a stylesheet
+  whose utilities are **inside `@layer`** — that matters: an app on Tailwind 4 saw the
+  library's unlayered v3 utilities win over its own layered ones (`.hidden` beating
+  `lg:table-cell`, collapsing dashboard columns) until it moved to this release. Measured
+  against the v3 baseline: 0.036–0.040 % of pixels differ, all antialiasing edges from
+  Tailwind 4 emitting OKLCH colours (dominant-colour pixel counts are identical; shifting
+  the image ±1 px makes the diff worse, so no layout moved).
+  _([#215](https://github.com/Kedata-Indonesia/docflow/issues/215))_
+
 - **Packaging:** `@kedataindo/docflow-vue` no longer bundles its runtime
   dependencies. `dist/index.js` drops from ~2.17 MB to ~420 kB and the npm
   tarball from 4.28 MB to ~0.29 MB; the CSL styles, TipTap/ProseMirror and the

@@ -1,7 +1,9 @@
 # Rencana migrasi Tailwind CSS 3 → 4 (issue #215)
 
-Status: **migrasi selesai di `packages/vue`, `packages/element`, dan `examples/playground`;
-tinggal verifikasi di `docflow-app` (Fase E).**
+Status: **selesai** — migrasi di `packages/vue`, `packages/element`, dan
+`examples/playground` (PR #281) dan verifikasi konsumsi di `docflow-app` (Fase E) beres:
+app berjalan di `docflow-vue` 0.0.153 / `docflow-element` 0.0.150 dengan Tailwind 4, suite
+e2e-nya hijau.
 Dokumen ini sengaja ditulis sebelum migrasi supaya "berhasil" punya definisi yang bisa
 diperiksa, bukan sekadar "build hijau".
 
@@ -159,6 +161,17 @@ Patch release otomatis lewat `publish.yml`; setelah itu `docflow-app` (repo terp
 default branch `development`) menerima `vue`/`element` baru dan harus diperiksa
 tampilannya di sana — UI app memakai kelas Tailwind-nya sendiri, jadi migrasi library
 tidak otomatis memperbaikinya.
+
+**Status: selesai.** `docflow-app` sekarang di `docflow-vue` 0.0.153 dan
+`docflow-element` 0.0.150 (pin tunggal di blok `catalog:`), sudah melewati migrasi Tailwind 4
+sendiri dan memakai stylesheet library yang berlayer; suite e2e app hijau.
+
+Selama transisi muncul regresi nyata yang layak dicatat di sini, karena persis inilah alasan
+Fase E ada: rilis library yang masih Tailwind 3 mengirim utility **unlayered**, sehingga
+`.hidden` milik library mengalahkan `lg:table-cell` milik app dan kolom dashboard runtuh.
+Kesimpulannya bukan "build app hijau berarti aman", melainkan app **harus** memakai rilis
+v4 library — `@source` ke `dist` library juga wajib, kalau tidak kelas komponen tidak
+teremit di stylesheet app.
 
 ---
 
