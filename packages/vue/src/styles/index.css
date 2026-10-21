@@ -1045,7 +1045,9 @@
 /* ── Pagination paper background (screen) ─────────────────────────── */
 .rm-with-pagination {
   background-color: #ffffff;
-  padding-top: var(--rm-margin-top);
+  /* `--rm-first-header-overflow` is published by the header painter when a
+     multi-line first-page header needs more room than the top margin (issue #319). */
+  padding-top: calc(var(--rm-margin-top) + var(--rm-first-header-overflow, 0px));
   padding-bottom: var(--rm-margin-bottom);
   position: relative;
 }
@@ -1087,6 +1089,14 @@
   font-size: 14px !important;
   line-height: 1.5 !important;
   min-height: 24px !important;
+}
+
+/* Page 1 content area: the first-page header is absolute, so its overflow is
+   published as `--rm-first-header-overflow`. The paper padding grows by that
+   amount (pushing the body down) and page 1's spacer shrinks by the same amount,
+   keeping every later page boundary in place (issue #319). */
+#pages > .rm-page-break:first-child > .page {
+  margin-top: calc(var(--rm-page-content-first, 0px) - var(--rm-first-header-overflow, 0px)) !important;
 }
 
 /* First-page header is positioned in the paper's top margin area so it
@@ -1137,6 +1147,9 @@
   line-height: 1.5 !important;
   min-height: 24px !important;
   pointer-events: auto !important;
+  /* Render explicit line breaks (`<br>` / legacy newlines) so a multi-line
+     header keeps its lines instead of collapsing (issue #319). */
+  white-space: pre-line !important;
 }
 
 .rm-page-header-left {
