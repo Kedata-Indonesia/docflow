@@ -107,6 +107,7 @@ export default {
     footer: 'Footer',
     footnote: 'Catatan Kaki',
     equation: 'Persamaan',
+    numberedEquation: 'Persamaan bernomor',
     inlineEquation: 'Persamaan inline',
     bibliography: 'Daftar Pustaka',
     referenceList: 'Daftar Rujukan',
