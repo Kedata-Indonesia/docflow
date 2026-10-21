@@ -172,6 +172,8 @@ export default {
     fontFamily: 'Font family',
     decreaseFontSize: 'Decrease font size',
     increaseFontSize: 'Increase font size',
+    increaseIndent: 'Increase indent',
+    decreaseIndent: 'Decrease indent',
     fontSize: 'Font size',
     lists: 'Lists',
     alignment: 'Alignment',
@@ -426,6 +428,7 @@ export default {
     },
     history: {
       title: 'History',
+      close: 'Close history',
       empty: 'No history yet.',
       version: 'Version',
       restore: 'Restore',

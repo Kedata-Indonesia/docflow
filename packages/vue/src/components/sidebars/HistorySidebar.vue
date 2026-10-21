@@ -8,6 +8,7 @@ import {
   User,
   Eye,
   ShieldAlert,
+  X,
 } from 'lucide-vue-next'
 import type { DocumentSnapshot } from '../../types.js'
 import { useLocale } from '../../composables/useLocale.js'
@@ -21,6 +22,7 @@ const emit = defineEmits<{
   'save-snapshot': [name: string]
   'restore-snapshot': [versionIndex: number]
   'preview-snapshot': [snapshot: DocumentSnapshot | null]
+  close: []
 }>()
 
 const { t } = useLocale()
@@ -41,9 +43,20 @@ const snapshots = computed(() => props.snapshots ?? [])
 <template>
   <div class="history-sidebar flex h-full w-80 flex-shrink-0 flex-col border-l border-slate-200 bg-white/80 text-slate-800 backdrop-blur-xl transition-all dark:border-white/5 dark:bg-[#0a0f1e]/85 dark:text-slate-100">
     <div class="border-b border-slate-200 p-4 dark:border-white/5">
-      <h3 class="flex items-center gap-1.5 font-mono text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
-        <History class="h-4 w-4 text-cyan-400" /> {{ t('sidebars.history.title') }}
-      </h3>
+      <div class="flex items-start justify-between gap-2">
+        <h3 class="flex items-center gap-1.5 font-mono text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
+          <History class="h-4 w-4 text-cyan-400" /> {{ t('sidebars.history.title') }}
+        </h3>
+        <button
+          type="button"
+          class="rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-white/5 dark:hover:text-slate-200"
+          :title="t('sidebars.history.close')"
+          :aria-label="t('sidebars.history.close')"
+          @click="emit('close')"
+        >
+          <X class="h-4 w-4" />
+        </button>
+      </div>
       <p class="mt-1.5 text-[10px] leading-relaxed text-slate-400 dark:text-slate-500">
         {{ t('sidebars.history.empty') }}
       </p>

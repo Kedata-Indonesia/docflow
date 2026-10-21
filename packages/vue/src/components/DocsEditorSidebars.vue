@@ -150,11 +150,12 @@ const referencesSidebarProps = computed(() => ({
     @delete-comment="(commentId) => emit('delete-comment', commentId)"
   />
 
-  <!-- Version history — no close emit; toggled via the toolbar History button. -->
+  <!-- Version history — closes like every other sidebar (issue #348). -->
   <HistorySidebar
     v-if="activeSidebar === 'history'"
     :snapshots="snapshots"
     :active-preview-index="activePreviewIndex"
+    @close="emit('close')"
     @save-snapshot="(name) => emit('save-snapshot', name)"
     @restore-snapshot="(versionIndex) => emit('restore-snapshot', versionIndex)"
     @preview-snapshot="(snapshot) => emit('preview-snapshot', snapshot)"
