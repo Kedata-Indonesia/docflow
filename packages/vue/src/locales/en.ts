@@ -426,6 +426,7 @@ export default {
     },
     history: {
       title: 'History',
+      close: 'Close history',
       empty: 'No history yet.',
       version: 'Version',
       restore: 'Restore',

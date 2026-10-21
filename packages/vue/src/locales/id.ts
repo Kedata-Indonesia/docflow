@@ -426,6 +426,7 @@ export default {
     },
     history: {
       title: 'Riwayat',
+      close: 'Tutup riwayat',
       empty: 'Belum ada riwayat.',
       version: 'Versi',
       restore: 'Pulihkan',
