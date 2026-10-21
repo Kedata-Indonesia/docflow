@@ -253,6 +253,41 @@
   margin: 1rem 0 !important;
 }
 
+/* Syntax highlighting inside code blocks (lowlight / highlight.js) — #247.
+   The code surface is always dark, so the token palette is tuned for it. */
+.ProseMirror pre code .hljs-comment,
+.ProseMirror pre code .hljs-quote { color: #94a3b8; font-style: italic; }
+.ProseMirror pre code .hljs-keyword,
+.ProseMirror pre code .hljs-selector-tag,
+.ProseMirror pre code .hljs-literal,
+.ProseMirror pre code .hljs-doctag { color: #c4b5fd; }
+.ProseMirror pre code .hljs-string,
+.ProseMirror pre code .hljs-regexp,
+.ProseMirror pre code .hljs-addition,
+.ProseMirror pre code .hljs-attribute { color: #86efac; }
+.ProseMirror pre code .hljs-number,
+.ProseMirror pre code .hljs-symbol,
+.ProseMirror pre code .hljs-bullet { color: #fcd34d; }
+.ProseMirror pre code .hljs-title,
+.ProseMirror pre code .hljs-section,
+.ProseMirror pre code .hljs-function .hljs-title { color: #93c5fd; }
+.ProseMirror pre code .hljs-type,
+.ProseMirror pre code .hljs-built_in,
+.ProseMirror pre code .hljs-class .hljs-title { color: #67e8f9; }
+.ProseMirror pre code .hljs-variable,
+.ProseMirror pre code .hljs-template-variable,
+.ProseMirror pre code .hljs-attr,
+.ProseMirror pre code .hljs-selector-attr { color: #fdba74; }
+.ProseMirror pre code .hljs-meta,
+.ProseMirror pre code .hljs-meta .hljs-keyword { color: #cbd5e1; }
+.ProseMirror pre code .hljs-name,
+.ProseMirror pre code .hljs-selector-id,
+.ProseMirror pre code .hljs-selector-class { color: #5eead4; }
+.ProseMirror pre code .hljs-deletion { color: #fca5a5; background: rgba(220, 38, 38, 0.18); }
+.ProseMirror pre code .hljs-addition { background: rgba(16, 185, 129, 0.18); }
+.ProseMirror pre code .hljs-emphasis { font-style: italic; }
+.ProseMirror pre code .hljs-strong { font-weight: 700; }
+
 /*
  * Heading sizes are DEFAULTS, deliberately without !important: a size chosen
  * from the toolbar renders as an inline `font-size` on the text (textStyle
