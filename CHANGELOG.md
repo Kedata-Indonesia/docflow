@@ -90,6 +90,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- **Header/footer hit areas (issue #320):** clicking the page margin now opens the inline
+  header or footer editor for the page that was clicked, on a single click, for both sides.
+  The generated widgets only cover their text box — the first-page header is absolutely
+  positioned on its text and the footer ends before the bottom margin — and the old handler
+  additionally bailed out on every click inside the editable surface, so the margin bands
+  opened nothing at all. The hit area is now derived from the widget rect plus the page
+  margin (`+/-8 px`), the clicked page's widget is passed to the editor explicitly instead of
+  falling back to the first one in the document, and body clicks are ignored by selector
+  before any geometry runs. Guarded by
+  `e2e/showcase/issue-320-header-footer-zones.spec.ts`, which measures the rects at runtime
+  instead of hardcoding offsets.
+  _([#320](https://github.com/Kedata-Indonesia/docflow/issues/320))_
+
 - **Packaging:** statically imported runtime packages are no longer declared as
   *optional* peers. `y-webrtc`/`y-websocket` (core) and the TipTap extensions
   behind `defaultPlugins` (plugins) are regular dependencies now, and the

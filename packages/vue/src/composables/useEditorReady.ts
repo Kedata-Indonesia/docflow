@@ -1,6 +1,57 @@
 import { watch, type Ref } from 'vue'
 import type { DocsEditor } from '@kedata-indonesia/docflow-core'
 
+/**
+ * Issue #320 — the header/footer widgets only cover their text box: the first-page header is
+ * absolutely positioned on its text and the footer ends before the bottom margin. Clicking the
+ * paper margin therefore has to be resolved against an explicit band, derived from the widget
+ * rect plus the page margin — not from a fixed fudge factor that used to bleed into the body.
+ */
+const MARGIN_BAND_PADDING = 8
+const MARGIN_PAGE_COLUMN_GUARD = 24
+const TEXT_BLOCK_SELECTOR = 'p, h1, h2, h3, h4, h5, h6, li, blockquote, pre, td, th, figcaption'
+
+function collectSlots(root: HTMLElement, side: 'header' | 'footer'): HTMLElement[] {
+  return side === 'header'
+    ? Array.from(root.querySelectorAll<HTMLElement>('.rm-first-page-header, .rm-page-break .rm-page-header'))
+    : Array.from(root.querySelectorAll<HTMLElement>('.rm-page-break .rm-page-footer'))
+}
+
+/** Vertical band (viewport px) that counts as "this page's header/footer area". */
+function marginBand(
+  slot: HTMLElement,
+  side: 'header' | 'footer',
+  marginPx: number,
+  paperTop: number,
+): { top: number; bottom: number } | null {
+  const rect = slot.getBoundingClientRect()
+  if (rect.width === 0 || rect.height === 0) return null
+  if (side === 'header') {
+    // The first-page header sits on its text, so the empty margin above it belongs to the band.
+    const top = slot.classList.contains('rm-first-page-header') ? Math.min(rect.top - marginPx, paperTop) : rect.top
+    return { top: top - MARGIN_BAND_PADDING, bottom: rect.bottom + MARGIN_BAND_PADDING }
+  }
+  // The footer's bottom margin is outside its box, so the band runs to the margin end.
+  return { top: rect.top - MARGIN_BAND_PADDING, bottom: rect.bottom + marginPx + MARGIN_BAND_PADDING }
+}
+
+function slotAtPoint(
+  root: HTMLElement,
+  side: 'header' | 'footer',
+  point: { x: number; y: number },
+  marginPx: number,
+  paperTop: number,
+): HTMLElement | null {
+  for (const slot of collectSlots(root, side)) {
+    const band = marginBand(slot, side, marginPx, paperTop)
+    if (!band || point.y < band.top || point.y > band.bottom) continue
+    const rect = slot.getBoundingClientRect()
+    if (point.x < rect.left - MARGIN_PAGE_COLUMN_GUARD || point.x > rect.right + MARGIN_PAGE_COLUMN_GUARD) continue
+    return slot
+  }
+  return null
+}
+
 export interface UseEditorReadyOptions {
   isReady: Ref<boolean>
   editor: Ref<DocsEditor['editor'] | null>
@@ -12,8 +63,8 @@ export interface UseEditorReadyOptions {
   headerMarginCm: Ref<number>
   footerMarginCm: Ref<number>
   applyHeaderFooter: () => void
-  startInlineHeaderEdit: (event?: MouseEvent) => void
-  startInlineFooterEdit: (event?: MouseEvent) => void
+  startInlineHeaderEdit: (event?: MouseEvent, element?: HTMLElement | null) => void
+  startInlineFooterEdit: (event?: MouseEvent, element?: HTMLElement | null) => void
   updateBubbleMenu: () => void
   updateTableMenu: () => void
   updatePageStats: () => void
@@ -126,58 +177,37 @@ export function useEditorReady(options: UseEditorReadyOptions) {
         const target = e.target as HTMLElement | null
         if (!target) return
 
-        // Ignore clicks on options dropdown, active bar tools, or the active editable.
-        if (target.closest('.rm-google-docs-header-bar, .rm-options-dropdown, [contenteditable="true"]')) return
+        // Ignore the floating bar, its dropdown and the inline editors themselves.
+        if (target.closest('.rm-google-docs-header-bar, .rm-options-dropdown, .rm-header-edit-overlay, .rm-footer-edit-overlay')) return
+        if (target.closest('a, button, input, select, textarea')) return
 
-        // Direct click on header or its children
-        const headerEl = target.closest<HTMLElement>('.rm-page-header, .rm-first-page-header')
-        if (headerEl) {
-          startInlineHeaderEdit(e)
+        // Direct click on a generated header/footer widget or its children.
+        const direct = target.closest<HTMLElement>('.rm-page-header, .rm-first-page-header, .rm-page-footer')
+        if (direct) {
+          if (direct.classList.contains('rm-page-footer')) startInlineFooterEdit(e, direct)
+          else startInlineHeaderEdit(e, direct)
           return
         }
 
-        // Direct click on footer or its children
-        const footerEl = target.closest<HTMLElement>('.rm-page-footer')
-        if (footerEl) {
-          startInlineFooterEdit(e)
+        // A click on a body block belongs to the document, never to a margin band.
+        if (target.closest(TEXT_BLOCK_SELECTOR)) return
+
+        const root = editor.value?.view.dom
+        if (!root) return
+        const paperTop = target.closest<HTMLElement>('.docs-editor__paper')?.getBoundingClientRect().top ?? 0
+        // Rects are visual px under the zoom transform; margins are layout px (#144).
+        const zoomScale = Math.max(0.01, getZoomScale?.() ?? 1)
+        const headerBandPx = headerMarginCm.value * 37.795 * zoomScale
+        const footerBandPx = footerMarginCm.value * 37.795 * zoomScale
+        const point = { x: e.clientX, y: e.clientY }
+
+        const headerSlot = slotAtPoint(root, 'header', point, headerBandPx, paperTop)
+        if (headerSlot) {
+          startInlineHeaderEdit(e, headerSlot)
           return
         }
-
-        // Click on the top or bottom margin boundary area of the editor/page
-        const pageWrap = target.closest<HTMLElement>('.rm-with-pagination, .rm-page-break, .page, .docs-editor-page')
-        if (pageWrap) {
-          const rect = pageWrap.getBoundingClientRect()
-          // Rects are visual px under the zoom transform; margins are layout px.
-          const zoomScale = Math.max(0.01, getZoomScale?.() ?? 1)
-          const relativeY = (e.clientY - rect.top) / zoomScale
-          const topMarginPx = headerMarginCm.value * 37.795
-          if (relativeY >= 0 && relativeY <= Math.max(topMarginPx, 40) + 15) {
-            let targetHeader: HTMLElement | null = null
-            if (pageWrap.classList.contains('rm-page-break')) {
-              targetHeader = pageWrap.querySelector<HTMLElement>('.rm-page-header')
-            }
-            if (!targetHeader) {
-              targetHeader = document.querySelector<HTMLElement>('.rm-page-header, .rm-first-page-header')
-            }
-            if (targetHeader) {
-              startInlineHeaderEdit(e)
-              return
-            }
-          }
-
-          const relativeBottom = (rect.bottom - e.clientY) / zoomScale
-          const bottomMarginPx = footerMarginCm.value * 37.795
-          if (relativeBottom >= 0 && relativeBottom <= Math.max(bottomMarginPx, 40) + 15) {
-            let targetFooter: HTMLElement | null = null
-            if (pageWrap.classList.contains('rm-page-break')) {
-              targetFooter = pageWrap.querySelector<HTMLElement>('.rm-page-footer')
-            }
-            if (!targetFooter) {
-              targetFooter = document.querySelector<HTMLElement>('.rm-page-footer')
-            }
-            if (targetFooter) startInlineFooterEdit(e)
-          }
-        }
+        const footerSlot = slotAtPoint(root, 'footer', point, footerBandPx, paperTop)
+        if (footerSlot) startInlineFooterEdit(e, footerSlot)
       })
     }
   })
