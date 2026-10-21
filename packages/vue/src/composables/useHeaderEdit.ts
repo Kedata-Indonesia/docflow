@@ -1,6 +1,10 @@
 import { type Ref } from 'vue'
 import { sanitizeInlineHTML, type DocsEditor } from '@kedata-indonesia/docflow-core'
-import { positionHeaderOverlay, type HeaderOverlaySession } from './headerEditOverlay.js'
+import {
+  positionFooterOverlay,
+  positionHeaderOverlay,
+  type HeaderOverlaySession,
+} from './headerEditOverlay.js'
 
 /** Elements a contenteditable uses to represent a new line (Enter). */
 const BLOCK_TAGS = new Set([
@@ -16,7 +20,7 @@ const INLINE_TAGS = new Set(['b', 'strong', 'i', 'em', 'u'])
  * Convert a contenteditable's block/newline structure into inline HTML with
  * explicit `<br>` separators. Chromium represents Enter as sibling `<div>`s and
  * Shift+Enter as a text newline; `sanitizeInlineHTML` unwraps blocks, so without
- * this a multi-line header collapses onto a single line (issue #319).
+ * this a multi-line header/footer collapses onto a single line (issue #319).
  */
 function editableHTMLToInlineHTML(html: string): string {
   if (!html) return ''
@@ -65,6 +69,9 @@ function editableHTMLToInlineHTML(html: string): string {
   return lines.join('<br>')
 }
 
+/** The two editable slots on the page. */
+export type SlotSide = 'header' | 'footer'
+
 export interface UseHeaderEditOptions {
   editor: Ref<DocsEditor['editor'] | null>
   scrollContainerRef: Ref<HTMLElement | null>
@@ -76,13 +83,19 @@ export interface UseHeaderEditOptions {
   userFirstPageHeaderLeft: Ref<string>
   userFirstPageHeaderRight: Ref<string>
   userEvenPageHeaderLeft: Ref<string>
+  userFooterLeft: Ref<string>
+  userFooterRight: Ref<string>
+  userFirstPageFooterLeft: Ref<string>
+  userFirstPageFooterRight: Ref<string>
+  userEvenPageFooterLeft: Ref<string>
   applyHeaderFooter: () => void
   persistCurrentDoc: () => void
   openHeaderFormatModal: () => void
   openPageNumberModal: () => void
 }
 
-interface HeaderEditSession extends HeaderOverlaySession {
+interface SlotEditSession extends HeaderOverlaySession {
+  side: SlotSide
   input: HTMLElement
   generatedContent: HTMLElement | null
   pageIndex: number
@@ -94,9 +107,13 @@ interface HeaderEditSession extends HeaderOverlaySession {
 }
 
 /**
- * Inline header editing: a floating contenteditable overlay positioned over a
- * generated header widget. Edits are committed back to the header content refs
- * (never ProseMirror), so the document JSON is untouched — Google Docs parity.
+ * Inline header/footer editing: a floating contenteditable overlay positioned
+ * over a generated slot. Edits are committed back to the slot refs (never
+ * ProseMirror), so the document JSON is untouched — Google Docs parity.
+ *
+ * Header and footer share this engine (issue #320). The only differences are
+ * the target element, the value mapping (first/even/default) and which side of
+ * the overlay the Options bar opens on.
  */
 export function useHeaderEdit(options: UseHeaderEditOptions) {
   const {
@@ -110,20 +127,44 @@ export function useHeaderEdit(options: UseHeaderEditOptions) {
     userFirstPageHeaderLeft,
     userFirstPageHeaderRight,
     userEvenPageHeaderLeft,
+    userFooterLeft,
+    userFooterRight,
+    userFirstPageFooterLeft,
+    userFirstPageFooterRight,
+    userEvenPageFooterLeft,
     applyHeaderFooter,
     persistCurrentDoc,
     openHeaderFormatModal,
     openPageNumberModal,
   } = options
 
-  const headerEditSession: { value: HeaderEditSession | null } = { value: null }
+  const headerEditSession: { value: SlotEditSession | null } = { value: null }
 
-  const getHeaderEditValue = (pageNumber: number): string => {
+  const getSlotValue = (side: SlotSide, pageNumber: number): string => {
     const isFirstPage = pageNumber === 1
     const isEvenPage = pageNumber % 2 === 0
-    if (isDifferentFirstPage.value && isFirstPage) return userFirstPageHeaderLeft.value
-    if (isDifferentOddEven.value && isEvenPage) return userEvenPageHeaderLeft.value
-    return userHeaderLeft.value
+    if (side === 'header') {
+      if (isDifferentFirstPage.value && isFirstPage) return userFirstPageHeaderLeft.value
+      if (isDifferentOddEven.value && isEvenPage) return userEvenPageHeaderLeft.value
+      return userHeaderLeft.value
+    }
+    if (isDifferentFirstPage.value && isFirstPage) return userFirstPageFooterLeft.value
+    if (isDifferentOddEven.value && isEvenPage) return userEvenPageFooterLeft.value
+    return userFooterLeft.value
+  }
+
+  const assignSlotValue = (side: SlotSide, pageNumber: number, value: string) => {
+    const isFirstPage = pageNumber === 1
+    const isEvenPage = pageNumber % 2 === 0
+    if (side === 'header') {
+      if (isDifferentFirstPage.value && isFirstPage) userFirstPageHeaderLeft.value = value
+      else if (isDifferentOddEven.value && isEvenPage) userEvenPageHeaderLeft.value = value
+      else userHeaderLeft.value = value
+      return
+    }
+    if (isDifferentFirstPage.value && isFirstPage) userFirstPageFooterLeft.value = value
+    else if (isDifferentOddEven.value && isEvenPage) userEvenPageFooterLeft.value = value
+    else userFooterLeft.value = value
   }
 
   const finishHeaderEdit = (commit = true) => {
@@ -140,45 +181,46 @@ export function useHeaderEdit(options: UseHeaderEditOptions) {
     scrollContainerRef.value?.removeEventListener('scroll', session.onScroll)
     session.overlay.remove()
     if (session.generatedContent) session.generatedContent.style.visibility = ''
-    session.targetHeader.classList.remove('rm-header-active')
+    session.targetHeader.classList.remove('rm-header-active', 'rm-footer-active')
     headerEditSession.value = null
 
     if (!commit) return
 
-    if (isDifferentFirstPage.value && session.isFirstPage) {
-      userFirstPageHeaderLeft.value = value
-    } else if (isDifferentOddEven.value && session.pageIndex % 2 === 0) {
-      userEvenPageHeaderLeft.value = value
+    assignSlotValue(session.side, session.pageIndex, value)
+
+    applyHeaderFooter()
+    persistCurrentDoc()
+  }
+
+  const clearSlotContent = (side: SlotSide) => {
+    if (side === 'header') {
+      userHeaderLeft.value = ''
+      userHeaderRight.value = ''
     } else {
-      userHeaderLeft.value = value
+      userFooterLeft.value = ''
+      userFooterRight.value = ''
     }
-
     applyHeaderFooter()
     persistCurrentDoc()
   }
 
-  const clearHeaderContent = () => {
-    userHeaderLeft.value = ''
-    userHeaderRight.value = ''
-    applyHeaderFooter()
-    persistCurrentDoc()
-  }
-
-  const syncOverlayHeight = (session: HeaderEditSession) => {
+  const syncOverlayHeight = (session: SlotEditSession) => {
     // The editable grows as the user adds lines. Grow the fixed overlay with it
-    // so the Google-Docs-style bar (`top: 100%` of the overlay) follows the text
-    // instead of staying at the original single-line height (issue #319).
+    // so the Google-Docs-style bar (top/bottom: 100% of the overlay) follows the
+    // text instead of staying at the original single-line height (issue #319).
     const height = session.input.getBoundingClientRect().height
     if (height > 0) session.overlay.style.height = `${height}px`
   }
 
-  const positionHeaderEdit = (session: HeaderEditSession) => {
+  const positionSlotEdit = (session: SlotEditSession) => {
     if (!editor.value) return
-    positionHeaderOverlay(session, editor.value.view.dom)
+    const root = editor.value.view.dom
+    if (session.side === 'header') positionHeaderOverlay(session, root)
+    else positionFooterOverlay(session, root)
     syncOverlayHeight(session)
   }
 
-  const startInlineHeaderEdit = (event?: MouseEvent) => {
+  const startInlineEdit = (side: SlotSide, event?: MouseEvent) => {
     const existing = headerEditSession.value
     if (existing) {
       const target = event?.target
@@ -186,44 +228,70 @@ export function useHeaderEdit(options: UseHeaderEditOptions) {
       finishHeaderEdit(false)
     }
 
-    let headerEl: HTMLElement | null = null
+    const sideSelector = side === 'header' ? '.rm-page-header, .rm-first-page-header' : '.rm-page-footer'
+    let slotEl: HTMLElement | null = null
     if (event) {
       const target = event.target as HTMLElement | null
-      headerEl = target?.closest('.rm-page-header, .rm-first-page-header') as HTMLElement | null
+      slotEl = target?.closest(sideSelector) as HTMLElement | null
     }
-    if (!headerEl) {
-      headerEl = editor.value?.view.dom.querySelector('.rm-first-page-header, .rm-page-header') as HTMLElement | null
+    if (!slotEl) {
+      slotEl = editor.value?.view.dom.querySelector(sideSelector) as HTMLElement | null
     }
-    if (!headerEl || !editor.value) return
+    if (!slotEl || !editor.value) return
 
     const root = editor.value.view.dom
-    // Explicit page mapping: the first-page header widget is page 1; each
-    // `.rm-page-break .rm-page-header` is the header of a later page. Note the
-    // first-page header also carries the `rm-page-header` class, so a flat
-    // `.rm-page-header` query cannot be indexed for page numbers.
-    const isFirstPage = headerEl.classList.contains('rm-first-page-header')
-    const breakHeaders = Array.from(root.querySelectorAll<HTMLElement>('.rm-page-break .rm-page-header'))
-    const pageNumber = isFirstPage ? 1 : breakHeaders.indexOf(headerEl) + 2
-    if (!isFirstPage && pageNumber < 2) return
-    const generatedContent = headerEl.querySelector('.rm-page-header-content') as HTMLElement | null
+    // Explicit page mapping. Header: the first-page widget is page 1 and each
+    // `.rm-page-break .rm-page-header` is the header of a later page (index + 2).
+    // Footer: there is no separate first-page widget — the first
+    // `.rm-page-break .rm-page-footer` is page 1 (index + 1).
+    let pageNumber: number
+    if (side === 'header') {
+      const isFirstPage = slotEl.classList.contains('rm-first-page-header')
+      const breakHeaders = Array.from(root.querySelectorAll<HTMLElement>('.rm-page-break .rm-page-header'))
+      pageNumber = isFirstPage ? 1 : breakHeaders.indexOf(slotEl) + 2
+      if (!isFirstPage && pageNumber < 2) return
+    } else {
+      const breakFooters = Array.from(root.querySelectorAll<HTMLElement>('.rm-page-break .rm-page-footer'))
+      pageNumber = breakFooters.indexOf(slotEl) + 1
+      if (pageNumber < 1) return
+    }
+
+    const generatedContent = slotEl.querySelector(
+      side === 'header' ? '.rm-page-header-content' : '.rm-page-footer-content',
+    ) as HTMLElement | null
     if (generatedContent) generatedContent.style.visibility = 'hidden'
+
     const input = document.createElement('div')
     input.className = 'rm-header-edit-input'
     input.contentEditable = 'true'
     input.setAttribute('role', 'textbox')
-    input.setAttribute('aria-label', t('editor.headerFooter.header') || 'Header')
-    input.dataset.placeholder = t('editor.headerFooter.headerPlaceholder') || 'Header'
+    input.setAttribute(
+      'aria-label',
+      t(side === 'header' ? 'editor.headerFooter.header' : 'editor.headerFooter.footer')
+        || (side === 'header' ? 'Header' : 'Footer'),
+    )
+    input.dataset.placeholder = t(
+      side === 'header' ? 'editor.headerFooter.headerPlaceholder' : 'editor.headerFooter.footerPlaceholder',
+    ) || (side === 'header' ? 'Header' : 'Footer')
     // Sanitize the seed too: the slot value is document-derived and writing it
     // unsanitized into this contenteditable would execute the payload (#51).
-    input.innerHTML = sanitizeInlineHTML(getHeaderEditValue(pageNumber))
+    input.innerHTML = sanitizeInlineHTML(getSlotValue(side, pageNumber))
 
     const overlay = document.createElement('div')
-    overlay.className = 'rm-header-edit-overlay'
+    overlay.className = side === 'header' ? 'rm-header-edit-overlay' : 'rm-footer-edit-overlay'
     overlay.appendChild(input)
     const activeBar = document.createElement('div')
     activeBar.className = 'rm-google-docs-header-bar'
+    const sideLabel = t(side === 'header' ? 'editor.headerFooter.header' : 'editor.headerFooter.footer')
+      || (side === 'header' ? 'Header' : 'Footer')
+    const formatLabel = t(
+      side === 'header' ? 'editor.headerFooter.formatHeader' : 'editor.headerFooter.formatFooter',
+    ) || (side === 'header' ? 'Header format' : 'Footer format')
+    const removeLabel = t(
+      side === 'header' ? 'editor.headerFooter.removeHeader' : 'editor.headerFooter.removeFooter',
+    ) || (side === 'header' ? 'Remove header' : 'Remove footer')
     activeBar.innerHTML = `
-    <span class="rm-header-label">${t('editor.headerFooter.header') || 'Header'}</span>
+    <span class="rm-header-label">${sideLabel}</span>
     <div class="rm-header-right-tools">
       <label class="rm-diff-label">
         <input type="checkbox" class="rm-diff-cb" ${isDifferentFirstPage.value ? 'checked' : ''}>
@@ -235,9 +303,9 @@ export function useHeaderEdit(options: UseHeaderEditOptions) {
           <span class="rm-arrow-icon" style="font-size: 8px;">▼</span>
         </button>
         <div class="rm-options-dropdown">
-          <button type="button" class="rm-opt-format">${t('editor.headerFooter.formatHeader') || 'Header format'}</button>
+          <button type="button" class="rm-opt-format">${formatLabel}</button>
           <button type="button" class="rm-opt-page-num">${t('editor.headerFooter.pageNumber') || 'Page numbers'}</button>
-          <button type="button" class="rm-opt-remove">${t('editor.headerFooter.removeHeader') || 'Remove header'}</button>
+          <button type="button" class="rm-opt-remove">${removeLabel}</button>
         </div>
       </div>
     </div>
@@ -245,11 +313,11 @@ export function useHeaderEdit(options: UseHeaderEditOptions) {
     overlay.appendChild(activeBar)
     document.body.appendChild(overlay)
 
-    headerEl.classList.add('rm-header-active')
+    slotEl.classList.add(side === 'header' ? 'rm-header-active' : 'rm-footer-active')
 
     const onResize = () => {
       const current = headerEditSession.value
-      if (current) positionHeaderEdit(current)
+      if (current) positionSlotEdit(current)
     }
     const onScroll = onResize
     const onWindowScroll = onResize
@@ -266,13 +334,14 @@ export function useHeaderEdit(options: UseHeaderEditOptions) {
       })
     }
 
-    const session: HeaderEditSession = {
-      targetHeader: headerEl,
+    const session: SlotEditSession = {
+      side,
+      targetHeader: slotEl,
       overlay,
       input,
       activeBar,
       generatedContent,
-      isFirstPage,
+      isFirstPage: pageNumber === 1,
       pageIndex: pageNumber,
       onOutsideMouseDown,
       onInputBlur,
@@ -291,8 +360,12 @@ export function useHeaderEdit(options: UseHeaderEditOptions) {
       const checked = (changeEvent.target as HTMLInputElement).checked
       finishHeaderEdit(true)
       if (checked) {
+        // Document-level setting: enabling it gives BOTH the first-page header
+        // and footer their own empty slots (Google Docs behaviour).
         userFirstPageHeaderLeft.value = ''
         userFirstPageHeaderRight.value = ''
+        userFirstPageFooterLeft.value = ''
+        userFirstPageFooterRight.value = ''
       }
       isDifferentFirstPage.value = checked
       applyHeaderFooter()
@@ -342,7 +415,7 @@ export function useHeaderEdit(options: UseHeaderEditOptions) {
     removeButton?.addEventListener('click', (clickEvent) => {
       clickEvent.stopPropagation()
       finishHeaderEdit(false)
-      clearHeaderContent()
+      clearSlotContent(side)
     })
 
     input.addEventListener('blur', onInputBlur)
@@ -356,7 +429,7 @@ export function useHeaderEdit(options: UseHeaderEditOptions) {
     // Position once the DOM/layout has settled (PaginationPlus may still be
     // rebuilding its generated widgets when the edit session starts).
     requestAnimationFrame(() => {
-      if (headerEditSession.value === session) positionHeaderEdit(session)
+      if (headerEditSession.value === session) positionSlotEdit(session)
     })
     input.focus()
 
@@ -369,7 +442,8 @@ export function useHeaderEdit(options: UseHeaderEditOptions) {
   }
 
   return {
-    startInlineHeaderEdit,
+    startInlineHeaderEdit: (event?: MouseEvent) => startInlineEdit('header', event),
+    startInlineFooterEdit: (event?: MouseEvent) => startInlineEdit('footer', event),
     finishHeaderEdit,
   }
 }

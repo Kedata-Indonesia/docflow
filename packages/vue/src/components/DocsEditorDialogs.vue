@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { DocumentMeta } from '../types.js'
 import { useDraftModel } from '../composables/useDraftModel.js'
-import FooterDialog from './FooterDialog.vue'
 import HeaderFormatDialog from './HeaderFormatDialog.vue'
 import PageNumberDialog from './PageNumberDialog.vue'
 import EmailDialog from './EmailDialog.vue'
@@ -10,8 +9,8 @@ import LinkDialog from './LinkDialog.vue'
 import PageSetupDialog from './PageSetupDialog.vue'
 
 /**
- * Modal dialogs for DocsEditor: footer, header/footer format, page number,
- * email, document details, link and page setup.
+ * Modal dialogs for DocsEditor: header/footer format, page number, email,
+ * document details, link and page setup.
  *
  * DocsEditor owns every draft ref (they are read through `wrapper.vm` by the
  * tests) and this component bridges them: values come in as props, edits go
@@ -19,15 +18,12 @@ import PageSetupDialog from './PageSetupDialog.vue'
  * executes. The dialog components themselves stay presentational.
  */
 const props = defineProps<{
-  showFooterModal: boolean
   showHeaderFormatModal: boolean
   showPageNumberModal: boolean
   showEmailModal: boolean
   showDetailsModal: boolean
   showLinkDialog: boolean
   showPageSetupModal: boolean
-  footerLeft: string
-  footerRight: string
   headerMarginCm: number
   footerMarginCm: number
   differentFirstPage: boolean
@@ -56,8 +52,6 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  'update:footerLeft': [value: string]
-  'update:footerRight': [value: string]
   'update:headerMarginCm': [value: number]
   'update:footerMarginCm': [value: number]
   'update:differentFirstPage': [value: boolean]
@@ -72,14 +66,12 @@ const emit = defineEmits<{
   'update:marginBottom': [value: number]
   'update:marginLeft': [value: number]
   'update:marginRight': [value: number]
-  'close-footer': []
   'close-header-format': []
   'close-page-number': []
   'close-email': []
   'close-details': []
   'close-link': []
   'close-page-setup': []
-  save: []
   'apply-header-format': []
   'apply-page-number': []
   'apply-page-setup': []
@@ -90,8 +82,6 @@ const emit = defineEmits<{
 
 // Writable bridges: each dialog edits its local draft and the change flows
 // back to DocsEditor as an `update:*` event (never a prop mutation).
-const dFooterLeft = useDraftModel(() => props.footerLeft, (v) => emit('update:footerLeft', v))
-const dFooterRight = useDraftModel(() => props.footerRight, (v) => emit('update:footerRight', v))
 const dHeaderMarginCm = useDraftModel(() => props.headerMarginCm, (v) => emit('update:headerMarginCm', v))
 const dFooterMarginCm = useDraftModel(() => props.footerMarginCm, (v) => emit('update:footerMarginCm', v))
 const dDifferentFirstPage = useDraftModel(() => props.differentFirstPage, (v) => emit('update:differentFirstPage', v))
@@ -112,21 +102,9 @@ const dMarginTop = useDraftModel(() => props.marginTop, (v) => emit('update:marg
 const dMarginBottom = useDraftModel(() => props.marginBottom, (v) => emit('update:marginBottom', v))
 const dMarginLeft = useDraftModel(() => props.marginLeft, (v) => emit('update:marginLeft', v))
 const dMarginRight = useDraftModel(() => props.marginRight, (v) => emit('update:marginRight', v))
-
-// "Clear" resets both footer fields at once (pre-extraction behaviour).
-const clearFooter = () => {
-  dFooterLeft.value = ''
-  dFooterRight.value = ''
-}
 </script>
 
 <template>
-  <!-- Dialog Footer Customization -->
-  <FooterDialog
-    v-model:left="dFooterLeft" v-model:right="dFooterRight" :is-open="showFooterModal"
-    @clear="clearFooter" @close="emit('close-footer')" @save="emit('save')"
-  />
-
   <!-- Dialog Header & Footer Format (Google Docs Style) -->
   <HeaderFormatDialog
     v-model:header-margin-cm="dHeaderMarginCm" v-model:footer-margin-cm="dFooterMarginCm"

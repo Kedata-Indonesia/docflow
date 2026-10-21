@@ -39,12 +39,14 @@ export function useDocsEditorHeaderFooterState(options: UseDocsEditorHeaderFoote
 
   const {
     userHeaderLeft, userHeaderRight, userFooterLeft, userFooterRight, isDifferentFirstPage, isDifferentOddEven,
-    userFirstPageHeaderLeft, userFirstPageHeaderRight, userEvenPageHeaderLeft, headerMarginCm, footerMarginCm,
+    userFirstPageHeaderLeft, userFirstPageHeaderRight, userEvenPageHeaderLeft,
+    userFirstPageFooterLeft, userFirstPageFooterRight, userEvenPageFooterLeft,
+    headerMarginCm, footerMarginCm,
     showHeaderFormatModal, draftHeaderMarginCm, draftFooterMarginCm, draftDifferentFirstPage, draftDifferentOddEven,
     showPageNumberModal, draftPageNumberPosition, draftShowPageNumberOnFirstPage, draftPageNumberMode,
-    draftPageNumberStartAt, showFooterModal, footerLeftInput, footerRightInput, HEADER_MARGIN_CM_MIN,
+    draftPageNumberStartAt, HEADER_MARGIN_CM_MIN,
     HEADER_MARGIN_CM_MAX, HEADER_MARGIN_CM_STEP, applyHeaderFooter, openHeaderFormatModal, applyHeaderFormat,
-    openPageNumberModal, applyPageNumberSettings, openFooterModal, saveFooter,
+    openPageNumberModal, applyPageNumberSettings,
   } = useHeaderFooter({
     editor,
     isReady,
@@ -64,7 +66,7 @@ export function useDocsEditorHeaderFooterState(options: UseDocsEditorHeaderFoote
     onUpdateHeaderFooterMargins: (value) => emit('update:header-footer-margins', value),
   })
 
-  const { startInlineHeaderEdit, finishHeaderEdit } = useHeaderEdit({
+  const { startInlineHeaderEdit, startInlineFooterEdit, finishHeaderEdit } = useHeaderEdit({
     editor,
     scrollContainerRef,
     t,
@@ -75,6 +77,11 @@ export function useDocsEditorHeaderFooterState(options: UseDocsEditorHeaderFoote
     userFirstPageHeaderLeft,
     userFirstPageHeaderRight,
     userEvenPageHeaderLeft,
+    userFooterLeft,
+    userFooterRight,
+    userFirstPageFooterLeft,
+    userFirstPageFooterRight,
+    userEvenPageFooterLeft,
     applyHeaderFooter,
     persistCurrentDoc,
     openHeaderFormatModal,
@@ -83,11 +90,13 @@ export function useDocsEditorHeaderFooterState(options: UseDocsEditorHeaderFoote
 
   return {
     userHeaderLeft, userHeaderRight, userFooterLeft, userFooterRight, isDifferentFirstPage, isDifferentOddEven,
-    userFirstPageHeaderLeft, userEvenPageHeaderLeft, headerMarginCm, footerMarginCm, showHeaderFormatModal,
+    userFirstPageHeaderLeft, userEvenPageHeaderLeft,
+    userFirstPageFooterLeft, userFirstPageFooterRight, userEvenPageFooterLeft,
+    headerMarginCm, footerMarginCm, showHeaderFormatModal,
     draftHeaderMarginCm, draftFooterMarginCm, draftDifferentFirstPage, draftDifferentOddEven, showPageNumberModal,
     draftPageNumberPosition, draftShowPageNumberOnFirstPage, draftPageNumberMode, draftPageNumberStartAt,
-    showFooterModal, footerLeftInput, footerRightInput, HEADER_MARGIN_CM_MIN, HEADER_MARGIN_CM_MAX,
+    HEADER_MARGIN_CM_MIN, HEADER_MARGIN_CM_MAX,
     HEADER_MARGIN_CM_STEP, applyHeaderFooter, openHeaderFormatModal, applyHeaderFormat, openPageNumberModal,
-    applyPageNumberSettings, openFooterModal, saveFooter, startInlineHeaderEdit, finishHeaderEdit,
+    applyPageNumberSettings, startInlineHeaderEdit, startInlineFooterEdit, finishHeaderEdit,
   }
 }

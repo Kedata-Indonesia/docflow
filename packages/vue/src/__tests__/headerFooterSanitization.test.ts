@@ -148,6 +148,10 @@ describe('header/footer sanitization (issue #51)', () => {
       userFirstPageHeaderRight: ref(''),
       userEvenPageHeaderLeft: ref(''),
       userEvenPageHeaderRight: ref(''),
+      userFirstPageFooterLeft: ref(''),
+      userFirstPageFooterRight: ref(''),
+      userEvenPageFooterLeft: ref(''),
+      userEvenPageFooterRight: ref(''),
       resolvePageNumber: (pageIndex) => String(pageIndex + 1),
     }
 

@@ -84,6 +84,12 @@ export function useHeaderFooter(options: UseHeaderFooterOptions) {
   const userFirstPageHeaderRight = sanitizedTextRef('')
   const userEvenPageHeaderLeft = sanitizedTextRef('')
   const userEvenPageHeaderRight = sanitizedTextRef('')
+  // Footer parity with the header (issue #320): per-page footers for the
+  // "Different first page" / "Different odd & even" document settings.
+  const userFirstPageFooterLeft = sanitizedTextRef('')
+  const userFirstPageFooterRight = sanitizedTextRef('')
+  const userEvenPageFooterLeft = sanitizedTextRef('')
+  const userEvenPageFooterRight = sanitizedTextRef('')
 
   const headerMarginCm = ref(normalizeMarginCm(headerMarginCmProp.value))
   const footerMarginCm = ref(normalizeMarginCm(footerMarginCmProp.value))
@@ -101,11 +107,6 @@ export function useHeaderFooter(options: UseHeaderFooterOptions) {
   const draftShowPageNumberOnFirstPage = ref(true)
   const draftPageNumberMode = ref<'startAt' | 'continue'>('startAt')
   const draftPageNumberStartAt = ref(1)
-
-  // ─── Footer text modal ─────────────────────────────────────────────────────
-  const showFooterModal = ref(false)
-  const footerLeftInput = ref('')
-  const footerRightInput = ref('')
 
   const getResolvedPageNumber = (pageIndex: number) => {
     if (!pageNumber.showOnFirstPage.value && pageIndex === 0) return ''
@@ -133,6 +134,10 @@ export function useHeaderFooter(options: UseHeaderFooterOptions) {
       userFirstPageHeaderRight,
       userEvenPageHeaderLeft,
       userEvenPageHeaderRight,
+      userFirstPageFooterLeft,
+      userFirstPageFooterRight,
+      userEvenPageFooterLeft,
+      userEvenPageFooterRight,
       resolvePageNumber: getResolvedPageNumber,
     })
   }
@@ -196,25 +201,6 @@ export function useHeaderFooter(options: UseHeaderFooterOptions) {
     persistCurrentDoc()
   }
 
-  const openFooterModal = () => {
-    if (!editor.value) return
-    const applied = editor.value.storage.PaginationPlus?.appliedConfig
-    footerLeftInput.value = userFooterLeft.value || applied?.footerLeft || ''
-    footerRightInput.value = userFooterRight.value || applied?.footerRight || ''
-    showFooterModal.value = true
-  }
-
-  const saveFooter = () => {
-    if (!editor.value) return
-    userFooterLeft.value = footerLeftInput.value
-    userFooterRight.value = footerRightInput.value
-
-    applyHeaderFooter()
-    persistCurrentDoc()
-
-    showFooterModal.value = false
-  }
-
   // ─── Reactive layout sync ──────────────────────────────────────────────────
   watch(isDifferentFirstPage, () => {
     applyHeaderFooter()
@@ -263,6 +249,9 @@ export function useHeaderFooter(options: UseHeaderFooterOptions) {
     userFirstPageHeaderLeft,
     userFirstPageHeaderRight,
     userEvenPageHeaderLeft,
+    userFirstPageFooterLeft,
+    userFirstPageFooterRight,
+    userEvenPageFooterLeft,
     headerMarginCm,
     footerMarginCm,
     showHeaderFormatModal,
@@ -275,9 +264,6 @@ export function useHeaderFooter(options: UseHeaderFooterOptions) {
     draftShowPageNumberOnFirstPage,
     draftPageNumberMode,
     draftPageNumberStartAt,
-    showFooterModal,
-    footerLeftInput,
-    footerRightInput,
     HEADER_MARGIN_CM_MIN,
     HEADER_MARGIN_CM_MAX,
     HEADER_MARGIN_CM_STEP,
@@ -286,7 +272,5 @@ export function useHeaderFooter(options: UseHeaderFooterOptions) {
     applyHeaderFormat,
     openPageNumberModal,
     applyPageNumberSettings,
-    openFooterModal,
-    saveFooter,
   }
 }

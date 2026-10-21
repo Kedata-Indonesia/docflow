@@ -63,7 +63,7 @@ const {
   getVirtualPages: () => props.virtualPages,
   // Header/footer interactions are created further down; read them lazily.
   getStartInlineHeaderEdit: () => startInlineHeaderEdit,
-  getOpenFooterModal: () => openFooterModal,
+  getStartInlineFooterEdit: () => startInlineFooterEdit,
 })
 
 // ─── Editor session: document model → editor → citations → bubble / link ─────
@@ -188,12 +188,13 @@ const pageNumberStartAt = ref(1)
 
 const {
   userHeaderLeft, userHeaderRight, userFooterLeft, userFooterRight, isDifferentFirstPage, isDifferentOddEven,
-  userFirstPageHeaderLeft, userEvenPageHeaderLeft, headerMarginCm, footerMarginCm, showHeaderFormatModal,
+  userFirstPageHeaderLeft, userEvenPageHeaderLeft,
+  headerMarginCm, footerMarginCm, showHeaderFormatModal,
   draftHeaderMarginCm, draftFooterMarginCm, draftDifferentFirstPage, draftDifferentOddEven, showPageNumberModal,
   draftPageNumberPosition, draftShowPageNumberOnFirstPage, draftPageNumberMode, draftPageNumberStartAt,
-  showFooterModal, footerLeftInput, footerRightInput, HEADER_MARGIN_CM_MIN, HEADER_MARGIN_CM_MAX,
+  HEADER_MARGIN_CM_MIN, HEADER_MARGIN_CM_MAX,
   HEADER_MARGIN_CM_STEP, applyHeaderFooter, openHeaderFormatModal, applyHeaderFormat, openPageNumberModal,
-  applyPageNumberSettings, openFooterModal, saveFooter, startInlineHeaderEdit, finishHeaderEdit,
+  applyPageNumberSettings, startInlineHeaderEdit, startInlineFooterEdit, finishHeaderEdit,
 } = useDocsEditorHeaderFooterState({
   editor, isReady, pageCount, isDark, initialDoc, persistCurrentDoc, emit, scrollContainerRef, t,
   getHeaderMarginCm: () => props.headerMarginCm, getFooterMarginCm: () => props.footerMarginCm,
@@ -231,7 +232,7 @@ function applyRulerMargins(next: { top: number; bottom: number; left: number; ri
 // ─── Ready hook + lifecycle cleanup ──────────────────────────────────────────
 useDocsEditorBootstrap({
   isReady, editor, docEditor, userHeaderLeft, userHeaderRight, userFooterLeft, userFooterRight, headerMarginCm,
-  footerMarginCm, applyHeaderFooter, openFooterModal, startInlineHeaderEdit, updateBubbleMenu, updatePageStats,
+  footerMarginCm, applyHeaderFooter, startInlineHeaderEdit, startInlineFooterEdit, updateBubbleMenu, updatePageStats,
   updateCounts, scheduleCommentAnchorScan, openLinkDialog, emit, finishHeaderEdit, saveTimer,
   getCollaboration: () => props.collaboration,
   getZoomScale: () => scale.value,
@@ -250,7 +251,7 @@ const { editFormatMenuCommands } = useEditCommands({
 const { menuClick } = useDocsEditorMenu({
   editor, focusMode, showFindReplace, editFormatMenuCommands, isPageless, showRuler, activeSidebar,
   getUpdateFootnotes: () => updateFootnotes(), openPageSetupModal, handlePrint, toggleSidebar,
-  startInlineHeaderEdit, openFooterModal, openLinkDialog, applyPageless, showDetailsModal, showEmailModal,
+  startInlineHeaderEdit, startInlineFooterEdit, openLinkDialog, applyPageless, showDetailsModal, showEmailModal,
   documentMode, onDocumentMode: setDocumentMode,
   onShare: () => emit('share'), onMenuClick: (action) => emit('menu-click', action),
 })
@@ -394,7 +395,6 @@ void [openHeaderFormatModal, openPageNumberModal]
 
     <!-- Modal dialogs: footer / header-format / page-number / email / details / link / page-setup -->
     <DocsEditorDialogs
-      v-model:footer-left="footerLeftInput" v-model:footer-right="footerRightInput"
       v-model:header-margin-cm="draftHeaderMarginCm" v-model:footer-margin-cm="draftFooterMarginCm"
       v-model:different-first-page="draftDifferentFirstPage" v-model:different-odd-even="draftDifferentOddEven"
       v-model:page-number-position="draftPageNumberPosition"
@@ -403,7 +403,7 @@ void [openHeaderFormatModal, openPageNumberModal]
       v-model:paper-size="pageSetupSize" v-model:orientation="pageSetupOrientation"
       v-model:margin-top="pageSetupMarginsCm.top" v-model:margin-bottom="pageSetupMarginsCm.bottom"
       v-model:margin-left="pageSetupMarginsCm.left" v-model:margin-right="pageSetupMarginsCm.right"
-      :show-footer-modal="showFooterModal" :show-header-format-modal="showHeaderFormatModal"
+      :show-header-format-modal="showHeaderFormatModal"
       :show-page-number-modal="showPageNumberModal" :show-email-modal="showEmailModal"
       :show-details-modal="showDetailsModal" :show-link-dialog="showLinkDialog"
       :show-page-setup-modal="showPageSetupModal"
@@ -413,11 +413,11 @@ void [openHeaderFormatModal, openPageNumberModal]
       :document-title="props.title" :share-url="props.shareUrl" :document-meta="detailsMeta"
       :link-dialog-initial-text="linkDialogInitialText" :link-dialog-initial-url="linkDialogInitialUrl"
       :link-dialog-is-editing="linkDialogIsEditing"
-      @close-footer="showFooterModal = false" @close-header-format="showHeaderFormatModal = false"
+      @close-header-format="showHeaderFormatModal = false"
       @close-page-number="showPageNumberModal = false" @close-email="showEmailModal = false"
       @close-details="showDetailsModal = false" @close-link="showLinkDialog = false"
       @close-page-setup="showPageSetupModal = false"
-      @save="saveFooter" @apply-header-format="applyHeaderFormat" @apply-page-number="applyPageNumberSettings"
+      @apply-header-format="applyHeaderFormat" @apply-page-number="applyPageNumberSettings"
       @apply-link="applyLinkDialog" @remove-link="removeLink" @apply-page-setup="applyPageSetup"
       @share="emit('share')"
     />

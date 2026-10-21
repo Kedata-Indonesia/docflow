@@ -12,8 +12,8 @@ export interface UseEditorReadyOptions {
   headerMarginCm: Ref<number>
   footerMarginCm: Ref<number>
   applyHeaderFooter: () => void
-  openFooterModal: () => void
   startInlineHeaderEdit: (event?: MouseEvent) => void
+  startInlineFooterEdit: (event?: MouseEvent) => void
   updateBubbleMenu: () => void
   updatePageStats: () => void
   updateCounts: () => void
@@ -45,8 +45,8 @@ export function useEditorReady(options: UseEditorReadyOptions) {
     headerMarginCm,
     footerMarginCm,
     applyHeaderFooter,
-    openFooterModal,
     startInlineHeaderEdit,
+    startInlineFooterEdit,
     updateBubbleMenu,
     updatePageStats,
     updateCounts,
@@ -115,12 +115,13 @@ export function useEditorReady(options: UseEditorReadyOptions) {
         }
       })
 
-      // Handle clicks on top margin / page header area to activate header inline editing
+      // Handle clicks on the page margins / header / footer to activate the
+      // corresponding inline editor (Google Docs style).
       editor.value.view.dom.addEventListener('click', (e: MouseEvent) => {
         const target = e.target as HTMLElement | null
         if (!target) return
 
-        // Ignore clicks on options dropdown, active bar tools, or active editable header
+        // Ignore clicks on options dropdown, active bar tools, or the active editable.
         if (target.closest('.rm-google-docs-header-bar, .rm-options-dropdown, [contenteditable="true"]')) return
 
         // Direct click on header or its children
@@ -130,7 +131,14 @@ export function useEditorReady(options: UseEditorReadyOptions) {
           return
         }
 
-        // Click on top margin boundary area of editor or page
+        // Direct click on footer or its children
+        const footerEl = target.closest<HTMLElement>('.rm-page-footer')
+        if (footerEl) {
+          startInlineFooterEdit(e)
+          return
+        }
+
+        // Click on the top or bottom margin boundary area of the editor/page
         const pageWrap = target.closest<HTMLElement>('.rm-with-pagination, .rm-page-break, .page, .docs-editor-page')
         if (pageWrap) {
           const rect = pageWrap.getBoundingClientRect()
@@ -148,30 +156,21 @@ export function useEditorReady(options: UseEditorReadyOptions) {
             }
             if (targetHeader) {
               startInlineHeaderEdit(e)
+              return
             }
           }
-        }
-      })
 
-      // Handle double clicks on bottom margin / footer area to open footer modal
-      editor.value.view.dom.addEventListener('dblclick', (e: MouseEvent) => {
-        const target = e.target as HTMLElement | null
-        if (!target) return
-
-        const footerEl = target.closest<HTMLElement>('.rm-page-footer')
-        if (footerEl) {
-          openFooterModal()
-          return
-        }
-
-        const pageWrap = target.closest<HTMLElement>('.rm-with-pagination, .rm-page-break, .page, .docs-editor-page')
-        if (pageWrap) {
-          const rect = pageWrap.getBoundingClientRect()
-          const zoomScale = Math.max(0.01, getZoomScale?.() ?? 1)
-          const relativeY = (rect.bottom - e.clientY) / zoomScale
+          const relativeBottom = (rect.bottom - e.clientY) / zoomScale
           const bottomMarginPx = footerMarginCm.value * 37.795
-          if (relativeY >= 0 && relativeY <= Math.max(bottomMarginPx, 40) + 15) {
-            openFooterModal()
+          if (relativeBottom >= 0 && relativeBottom <= Math.max(bottomMarginPx, 40) + 15) {
+            let targetFooter: HTMLElement | null = null
+            if (pageWrap.classList.contains('rm-page-break')) {
+              targetFooter = pageWrap.querySelector<HTMLElement>('.rm-page-footer')
+            }
+            if (!targetFooter) {
+              targetFooter = document.querySelector<HTMLElement>('.rm-page-footer')
+            }
+            if (targetFooter) startInlineFooterEdit(e)
           }
         }
       })
