@@ -75,11 +75,17 @@ describe('equationPlugin (C1)', () => {
           labelKey: 'header.equation',
           iconComponent: 'Sigma',
         }),
+        expect.objectContaining({
+          action: 'insertNumberedEquation',
+          labelKey: 'header.numberedEquation',
+          iconComponent: 'Sigma',
+        }),
       ]),
     )
     expect(equationPlugin.slashCommands?.map((command) => command.nameKey)).toEqual([
       'header.inlineEquation',
       'header.equation',
+      'header.numberedEquation',
     ])
   })
 
@@ -196,5 +202,62 @@ describe('equationPlugin (C1)', () => {
     const input = target.querySelector('.docs-equation-block__input') as HTMLTextAreaElement
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
     expect(storage.editingPos).toBeNull()
+  })
+
+  it('numbers only numbered display equations and renumbers live (#256)', async () => {
+    const { instance, target } = mount()
+    insertDisplay(instance, { latex: 'a', numbered: true })
+    insertDisplay(instance, { latex: 'b' })
+    insertDisplay(instance, { latex: 'c', numbered: true })
+    await tick()
+
+    const numbers = () =>
+      Array.from(target.querySelectorAll('[data-equation-number]')).map((el) => el.textContent)
+    expect(numbers()).toEqual(['(1)', '', '(2)'])
+
+    // Numbering is derived, never stored in the document.
+    expect(JSON.stringify(instance.editor.getJSON())).not.toContain('(1)')
+
+    // Toggle the middle equation on -> (1), (2), (3).
+    const positions: number[] = []
+    instance.editor.state.doc.descendants((node, pos) => {
+      if (node.type.name === 'displayEquation') positions.push(pos)
+    })
+    instance.editor.commands.setNodeSelection(positions[1])
+    instance.editor.commands.updateAttributes('displayEquation', { numbered: true })
+    await tick()
+    expect(numbers()).toEqual(['(1)', '(2)', '(3)'])
+
+    // Delete the first equation -> renumber (1), (2).
+    instance.editor.commands.setNodeSelection(positions[0])
+    instance.editor.commands.deleteSelection()
+    await tick()
+    expect(numbers()).toEqual(['(1)', '(2)'])
+  })
+
+  it('inserts a numbered display equation via the dedicated command (#256)', async () => {
+    const { instance, target } = mount()
+    expect(equationPlugin.commands!.insertNumberedEquation!(instance.editor)).toBe(true)
+    await tick()
+
+    expect(nodesOfType(instance, 'displayEquation')[0].attrs).toMatchObject({ numbered: true })
+    expect(target.querySelector('[data-equation-number]')?.textContent).toBe('(1)')
+  })
+
+  it('toggles numbering from the display source editor (#256)', async () => {
+    const { instance, target } = mount()
+    insertDisplay(instance, { latex: 'x^2' })
+
+    const wrapper = target.querySelector('.docs-equation-block') as HTMLElement
+    wrapper.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }))
+
+    const checkbox = target.querySelector('.docs-equation-block__number-toggle input') as HTMLInputElement
+    expect(checkbox).not.toBeNull()
+    checkbox.checked = true
+    checkbox.dispatchEvent(new Event('change', { bubbles: true }))
+    await tick()
+
+    expect(nodesOfType(instance, 'displayEquation')[0].attrs).toMatchObject({ numbered: true })
+    expect(target.querySelector('[data-equation-number]')?.textContent).toBe('(1)')
   })
 })

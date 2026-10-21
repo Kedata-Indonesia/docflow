@@ -1,6 +1,8 @@
 import { Extension, Node, mergeAttributes, nodeInputRule } from '@tiptap/core'
 import type { Editor, NodeViewRenderer } from '@tiptap/core'
 import type { Node as PMNode } from '@tiptap/pm/model'
+import { Plugin } from '@tiptap/pm/state'
+import type { EditorView } from '@tiptap/pm/view'
 import katex from 'katex'
 import { definePlugin } from '@kedata-indonesia/docflow-core'
 
@@ -55,6 +57,48 @@ function readLatex(node: PMNode): string {
   return String((node.attrs as { latex?: unknown }).latex ?? '')
 }
 
+/**
+ * Derived display-equation numbering (C2, issue #256): only `numbered`
+ * equations consume a number, in document order. The number is written to the
+ * NodeView's `[data-equation-number]` slot — never to attrs — so it cannot
+ * mutate the document or re-trigger the transaction that produced it.
+ */
+export function updateEquationNumbers(view: EditorView): void {
+  const numbers: string[] = []
+  let n = 0
+  view.state.doc.descendants((node) => {
+    if (node.type.name !== 'displayEquation') return
+    if (node.attrs.numbered) {
+      n += 1
+      numbers.push(`(${n})`)
+    } else {
+      numbers.push('')
+    }
+  })
+  view.dom.querySelectorAll<HTMLElement>('[data-equation-number]').forEach((slot, index) => {
+    const value = numbers[index] ?? ''
+    if (slot.textContent !== value) slot.textContent = value
+  })
+}
+
+function insertDisplayNode(
+  editor: Editor,
+  numbered: boolean,
+  attrs?: { latex?: string; label?: string | null },
+): boolean {
+  return editor
+    .chain()
+    .focus()
+    .insertContent([
+      {
+        type: 'displayEquation',
+        attrs: { latex: attrs?.latex ?? '', numbered, label: attrs?.label ?? null },
+      },
+      { type: 'paragraph' },
+    ])
+    .run()
+}
+
 function focusEditor(editor: Editor): void {
   try {
     editor.commands.focus()
@@ -75,7 +119,10 @@ function deleteEquation(editor: Editor, pos: number, node: PMNode): boolean {
 function setLatex(editor: Editor, pos: number, node: PMNode, latex: string): boolean {
   const view = editor.view
   if (!view) return false
-  view.dispatch(view.state.tr.setNodeMarkup(pos, undefined, { ...node.attrs, latex }))
+  // Read the live node so attrs changed while the source editor was open
+  // (e.g. `numbered` from the C2 toggle) are preserved on commit.
+  const current = view.state.doc.nodeAt(pos) ?? node
+  view.dispatch(view.state.tr.setNodeMarkup(pos, undefined, { ...current.attrs, latex }))
   focusEditor(editor)
   return true
 }
@@ -291,7 +338,9 @@ const DisplayEquationNode = Node.create({
   addNodeView(): NodeViewRenderer {
     return ({ node, editor, getPos }) => {
       let current = readLatex(node)
+      let numbered = Boolean((node.attrs as { numbered?: unknown }).numbered)
       let input: HTMLTextAreaElement | null = null
+      let toggle: HTMLLabelElement | null = null
 
       const dom = document.createElement('div')
       dom.className = 'docs-equation-block'
@@ -319,8 +368,20 @@ const DisplayEquationNode = Node.create({
       const cleanup = () => {
         input?.remove()
         input = null
+        toggle?.remove()
+        toggle = null
         body.hidden = false
         setEditingPos(null)
+      }
+
+      const applyNumbered = (checked: boolean) => {
+        const pos = getPos()
+        if (typeof pos !== 'number') return
+        const currentNode = editor.state.doc.nodeAt(pos)
+        if (!currentNode) return
+        editor.view.dispatch(
+          editor.view.state.tr.setNodeMarkup(pos, undefined, { ...currentNode.attrs, numbered: checked }),
+        )
       }
 
       const stop = () => {
@@ -383,12 +444,29 @@ const DisplayEquationNode = Node.create({
         })
         input.addEventListener('blur', () => commit())
         dom.appendChild(input)
+
+        // Numbered toggle lives in the transient editor, not in the document.
+        toggle = document.createElement('label')
+        toggle.className = 'docs-equation-block__number-toggle'
+        const checkbox = document.createElement('input')
+        checkbox.type = 'checkbox'
+        checkbox.checked = numbered
+        checkbox.setAttribute('aria-label', 'Numbered equation')
+        checkbox.addEventListener('change', () => {
+          numbered = checkbox.checked
+          applyNumbered(numbered)
+        })
+        toggle.appendChild(checkbox)
+        toggle.appendChild(document.createTextNode(' Numbered'))
+        dom.appendChild(toggle)
+
         input.focus()
         input.select()
       }
 
       dom.addEventListener('mousedown', (event) => {
         if (event.target === input) return
+        if ((event.target as HTMLElement | null)?.closest('.docs-equation-block__number-toggle')) return
         event.preventDefault()
         event.stopPropagation()
         startEdit()
@@ -402,6 +480,7 @@ const DisplayEquationNode = Node.create({
         ignoreMutation: () => true,
         update(updatedNode: PMNode): boolean {
           if (updatedNode.type.name !== 'displayEquation') return false
+          numbered = Boolean((updatedNode.attrs as { numbered?: unknown }).numbered)
           const next = readLatex(updatedNode)
           if (next === current) return true
           current = next
@@ -424,6 +503,19 @@ export const EquationState = Extension.create({
   addStorage(): EquationStorage {
     return { editingPos: null }
   },
+
+  addProseMirrorPlugins() {
+    return [
+      new Plugin({
+        view: (view) => {
+          updateEquationNumbers(view)
+          return {
+            update: (view) => updateEquationNumbers(view),
+          }
+        },
+      }),
+    ]
+  },
 })
 
 export const equationPlugin = definePlugin({
@@ -444,10 +536,18 @@ export const equationPlugin = definePlugin({
       action: 'insertDisplayEquation',
       iconComponent: 'Sigma',
     },
+    {
+      id: 'insert-numbered-equation',
+      label: 'Numbered equation',
+      labelKey: 'header.numberedEquation',
+      action: 'insertNumberedEquation',
+      iconComponent: 'Sigma',
+    },
   ],
   slashCommands: [
     { name: 'Inline equation', nameKey: 'header.inlineEquation', command: 'insertInlineEquation' },
     { name: 'Equation', nameKey: 'header.equation', command: 'insertDisplayEquation' },
+    { name: 'Numbered equation', nameKey: 'header.numberedEquation', command: 'insertNumberedEquation' },
   ],
   commands: {
     insertInlineEquation: (editor: Editor, ...args: unknown[]) => {
@@ -460,21 +560,12 @@ export const equationPlugin = definePlugin({
     },
     insertDisplayEquation: (editor: Editor, ...args: unknown[]) => {
       const attrs = args[0] as { latex?: string; numbered?: boolean; label?: string | null } | undefined
-      return editor
-        .chain()
-        .focus()
-        .insertContent([
-          {
-            type: 'displayEquation',
-            attrs: {
-              latex: attrs?.latex ?? '',
-              numbered: attrs?.numbered ?? false,
-              label: attrs?.label ?? null,
-            },
-          },
-          { type: 'paragraph' },
-        ])
-        .run()
+      return insertDisplayNode(editor, attrs?.numbered ?? false, attrs)
+    },
+
+    insertNumberedEquation: (editor: Editor, ...args: unknown[]) => {
+      const attrs = args[0] as { latex?: string; label?: string | null } | undefined
+      return insertDisplayNode(editor, true, attrs)
     },
   },
 })

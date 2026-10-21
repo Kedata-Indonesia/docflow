@@ -107,6 +107,7 @@ export default {
     footer: 'Footer',
     footnote: 'Footnote',
     equation: 'Equation',
+    numberedEquation: 'Numbered equation',
     inlineEquation: 'Inline equation',
     bibliography: 'Bibliography',
     referenceList: 'Reference list',
