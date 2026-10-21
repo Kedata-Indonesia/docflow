@@ -2,6 +2,7 @@ import { AnyExtension, Editor as TiptapEditor } from '@tiptap/core'
 import { StarterKit } from '@tiptap/starter-kit'
 import { TextStyle } from '@tiptap/extension-text-style'
 import { Code } from '@tiptap/extension-code'
+import { CodeBlock } from '@tiptap/extension-code-block'
 import {
   collectExtensions,
   createActionMap,
@@ -268,11 +269,17 @@ function createTiptapEditor(
     trailingNode: false,
     // Replaced by `InlineCode` below, which keeps the mark but not its input rules.
     code: false,
+    // Replaced by `CodeBlockLowlight` from the code-block plugin (language +
+    // syntax highlighting, issue #247).
+    codeBlock: false,
   } as const
   const baseStarterKit = options.collaboration
     ? StarterKit.configure({ ...starterKitOptions, undoRedo: false })
     : StarterKit.configure(starterKitOptions)
   const pluginExtensions = collectExtensions(plugins)
+  // The code-block plugin supplies `CodeBlockLowlight`; without it, keep a
+  // plain code block so custom plugin sets don't lose the node (issue #247).
+  const hasCodeBlockPlugin = plugins.some((plugin) => plugin.id === 'code-block')
 
   const blockAttrs = options.getPageMap
     ? BlockAttributesExtension.configure({ pageMap: options.getPageMap })
@@ -288,6 +295,7 @@ function createTiptapEditor(
   let extensions: AnyExtension[] = [
     ManualColumnResize,
     baseStarterKit,
+    ...(hasCodeBlockPlugin ? [] : [CodeBlock]),
     // Inline code mark without the `` `x` `` input rule (#305).
     InlineCode,
     TextStyle,

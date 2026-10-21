@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest'
+import JSZip from 'jszip'
 import { mapBlockNode, textToRun } from '../docx/nodes.js'
 import { tableToDocxTable } from '../docx/table.js'
+import { exportDocx } from '../docx/index.js'
 import { filenameFromTitle, wrapHtmlDocument } from '../utils.js'
 
 describe('utils', () => {
@@ -73,5 +75,27 @@ describe('docx table', () => {
       ],
     })
     expect(table).not.toBeNull()
+  })
+})
+
+describe('code block export (#247)', () => {
+  it('adds a language caption for a highlighted code block', async () => {
+    const blob = await exportDocx({
+      doc: {
+        type: 'doc',
+        content: [
+          {
+            type: 'codeBlock',
+            attrs: { language: 'javascript' },
+            content: [{ type: 'text', text: 'const x = 1' }],
+          },
+        ],
+      },
+      title: 'Code',
+    })
+    const zip = await JSZip.loadAsync(await blob.arrayBuffer())
+    const documentXml = await zip.file('word/document.xml')!.async('string')
+    expect(documentXml).toContain('JavaScript')
+    expect(documentXml).toContain('const x = 1')
   })
 })

@@ -167,6 +167,8 @@ export default {
     zoomVirtualPages: 'Zoom is unavailable while virtual pages are on',
     paragraphStyle: 'Paragraph style',
     normalText: 'Normal text',
+    codeLanguage: 'Language',
+    plainText: 'Plain text',
     fontFamily: 'Font family',
     decreaseFontSize: 'Decrease font size',
     increaseFontSize: 'Increase font size',

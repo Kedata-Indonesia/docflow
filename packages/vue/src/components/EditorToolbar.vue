@@ -18,6 +18,7 @@ import ToolbarFontFamily from './toolbar/ToolbarFontFamily.vue'
 import ToolbarFontSize from './toolbar/ToolbarFontSize.vue'
 import ToolbarInlineFormat from './toolbar/ToolbarInlineFormat.vue'
 import ToolbarColorControls from './toolbar/ToolbarColorControls.vue'
+import ToolbarCodeLanguage from './toolbar/ToolbarCodeLanguage.vue'
 import ToolbarPluginMenu from './toolbar/ToolbarPluginMenu.vue'
 import ToolbarSidebarToggles from './toolbar/ToolbarSidebarToggles.vue'
 import TableSizePicker from './TableSizePicker.vue'
@@ -203,6 +204,14 @@ function applyTableSize(size: { rows: number; cols: number }): void {
         :text-color-open="activeDropdown === 'textColor'"
         :highlight-open="activeDropdown === 'highlight'"
         @toggle="toggleDropdown"
+        @close="closeAll"
+      />
+
+      <ToolbarCodeLanguage
+        :editor="editor"
+        :open="activeDropdown === 'codeLanguage'"
+        :selection-tick="selectionTick"
+        @toggle="toggleDropdown('codeLanguage')"
         @close="closeAll"
       />
 

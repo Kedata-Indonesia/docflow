@@ -167,6 +167,8 @@ export default {
     zoomVirtualPages: 'Zoom tidak tersedia saat virtual pages aktif',
     paragraphStyle: 'Gaya paragraf',
     normalText: 'Teks normal',
+    codeLanguage: 'Bahasa',
+    plainText: 'Teks biasa',
     fontFamily: 'Keluarga font',
     decreaseFontSize: 'Kecilkan font',
     increaseFontSize: 'Perbesar font',

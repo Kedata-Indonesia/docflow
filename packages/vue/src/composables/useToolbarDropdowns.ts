@@ -1,6 +1,6 @@
 import { onMounted, onUnmounted, ref } from 'vue'
 
-export type DropdownKey = 'heading' | 'font' | 'align' | 'lists' | 'insert' | 'textColor' | 'highlight' | 'zoom'
+export type DropdownKey = 'heading' | 'font' | 'align' | 'lists' | 'insert' | 'textColor' | 'highlight' | 'zoom' | 'codeLanguage'
 
 /**
  * One owner for the toolbar's mutually-exclusive dropdowns and for the single

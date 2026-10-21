@@ -33,6 +33,32 @@ export interface WalkContext {
   equationNumbers?: Map<PmNode, number>
 }
 
+/** Display names for the code-block language attribute (issue #247). */
+const CODE_LANGUAGE_LABELS: Record<string, string> = {
+  javascript: 'JavaScript',
+  typescript: 'TypeScript',
+  python: 'Python',
+  go: 'Go',
+  rust: 'Rust',
+  java: 'Java',
+  c: 'C',
+  cpp: 'C++',
+  csharp: 'C#',
+  sql: 'SQL',
+  bash: 'Bash',
+  shell: 'Shell',
+  json: 'JSON',
+  yaml: 'YAML',
+  xml: 'HTML',
+  css: 'CSS',
+  markdown: 'Markdown',
+  php: 'PHP',
+  ruby: 'Ruby',
+  kotlin: 'Kotlin',
+  swift: 'Swift',
+  plaintext: 'Plain text',
+}
+
 export function mapAlignment(value: unknown): (typeof AlignmentType)[keyof typeof AlignmentType] | undefined {
   switch (value) {
     case 'left': return AlignmentType.LEFT
@@ -159,7 +185,22 @@ export function mapBlockNode(
     }
     case 'codeBlock': {
       const children = inlineNodesToRuns(node, walkCtx)
-      return [new Paragraph({ children, style: 'Code', alignment: align })]
+      const paragraphs: Paragraph[] = []
+      const language = typeof node.attrs?.language === 'string' ? node.attrs.language : ''
+      // Language caption (issue #247) — DOCX keeps the monospace code body and
+      // adds a small label; token colours stay a separate, larger concern.
+      if (language && language !== 'plaintext') {
+        paragraphs.push(new Paragraph({
+          children: [new TextRun({
+            text: CODE_LANGUAGE_LABELS[language] ?? language,
+            italics: true,
+            size: 18,
+            color: '6B7280',
+          })],
+        }))
+      }
+      paragraphs.push(new Paragraph({ children, style: 'Code', alignment: align }))
+      return paragraphs
     }
     case 'horizontalRule': {
       return [new Paragraph({
