@@ -9,6 +9,7 @@ import StatusBar from '../components/StatusBar.vue'
 import RulerBar from '../components/RulerBar.vue'
 import VerticalRuler from '../components/VerticalRuler.vue'
 import TOCSidebar from '../components/sidebars/TOCSidebar.vue'
+import { tablePlugin } from '@kedata-indonesia/docflow-plugins'
 
 const defaultPlugins: DocsEditorPlugin[] = [
   {
@@ -27,6 +28,9 @@ const defaultPlugins: DocsEditorPlugin[] = [
     },
   },
 ]
+
+/** `defaultPlugins` plus the table extension, for the table-menu test. */
+const tablePlugins: DocsEditorPlugin[] = [...defaultPlugins, tablePlugin]
 
 describe('DocsEditor', () => {
   it('renders the editor container', () => {
@@ -208,6 +212,52 @@ describe('DocsEditor', () => {
     // area top (100) with the 8px gap, not at window top.
     vm.editor!.view.coordsAtPos = () => ({ top: 105, left: 10, right: 20, bottom: 125 })
     expect(vm.computeBubblePosition()?.top).toBe(108)
+
+    wrapper.unmount()
+  })
+
+  it('shows the table edit menu inside a table and runs row actions (#146)', async () => {
+    const wrapper = mount(DocsEditor, {
+      props: { plugins: tablePlugins },
+    })
+    await new Promise((resolve) => setTimeout(resolve, 80))
+
+    const vm = wrapper.vm as unknown as {
+      editor?: {
+        commands: {
+          setContent: (content: object) => boolean
+          setTextSelection: (selection: { from: number }) => boolean
+          insertTable: (args: { rows: number; cols: number; withHeaderRow: boolean }) => boolean
+        }
+        getHTML: () => string
+        state: { doc: { content: { size: number } } }
+      }
+    }
+    expect(vm.editor).toBeDefined()
+
+    // A paragraph before the table keeps position 1 outside the table.
+    vm.editor!.commands.setContent({
+      type: 'doc',
+      content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Before table' }] }],
+    })
+    vm.editor!.commands.setTextSelection({ from: 3 })
+    vm.editor!.commands.insertTable({ rows: 2, cols: 2, withHeaderRow: true })
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="table-menu"]').exists()).toBe(true)
+
+    await wrapper.find('[data-testid="table-menu"] [data-action="addRowAfter"]').trigger('click')
+    await wrapper.vm.$nextTick()
+    expect((vm.editor!.getHTML().match(/<tr>/g) ?? []).length).toBe(3)
+
+    await wrapper.find('[data-testid="table-menu"] [data-action="deleteRow"]').trigger('click')
+    await wrapper.vm.$nextTick()
+    expect((vm.editor!.getHTML().match(/<tr>/g) ?? []).length).toBe(2)
+
+    // Leaving the table hides the menu (the trailing paragraph is outside it).
+    vm.editor!.commands.setTextSelection({ from: vm.editor!.state.doc.content.size - 1 })
+    await wrapper.vm.$nextTick()
+    expect(wrapper.find('[data-testid="table-menu"]').exists()).toBe(false)
 
     wrapper.unmount()
   })

@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import type { Editor } from '@tiptap/core'
-import type { DocsEditorPlugin } from '@kedata-indonesia/docflow-core'
+import type { DocsEditorPlugin, ToolbarItem } from '@kedata-indonesia/docflow-core'
 import { List, Plus } from 'lucide-vue-next'
 import type { SidebarKey } from '../types.js'
 import { useLocale } from '../composables/useLocale.js'
@@ -20,6 +20,7 @@ import ToolbarInlineFormat from './toolbar/ToolbarInlineFormat.vue'
 import ToolbarColorControls from './toolbar/ToolbarColorControls.vue'
 import ToolbarPluginMenu from './toolbar/ToolbarPluginMenu.vue'
 import ToolbarSidebarToggles from './toolbar/ToolbarSidebarToggles.vue'
+import TableSizePicker from './TableSizePicker.vue'
 
 const { t } = useLocale()
 
@@ -106,6 +107,38 @@ function applyFont(value: string) {
 function applyZoom(value: number) {
   emit('update:zoom', value)
   closeAll()
+}
+
+const showTableSizePicker = ref(false)
+
+/**
+ * Insert-table goes through a size picker instead of the fixed 3×3 action
+ * (issue #146). Every other insert-menu item still runs normally.
+ */
+function handleRunFromDropdown(item: ToolbarItem): void {
+  if (item.action === 'insertTable') {
+    showTableSizePicker.value = true
+    closeAll()
+    return
+  }
+  runFromDropdown(item)
+}
+
+function applyTableSize(size: { rows: number; cols: number }): void {
+  const editor = props.editor
+  if (!editor) return
+  const attributes = { rows: size.rows, cols: size.cols, withHeaderRow: true }
+  const fn = props.actions['insertTable']
+  if (typeof fn === 'function') {
+    fn(attributes)
+  } else {
+    const chain = editor.chain().focus() as unknown as {
+      insertTable?: (attrs: typeof attributes) => { run: () => boolean }
+    }
+    chain.insertTable?.(attributes).run()
+  }
+  showTableSizePicker.value = false
+  editor.commands.focus()
 }
 </script>
 
@@ -220,7 +253,7 @@ function applyZoom(value: number) {
         panel-class="min-w-[190px]"
         :selection-tick="selectionTick"
         @toggle="toggleDropdown('insert')"
-        @run="runFromDropdown"
+        @run="handleRunFromDropdown"
       />
 
       <span :class="TOOLBAR_DIVIDER" />
@@ -232,6 +265,12 @@ function applyZoom(value: number) {
         @toggle-sidebar="emit('toggle-sidebar', $event)"
       />
     </div>
+
+    <TableSizePicker
+      :is-open="showTableSizePicker"
+      @select="applyTableSize"
+      @close="showTableSizePicker = false"
+    />
   </div>
 </template>
 

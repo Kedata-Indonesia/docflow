@@ -12,12 +12,14 @@ import { useFootnotes } from '../composables/useFootnotes.js'
 import { useSuggestions } from '../composables/useSuggestions.js'
 import { useEditCommands } from '../composables/useEditCommands.js'
 import { useDocsEditorMenu } from '../composables/useDocsEditorMenu.js'
+import { useTableMenu } from '../composables/useTableMenu.js'
 import VirtualPageOverlay from './VirtualPageOverlay.vue'
 import { computed, ref, watch } from 'vue'
 import SlashMenuVue from './SlashMenu.vue'
 import HeaderBar from './HeaderBar.vue'
 import EditorToolbar from './EditorToolbar.vue'
 import BubbleMenu from './BubbleMenu.vue'
+import TableMenu from './TableMenu.vue'
 import StatusBar from './StatusBar.vue'
 import RulerBar from './RulerBar.vue'
 import VerticalRuler from './VerticalRuler.vue'
@@ -229,10 +231,13 @@ function applyRulerMargins(next: { top: number; bottom: number; left: number; ri
   emit('update:margins', { ...next })
 }
 
+// ─── Table edit menu (#146) ──────────────────────────────────────────────────
+const { showTableMenu, tableMenuPosition, updateTableMenu } = useTableMenu({ editor, scrollContainerRef })
+
 // ─── Ready hook + lifecycle cleanup ──────────────────────────────────────────
 useDocsEditorBootstrap({
   isReady, editor, docEditor, userHeaderLeft, userHeaderRight, userFooterLeft, userFooterRight, headerMarginCm,
-  footerMarginCm, applyHeaderFooter, startInlineHeaderEdit, startInlineFooterEdit, updateBubbleMenu, updatePageStats,
+  footerMarginCm, applyHeaderFooter, startInlineHeaderEdit, startInlineFooterEdit, updateBubbleMenu, updateTableMenu, updatePageStats,
   updateCounts, scheduleCommentAnchorScan, openLinkDialog, emit, finishHeaderEdit, saveTimer,
   getCollaboration: () => props.collaboration,
   getZoomScale: () => scale.value,
@@ -315,6 +320,7 @@ void [openHeaderFormatModal, openPageNumberModal]
       <Minimize2 class="h-5 w-5" />
     </button>
     <BubbleMenu :visible="showBubbleMenu" :actions="pluginActions" :position="bubblePosition" :editor="editor" />
+    <TableMenu :editor="editor" :position="showTableMenu ? tableMenuPosition : null" />
     <SlashMenuVue :editor="editor" :commands="slashCommands" />
     <div class="docs-editor__body relative flex flex-1 overflow-hidden">
       <!-- Find & replace floating panel (Edit menu / ⌘⇧H) -->
