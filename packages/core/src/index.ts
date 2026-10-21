@@ -8,6 +8,7 @@ export {
   type MonitorMetric,
 } from './PerformanceMonitor.js'
 export { BlockAttributesExtension } from './BlockAttributes.js'
+export { KeepTogetherExtension, planKeepTogetherSpacers, type KeepTogetherOptions } from './KeepTogether.js'
 export {
   IndentExtension,
   clampIndentLevel,
