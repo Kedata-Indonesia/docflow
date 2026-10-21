@@ -7,6 +7,14 @@ export { imagePlugin } from './image.js'
 export { tablePlugin } from './table.js'
 export { blockquotePlugin } from './blockquote.js'
 export { codeBlockPlugin } from './codeBlock.js'
+export {
+  equationPlugin,
+  EquationState,
+  inlineEquationNode,
+  displayEquationNode,
+  renderEquation,
+  type EquationStorage,
+} from './equation.js'
 export { placeholderPlugin, createPlaceholderPlugin, type PlaceholderPluginOptions } from './placeholder.js'
 export { pageBreakPlugin, PageBreak } from './pageBreak.js'
 export { footnotePlugin, FootnoteNode } from './footnote.js'
@@ -55,6 +63,7 @@ import { imagePlugin } from './image.js'
 import { tablePlugin } from './table.js'
 import { blockquotePlugin } from './blockquote.js'
 import { codeBlockPlugin } from './codeBlock.js'
+import { equationPlugin } from './equation.js'
 import { placeholderPlugin } from './placeholder.js'
 import { pageBreakPlugin } from './pageBreak.js'
 import { footnotePlugin } from './footnote.js'
@@ -81,6 +90,7 @@ export const defaultPlugins = [
   tablePageSplitPlugin,
   blockquotePlugin,
   codeBlockPlugin,
+  equationPlugin,
   placeholderPlugin,
   pageBreakPlugin,
   footnotePlugin,

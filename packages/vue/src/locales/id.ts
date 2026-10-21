@@ -106,6 +106,8 @@ export default {
     header: 'Header',
     footer: 'Footer',
     footnote: 'Catatan Kaki',
+    equation: 'Persamaan',
+    inlineEquation: 'Persamaan inline',
     bibliography: 'Daftar Pustaka',
     tableOfContents: 'Daftar isi',
     bold: 'Teks Tebal',

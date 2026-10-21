@@ -106,6 +106,8 @@ export default {
     header: 'Header',
     footer: 'Footer',
     footnote: 'Footnote',
+    equation: 'Equation',
+    inlineEquation: 'Inline equation',
     bibliography: 'Bibliography',
     tableOfContents: 'Table of contents',
     bold: 'Bold text',
