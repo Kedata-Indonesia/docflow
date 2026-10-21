@@ -23,6 +23,16 @@ await exportDocument('docx', editor, 'My Document')
 
 Lower-level helpers (`exportDocx`, `generateOdt`, `generateRtf`, `jsonToMarkdown`, `plainTextFromHtml`) are exported for custom pipelines.
 
+## Citations and bibliography
+
+Pass a `citation` port to render citation-backed content:
+
+- `renderCitation(citationId)` — inline citation / footnote body
+- `getReferenceList()` — cited-only entries (the `referenceList` block)
+- `getBibliography()` — every saved source (the `bibliography` block)
+
+DOCX and print (`window.print()`) render both blocks. **ODT/RTF do not currently render citation/bibliography blocks** — documented limitation.
+
 ## Documentation
 
 [github.com/Kedata-Indonesia/docflow](https://github.com/Kedata-Indonesia/docflow)

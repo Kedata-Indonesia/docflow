@@ -15,6 +15,18 @@ const bookDoe: CslItemData = {
   'publisher-place': 'Jakarta',
 }
 
+const articleSmith: CslItemData = {
+  id: 'smith-2021',
+  type: 'article-journal',
+  title: 'Citation Systems',
+  author: [{ family: 'Smith', given: 'Jane' }],
+  issued: { 'date-parts': [[2021]] },
+  'container-title': 'Journal of Testing',
+  volume: '12',
+  issue: '3',
+  page: '45-61',
+}
+
 const plugins = [footnotePlugin, citationPlugin]
 
 function makeEditor(extra: Record<string, unknown> = {}) {
@@ -128,6 +140,8 @@ describe('citation plugin (T2)', () => {
     instance.editor.commands.focus()
     instance.pluginActions.insertCitation({ sourceId: 'doe-2020' })
     instance.editor.commands.focus('end')
+    instance.pluginActions.insertReferenceList()
+    instance.editor.commands.focus('end')
     instance.pluginActions.insertBibliography()
 
     const json = JSON.parse(JSON.stringify(instance.editor.getJSON())) as object
@@ -135,21 +149,51 @@ describe('citation plugin (T2)', () => {
 
     const raw = JSON.stringify(instance.editor.getJSON())
     expect(raw).toContain('"type":"citation"')
+    expect(raw).toContain('"type":"referenceList"')
     expect(raw).toContain('"type":"bibliography"')
+    expect(raw).toContain('"citationModel":2')
     expect(raw).toContain('"sourceId":"doe-2020"')
   })
 
-  it('renders the bibliography from cited sources only', async () => {
-    const { instance, target } = makeEditor({ citation: { sources: [bookDoe], style: 'apa' } })
+  it('separates the reference list (cited) from the bibliography (all saved) (#252)', async () => {
+    const { instance, target } = makeEditor({ citation: { sources: [bookDoe, articleSmith], style: 'apa' } })
     cleanup = () => { instance.destroy(); target.remove() }
 
     instance.editor.commands.focus()
     instance.pluginActions.insertCitation({ sourceId: 'doe-2020' })
 
     await vi.waitFor(() => {
-      const bib = getCitationEngine(instance.editor)?.getBibliography() ?? []
-      expect(bib.join(' ')).toContain('The Design of Tests')
+      const engine = getCitationEngine(instance.editor)
+      const referenceList = engine?.getReferenceList() ?? []
+      const bibliography = engine?.getBibliography() ?? []
+      expect(referenceList).toHaveLength(1)
+      expect(referenceList.join(' ')).toContain('The Design of Tests')
+      expect(referenceList.join(' ')).not.toContain('Journal of Testing')
+      expect(bibliography).toHaveLength(2)
+      expect(bibliography.join(' ')).toContain('Journal of Testing')
     })
+  })
+
+  it('migrates a legacy bibliography node to referenceList on load (#252)', () => {
+    const legacy = makeEditor({
+      content: { type: 'doc', content: [{ type: 'bibliography' }] },
+      citation: { sources: [bookDoe], style: 'apa' },
+    })
+    const modern = makeEditor({
+      content: { type: 'doc', content: [{ type: 'bibliography', attrs: { citationModel: 2 } }] },
+      citation: { sources: [bookDoe], style: 'apa' },
+    })
+    cleanup = () => {
+      legacy.instance.destroy(); legacy.target.remove()
+      modern.instance.destroy(); modern.target.remove()
+    }
+
+    const legacyRaw = JSON.stringify(legacy.instance.editor.getJSON())
+    expect(legacyRaw).toContain('"type":"referenceList"')
+    expect(legacyRaw).not.toContain('"type":"bibliography"')
+
+    const modernRaw = JSON.stringify(modern.instance.editor.getJSON())
+    expect(modernRaw).toContain('"type":"bibliography"')
   })
 
   it('switches style live via setCitationStyle (no doc mutation)', async () => {

@@ -88,7 +88,28 @@ describe('CiteEngine (T1)', () => {
     const engine = new CiteEngine({ sources: [bookDoe], style: 'apa' })
     engine.syncCitations([{ citationId: 'c1', attrs: { sourceId: 'ghost' } }])
     expect(engine.renderCluster('c1')).toBe('')
-    expect(engine.getBibliography()).toHaveLength(0)
+    // The missing citation contributes nothing to the cited-only list, but the
+    // saved source still belongs to the all-saved bibliography (#252).
+    expect(engine.getReferenceList()).toHaveLength(0)
+    expect(engine.getBibliography()).toHaveLength(1)
+  })
+
+  it('separates the cited-only reference list from the all-saved bibliography (#252)', () => {
+    const engine = new CiteEngine({ sources: [bookDoe, articleSmith], style: 'apa' })
+    engine.syncCitations([{ citationId: 'c1', attrs: { sourceId: 'doe-2020' } }])
+
+    expect(engine.getReferenceList()).toHaveLength(1)
+    expect(engine.getReferenceList().join(' ')).toContain('The Design of Tests')
+    expect(engine.getReferenceList().join(' ')).not.toContain('Journal of Testing')
+
+    expect(engine.getBibliography()).toHaveLength(2)
+    expect(engine.getBibliography().join(' ')).toContain('Journal of Testing')
+  })
+
+  it('keeps the bibliography populated with no citations (#252)', () => {
+    const engine = new CiteEngine({ sources: [bookDoe, articleSmith], style: 'apa' })
+    expect(engine.getReferenceList()).toHaveLength(0)
+    expect(engine.getBibliography()).toHaveLength(2)
   })
 
   it('re-renders when sources are updated', () => {

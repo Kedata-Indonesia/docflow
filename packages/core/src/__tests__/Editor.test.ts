@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { Editor as TiptapEditor, Node } from '@tiptap/core'
-import { createEditor } from '../Editor.js'
+import { createEditor, migrateContent } from '../Editor.js'
 import { definePlugin } from '../PluginSystem.js'
 
 const DemoImageNode = Node.create({
@@ -103,5 +103,23 @@ describe('createEditor', () => {
     editor.editor.commands.insertContent(' updated')
     expect(updated).toBeDefined()
     expect((updated as Record<string, unknown>).type).toBe('doc')
+  })
+
+  it('migrates legacy bibliography nodes to referenceList (#252)', () => {
+    const legacy = migrateContent({
+      type: 'doc',
+      content: [
+        { type: 'paragraph', content: [{ type: 'text', text: 'x' }] },
+        { type: 'bibliography' },
+      ],
+    }) as { content: Array<{ type: string }> }
+    expect(legacy.content[1].type).toBe('referenceList')
+
+    // A bibliography created by the new model keeps its type (marker = 2).
+    const modern = migrateContent({
+      type: 'doc',
+      content: [{ type: 'bibliography', attrs: { citationModel: 2 } }],
+    }) as { content: Array<{ type: string }> }
+    expect(modern.content[0].type).toBe('bibliography')
   })
 })

@@ -550,7 +550,7 @@ Per-AGENTS.md gate order after any non-trivial change: **lint → typecheck → 
 | Storage adapter | `apps/server/src/storage/` (GridFS / S3) |
 | Comments REST surface | `apps/server/src/routes/comments.ts` |
 | Comment broadcast | `apps/server/src/utils/broadcast.ts` + WS upgrade in `apps/server/src/index.ts` (`registerConnection`) |
-| Citation render | `packages/plugins/src/citation.ts` + `packages/plugins/src/bibliography.ts` + `packages/plugins/src/citeEngine.ts` |
+| Citation render | `packages/plugins/src/citation.ts` + `packages/plugins/src/bibliography.ts` (`ReferenceListNode` = cited-only, `BibliographyNode` = all saved) + `packages/plugins/src/citeEngine.ts` |
 | Pagination / page size | Model: `packages/layout-engine/src/PageLayout.ts` + `PageBreaker.ts`; renderers: §2.1 |
 | Dashboard routing / list | `apps/web/src/views/Dashboard.vue` + `apps/web/src/api.ts` |
 | Cursor / selection plumbing | `apps/web/src/components/EditorView.vue` (`captureSelection`, `selectedTextSnippet`, `selectedTextIndex`) + `packages/vue/src/components/DocsEditor.vue` |

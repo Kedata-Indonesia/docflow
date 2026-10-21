@@ -181,6 +181,11 @@ addAttributes() {
 
 ### 3.4 `bibliography` node — `packages/plugins/src/bibliography.ts` (new)
 
+> **Superseded by issue #252 (2026-10):** this section describes the original single block. It
+> now splits into **`referenceList`** (cited-only — the semantics below) and **`bibliography`**
+> (every saved source). The legacy persisted `bibliography` type is migrated to `referenceList`;
+> the new bibliography node carries `attrs.citationModel = 2` so the migration leaves it alone.
+
 ```ts
 // block, atom (no editable children); one per document, conventionally at the end.
 addAttributes() { return {} }  // fully derived; no stored entries
@@ -242,6 +247,7 @@ Grouped by roadmap stage. Each task lists **layer**, files, work, acceptance. De
 - Accept: a free-text footnote still works; a `sourceId` footnote shows citeproc output and reformats on style switch; both are numbered by the existing pass.
 
 **6A-5. `bibliography` node.** ⇐ 6A-2 · *Library*
+> **Superseded by issue #252:** now two nodes — `referenceList` (cited-only) and `bibliography` (all saved) — with `insertReferenceList` / `insertBibliography`.
 - File: `packages/plugins/src/bibliography.ts` (new) — §3.4; node view renders `CiteEngine.renderBibliography()`; re-renders on `change`; empty-state safe.
 - Accept: adding/removing citations updates the bibliography list live; no citations → placeholder/empty.
 

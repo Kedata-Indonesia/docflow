@@ -1,5 +1,7 @@
 import vue from '@vitejs/plugin-vue'
-import { resolve } from 'path'
+import { readFileSync, readdirSync } from 'node:fs'
+import { createRequire } from 'node:module'
+import { dirname, resolve } from 'path'
 import { defineConfig } from 'vite'
 
 /**
@@ -22,7 +24,27 @@ const external = [
 ]
 
 export default defineConfig({
-  plugins: [vue()],
+  plugins: [
+    vue(),
+    {
+      // KaTeX's stylesheet is imported through PostCSS, which inlines it without
+      // rebasing the `url(fonts/…)` references. Ship the font files next to
+      // style.css so consumers (and the app's Vite build) resolve them.
+      name: 'docflow-katex-fonts',
+      apply: 'build',
+      generateBundle() {
+        const require = createRequire(import.meta.url)
+        const fontsDir = resolve(dirname(require.resolve('katex/dist/katex.min.css')), 'fonts')
+        for (const file of readdirSync(fontsDir)) {
+          this.emitFile({
+            type: 'asset',
+            fileName: `fonts/${file}`,
+            source: readFileSync(resolve(fontsDir, file)),
+          })
+        }
+      },
+    },
+  ],
   build: {
     lib: {
       entry: resolve(__dirname, 'src/index.ts'),

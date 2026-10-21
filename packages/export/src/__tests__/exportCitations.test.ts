@@ -7,6 +7,9 @@ import type { CitationExportPort } from '../types.js'
 
 const citationPort: CitationExportPort = {
   renderCitation: (id) => (id === 'c1' ? '(Doe, <i>2020</i>)' : ''),
+  getReferenceList: () => [
+    'Doe, John. <i>The Design of Tests</i>. Jakarta: Test Press, 2020.',
+  ],
   getBibliography: () => [
     'Doe, John. <i>The Design of Tests</i>. Jakarta: Test Press, 2020.',
     'Smith, Jane. "Citation Systems." <i>Journal of Testing</i> 12, no. 3 (2021): 45-61.',
@@ -103,6 +106,25 @@ describe('exportDocx with citations (6D)', () => {
     expect(documentXml).toContain('Bibliography')
     expect(documentXml).toContain('The Design of Tests')
     expect(documentXml).toContain('Journal of Testing')
+  })
+
+  it('exports a cited-only reference list separately from the bibliography (#252)', async () => {
+    const doc = {
+      type: 'doc',
+      content: [
+        { type: 'paragraph', content: [{ type: 'text', text: 'See the cited work.' }] },
+        { type: 'referenceList' },
+      ],
+    }
+
+    const blob = await exportDocx({ doc, title: 'Reference List', citation: citationPort })
+    const zip = await JSZip.loadAsync(await blob.arrayBuffer())
+    const documentXml = await zip.file('word/document.xml')!.async('string')
+
+    expect(documentXml).toContain('Reference list')
+    expect(documentXml).toContain('The Design of Tests')
+    // The uncited saved source belongs to the bibliography, not the reference list.
+    expect(documentXml).not.toContain('Journal of Testing')
   })
 
   it('still exports cleanly when no citation port is injected', async () => {

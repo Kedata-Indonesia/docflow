@@ -22,6 +22,7 @@ import {
   ListOrdered,
   Palette,
   Quote,
+  Sigma,
   Strikethrough,
   Table,
   Underline,
@@ -53,6 +54,7 @@ export type IconMapKey =
   | 'FileText'
   | 'Palette'
   | 'Highlighter'
+  | 'Sigma'
 
 export const iconMap: Record<IconMapKey, unknown> = {
   Bold,
@@ -80,6 +82,7 @@ export const iconMap: Record<IconMapKey, unknown> = {
   FileText,
   Palette,
   Highlighter,
+  Sigma,
 }
 
 export function resolveIcon(name?: string) {
@@ -115,9 +118,13 @@ export const INSERT_ACTIONS = [
   'setLink',
   'insertImage',
   'insertTable',
+  'insertReferenceList',
+  'insertBibliography',
   'toggleBlockquote',
   'toggleCodeBlock',
   'insertFootnote',
+  'insertInlineEquation',
+  'insertDisplayEquation',
   'insertPageBreak',
   'setPageBreak',
   'togglePageBreak',

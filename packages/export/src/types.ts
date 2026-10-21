@@ -43,7 +43,9 @@ export interface ExportResult {
 export interface CitationExportPort {
   /** Rendered (sanitized HTML) in-text citation or footnote body for a cluster id. */
   renderCitation: (citationId: string) => string
-  /** Formatted bibliography entries (sanitized HTML), in style order. */
+  /** Formatted cited-only entries (reference list), in style order. */
+  getReferenceList: () => string[]
+  /** Formatted all-saved-sources entries (bibliography), in style order. */
   getBibliography: () => string[]
 }
 

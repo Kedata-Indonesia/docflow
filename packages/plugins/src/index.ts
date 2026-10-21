@@ -7,6 +7,14 @@ export { imagePlugin } from './image.js'
 export { tablePlugin } from './table.js'
 export { blockquotePlugin } from './blockquote.js'
 export { codeBlockPlugin } from './codeBlock.js'
+export {
+  equationPlugin,
+  EquationState,
+  inlineEquationNode,
+  displayEquationNode,
+  renderEquation,
+  type EquationStorage,
+} from './equation.js'
 export { placeholderPlugin, createPlaceholderPlugin, type PlaceholderPluginOptions } from './placeholder.js'
 export { pageBreakPlugin, PageBreak } from './pageBreak.js'
 export { footnotePlugin, FootnoteNode } from './footnote.js'
@@ -39,7 +47,7 @@ export {
   type SuggestionAuthor,
 } from './suggestChanges.js'
 export { smartElementsPlugin, DateChipNode, PeopleChipNode, FileChipNode, DropdownChipNode, LocationChipNode } from './smartElements.js'
-export { BibliographyNode } from './bibliography.js'
+export { BibliographyNode, ReferenceListNode } from './bibliography.js'
 export { CiteEngine, nextCitationId, sanitizeCiteprocHtml, resolveCslStyles, type CitationAttrs, type CitationMode, type CitationCluster, type CiteEngineOptions, type CslStyleInfo } from './citeEngine.js'
 export { CSL_STYLES, DEFAULT_CSL_STYLE, CSL_LOCALE_EN_US } from './csl/index.js'
 export { parseCslStyle } from './csl/parseCslStyle.js'
@@ -55,6 +63,7 @@ import { imagePlugin } from './image.js'
 import { tablePlugin } from './table.js'
 import { blockquotePlugin } from './blockquote.js'
 import { codeBlockPlugin } from './codeBlock.js'
+import { equationPlugin } from './equation.js'
 import { placeholderPlugin } from './placeholder.js'
 import { pageBreakPlugin } from './pageBreak.js'
 import { footnotePlugin } from './footnote.js'
@@ -81,6 +90,7 @@ export const defaultPlugins = [
   tablePageSplitPlugin,
   blockquotePlugin,
   codeBlockPlugin,
+  equationPlugin,
   placeholderPlugin,
   pageBreakPlugin,
   footnotePlugin,

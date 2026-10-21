@@ -12,80 +12,133 @@ function getEngine(editor: Editor): CiteEngine | null {
   return storage?.engine ?? null
 }
 
+interface DerivedCitationBlockOptions {
+  name: string
+  className: string
+  heading: string
+  getEntries: (engine: CiteEngine) => string[]
+  /**
+   * Persisted-model marker. The old `bibliography` node (cited-only) is renamed
+   * to `referenceList` by `migrateContent`; this marker tells the migration that
+   * a `bibliography` node belongs to the new all-saved-sources model instead
+   * (issue #252).
+   */
+  model?: number
+}
+
 /**
- * Bibliography — a fully derived block. It stores NOTHING (no attrs): the
- * node view renders the engine's citeproc-sorted entries and repaints on
- * every engine change (source edit, style switch, citation add/remove).
+ * A fully derived block. It stores no content: the node view renders the
+ * engine's citeproc-sorted entries and repaints on every engine change (source
+ * edit, style switch, citation add/remove).
  */
-export const BibliographyNode = Node.create({
-  name: 'bibliography',
-  group: 'block',
-  selectable: true,
-  draggable: true,
-  atom: true,
+function createDerivedCitationBlock(options: DerivedCitationBlockOptions): Node {
+  return Node.create({
+    name: options.name,
+    group: 'block',
+    selectable: true,
+    draggable: true,
+    atom: true,
 
-  parseHTML() {
-    return [{ tag: 'div[data-node-type="bibliography"]' }]
-  },
-
-  renderHTML({ HTMLAttributes }) {
-    return [
-      'div',
-      mergeAttributes(HTMLAttributes, {
-        'data-node-type': 'bibliography',
-        class: 'docs-bibliography',
-      }),
-    ]
-  },
-
-  addNodeView(): NodeViewRenderer {
-    return (props) => {
-      const editor = props.editor
-
-      const dom = document.createElement('div')
-      dom.className = 'docs-bibliography'
-      dom.setAttribute('data-node-type', 'bibliography')
-
-      const render = () => {
-        const engine = getEngine(editor)
-        const items = engine?.getBibliography() ?? []
-        dom.innerHTML = ''
-        if (items.length === 0) {
-          const placeholder = document.createElement('p')
-          placeholder.className = 'docs-bibliography__empty'
-          placeholder.textContent = 'Bibliography'
-          dom.appendChild(placeholder)
-          return
-        }
-        const heading = document.createElement('h2')
-        heading.className = 'docs-bibliography__heading'
-        heading.textContent = 'Bibliography'
-        dom.appendChild(heading)
-        const list = document.createElement('div')
-        list.className = 'docs-bibliography__entries'
-        for (const item of items) {
-          const entry = document.createElement('p')
-          entry.className = 'docs-bibliography__entry'
-          entry.innerHTML = item // already sanitized by CiteEngine
-          list.appendChild(entry)
-        }
-        dom.appendChild(list)
-      }
-
-      render()
-
-      const engine = getEngine(editor)
-      const unsubscribe = engine?.onChange(render)
-
+    addAttributes() {
+      if (options.model === undefined) return {}
       return {
-        dom,
-        update(updatedNode: ProseMirrorNode): boolean {
-          return updatedNode.type.name === 'bibliography'
-        },
-        destroy() {
-          unsubscribe?.()
+        citationModel: {
+          default: options.model,
+          parseHTML: (element: HTMLElement) =>
+            Number(element.getAttribute('data-citation-model')) || options.model,
+          renderHTML: () => ({}),
         },
       }
-    }
-  },
+    },
+
+    parseHTML() {
+      return [{ tag: `div[data-node-type="${options.name}"]` }]
+    },
+
+    renderHTML({ HTMLAttributes }) {
+      const attrs: Record<string, string> = {
+        'data-node-type': options.name,
+        class: options.className,
+      }
+      if (options.model !== undefined) attrs['data-citation-model'] = String(options.model)
+      return ['div', mergeAttributes(HTMLAttributes, attrs)]
+    },
+
+    addNodeView(): NodeViewRenderer {
+      return (props) => {
+        const editor = props.editor
+
+        const dom = document.createElement('div')
+        dom.className = options.className
+        dom.setAttribute('data-node-type', options.name)
+
+        const render = () => {
+          const engine = getEngine(editor)
+          const items = engine ? options.getEntries(engine) : []
+          dom.innerHTML = ''
+          if (items.length === 0) {
+            const placeholder = document.createElement('p')
+            placeholder.className = `${options.className}__empty`
+            placeholder.textContent = options.heading
+            dom.appendChild(placeholder)
+            return
+          }
+          const heading = document.createElement('h2')
+          heading.className = `${options.className}__heading`
+          heading.textContent = options.heading
+          dom.appendChild(heading)
+          const list = document.createElement('div')
+          list.className = `${options.className}__entries`
+          for (const item of items) {
+            const entry = document.createElement('p')
+            entry.className = `${options.className}__entry`
+            entry.innerHTML = item // already sanitized by CiteEngine
+            list.appendChild(entry)
+          }
+          dom.appendChild(list)
+        }
+
+        render()
+
+        const engine = getEngine(editor)
+        const unsubscribe = engine?.onChange(render)
+
+        return {
+          dom,
+          update(updatedNode: ProseMirrorNode): boolean {
+            if (updatedNode.type.name !== options.name) return false
+            render()
+            return true
+          },
+          destroy() {
+            unsubscribe?.()
+          },
+        }
+      }
+    },
+  })
+}
+
+/**
+ * Reference list — only the sources cited in this document (the old
+ * `bibliography` semantics). Empty until a citation is inserted.
+ */
+export const ReferenceListNode = createDerivedCitationBlock({
+  name: 'referenceList',
+  className: 'docs-reference-list',
+  heading: 'Reference list',
+  getEntries: (engine) => engine.getReferenceList(),
+})
+
+/**
+ * Bibliography — every source saved in the host library, cited or not.
+ * Carries `citationModel: 2` so `migrateContent` never renames it to a
+ * reference list.
+ */
+export const BibliographyNode = createDerivedCitationBlock({
+  name: 'bibliography',
+  className: 'docs-bibliography',
+  heading: 'Bibliography',
+  getEntries: (engine) => engine.getBibliography(),
+  model: 2,
 })
