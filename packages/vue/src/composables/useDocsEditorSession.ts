@@ -161,7 +161,7 @@ export function useDocsEditorSession(options: UseDocsEditorSessionOptions) {
     bubblePosition,
     updateBubbleMenu,
     computeBubblePosition,
-  } = useBubbleMenu({ editor })
+  } = useBubbleMenu({ editor, scrollContainerRef })
 
   // ─── Link dialog ─────────────────────────────────────────────────────────────
   // Consumed by the ready hook (the ⌘K binding) and the insert-link menu action,
