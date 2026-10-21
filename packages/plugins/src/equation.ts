@@ -181,9 +181,20 @@ const InlineEquationNode = Node.create({
         if (storage) storage.editingPos = pos
       }
 
+      function onBlur(): void {
+        commit()
+      }
+
       const cleanup = () => {
-        input?.remove()
+        const el = input
         input = null
+        if (el) {
+          // Removing a focused input can fire blur synchronously (Chromium).
+          // Detach first so that blur does not re-enter commit/cleanup and
+          // throw "The node to be removed is no longer a child" (#343).
+          el.removeEventListener('blur', onBlur)
+          el.remove()
+        }
         render.hidden = false
         setEditingPos(null)
       }
@@ -214,6 +225,7 @@ const InlineEquationNode = Node.create({
       }
 
       const cancel = () => {
+        if (!input) return
         const pos = getPos()
         // Escape on a node that was just inserted (still empty) removes it.
         if (!current.trim() && typeof pos === 'number') {
@@ -247,7 +259,7 @@ const InlineEquationNode = Node.create({
             cancel()
           }
         })
-        input.addEventListener('blur', () => commit())
+        input.addEventListener('blur', onBlur)
         dom.appendChild(input)
         input.focus()
         input.select()
@@ -365,9 +377,19 @@ const DisplayEquationNode = Node.create({
         if (storage) storage.editingPos = pos
       }
 
+      function onBlur(): void {
+        commit()
+      }
+
       const cleanup = () => {
-        input?.remove()
+        const el = input
         input = null
+        if (el) {
+          // Removing a focused textarea can fire blur synchronously (Chromium).
+          // Detach first so blur does not re-enter commit/cleanup (#343).
+          el.removeEventListener('blur', onBlur)
+          el.remove()
+        }
         toggle?.remove()
         toggle = null
         body.hidden = false
@@ -410,6 +432,7 @@ const DisplayEquationNode = Node.create({
       }
 
       const cancel = () => {
+        if (!input) return
         const pos = getPos()
         if (!current.trim() && typeof pos === 'number') {
           cleanup()
@@ -442,7 +465,7 @@ const DisplayEquationNode = Node.create({
             cancel()
           }
         })
-        input.addEventListener('blur', () => commit())
+        input.addEventListener('blur', onBlur)
         dom.appendChild(input)
 
         // Numbered toggle lives in the transient editor, not in the document.

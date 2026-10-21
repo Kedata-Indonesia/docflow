@@ -188,6 +188,38 @@ describe('equationPlugin (C1)', () => {
     expect(nodesOfType(instance, 'displayEquation')).toHaveLength(0)
   })
 
+  it('cancels without committing when removing the focused textarea fires blur (#343)', async () => {
+    const { instance, target } = mount()
+    insertDisplay(instance, { latex: 'a+b' })
+    await tick()
+
+    const wrapper = target.querySelector('.docs-equation-block') as HTMLElement
+    wrapper.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }))
+    const input = target.querySelector('.docs-equation-block__input') as HTMLTextAreaElement
+    expect(input).not.toBeNull()
+    input.value = 'changed'
+
+    // Chromium can fire `blur` synchronously while the focused textarea is
+    // removed. Model that: without detaching the listener first, cleanup
+    // re-enters commit/cleanup and the second remove throws NotFoundError.
+    const remove = input.remove.bind(input)
+    let blurFired = false
+    input.remove = () => {
+      if (!blurFired) {
+        blurFired = true
+        input.dispatchEvent(new Event('blur'))
+      }
+      remove()
+    }
+
+    expect(() =>
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })),
+    ).not.toThrow()
+    expect(target.querySelector('.docs-equation-block__input')).toBeNull()
+    // Escape is a cancel: the edited source must not be committed.
+    expect(nodesOfType(instance, 'displayEquation')[0].attrs).toMatchObject({ latex: 'a+b' })
+  })
+
   it('drives the shared transient edit state through editor.storage', async () => {
     const { instance, target } = mount()
     insertDisplay(instance, { latex: 'a+b' })
