@@ -1,4 +1,5 @@
-import { Document, Packer, Paragraph, TextRun, ExternalHyperlink, PageOrientation, convertInchesToTwip } from 'docx'
+import { Document, Packer, Paragraph, PageOrientation, convertInchesToTwip } from 'docx'
+import type { ParagraphChild } from 'docx'
 import type { ExportContext, PageGeometry } from '../types.js'
 import { listToParagraphs, mapBlockNode, mapAlignment, inlineNodesToRuns, type PmNode, type WalkContext } from './nodes.js'
 import { tableToDocxTable } from './table.js'
@@ -51,13 +52,25 @@ function pageProperties(geometry?: PageGeometry) {
   }
 }
 
+/** Derived display-equation numbers (C2), keyed by the walked node object. */
+function collectEquationNumbers(node: PmNode, numbers: Map<PmNode, number>, counter: { value: number }): void {
+  if (node.type === 'displayEquation' && node.attrs?.numbered) {
+    counter.value += 1
+    numbers.set(node, counter.value)
+  }
+  for (const child of node.content ?? []) collectEquationNumbers(child, numbers, counter)
+}
+
 async function docToDocxDocument(title: string, doc: PmNode, ctx: ExportContext): Promise<Document> {
   const children: (Paragraph | ReturnType<typeof tableToDocxTable>)[] = []
 
   // Derived-content walk context (Phase 6D): the host's citation port renders
   // citation/bibliography text; real DOCX footnotes are collected here and
-  // attached to the Document below.
-  const walkCtx: WalkContext = { citation: ctx.citation, footnotes: new FootnoteCollector() }
+  // attached to the Document below. Display-equation numbers are derived from
+  // document order, matching the editor's C2 pass.
+  const equationNumbers = new Map<PmNode, number>()
+  collectEquationNumbers(doc, equationNumbers, { value: 0 })
+  const walkCtx: WalkContext = { citation: ctx.citation, footnotes: new FootnoteCollector(), equationNumbers }
 
   async function processBlock(node: PmNode) {
     if (!node.content) return
@@ -86,7 +99,7 @@ async function docToDocxDocument(title: string, doc: PmNode, ctx: ExportContext)
         children.push(...listToParagraphs(child, walkCtx))
       } else if (child.type === 'paragraph') {
         // Split inline images out of the paragraph so they can be embedded.
-        const runs: (TextRun | ExternalHyperlink)[] = []
+        const runs: ParagraphChild[] = []
         const imageNodes: PmNode[] = []
         for (const inline of child.content || []) {
           if (inline.type === 'image') {
@@ -95,7 +108,7 @@ async function docToDocxDocument(title: string, doc: PmNode, ctx: ExportContext)
             // text, hardBreak, citation, footnote — handled by the shared
             // inline mapper (citations render derived text, footnotes become
             // real DOCX footnotes).
-            runs.push(...inlineNodesToRuns({ type: 'paragraph', content: [inline] }, walkCtx) as (TextRun | ExternalHyperlink)[])
+            runs.push(...inlineNodesToRuns({ type: 'paragraph', content: [inline] }, walkCtx))
           }
         }
         if (runs.length > 0) {

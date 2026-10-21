@@ -33,6 +33,18 @@ Pass a `citation` port to render citation-backed content:
 
 DOCX and print (`window.print()`) render both blocks. **ODT/RTF do not currently render citation/bibliography blocks** — documented limitation.
 
+## Equations
+
+LaTeX equations (`inlineEquation` / `displayEquation`) are exported as:
+
+- **DOCX** — native Word equations (OMML) via `docx`'s LaTeX converter, with a fallback to the italic LaTeX source for unsupported constructs. Numbered display equations export their derived `(n)` label.
+- **Markdown** — `$…$` for inline and `$$…$$` for display.
+- **HTML / ODT / RTF** — self-contained MathML (no stylesheet needed); display numbers are appended.
+- **TXT** — the LaTeX source text.
+- **PDF** — `window.print()` renders the live editor node views (KaTeX + numbers).
+
+ODT/RTF do not typeset math natively; they receive the MathML/source text as a best-effort fallback.
+
 ## Documentation
 
 [github.com/Kedata-Indonesia/docflow](https://github.com/Kedata-Indonesia/docflow)

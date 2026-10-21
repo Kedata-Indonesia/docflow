@@ -2092,3 +2092,9 @@
   resize: vertical;
   font-size: 0.9em;
 }
+@media print {
+  .ProseMirror .docs-equation-block,
+  .ProseMirror .docs-equation--inline {
+    break-inside: avoid;
+  }
+}

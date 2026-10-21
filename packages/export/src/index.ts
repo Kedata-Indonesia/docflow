@@ -5,6 +5,7 @@ import {
   wrapHtmlDocument,
   jsonToMarkdown,
   plainTextFromHtml,
+  renderEquationsInHtml,
 } from './utils.js'
 import { generateRtf } from './rtf.js'
 import { generateOdt, exportHtmlZip } from './odt.js'
@@ -12,7 +13,7 @@ import { exportDocx } from './docx/index.js'
 import { resolveSuggestionDoc, docJsonToHtml } from './suggestions.js'
 
 export type { ExportFormat, ExportContext, ExportResult, EditorLike, PageGeometry, SuggestionExportMode } from './types.js'
-export { filenameFromTitle, wrapHtmlDocument, plainTextFromHtml, jsonToMarkdown } from './utils.js'
+export { filenameFromTitle, wrapHtmlDocument, plainTextFromHtml, jsonToMarkdown, renderEquationsInHtml } from './utils.js'
 export { generateRtf } from './rtf.js'
 export { generateOdt, exportHtmlZip } from './odt.js'
 export { exportDocx } from './docx/index.js'
@@ -50,12 +51,14 @@ export async function exportDocument(format: ExportFormat, editor: EditorLike, t
       break
     }
     case 'html': {
-      const blob = new Blob([wrapHtmlDocument(title, html)], { type: 'text/html;charset=utf-8' })
+      // Equation nodes are serialized as their LaTeX source; upgrade them to
+      // self-contained MathML (issue #257).
+      const blob = new Blob([wrapHtmlDocument(title, renderEquationsInHtml(html))], { type: 'text/html;charset=utf-8' })
       triggerDownload(blob, filenameFromTitle(title, 'html'))
       break
     }
     case 'html-zip': {
-      const blob = await exportHtmlZip(title, html)
+      const blob = await exportHtmlZip(title, renderEquationsInHtml(html))
       triggerDownload(blob, filenameFromTitle(title, 'zip'))
       break
     }
@@ -69,12 +72,12 @@ export async function exportDocument(format: ExportFormat, editor: EditorLike, t
       break
     }
     case 'odt': {
-      const blob = await generateOdt(title, html)
+      const blob = await generateOdt(title, renderEquationsInHtml(html))
       triggerDownload(blob, filenameFromTitle(title, 'odt'))
       break
     }
     case 'rtf': {
-      const rtf = generateRtf(title, html)
+      const rtf = generateRtf(title, renderEquationsInHtml(html))
       const blob = new Blob([rtf], { type: 'application/rtf;charset=utf-8' })
       triggerDownload(blob, filenameFromTitle(title, 'rtf'))
       break
