@@ -109,6 +109,7 @@ export default {
     equation: 'Equation',
     inlineEquation: 'Inline equation',
     bibliography: 'Bibliography',
+    referenceList: 'Reference list',
     tableOfContents: 'Table of contents',
     bold: 'Bold text',
     italic: 'Italic text',

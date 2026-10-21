@@ -4,7 +4,7 @@ import type { Node as PMNode } from '@tiptap/pm/model'
 import { definePlugin } from '@kedata-indonesia/docflow-core'
 import type { CitationPort } from '@kedata-indonesia/docflow-core'
 import { CiteEngine, nextCitationId, type CitationAttrs } from './citeEngine.js'
-import { BibliographyNode } from './bibliography.js'
+import { BibliographyNode, ReferenceListNode } from './bibliography.js'
 import { buildCitationNodes } from './citationNodeSpec.js'
 
 export { buildCitationNodes } from './citationNodeSpec.js'
@@ -275,13 +275,37 @@ function insertCitationWithSource(
     .run()
 }
 
+/** Insert a derived citation block, guarding one per document per type. */
+function insertDerivedBlock(editor: Editor, type: 'referenceList' | 'bibliography'): boolean {
+  let exists = false
+  editor.state.doc.descendants((node) => {
+    if (node.type.name === type) exists = true
+    return !exists
+  })
+  if (exists) return false
+  // `citationModel: 2` marks the new all-saved-sources bibliography so the
+  // legacy migration never renames it to a reference list (issue #252).
+  const content = type === 'bibliography'
+    ? { type, attrs: { citationModel: 2 } }
+    : { type }
+  // Always append at the end of the document: inserting at a NodeSelection on
+  // an existing derived block would replace it.
+  const end = editor.state.doc.content.size
+  return editor.chain().focus().insertContentAt(end, content).run()
+}
+
 export const citationPlugin = definePlugin({
   id: 'citation',
-  tiptapExtensions: [CitationEngineExtension, CitationNode, BibliographyNode],
-  toolbar: [{ id: 'insert-citation', label: 'Citation', action: 'insertCitation', iconComponent: 'Quote' }],
+  tiptapExtensions: [CitationEngineExtension, CitationNode, ReferenceListNode, BibliographyNode],
+  toolbar: [
+    { id: 'insert-citation', label: 'Citation', action: 'insertCitation', iconComponent: 'Quote' },
+    { id: 'insert-reference-list', label: 'Reference list', labelKey: 'header.referenceList', action: 'insertReferenceList', iconComponent: 'List' },
+    { id: 'insert-bibliography', label: 'Bibliography', labelKey: 'header.bibliography', action: 'insertBibliography', iconComponent: 'FileText' },
+  ],
   slashCommands: [
     { name: 'Citation', command: 'insertCitation' },
-    { name: 'Bibliography', command: 'insertBibliography' },
+    { name: 'Reference list', nameKey: 'header.referenceList', command: 'insertReferenceList' },
+    { name: 'Bibliography', nameKey: 'header.bibliography', command: 'insertBibliography' },
   ],
   commands: {
     /**
@@ -309,16 +333,11 @@ export const citationPlugin = definePlugin({
       return true
     },
 
-    /** Insert the auto-rendered bibliography (one per document). */
-    insertBibliography: (editor: Editor) => {
-      let exists = false
-      editor.state.doc.descendants((node) => {
-        if (node.type.name === 'bibliography') exists = true
-        return !exists
-      })
-      if (exists) return false
-      return editor.chain().focus().insertContent({ type: 'bibliography' }).run()
-    },
+    /** Insert the cited-only reference list (one per document). */
+    insertReferenceList: (editor: Editor) => insertDerivedBlock(editor, 'referenceList'),
+
+    /** Insert the all-saved-sources bibliography (one per document). */
+    insertBibliography: (editor: Editor) => insertDerivedBlock(editor, 'bibliography'),
 
     /** Live style switch — reformats every citation + bibliography (6A-7). */
     setCitationStyle: (editor: Editor, ...args: unknown[]) => {

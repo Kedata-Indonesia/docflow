@@ -105,10 +105,10 @@ export function footnoteBodyRuns(
   return [new TextRun({ text: content })]
 }
 
-/** Bibliography block: heading + entries with a standard hanging indent. */
-export function bibliographyToParagraphs(entries: string[]): Paragraph[] {
+/** Derived citation block: heading + entries with a standard hanging indent. */
+export function bibliographyToParagraphs(entries: string[], heading = 'Bibliography'): Paragraph[] {
   const paragraphs: Paragraph[] = [
-    new Paragraph({ children: [new TextRun({ text: 'Bibliography', bold: true })], heading: HeadingLevel.HEADING_2 }),
+    new Paragraph({ children: [new TextRun({ text: heading, bold: true })], heading: HeadingLevel.HEADING_2 }),
   ]
   for (const entry of entries) {
     paragraphs.push(

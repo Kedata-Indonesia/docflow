@@ -47,7 +47,7 @@ export {
   type SuggestionAuthor,
 } from './suggestChanges.js'
 export { smartElementsPlugin, DateChipNode, PeopleChipNode, FileChipNode, DropdownChipNode, LocationChipNode } from './smartElements.js'
-export { BibliographyNode } from './bibliography.js'
+export { BibliographyNode, ReferenceListNode } from './bibliography.js'
 export { CiteEngine, nextCitationId, sanitizeCiteprocHtml, resolveCslStyles, type CitationAttrs, type CitationMode, type CitationCluster, type CiteEngineOptions, type CslStyleInfo } from './citeEngine.js'
 export { CSL_STYLES, DEFAULT_CSL_STYLE, CSL_LOCALE_EN_US } from './csl/index.js'
 export { parseCslStyle } from './csl/parseCslStyle.js'

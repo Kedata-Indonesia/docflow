@@ -109,6 +109,7 @@ export default {
     equation: 'Persamaan',
     inlineEquation: 'Persamaan inline',
     bibliography: 'Daftar Pustaka',
+    referenceList: 'Daftar Rujukan',
     tableOfContents: 'Daftar isi',
     bold: 'Teks Tebal',
     italic: 'Teks Miring',

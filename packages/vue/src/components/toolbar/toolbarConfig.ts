@@ -118,6 +118,8 @@ export const INSERT_ACTIONS = [
   'setLink',
   'insertImage',
   'insertTable',
+  'insertReferenceList',
+  'insertBibliography',
   'toggleBlockquote',
   'toggleCodeBlock',
   'insertFootnote',

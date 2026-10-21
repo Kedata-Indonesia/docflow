@@ -870,28 +870,32 @@
   color: #334155;
 }
 
-/* Bibliography block */
-.docs-bibliography {
+/* Bibliography / reference list blocks */
+.docs-bibliography,
+.docs-reference-list {
   margin: 1.5em 0;
   padding-top: 0.5em;
   border-top: 1px solid #e2e8f0;
 }
 
-.docs-bibliography__heading {
+.docs-bibliography__heading,
+.docs-reference-list__heading {
   font-size: 1.1em;
   font-weight: 700;
   margin: 0 0 0.5em;
   color: #0f172a;
 }
 
-.docs-bibliography__empty {
+.docs-bibliography__empty,
+.docs-reference-list__empty {
   color: #94a3b8;
   font-style: italic;
   margin: 0;
 }
 
 /* Standard bibliography hanging indent */
-.docs-bibliography__entry {
+.docs-bibliography__entry,
+.docs-reference-list__entry {
   margin: 0 0 0.4em;
   padding-left: 2.5em;
   text-indent: -2.5em;

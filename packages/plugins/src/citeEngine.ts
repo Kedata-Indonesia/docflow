@@ -112,6 +112,9 @@ export class CiteEngine {
   private clusters = new Map<string, CitationAttrs>()
   private order: string[] = []
   private rendered = new Map<string, string>()
+  /** Cited-only entries (the old `bibliography` semantics). */
+  private referenceList: string[] = []
+  /** All saved sources, including uncited ones (new `bibliography` semantics). */
   private bibliography: string[] = []
   private listeners = new Set<ChangeListener>()
 
@@ -252,7 +255,12 @@ export class CiteEngine {
     return this.rendered.get(citationId) ?? ''
   }
 
-  /** Bibliography entries (citeproc-sorted), sanitized HTML strings. */
+  /** Cited-only entries (citeproc-sorted), sanitized HTML strings. */
+  getReferenceList(): string[] {
+    return this.referenceList
+  }
+
+  /** All saved sources (cited + uncited), citeproc-sorted, sanitized HTML. */
   getBibliography(): string[] {
     return this.bibliography
   }
@@ -323,9 +331,19 @@ export class CiteEngine {
     this.rendered = next
 
     try {
-      const bib = engine.makeBibliography()
-      this.bibliography = bib ? bib[1].map((entry) => sanitizeCiteprocHtml(entry).trim()) : []
+      // Cited-only set first (the old bibliography semantics → referenceList).
+      const cited = engine.makeBibliography()
+      this.referenceList = cited ? cited[1].map((entry) => sanitizeCiteprocHtml(entry).trim()) : []
+
+      // Register every saved source so uncited items also land in the
+      // bibliography (issue #252). `updateItems` is part of citeproc's API.
+      if (typeof engine.updateItems === 'function') {
+        engine.updateItems(this.getSourceIds())
+      }
+      const all = engine.makeBibliography()
+      this.bibliography = all ? all[1].map((entry) => sanitizeCiteprocHtml(entry).trim()) : []
     } catch {
+      this.referenceList = []
       this.bibliography = []
     }
   }

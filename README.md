@@ -41,7 +41,7 @@ Built on [TipTap](https://tiptap.dev) / [ProseMirror](https://prosemirror.net) w
 |---|---------|--------|------------|------------|
 | Footnotes (page-anchored) | ✅ Built-in | 💰 Pages (Pro extension) | 💰 Premium — and grouped as endnotes, *not* per page | ✅ Full suite |
 | Citation styles (CSL) | ✅ Built-in (APA · MLA · Chicago), citeproc | ❌ Not included | ❌ Not included | 🔌 Zotero / Mendeley plugin |
-| Self-updating bibliography | ✅ Built-in | ❌ Not included | ❌ Not included | 🔌 Zotero / Mendeley plugin |
+| Self-updating reference list & bibliography | ✅ Built-in (cited-only list + all-saved bibliography) | ❌ Not included | ❌ Not included | 🔌 Zotero / Mendeley plugin |
 | A4 pagination / page breaks | ✅ Built-in | 💰 Pages (Pro extension) | 💰 Premium plugin | ✅ Full suite (heavy) |
 | Headers / footers with page numbers | ✅ Built-in | 💰 Pages (Pro extension) | 💰 Premium plugin | ✅ |
 | Real-time collaboration | ✅ Yjs, self-hostable | Hocuspocus (OSS backend); Collab cloud is paid | 💰 Premium | ✅ |

@@ -74,8 +74,11 @@ async function docToDocxDocument(title: string, doc: PmNode, ctx: ExportContext)
       } else if (child.type === 'image') {
         const img = await imageToDocxParagraph(child, ctx)
         if (img) children.push(img)
+      } else if (child.type === 'referenceList') {
+        // Cited-only block (issue #252): rendered from the active CSL style.
+        if (ctx.citation) children.push(...bibliographyToParagraphs(ctx.citation.getReferenceList(), 'Reference list'))
       } else if (child.type === 'bibliography') {
-        // Fully derived block (Phase 6D): rendered from the active CSL style.
+        // All-saved-sources block (issue #252): rendered from the active CSL style.
         if (ctx.citation) children.push(...bibliographyToParagraphs(ctx.citation.getBibliography()))
       } else if (child.type === 'footnote') {
         children.push(...mapBlockNode(child, undefined, walkCtx))

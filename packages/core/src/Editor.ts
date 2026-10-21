@@ -83,7 +83,37 @@ export interface DocsEditor {
   performanceMonitor?: PerformanceMonitor
 }
 
-function migrateContent(content: unknown): unknown {
+/**
+ * Rename the legacy `bibliography` node (cited-only) to `referenceList` so old
+ * documents keep their block under the new split (issue #252). The new
+ * all-saved-sources bibliography carries `attrs.citationModel === 2` and is
+ * left untouched.
+ */
+function migrateCitationBlocks(node: unknown): unknown {
+  if (Array.isArray(node)) return node.map(migrateCitationBlocks)
+  if (typeof node !== 'object' || node === null) return node
+
+  const obj = node as Record<string, unknown>
+  const attrs = obj.attrs as Record<string, unknown> | undefined
+  const isLegacyBibliography = obj.type === 'bibliography' && attrs?.citationModel !== 2
+  const result: Record<string, unknown> = isLegacyBibliography
+    ? { ...obj, type: 'referenceList' }
+    : { ...obj }
+
+  if (Array.isArray(result.content)) result.content = result.content.map(migrateCitationBlocks)
+  if (Array.isArray(result.tabs)) {
+    result.tabs = (result.tabs as unknown[]).map((tab) => {
+      if (tab && typeof tab === 'object') {
+        const tabObj = tab as Record<string, unknown>
+        return { ...tabObj, content: migrateCitationBlocks(tabObj.content) }
+      }
+      return tab
+    })
+  }
+  return result
+}
+
+export function migrateContent(content: unknown): unknown {
   if (!content) return content
   if (typeof content === 'string') {
     try {
@@ -96,6 +126,7 @@ function migrateContent(content: unknown): unknown {
   if (typeof content !== 'object' || content === null) return content
 
   const obj = content as Record<string, unknown>
+  let migrated: unknown = content
 
   if (obj.type === 'doc' && Array.isArray(obj.content)) {
     const newContentList: unknown[] = []
@@ -107,11 +138,9 @@ function migrateContent(content: unknown): unknown {
         newContentList.push(child)
       }
     }
-    return { ...obj, content: newContentList }
-  }
-
-  if (obj.type === 'tabbed-doc' && Array.isArray(obj.tabs)) {
-    return {
+    migrated = { ...obj, content: newContentList }
+  } else if (obj.type === 'tabbed-doc' && Array.isArray(obj.tabs)) {
+    migrated = {
       ...obj,
       tabs: obj.tabs.map((tab) => ({
         ...(tab as Record<string, unknown>),
@@ -120,7 +149,7 @@ function migrateContent(content: unknown): unknown {
     }
   }
 
-  return content
+  return migrateCitationBlocks(migrated)
 }
 
 export function createEditor(options: EditorOptions = {}): DocsEditor {
