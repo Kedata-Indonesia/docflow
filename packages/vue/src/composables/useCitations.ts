@@ -1,5 +1,11 @@
 import { computed, ref, watch, type Ref } from 'vue'
-import type { CitationPort, CslItemData, CslStyleInfo, DocsEditor } from '@kedata-indonesia/docflow-core'
+import type {
+  BibliographyFormat,
+  CitationPort,
+  CslItemData,
+  CslStyleInfo,
+  DocsEditor,
+} from '@kedata-indonesia/docflow-core'
 import { parseCslStyle } from '@kedata-indonesia/docflow-plugins'
 import type { SidebarKey } from '../types.js'
 import type { LocaleContext } from './useLocale.js'
@@ -210,7 +216,7 @@ export function useCitations(options: UseCitationsOptions) {
     }
   }
 
-  const handleImportBibliography = async (payload: { format: 'bibtex' | 'ris'; text: string }) => {
+  const handleImportBibliography = async (payload: { format: BibliographyFormat; text: string }) => {
     const port = getCitation()
     if (!port?.onImportBibliography || importBusy.value) return
     importBusy.value = true

@@ -1,4 +1,4 @@
-import type { CslItemData } from '@kedata-indonesia/docflow-core'
+import type { BibliographyFormat, CslItemData } from '@kedata-indonesia/docflow-core'
 
 export interface Collaborator {
   userId: string
@@ -111,8 +111,8 @@ export interface ReferencesSidebarSlotProps {  /** Live reference library (mutat
   onStyleChange: (styleId: string) => void
   /** Import a source by DOI (only when `canImport`). */
   onImportDoi: (doi: string) => void
-  /** Import a BibTeX/RIS blob (only when `canImport`). */
-  onImportBibliography: (payload: { format: 'bibtex' | 'ris'; text: string }) => void
+  /** Import a reference file (BibTeX, RIS, EndNote, CSL-JSON, YAML, XML — only when `canImport`). */
+  onImportBibliography: (payload: { format: BibliographyFormat; text: string }) => void
   /** Issue #251 — import a CSL style from its XML (library-parsed, no host port). */
   onImportStyle: (payload: { text: string; filename?: string }) => void
 }

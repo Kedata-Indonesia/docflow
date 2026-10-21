@@ -13,7 +13,13 @@ import {
   Globe,
   FileUp,
 } from 'lucide-vue-next'
-import type { CslItemData, CslName } from '@kedata-indonesia/docflow-core'
+import {
+  BIBLIOGRAPHY_FILE_ACCEPT,
+  detectBibliographyFormat,
+  type BibliographyFormat,
+  type CslItemData,
+  type CslName,
+} from '@kedata-indonesia/docflow-core'
 import { useLocale } from '../../composables/useLocale.js'
 import { FIELD_INPUT, FIELD_LABEL } from '../../styles/classes.js'
 
@@ -68,7 +74,7 @@ const emit = defineEmits<{
   remove: [id: string]
   'update:style': [styleId: string]
   'import-doi': [doi: string]
-  'import-bibliography': [payload: { format: 'bibtex' | 'ris'; text: string }]
+  'import-bibliography': [payload: { format: BibliographyFormat; text: string }]
   'import-style': [payload: { text: string; filename?: string }]
 }>()
 
@@ -251,7 +257,8 @@ function handleRemove(source: CslItemData) {
 
 const importOpen = ref(false)
 const doiInput = ref('')
-const bibFileInput = ref<HTMLInputElement | null>(null)
+const referenceFileInput = ref<HTMLInputElement | null>(null)
+const fileError = ref('')
 
 function submitDoiImport() {
   const doi = doiInput.value.trim()
@@ -260,18 +267,26 @@ function submitDoiImport() {
   doiInput.value = ''
 }
 
-function pickBibFile() {
+function pickReferenceFile() {
   if (props.importing) return
-  bibFileInput.value?.click()
+  referenceFileInput.value?.click()
 }
 
-async function handleBibFileChange(event: Event) {
+async function handleReferenceFileChange(event: Event) {
   const input = event.target as HTMLInputElement
   const file = input.files?.[0]
   input.value = '' // allow re-picking the same file
   if (!file) return
-  const format = /\.ris$/i.test(file.name) ? 'ris' : 'bibtex'
+
+  // Issue #353 — detect the format instead of assuming BibTeX/RIS: a `.json`
+  // file used to be sent to the host labelled `bibtex`.
   const text = await file.text()
+  const format = detectBibliographyFormat(file.name, text)
+  if (!format) {
+    fileError.value = t('sidebars.references.import.unsupportedFile')
+    return
+  }
+  fileError.value = ''
   emit('import-bibliography', { format, text })
 }
 
@@ -477,6 +492,7 @@ async function handleStyleFileChange(event: Event) {
       <div v-if="canImport" class="border-t border-slate-200 dark:border-white/5">
         <button
           type="button"
+          data-testid="import-toggle"
           class="flex w-full items-center justify-between px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest text-slate-400 transition-colors hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
           @click="importOpen = !importOpen"
         >
@@ -511,7 +527,7 @@ async function handleStyleFileChange(event: Event) {
             </div>
           </div>
 
-          <!-- BibTeX / RIS file -->
+          <!-- Reference file (BibTeX, RIS, EndNote, CSL-JSON, YAML, XML) -->
           <div>
             <label :class="FIELD_LABEL">
               {{ t('sidebars.references.import.fromFile') }}
@@ -520,18 +536,26 @@ async function handleStyleFileChange(event: Event) {
               type="button"
               :disabled="importing"
               class="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-slate-300 px-3 py-2 text-[11px] font-semibold text-slate-500 transition-colors hover:border-blue-400 hover:text-blue-600 disabled:opacity-40 dark:border-white/15 dark:text-slate-400 dark:hover:border-blue-500 dark:hover:text-blue-400"
-              @click="pickBibFile"
+              @click="pickReferenceFile"
             >
               <FileUp class="h-3.5 w-3.5" />
               {{ importing ? t('sidebars.references.import.importing') : t('sidebars.references.import.pickFile') }}
             </button>
             <input
-              ref="bibFileInput"
+              ref="referenceFileInput"
+              data-testid="import-file-input"
               type="file"
-              accept=".bib,.ris,application/x-bibtex,text/plain"
+              :accept="BIBLIOGRAPHY_FILE_ACCEPT"
               class="hidden"
-              @change="handleBibFileChange"
+              @change="handleReferenceFileChange"
             >
+            <p
+              v-if="fileError"
+              data-testid="import-file-error"
+              class="mt-1.5 text-[10px] leading-relaxed text-red-500 dark:text-red-400"
+            >
+              {{ fileError }}
+            </p>
           </div>
 
           <!-- Result message -->
