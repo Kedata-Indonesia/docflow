@@ -1,7 +1,12 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { Editor } from '@tiptap/core'
-import type { AIDraftFn, AIStreamFn, CslItemData } from '@kedata-indonesia/docflow-core'
+import type {
+  AIDraftFn,
+  AIStreamFn,
+  BibliographyFormat,
+  CslItemData,
+} from '@kedata-indonesia/docflow-core'
 import type { CommentItem, DocumentSnapshot, SidebarKey, SuggestionSummary } from '../types.js'
 import ReferencesSidebar from './sidebars/ReferencesSidebar.vue'
 import CommentsSidebar from './sidebars/CommentsSidebar.vue'
@@ -58,7 +63,7 @@ const emit = defineEmits<{
   remove: [id: string]
   'update:style': [styleId: string]
   'import-doi': [doi: string]
-  'import-bibliography': [payload: { format: 'bibtex' | 'ris'; text: string }]
+  'import-bibliography': [payload: { format: BibliographyFormat; text: string }]
   'import-style': [payload: { text: string; filename?: string }]
   'add-comment': [content: string, anchorText?: string, anchorIndex?: number]
   'add-reply': [commentId: string, content: string]
@@ -95,7 +100,7 @@ const referencesSidebarProps = computed(() => ({
   onRemove: (id: string) => emit('remove', id),
   onStyleChange: (styleId: string) => emit('update:style', styleId),
   onImportDoi: (doi: string) => emit('import-doi', doi),
-  onImportBibliography: (payload: { format: 'bibtex' | 'ris'; text: string }) =>
+  onImportBibliography: (payload: { format: BibliographyFormat; text: string }) =>
     emit('import-bibliography', payload),
   onImportStyle: (payload: { text: string; filename?: string }) => emit('import-style', payload),
 }))

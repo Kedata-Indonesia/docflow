@@ -4,6 +4,8 @@
  * declares them; the host app implements them. See docs/LIBRARY_CONTRACT.md.
  */
 
+import type { BibliographyFormat } from './bibliographyFormats.js'
+
 export interface ImageUploadResult {
   /** Resolved URL/href the host stored the file at. */
   src: string
@@ -107,12 +109,13 @@ export interface CitationPort {
    */
   onImportDoi?: (doi: string) => Promise<CslItemData | null>
   /**
-   * Optional importer (Phase 6C-3): parse + persist a BibTeX/RIS document
-   * via the host's backend. Returns the imported sources and how many
-   * entries failed.
+   * Optional importer (Phase 6C-3): parse + persist a reference document via
+   * the host's backend. Issue #353 widened the format union — BibTeX, RIS,
+   * EndNote, CSL-JSON, YAML and XML all arrive here. Returns the imported
+   * sources and how many entries failed.
    */
   onImportBibliography?: (payload: {
-    format: 'bibtex' | 'ris'
+    format: BibliographyFormat
     text: string
   }) => Promise<{ imported: CslItemData[]; failed: number }>
 }

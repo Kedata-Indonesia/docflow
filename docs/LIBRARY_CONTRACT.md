@@ -77,7 +77,7 @@ A change that respects this principle touches either the library *or* the app �
 | `onSourceRequest` | `() => Promise<string \| null>` | Optional. Opens the host's source picker when the user inserts a citation. Must resolve with the chosen **`sourceId`**, or `null` when cancelled. When absent, the Vue component falls back to the built-in references sidebar picker. |
 | `onSourcesChange` | `(ids: string[]) => void` | Optional. Fires with the list of **source ids cited in the document** (`engine.getCitedSourceIds()`) — *not* the source objects and *not* a library-snapshot event (for that, see `citation-sources-change` in §2.3). |
 | `onImportDoi` | `(doi: string) => Promise<CslItemData \| null>` | Optional. Resolve a DOI via the host backend (e.g. CrossRef) and return the persisted source (`null` on failure). Enables the DOI importer UI. |
-| `onImportBibliography` | `(payload: { format: 'bibtex' \| 'ris'; text: string }) => Promise<{ imported: CslItemData[]; failed: number }>` | Optional. Parse + persist a BibTeX/RIS blob via the host backend. Enables the file importer UI. |
+| `onImportBibliography` | `(payload: { format: BibliographyFormat; text: string }) => Promise<{ imported: CslItemData[]; failed: number }>` | Optional. Parse + persist a reference file via the host backend. `BibliographyFormat` is `'bibtex' \| 'ris' \| 'enw' \| 'csl-json' \| 'yaml' \| 'xml'` (issue #353); the library detects the format from the filename/content and never parses the file itself. Enables the file importer UI. |
 
 **Citation integration rules** (learned the hard way — violate these and the reference library silently misbehaves):
 

@@ -35,6 +35,11 @@ export {
   type SearchState,
 } from './SearchAndReplace.js'
 export type { ImageUploadHandler, ImageUploadResult, CitationPort, CslItemData, CslStyleInfo, CslName, CslDate } from './ports.js'
+export {
+  detectBibliographyFormat,
+  BIBLIOGRAPHY_FILE_ACCEPT,
+  type BibliographyFormat,
+} from './bibliographyFormats.js'
 export type { DocumentMode } from './modes.js'
 export { DOCUMENT_MODES } from './modes.js'
 export { PaginationPlus, type PaginationPlusOptions, PAGE_SIZES, type PageSize } from 'tiptap-pagination-plus'

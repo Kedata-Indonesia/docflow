@@ -133,6 +133,69 @@ describe('ReferencesSidebar', () => {
     wrapper.unmount()
   })
 
+  // Issue #353 — the picker used to accept only .bib/.ris and labelled every
+  // other file as BibTeX.
+  it('accepts every supported reference file in the picker', async () => {
+    const wrapper = mountSidebar({ canImport: true })
+    await wrapper.get('[data-testid="import-toggle"]').trigger('click')
+    const accept = wrapper.get('[data-testid="import-file-input"]').attributes('accept') ?? ''
+    for (const extension of ['.bib', '.ris', '.enw', '.json', '.yaml', '.yml', '.xml']) {
+      expect(accept).toContain(extension)
+    }
+    wrapper.unmount()
+  })
+
+  it('detects the format of a picked EndNote file', async () => {
+    const wrapper = mountSidebar({ canImport: true })
+    await wrapper.get('[data-testid="import-toggle"]').trigger('click')
+    const text = '%0 Journal Article\n%T Imported EndNote Title\n'
+    const input = wrapper.get('[data-testid="import-file-input"]')
+    Object.defineProperty(input.element, 'files', {
+      value: [new File([text], 'library.enw')],
+      configurable: true,
+    })
+
+    await input.trigger('change')
+    await flushPromises()
+
+    expect(wrapper.emitted('import-bibliography')?.[0]).toEqual([{ format: 'enw', text }])
+    wrapper.unmount()
+  })
+
+  it('labels a .json file as CSL-JSON, not BibTeX', async () => {
+    const wrapper = mountSidebar({ canImport: true })
+    await wrapper.get('[data-testid="import-toggle"]').trigger('click')
+    const text = '[{"type":"book","title":"CSL JSON"}]'
+    const input = wrapper.get('[data-testid="import-file-input"]')
+    Object.defineProperty(input.element, 'files', {
+      value: [new File([text], 'export.json')],
+      configurable: true,
+    })
+
+    await input.trigger('change')
+    await flushPromises()
+
+    expect(wrapper.emitted('import-bibliography')?.[0]).toEqual([{ format: 'csl-json', text }])
+    wrapper.unmount()
+  })
+
+  it('reports an unsupported file instead of sending it to the host', async () => {
+    const wrapper = mountSidebar({ canImport: true })
+    await wrapper.get('[data-testid="import-toggle"]').trigger('click')
+    const input = wrapper.get('[data-testid="import-file-input"]')
+    Object.defineProperty(input.element, 'files', {
+      value: [new File(['just prose about references'], 'notes.txt')],
+      configurable: true,
+    })
+
+    await input.trigger('change')
+    await flushPromises()
+
+    expect(wrapper.emitted('import-bibliography')).toBeUndefined()
+    expect(wrapper.get('[data-testid="import-file-error"]').text()).toMatch(/Unsupported file/i)
+    wrapper.unmount()
+  })
+
   it('prefills the form when editing an existing source', async () => {
     const wrapper = mountSidebar()
     const editButtons = wrapper.findAll('button[title="Edit"]')
