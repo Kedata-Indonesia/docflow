@@ -79,6 +79,10 @@ export function useEditorReady(options: UseEditorReadyOptions) {
       editor.value.on('transaction', () => {
         updatePageStats()
         updateCounts()
+        // Scroll is reported as a debounced empty transaction; recompute the
+        // bubble menu so it follows the selection or hides once scrolled out
+        // of view (#322).
+        updateBubbleMenu()
         // Issue #133 — re-scan the doc for `comment` marks so threads
         // whose anchored text was deleted are flagged orphaned. Debounced
         // (~200 ms) so rapid keystrokes/merges don't thrash the walk.

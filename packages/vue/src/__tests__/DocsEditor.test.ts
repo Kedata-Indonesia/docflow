@@ -127,6 +127,91 @@ describe('DocsEditor', () => {
     wrapper.unmount()
   })
 
+  it('hides the bubble menu when the selection is scrolled out of view (#322)', async () => {
+    const wrapper = mount(DocsEditor, {
+      props: { plugins: defaultPlugins },
+    })
+    await new Promise((resolve) => setTimeout(resolve, 50))
+
+    const vm = wrapper.vm as unknown as {
+      editor?: {
+        commands: {
+          setContent: (content: object) => boolean
+          setTextSelection: (selection: { from: number; to: number }) => boolean
+        }
+        view: {
+          dom: HTMLElement
+          coordsAtPos: (pos: number) => { top: number; left: number; right: number; bottom: number }
+        }
+      }
+      computeBubblePosition: () => { top: number; left: number } | null
+    }
+
+    const scroll = vm.editor!.view.dom.closest('.docs-editor-scroll') as HTMLElement | null
+    expect(scroll).not.toBeNull()
+    scroll!.getBoundingClientRect = () => ({
+      top: 100, bottom: 700, left: 0, right: 1000, width: 1000, height: 600, x: 0, y: 100,
+      toJSON: () => ({}),
+    }) as DOMRect
+
+    vm.editor!.commands.setContent({
+      type: 'doc',
+      content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Selection test content' }] }],
+    })
+    vm.editor!.commands.setTextSelection({ from: 2, to: 8 })
+
+    // Selection endpoint above the visible scroll area -> hidden.
+    vm.editor!.view.coordsAtPos = () => ({ top: -500, left: 10, right: 20, bottom: -480 })
+    expect(vm.computeBubblePosition()).toBeNull()
+
+    // Selection endpoint below the visible scroll area -> hidden.
+    vm.editor!.view.coordsAtPos = () => ({ top: 900, left: 10, right: 20, bottom: 920 })
+    expect(vm.computeBubblePosition()).toBeNull()
+
+    wrapper.unmount()
+  })
+
+  it('keeps the bubble menu below the editor chrome (#322)', async () => {
+    const wrapper = mount(DocsEditor, {
+      props: { plugins: defaultPlugins },
+    })
+    await new Promise((resolve) => setTimeout(resolve, 50))
+
+    const vm = wrapper.vm as unknown as {
+      editor?: {
+        commands: {
+          setContent: (content: object) => boolean
+          setTextSelection: (selection: { from: number; to: number }) => boolean
+        }
+        view: {
+          dom: HTMLElement
+          coordsAtPos: (pos: number) => { top: number; left: number; right: number; bottom: number }
+        }
+      }
+      computeBubblePosition: () => { top: number; left: number } | null
+    }
+
+    const scroll = vm.editor!.view.dom.closest('.docs-editor-scroll') as HTMLElement | null
+    expect(scroll).not.toBeNull()
+    scroll!.getBoundingClientRect = () => ({
+      top: 100, bottom: 700, left: 0, right: 1000, width: 1000, height: 600, x: 0, y: 100,
+      toJSON: () => ({}),
+    }) as DOMRect
+
+    vm.editor!.commands.setContent({
+      type: 'doc',
+      content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Selection test content' }] }],
+    })
+    vm.editor!.commands.setTextSelection({ from: 2, to: 8 })
+
+    // Endpoint visible but near the top: the menu must stay below the scroll
+    // area top (100) with the 8px gap, not at window top.
+    vm.editor!.view.coordsAtPos = () => ({ top: 105, left: 10, right: 20, bottom: 125 })
+    expect(vm.computeBubblePosition()?.top).toBe(108)
+
+    wrapper.unmount()
+  })
+
   it('renders page view with real content text', async () => {
     const wrapper = mount(DocsEditor, {
       props: { plugins: defaultPlugins },
