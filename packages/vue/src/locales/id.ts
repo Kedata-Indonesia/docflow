@@ -172,6 +172,8 @@ export default {
     fontFamily: 'Keluarga font',
     decreaseFontSize: 'Kecilkan font',
     increaseFontSize: 'Perbesar font',
+    increaseIndent: 'Tambah indentasi',
+    decreaseIndent: 'Kurangi indentasi',
     fontSize: 'Ukuran font',
     lists: 'Daftar',
     alignment: 'Perataan',

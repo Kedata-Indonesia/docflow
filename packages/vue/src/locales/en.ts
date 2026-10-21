@@ -172,6 +172,8 @@ export default {
     fontFamily: 'Font family',
     decreaseFontSize: 'Decrease font size',
     increaseFontSize: 'Increase font size',
+    increaseIndent: 'Increase indent',
+    decreaseIndent: 'Decrease indent',
     fontSize: 'Font size',
     lists: 'Lists',
     alignment: 'Alignment',

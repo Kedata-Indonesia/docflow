@@ -13,6 +13,7 @@ import { toolbarCommands } from './toolbar/toolbarCommands.js'
 import { TOOLBAR_DIVIDER } from '../styles/classes.js'
 import ToolbarDocControls from './toolbar/ToolbarDocControls.vue'
 import ToolbarZoom from './toolbar/ToolbarZoom.vue'
+import ToolbarIndent from './toolbar/ToolbarIndent.vue'
 import ToolbarParagraphStyle from './toolbar/ToolbarParagraphStyle.vue'
 import ToolbarFontFamily from './toolbar/ToolbarFontFamily.vue'
 import ToolbarFontSize from './toolbar/ToolbarFontSize.vue'
@@ -247,6 +248,8 @@ function applyTableSize(size: { rows: number; cols: number }): void {
         @toggle="toggleDropdown('align')"
         @run="runFromDropdown"
       />
+
+      <ToolbarIndent :editor="editor" :selection-tick="selectionTick" />
 
       <ToolbarPluginMenu
         v-if="insertItems.length"
