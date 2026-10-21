@@ -24,6 +24,10 @@ export interface HeaderFooterPaintState {
   userFirstPageHeaderRight: Ref<string>
   userEvenPageHeaderLeft: Ref<string>
   userEvenPageHeaderRight: Ref<string>
+  userFirstPageFooterLeft: Ref<string>
+  userFirstPageFooterRight: Ref<string>
+  userEvenPageFooterLeft: Ref<string>
+  userEvenPageFooterRight: Ref<string>
   resolvePageNumber: (pageIndex: number) => string
 }
 
@@ -77,6 +81,10 @@ export function paintHeaderFooter(state: HeaderFooterPaintState): void {
   const safeFirstHRight = sanitizeInlineHTML(state.userFirstPageHeaderRight.value)
   const safeEvenHLeft = sanitizeInlineHTML(state.userEvenPageHeaderLeft.value)
   const safeEvenHRight = sanitizeInlineHTML(state.userEvenPageHeaderRight.value)
+  const safeFirstFLeft = sanitizeInlineHTML(state.userFirstPageFooterLeft.value)
+  const safeFirstFRight = sanitizeInlineHTML(state.userFirstPageFooterRight.value)
+  const safeEvenFLeft = sanitizeInlineHTML(state.userEvenPageFooterLeft.value)
+  const safeEvenFRight = sanitizeInlineHTML(state.userEvenPageFooterRight.value)
 
   const defaultHLeft = safeHLeft.replace(/{total}/g, totalStr)
   const defaultHRight = safeHRight.replace(/{total}/g, totalStr)
@@ -130,13 +138,29 @@ export function paintHeaderFooter(state: HeaderFooterPaintState): void {
         applyHeader(header, index + 2, false)
       })
 
-      Array.from(root.querySelectorAll('.rm-page-break .rm-page-footer')).forEach((footer, index) => {
-        const pageNum = index + 1
+      const resolveFooter = (pageNum: number) => {
+        let left = defaultFLeft
+        let right = defaultFRight
+        if (pageNum === 1 && state.isDifferentFirstPage.value) {
+          left = safeFirstFLeft.replace(/{total}/g, totalStr)
+          right = safeFirstFRight.replace(/{total}/g, totalStr)
+        } else if (state.isDifferentOddEven.value && pageNum % 2 === 0) {
+          left = safeEvenFLeft.replace(/{total}/g, totalStr)
+          right = safeEvenFRight.replace(/{total}/g, totalStr)
+        }
         const pageValue = state.resolvePageNumber(pageNum - 1)
+        return {
+          left: left.replace(/{page}/g, pageValue),
+          right: right.replace(/{page}/g, pageValue),
+        }
+      }
+
+      Array.from(root.querySelectorAll('.rm-page-break .rm-page-footer')).forEach((footer, index) => {
+        const content = resolveFooter(index + 1)
         const left = footer.querySelector('.rm-page-footer-left')
         const right = footer.querySelector('.rm-page-footer-right')
-        if (left) left.innerHTML = defaultFLeft.replace(/{page}/g, pageValue)
-        if (right) right.innerHTML = defaultFRight.replace(/{page}/g, pageValue)
+        if (left) left.innerHTML = content.left
+        if (right) right.innerHTML = content.right
       })
 
       // The first-page header is absolute, so reserve its measured overflow in

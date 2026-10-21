@@ -45,3 +45,38 @@ export function positionHeaderOverlay(session: HeaderOverlaySession, root: HTMLE
   session.activeBar.style.setProperty('--rm-header-bar-padding-left', `${leftInset}px`)
   session.activeBar.style.setProperty('--rm-header-bar-padding-right', `${rightInset}px`)
 }
+
+/**
+ * Geometry for the inline footer edit overlay (issue #320). Footers live in the
+ * full-bleed breaker at the bottom of each page, so the element rectangle spans
+ * the paper edge-to-edge while the content is inset by the body margins. The
+ * text starts at the element top; the footer margin sits below it.
+ */
+export function positionFooterOverlay(session: HeaderOverlaySession, root: HTMLElement): void {
+  if (!session.targetHeader.parentNode) return
+
+  const footerRect = session.targetHeader.getBoundingClientRect()
+  const paperRect = root.getBoundingClientRect()
+
+  const paperStyle = getComputedStyle(root)
+  const zoom = Math.max(0.01, parseFloat(paperStyle.getPropertyValue('--docflow-zoom')) || 1)
+  const bodyMarginLeft = (parseFloat(paperStyle.getPropertyValue('--rm-margin-left')) || 0) * zoom
+  const bodyMarginRight = (parseFloat(paperStyle.getPropertyValue('--rm-margin-right')) || 0) * zoom
+  const contentEl = session.targetHeader.querySelector('.rm-page-footer-content')
+  const contentRect = contentEl?.getBoundingClientRect() ?? footerRect
+  const contentLeft = footerRect.left + bodyMarginLeft
+  const contentRight = footerRect.right - bodyMarginRight
+
+  const leftInset = Math.max(0, contentLeft - paperRect.left)
+  const rightInset = Math.max(0, paperRect.right - contentRight)
+
+  session.overlay.style.setProperty('--docflow-zoom', String(zoom))
+  session.overlay.style.left = `${contentLeft}px`
+  session.overlay.style.top = `${contentRect.top}px`
+  session.overlay.style.width = `${Math.max(contentRight - contentLeft, 1)}px`
+  session.overlay.style.height = `${Math.max(contentRect.height, 24)}px`
+  session.activeBar.style.setProperty('--rm-header-bar-left', `${-leftInset}px`)
+  session.activeBar.style.setProperty('--rm-header-bar-width', `${paperRect.width}px`)
+  session.activeBar.style.setProperty('--rm-header-bar-padding-left', `${leftInset}px`)
+  session.activeBar.style.setProperty('--rm-header-bar-padding-right', `${rightInset}px`)
+}

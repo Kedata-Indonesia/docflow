@@ -41,7 +41,7 @@ function buildMenuCommands(): Record<string, () => void> {
     handlePrint: () => {},
     toggleSidebar: () => {},
     startInlineHeaderEdit: () => {},
-    openFooterModal: () => {},
+    startInlineFooterEdit: () => {},
     openLinkDialog: () => {},
     applyPageless: () => {},
     documentMode: ref<DocumentMode>('editing'),

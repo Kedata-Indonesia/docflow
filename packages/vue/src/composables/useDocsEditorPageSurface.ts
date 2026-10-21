@@ -22,7 +22,7 @@ export interface UseDocsEditorPageSurfaceOptions {
    * lazily instead of being captured eagerly.
    */
   getStartInlineHeaderEdit: () => (event?: MouseEvent) => void
-  getOpenFooterModal: () => () => void
+  getStartInlineFooterEdit: () => (event?: MouseEvent) => void
 }
 
 /**
@@ -100,8 +100,7 @@ export function useDocsEditorPageSurface(options: UseDocsEditorPageSurfaceOption
       options.getStartInlineHeaderEdit()(params?.event)
     },
     onFooterClick: (params?: { event?: MouseEvent; pageNumber?: number }) => {
-      if (params?.event && params.event.detail !== 2) return
-      options.getOpenFooterModal()()
+      options.getStartInlineFooterEdit()(params?.event)
     },
   }))
 

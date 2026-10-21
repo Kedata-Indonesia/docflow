@@ -3,7 +3,6 @@ import type { DocsEditor, DocumentMode } from '@kedata-indonesia/docflow-core'
 import type { useEditCommands } from './useEditCommands.js'
 import type { useEditorChrome } from './useEditorChrome.js'
 import type { useHeaderEdit } from './useHeaderEdit.js'
-import type { useHeaderFooter } from './useHeaderFooter.js'
 import type { useLinkDialog } from './useLinkDialog.js'
 import type { usePageSetup } from './usePageSetup.js'
 import type { usePageStats } from './usePageStats.js'
@@ -21,7 +20,7 @@ export interface UseDocsEditorMenuOptions {
   handlePrint: ReturnType<typeof useEditorChrome>['handlePrint']
   toggleSidebar: ReturnType<typeof useEditorChrome>['toggleSidebar']
   startInlineHeaderEdit: ReturnType<typeof useHeaderEdit>['startInlineHeaderEdit']
-  openFooterModal: ReturnType<typeof useHeaderFooter>['openFooterModal']
+  startInlineFooterEdit: ReturnType<typeof useHeaderEdit>['startInlineFooterEdit']
   openLinkDialog: ReturnType<typeof useLinkDialog>['openLinkDialog']
   applyPageless: ReturnType<typeof usePageStats>['applyPageless']
   documentMode: Ref<DocumentMode>
@@ -67,7 +66,7 @@ export function useDocsEditorMenu(
     handlePrint,
     toggleSidebar,
     startInlineHeaderEdit,
-    openFooterModal,
+    startInlineFooterEdit,
     openLinkDialog,
     applyPageless,
     showDetailsModal,
@@ -133,7 +132,7 @@ export function useDocsEditorMenu(
     'insert-link': () => openLinkDialog(),
     security: () => onShare(),
     'insert-header': () => startInlineHeaderEdit(),
-    'insert-footer': () => openFooterModal(),
+    'insert-footer': () => startInlineFooterEdit(),
     'toggle-pageless': () => applyPageless(!isPageless.value),
     'toggle-left-sidebar': () => toggleSidebar('toc'),
     'toggle-ruler': () => {

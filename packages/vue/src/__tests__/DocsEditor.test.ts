@@ -488,7 +488,7 @@ describe('DocsEditor', () => {
     wrapper.unmount()
   })
 
-  it('opens footer modal with left/right inputs on double click (detail: 2)', async () => {
+  it('starts inline footer editing when the footer is clicked (#320)', async () => {
     const wrapper = mount(DocsEditor, {
       props: { plugins: defaultPlugins },
     })
@@ -496,26 +496,17 @@ describe('DocsEditor', () => {
 
     const vm = wrapper.vm as unknown as {
       paginationOptions: {
-        onHeaderClick: (params: { event: { detail: number } }) => void
-        onFooterClick: (params: { event: { detail: number } }) => void
+        onHeaderClick: (params: { event?: MouseEvent }) => void
+        onFooterClick: (params: { event?: MouseEvent }) => void
       }
-      showFooterModal: boolean
-      footerLeftInput: string
-      footerRightInput: string
     }
 
-    // Single click: detail = 1 -> modal does not open
-    vm.paginationOptions.onFooterClick({ event: { detail: 1 } })
-    await wrapper.vm.$nextTick()
-    expect(vm.showFooterModal).toBe(false)
+    vm.paginationOptions.onFooterClick({ event: new MouseEvent('click') })
+    await new Promise((resolve) => requestAnimationFrame(() => resolve(null)))
+    await new Promise((resolve) => setTimeout(resolve, 20))
 
-    // Double click footer: detail = 2 -> opens footer modal
-    vm.paginationOptions.onFooterClick({ event: { detail: 2 } })
-    await wrapper.vm.$nextTick()
-    expect(vm.showFooterModal).toBe(true)
-
-    // Verify modal has left and right input fields
-    expect(wrapper.find('input[placeholder*="Confidential"], input[placeholder*="Rahasia"]').exists()).toBe(true)
+    expect(document.querySelector('.rm-footer-edit-overlay')).not.toBeNull()
+    expect(document.querySelector('.rm-header-edit-input')).not.toBeNull()
 
     wrapper.unmount()
   })
@@ -1072,18 +1063,16 @@ describe('DocsEditor', () => {
     wrapper.unmount()
   })
 
-  it('round-trips dialog edits through Clear, Cancel, Apply and Save', async () => {
+  it('round-trips extracted dialog drafts and inline footer edits', async () => {
     const wrapper = mount(DocsEditor, {
       props: { plugins: defaultPlugins },
     })
     await new Promise((resolve) => setTimeout(resolve, 80))
 
     const vm = wrapper.vm as unknown as {
-      showFooterModal: boolean
-      footerLeftInput: string
-      footerRightInput: string
       userFooterLeft: string
-      openFooterModal: () => void
+      startInlineFooterEdit: () => void
+      finishHeaderEdit: (commit?: boolean) => void
       showHeaderFormatModal: boolean
       draftHeaderMarginCm: number
       headerMarginCm: number
@@ -1109,23 +1098,15 @@ describe('DocsEditor', () => {
     const primary = () => buttons()[buttons().length - 1]
     const cancel = () => buttons()[buttons().length - 2]
 
-    // Footer: two-way text fields, Clear resets both, Save persists.
-    vm.openFooterModal()
+    // Footer: clicking the footer starts the inline editor; committing writes
+    // the footer slot (the modal is retired — #320).
+    vm.startInlineFooterEdit()
+    await new Promise((resolve) => requestAnimationFrame(() => resolve(null)))
+    const footerInput = document.querySelector('.rm-header-edit-input') as HTMLElement | null
+    expect(footerInput).not.toBeNull()
+    footerInput!.innerHTML = 'Confidential'
+    vm.finishHeaderEdit(true)
     await wrapper.vm.$nextTick()
-    const footerInputs = dialog().findAll('input')
-    await footerInputs[0].setValue('Confidential')
-    await footerInputs[1].setValue('Draft')
-    expect(vm.footerLeftInput).toBe('Confidential')
-    expect(vm.footerRightInput).toBe('Draft')
-
-    await buttons()[0].trigger('click') // Clear
-    expect(vm.footerLeftInput).toBe('')
-    expect(vm.footerRightInput).toBe('')
-
-    await footerInputs[0].setValue('Confidential')
-    await primary().trigger('click') // Save
-    await wrapper.vm.$nextTick()
-    expect(vm.showFooterModal).toBe(false)
     expect(vm.userFooterLeft).toBe('Confidential')
 
     // Header format: number + checkbox drafts, Apply clamps out-of-range input.
