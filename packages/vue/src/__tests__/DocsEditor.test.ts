@@ -499,6 +499,31 @@ describe('DocsEditor', () => {
     wrapper.unmount()
   })
 
+  it('preserves line breaks when committing a multi-line inline header (#319)', async () => {
+    const wrapper = mount(DocsEditor, {
+      props: { plugins: defaultPlugins },
+    })
+    await new Promise((resolve) => setTimeout(resolve, 80))
+
+    const vm = wrapper.vm as unknown as {
+      startInlineHeaderEdit: () => void
+      finishHeaderEdit: (commit?: boolean) => void
+      userHeaderLeft: string
+    }
+
+    vm.startInlineHeaderEdit()
+    await wrapper.vm.$nextTick()
+
+    const input = document.querySelector('.rm-header-edit-input') as HTMLElement | null
+    expect(input).not.toBeNull()
+    // Chromium's contenteditable represents Enter as sibling block elements.
+    input!.innerHTML = '<div>Line 1</div><div>Line 2</div><div>Line 3</div>'
+    vm.finishHeaderEdit(true)
+
+    expect(vm.userHeaderLeft).toBe('Line 1<br>Line 2<br>Line 3')
+    wrapper.unmount()
+  })
+
   it('aligns the later-page edit overlay to the body margins and header content rect', async () => {
     const wrapper = mount(DocsEditor, {
       props: { plugins: defaultPlugins },

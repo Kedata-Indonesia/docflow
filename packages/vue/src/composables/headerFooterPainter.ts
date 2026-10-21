@@ -28,6 +28,33 @@ export interface HeaderFooterPaintState {
 }
 
 /**
+ * A multi-line first-page header sits in the paper's top margin (absolute), so
+ * it cannot push the body by itself. Measure its rendered height and publish the
+ * overflow as `--rm-first-header-overflow`; the stylesheet adds it to the paper's
+ * top padding and removes it from page 1's content height (issue #319).
+ */
+function syncFirstPageHeaderOverflow(root: HTMLElement): void {
+  const firstHeader = root.querySelector<HTMLElement>('.rm-first-page-header')
+  const content = firstHeader?.querySelector<HTMLElement>('.rm-page-header-content')
+  if (!firstHeader || !content) {
+    root.style.setProperty('--rm-first-header-overflow', '0px')
+    return
+  }
+
+  const style = getComputedStyle(root)
+  // Rects are visual px under the zoom transform; the CSS vars are layout px (#144).
+  const zoom = Math.max(0.01, parseFloat(style.getPropertyValue('--docflow-zoom')) || 1)
+  const marginTop = parseFloat(style.getPropertyValue('--rm-margin-top')) || 0
+  const headerMarginTop = parseFloat(style.getPropertyValue('--rm-header-margin-top')) || 0
+  const contentHeight = content.getBoundingClientRect().height / zoom
+
+  // A small breathing gap keeps the first body block from touching the header.
+  const HEADER_BODY_GAP = 8
+  const overflow = Math.max(0, headerMarginTop + contentHeight + HEADER_BODY_GAP - marginTop)
+  root.style.setProperty('--rm-first-header-overflow', `${Math.round(overflow * 100) / 100}px`)
+}
+
+/**
  * Imperatively paint the generated PaginationPlus header/footer widgets with
  * the current content slots, margins and per-page `{page}`/`{total}` tokens.
  * This is a derived view only — nothing here touches the ProseMirror document.
@@ -111,6 +138,17 @@ export function paintHeaderFooter(state: HeaderFooterPaintState): void {
         if (left) left.innerHTML = defaultFLeft.replace(/{page}/g, pageValue)
         if (right) right.innerHTML = defaultFRight.replace(/{page}/g, pageValue)
       })
+
+      // The first-page header is absolute, so reserve its measured overflow in
+      // the paper padding / page-1 content height (issue #319).
+      syncFirstPageHeaderOverflow(root)
+
+      // Let PaginationPlus re-measure the now-painted header height. Without
+      // this the per-page content area can still reflect the previous header
+      // height, so a multi-line header would not reduce page capacity.
+      if (editor.value && editor.value.view.dom === root) {
+        editor.value.view.dispatch(editor.value.state.tr)
+      }
     })
   }, 50)
 }
