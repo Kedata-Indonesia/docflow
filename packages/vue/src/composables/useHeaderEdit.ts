@@ -220,7 +220,7 @@ export function useHeaderEdit(options: UseHeaderEditOptions) {
     syncOverlayHeight(session)
   }
 
-  const startInlineEdit = (side: SlotSide, event?: MouseEvent) => {
+  const startInlineEdit = (side: SlotSide, event?: MouseEvent, element?: HTMLElement | null) => {
     const existing = headerEditSession.value
     if (existing) {
       const target = event?.target
@@ -229,8 +229,10 @@ export function useHeaderEdit(options: UseHeaderEditOptions) {
     }
 
     const sideSelector = side === 'header' ? '.rm-page-header, .rm-first-page-header' : '.rm-page-footer'
-    let slotEl: HTMLElement | null = null
-    if (event) {
+    // Issue #320 — a click in the page margin has no header/footer element as its target,
+    // so the caller resolves the slot that owns the band and passes it in explicitly.
+    let slotEl: HTMLElement | null = element ?? null
+    if (!slotEl && event) {
       const target = event.target as HTMLElement | null
       slotEl = target?.closest(sideSelector) as HTMLElement | null
     }
@@ -442,8 +444,8 @@ export function useHeaderEdit(options: UseHeaderEditOptions) {
   }
 
   return {
-    startInlineHeaderEdit: (event?: MouseEvent) => startInlineEdit('header', event),
-    startInlineFooterEdit: (event?: MouseEvent) => startInlineEdit('footer', event),
+    startInlineHeaderEdit: (event?: MouseEvent, element?: HTMLElement | null) => startInlineEdit('header', event, element),
+    startInlineFooterEdit: (event?: MouseEvent, element?: HTMLElement | null) => startInlineEdit('footer', event, element),
     finishHeaderEdit,
   }
 }
