@@ -15,6 +15,7 @@ export interface UseEditorReadyOptions {
   startInlineHeaderEdit: (event?: MouseEvent) => void
   startInlineFooterEdit: (event?: MouseEvent) => void
   updateBubbleMenu: () => void
+  updateTableMenu: () => void
   updatePageStats: () => void
   updateCounts: () => void
   scheduleCommentAnchorScan: () => void
@@ -48,6 +49,7 @@ export function useEditorReady(options: UseEditorReadyOptions) {
     startInlineHeaderEdit,
     startInlineFooterEdit,
     updateBubbleMenu,
+    updateTableMenu,
     updatePageStats,
     updateCounts,
     scheduleCommentAnchorScan,
@@ -74,6 +76,7 @@ export function useEditorReady(options: UseEditorReadyOptions) {
       }
       editor.value.on('selectionUpdate', () => {
         updateBubbleMenu()
+        updateTableMenu()
         updatePageStats()
       })
       editor.value.on('transaction', () => {
@@ -83,12 +86,14 @@ export function useEditorReady(options: UseEditorReadyOptions) {
         // bubble menu so it follows the selection or hides once scrolled out
         // of view (#322).
         updateBubbleMenu()
+        updateTableMenu()
         // Issue #133 — re-scan the doc for `comment` marks so threads
         // whose anchored text was deleted are flagged orphaned. Debounced
         // (~200 ms) so rapid keystrokes/merges don't thrash the walk.
         scheduleCommentAnchorScan()
       })
       updateBubbleMenu()
+      updateTableMenu()
       updateCounts()
       updatePageStats()
       // Initial scan once the editor is ready. In collab mode this is a
