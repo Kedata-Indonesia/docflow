@@ -1077,6 +1077,17 @@
   color: #94a3b8;
 }
 
+/* Pagination keep-together spacer (issue #249): a transient decoration before
+   a quote/code block that must not be cut in PaginationPlus mode. It has no
+   visual output — only height. */
+.docs-keep-together-spacer {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  pointer-events: none;
+}
+
 /* Print page setup — standard document margins */
 @page {
   margin: 20mm;

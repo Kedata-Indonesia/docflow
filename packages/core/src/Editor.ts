@@ -23,6 +23,7 @@ import type { ImageUploadHandler, CitationPort } from './ports.js'
 import type { AIStreamFn, AIDraftFn } from './ai/types.js'
 import { PaginationPlus, type PaginationPlusOptions } from 'tiptap-pagination-plus'
 import { createPerformanceMonitor, type PerformanceMonitor } from './PerformanceMonitor.js'
+import { KeepTogetherExtension } from './KeepTogether.js'
 
 /**
  * Pasted-HTML normalization now lives in ./pasteNormalization.js (DOM-based
@@ -56,6 +57,12 @@ export interface EditorOptions {
   collaboration?: CollaborationOptions | CollaborationSetup
   getPageMap?: () => Map<number, { page: number; blockIndex: number }>
   paginationOptions?: Partial<PaginationPlusOptions>
+  /**
+   * Node types kept on one page when they fit (issue #249). Applies to the
+   * PaginationPlus mode; virtual pages already use the layout-engine's
+   * `keepTogetherTypes`. Pass `[]` to opt out.
+   */
+  keepTogetherTypes?: string[]
   /** Host-injected image upload port (see docs/LIBRARY_CONTRACT.md). */
   onImageUpload?: ImageUploadHandler
   /** Host-injected citation port (Phase 6 — reference library + CSL styles). */
@@ -311,6 +318,10 @@ function createTiptapEditor(
     }),
     // Always present — find & replace decorations + state (core editing infra).
     SearchAndReplaceExtension,
+    // Always present — PaginationPlus keep-together for quote/code blocks (#249).
+    KeepTogetherExtension.configure({
+      types: options.keepTogetherTypes ?? ['blockquote', 'codeBlock'],
+    }),
     // Always present — Tab/Shift-Tab block indent (issue #189). Declares
     // priority 50 so list nesting, table cell navigation and the AI preview
     // keep their own Tab bindings.
