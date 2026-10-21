@@ -8,9 +8,13 @@ import {
   BorderStyle,
   PageBreak,
   FootnoteReferenceRun,
+  TabStopType,
+  TabStopPosition,
 } from 'docx'
+import type { ParagraphChild } from 'docx'
 import type { CitationExportPort } from '../types.js'
 import { citeHtmlToRuns, footnoteBodyRuns, type FootnoteCollector } from './citation.js'
+import { displayEquationChildren, inlineEquationRuns } from './equation.js'
 
 export type PmMark = { type: string; attrs?: Record<string, unknown> }
 export type PmNode = {
@@ -25,6 +29,8 @@ export type PmNode = {
 export interface WalkContext {
   citation?: CitationExportPort
   footnotes?: FootnoteCollector
+  /** Derived display-equation numbers (C2), keyed by node object. */
+  equationNumbers?: Map<PmNode, number>
 }
 
 export function mapAlignment(value: unknown): (typeof AlignmentType)[keyof typeof AlignmentType] | undefined {
@@ -87,8 +93,8 @@ export function textToRun(text: string, marks: PmMark[] = []): (TextRun | Extern
   return [run]
 }
 
-export function inlineNodesToRuns(node: PmNode, walkCtx?: WalkContext): (TextRun | ExternalHyperlink | FootnoteReferenceRun)[] {
-  const runs: (TextRun | ExternalHyperlink | FootnoteReferenceRun)[] = []
+export function inlineNodesToRuns(node: PmNode, walkCtx?: WalkContext): ParagraphChild[] {
+  const runs: ParagraphChild[] = []
   if (!node.content) return runs
   for (const child of node.content) {
     if (child.type === 'text') {
@@ -98,6 +104,9 @@ export function inlineNodesToRuns(node: PmNode, walkCtx?: WalkContext): (TextRun
     } else if (child.type === 'image') {
       // Images are handled separately by the block mapper.
       continue
+    } else if (child.type === 'inlineEquation') {
+      // Native Word equation (OMML) when docx can parse the LaTeX.
+      runs.push(...inlineEquationRuns(String(child.attrs?.latex ?? '')))
     } else if (child.type === 'citation') {
       // Derived text — the host's CiteEngine already rendered it (6D).
       const citationId = (child.attrs?.citationId as string | undefined) ?? ''
@@ -160,6 +169,15 @@ export function mapBlockNode(
     case 'pageBreak': {
       return [new Paragraph({ children: [new PageBreak()] })]
     }
+    case 'displayEquation': {
+      const latex = String(node.attrs?.latex ?? '')
+      const number = walkCtx?.equationNumbers?.get(node)
+      return [new Paragraph({
+        children: displayEquationChildren(latex, number),
+        alignment: AlignmentType.CENTER,
+        tabStops: number ? [{ type: TabStopType.RIGHT, position: TabStopPosition.MAX }] : undefined,
+      })]
+    }
     case 'footnote': {
       // A footnote that arrives as a block (e.g. pasted/imported content, or a
       // top-level insert) must behave exactly like an inline one: emit a
@@ -173,7 +191,7 @@ export function mapBlockNode(
       // A list item's children are blocks (a paragraph, plus optional nested
       // lists). The inline mapper only walks inline nodes, so reading the item
       // with it silently drops the item's entire text.
-      const runs: (TextRun | ExternalHyperlink | FootnoteReferenceRun)[] = []
+      const runs: ParagraphChild[] = []
       const nested: Paragraph[] = []
       for (const child of node.content ?? []) {
         if (child.type === 'bulletList' || child.type === 'orderedList') {
