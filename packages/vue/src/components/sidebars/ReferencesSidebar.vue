@@ -22,6 +22,8 @@ import {
 } from '@kedata-indonesia/docflow-core'
 import { useLocale } from '../../composables/useLocale.js'
 import { FIELD_INPUT, FIELD_LABEL } from '../../styles/classes.js'
+import type { ConfirmDestructiveFn } from '../../types.js'
+import ConfirmDialog from '../ConfirmDialog.vue'
 
 /**
  * Reference manager — a backend-agnostic UI shell (Phase 6B-3). It owns no
@@ -50,6 +52,12 @@ const props = withDefaults(
     importMessage?: string
     /** Issue #251 — result message for a `.csl` style import (success or error). */
     styleImportMessage?: string
+    /**
+     * Issue #359 — host-supplied confirmation for deleting a source. When set
+     * the host's own dialog decides and the built-in one is never rendered;
+     * resolve `true` to proceed, `false`/reject to cancel.
+     */
+    confirmDestructive?: ConfirmDestructiveFn
   }>(),
   {
     pickerMode: false,
@@ -63,6 +71,7 @@ const props = withDefaults(
     importing: false,
     importMessage: '',
     styleImportMessage: '',
+    confirmDestructive: undefined,
   },
 )
 
@@ -247,10 +256,37 @@ function submitForm() {
   mode.value = 'list'
 }
 
-function handleRemove(source: CslItemData) {
-  if (window.confirm(t('sidebars.references.confirmDelete').replace('{title}', source.title ?? source.id))) {
-    emit('remove', source.id)
+/**
+ * Issue #359 — deleting a source is destructive and needs a confirmation
+ * that the host can style and replace. Source waiting for the built-in
+ * dialog's answer; `null` means the dialog is closed.
+ */
+const pendingRemoval = ref<CslItemData | null>(null)
+
+function removeMessage(source: CslItemData): string {
+  return t('sidebars.references.confirmDelete').replace('{title}', source.title ?? source.id)
+}
+
+async function handleRemove(source: CslItemData) {
+  // A host that owns a dialog answers for us — the built-in one never renders.
+  if (props.confirmDestructive) {
+    let proceed = false
+    try {
+      proceed = await props.confirmDestructive(removeMessage(source))
+    } catch {
+      // A host dialog that fails must never delete anything.
+      proceed = false
+    }
+    if (proceed) emit('remove', source.id)
+    return
   }
+  pendingRemoval.value = source
+}
+
+function onRemoveConfirmed() {
+  const source = pendingRemoval.value
+  pendingRemoval.value = null
+  if (source) emit('remove', source.id)
 }
 
 // ─── Import (Phase 6C) ──────────────────────────────────────────────────────
@@ -756,5 +792,14 @@ async function handleStyleFileChange(event: Event) {
         </form>
       </div>
     </template>
+
+    <!-- Issue #359 — destructive confirmation, in-app instead of window.confirm. -->
+    <ConfirmDialog
+      :is-open="pendingRemoval !== null"
+      :title="t('sidebars.references.confirmDeleteTitle')"
+      :message="pendingRemoval ? removeMessage(pendingRemoval) : ''"
+      @confirm="onRemoveConfirmed"
+      @cancel="pendingRemoval = null"
+    />
   </div>
 </template>

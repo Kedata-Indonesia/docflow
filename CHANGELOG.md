@@ -22,6 +22,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **In-app confirmation for destructive actions (issue #359):** deleting a
+  reference source and deleting a comment thread no longer call
+  `window.confirm`. Both sidebars now render a `ConfirmDialog` — a real
+  `alertdialog` with `aria-labelledby`/`aria-describedby`, a focus trap,
+  Escape/backdrop to cancel, focus starting on **Cancel** (never on the
+  destructive button) and returning to the trigger afterwards. Labels come from
+  the active locale, so the buttons read in the app's language rather than the
+  browser's, and the entry animation honours `prefers-reduced-motion`. Hosts
+  that already own a dialog pass the new `confirmDestructive` prop
+  (`(message) => boolean | Promise<boolean>`) and the built-in one is never
+  rendered — `docflow-app` can wire its existing `confirmAction` to it.
+  _([#359](https://github.com/Kedata-Indonesia/docflow/issues/359))_
+
 - **Draggable ruler margins (issue #295):** the ruler's two margin markers are no
   longer decoration — drag one to change the page margin, or focus it and use the
   arrow keys (8 px a press, 24 px with Shift). The ruler owns no state: it reports

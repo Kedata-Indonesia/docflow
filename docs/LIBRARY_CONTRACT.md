@@ -166,6 +166,18 @@ they are listed here so reviewers don't mistake them for leaks:
   disabled and the value pinned to 100 while `virtualPages` is on.
 - `shareUrl`, `documentMeta`, `collaborators`, `connectionState`, `userName`, `userAvatar`
   props — host-supplied display data, rendered but never fetched by the library.
+- `confirmDestructive` prop (issue #359) — host-supplied confirmation for the
+  library's destructive actions: deleting a reference source
+  ([ReferencesSidebar.vue](../packages/vue/src/components/sidebars/ReferencesSidebar.vue))
+  and deleting a comment thread
+  ([CommentsSidebar.vue](../packages/vue/src/components/sidebars/CommentsSidebar.vue)).
+  Signature `(message: string) => boolean | Promise<boolean>`; resolve `true` to
+  proceed, `false`/reject to cancel. Omit it and both sidebars render the built-in
+  [ConfirmDialog.vue](../packages/vue/src/components/ConfirmDialog.vue) (an
+  `alertdialog` with focus starting on **Cancel**, Escape/backdrop cancelling and
+  focus restored to the trigger), so no host gets a `window.confirm`. Hosts that
+  already own a dialog — e.g. `docflow-app`'s `confirmAction` — pass theirs and the
+  built-in one is never rendered.
 - `HOST_OWNED_ACTIONS` + `unimplementedActions` prop (issue #153) — the header menu
   actions the library only *emits* (`export:*`, `share`, `move`, `trash`, `rename`,
   `add-to-starred`, `open-doc`, …). The list is derived once from the real dispatchers —

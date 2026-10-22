@@ -7,7 +7,13 @@ import type {
   BibliographyFormat,
   CslItemData,
 } from '@kedata-indonesia/docflow-core'
-import type { CommentItem, DocumentSnapshot, SidebarKey, SuggestionSummary } from '../types.js'
+import type {
+  CommentItem,
+  ConfirmDestructiveFn,
+  DocumentSnapshot,
+  SidebarKey,
+  SuggestionSummary,
+} from '../types.js'
 import ReferencesSidebar from './sidebars/ReferencesSidebar.vue'
 import CommentsSidebar from './sidebars/CommentsSidebar.vue'
 import HistorySidebar from './sidebars/HistorySidebar.vue'
@@ -41,6 +47,12 @@ const props = defineProps<{
   styleImportMessage: string
   /** True when the host supplied the `#references-sidebar` slot (issue #22). */
   hasReferencesSidebarSlot?: boolean
+  /**
+   * Issue #359 — host-supplied confirmation for destructive actions
+   * (delete a reference source, delete a comment thread). When set, the
+   * library's built-in dialog is never rendered.
+   */
+  confirmDestructive?: ConfirmDestructiveFn
   comments?: CommentItem[]
   selectedTextSnippet?: string
   selectedTextIndex?: number
@@ -123,6 +135,7 @@ const referencesSidebarProps = computed(() => ({
       :importing="importBusy"
       :import-message="importMessage"
       :style-import-message="styleImportMessage"
+      :confirm-destructive="confirmDestructive"
       @close="emit('close')"
       @insert="(sourceId) => emit('insert', sourceId)"
       @create="(source) => emit('create', source)"
@@ -143,6 +156,7 @@ const referencesSidebarProps = computed(() => ({
     :selected-text-snippet="selectedTextSnippet"
     :selected-text-index="selectedTextIndex"
     :orphaned-ids="orphanedCommentIds"
+    :confirm-destructive="confirmDestructive"
     @close="emit('close')"
     @add-comment="(content, anchorText, anchorIndex) => emit('add-comment', content, anchorText, anchorIndex)"
     @add-reply="(commentId, content) => emit('add-reply', commentId, content)"
