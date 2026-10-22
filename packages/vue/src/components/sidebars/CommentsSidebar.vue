@@ -8,8 +8,9 @@ import {
   MessageCircle,
   Trash2,
 } from 'lucide-vue-next'
-import type { CommentItem } from '../../types.js'
+import type { CommentItem, ConfirmDestructiveFn } from '../../types.js'
 import { useLocale } from '../../composables/useLocale.js'
+import ConfirmDialog from '../ConfirmDialog.vue'
 
 const props = defineProps<{
   comments?: CommentItem[]
@@ -19,6 +20,12 @@ const props = defineProps<{
    *  longer in the document (the anchored text was deleted). The sidebar
    *  renders those with a "text deleted" badge + a Delete action. */
   orphanedIds?: string[]
+  /**
+   * Issue #359 — host-supplied confirmation for deleting a thread. When set
+   * the host's own dialog decides and the built-in one is never rendered;
+   * resolve `true` to proceed, `false`/reject to cancel.
+   */
+  confirmDestructive?: ConfirmDestructiveFn
 }>()
 
 const emit = defineEmits<{
@@ -72,13 +79,32 @@ function isOrphaned(comment: CommentItem): boolean {
   return props.orphanedIds?.includes(comment.id) === true
 }
 
-function handleDeleteComment(commentId: string) {
-  // Confirm here rather than in the host — keeps the destructive action
-  // close to its trigger and avoids a host-level modal dependency.
-  if (typeof window !== 'undefined' && !window.confirm(t('sidebars.comments.confirmDelete'))) {
+/**
+ * Issue #359 — the thread waiting for the built-in dialog's answer; `null`
+ * means the dialog is closed.
+ */
+const pendingDeletionId = ref<string | null>(null)
+
+async function handleDeleteComment(commentId: string) {
+  // A host that owns a dialog answers for us — the built-in one never renders.
+  if (props.confirmDestructive) {
+    let proceed = false
+    try {
+      proceed = await props.confirmDestructive(t('sidebars.comments.confirmDelete'))
+    } catch {
+      // A host dialog that fails must never delete anything.
+      proceed = false
+    }
+    if (proceed) emit('delete-comment', commentId)
     return
   }
-  emit('delete-comment', commentId)
+  pendingDeletionId.value = commentId
+}
+
+function onDeleteConfirmed() {
+  const commentId = pendingDeletionId.value
+  pendingDeletionId.value = null
+  if (commentId) emit('delete-comment', commentId)
 }
 </script>
 
@@ -269,5 +295,14 @@ function handleDeleteComment(commentId: string) {
         </div>
       </form>
     </div>
+
+    <!-- Issue #359 — destructive confirmation, in-app instead of window.confirm. -->
+    <ConfirmDialog
+      :is-open="pendingDeletionId !== null"
+      :title="t('sidebars.comments.confirmDeleteTitle')"
+      :message="t('sidebars.comments.confirmDelete')"
+      @confirm="onDeleteConfirmed"
+      @cancel="pendingDeletionId = null"
+    />
   </div>
 </template>

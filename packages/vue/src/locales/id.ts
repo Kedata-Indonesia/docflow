@@ -425,6 +425,7 @@ export default {
       orphaned: 'Teks dihapus',
       delete: 'Hapus',
       confirmDelete: 'Hapus thread komentar ini? Tindakan ini tidak dapat dibatalkan.',
+      confirmDeleteTitle: 'Hapus thread komentar?',
     },
     history: {
       title: 'Riwayat',
@@ -492,6 +493,7 @@ export default {
       anonymous: 'Anonim',
       etAl: 'dkk.',
       confirmDelete: 'Hapus sumber "{title}"? Sitasi yang merujuknya akan berhenti ditampilkan.',
+      confirmDeleteTitle: 'Hapus sumber?',
       /** Issue #361 — remove the imported style currently in use. */
       removeStyle: 'Hapus gaya impor ini',
       import: {

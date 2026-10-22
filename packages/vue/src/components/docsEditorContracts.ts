@@ -13,6 +13,7 @@ import type {
 import type {
   Collaborator,
   CommentItem,
+  ConfirmDestructiveFn,
   ConnectionState,
   DocumentMeta,
   DocumentSnapshot,
@@ -126,6 +127,13 @@ export interface DocsEditorProps {
    * `aria-disabled="true"`, `reason` becomes the tooltip. (issue #153)
    */
   unimplementedActions?: Array<string | { action: string; reason?: string }>
+  /**
+   * Issue #359 — confirmation for destructive actions inside the library
+   * (delete a reference source, delete a comment thread). When supplied, the
+   * host's dialog decides and the library's built-in dialog is never
+   * rendered. Resolve `true` to proceed, `false`/reject to cancel.
+   */
+  confirmDestructive?: ConfirmDestructiveFn
 }
 
 export const docsEditorPropDefaults = {
@@ -163,6 +171,8 @@ export const docsEditorPropDefaults = {
   headerMarginCm: 0.5,
   footerMarginCm: 0.5,
   unimplementedActions: () => [],
+  // Issue #359 — no host dialog by default: the library renders its own.
+  confirmDestructive: undefined,
 } satisfies Record<keyof Required<DocsEditorProps>, unknown>
 
 export interface DocsEditorEmits {

@@ -425,6 +425,7 @@ export default {
       orphaned: 'Text deleted',
       delete: 'Delete',
       confirmDelete: 'Delete this comment thread? This cannot be undone.',
+      confirmDeleteTitle: 'Delete comment thread?',
     },
     history: {
       title: 'History',
@@ -492,6 +493,7 @@ export default {
       anonymous: 'Anonymous',
       etAl: 'et al.',
       confirmDelete: 'Delete source "{title}"? Citations referencing it will stop rendering.',
+      confirmDeleteTitle: 'Delete source?',
       /** Issue #361 — remove the imported style currently in use. */
       removeStyle: 'Remove this imported style',
       import: {
