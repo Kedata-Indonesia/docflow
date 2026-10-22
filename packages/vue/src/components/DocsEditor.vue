@@ -376,6 +376,7 @@ void [openHeaderFormatModal, openPageNumberModal]
         :snapshots="props.snapshots" :active-preview-index="props.activePreviewIndex"
         :ai-stream="props.aiStream" :ai-draft="props.aiDraft"
         :suggestions="suggestions" :can-review-suggestions="props.canReviewSuggestions"
+        :confirm-destructive="props.confirmDestructive"
         @close="activeSidebar = null" @insert="handleReferenceInsert" @create="handleSourceCreate"
         @update="handleSourceUpdate" @remove="handleSourceRemove"
         @update:style="handleCitationStyleChange" @import-doi="handleImportDoi"

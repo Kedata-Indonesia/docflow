@@ -1,5 +1,6 @@
 import { flushPromises, mount } from '@vue/test-utils'
-import { describe, expect, it } from 'vitest'
+import { nextTick } from 'vue'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { CslItemData } from '@kedata-indonesia/docflow-core'
 import ReferencesSidebar from '../components/sidebars/ReferencesSidebar.vue'
 
@@ -214,6 +215,145 @@ describe('ReferencesSidebar', () => {
     expect(source.id).toBe('doe-2020') // edit preserves the id
     expect(source.title).toBe('The Design of Tests, 2nd ed.')
     expect(source.publisher).toBe('Test Press')
+    wrapper.unmount()
+  })
+})
+
+/**
+ * Issue #359 — deleting a source used `window.confirm`; it now goes through
+ * the in-app dialog, and a host that owns a dialog can answer for us.
+ *
+ * The dialog teleports to <body>, so it is queried on the document. Emits are
+ * asserted with listener spies: the pinned @vue/test-utils does not record
+ * emits with this Vue version.
+ */
+describe('ReferencesSidebar — delete confirmation (issue #359)', () => {
+  function mountAttached(props: Record<string, unknown> = {}) {
+    return mount(ReferencesSidebar, {
+      props: {
+        sources: [bookDoe, articleSmith],
+        activeStyle: 'chicago-notes-bibliography',
+        ...props,
+      },
+      attachTo: document.body,
+    })
+  }
+
+  function dialogNode(testid: string): HTMLElement | null {
+    return document.body.querySelector<HTMLElement>(`[data-testid="${testid}"]`)
+  }
+
+  function deleteButtons(wrapper: ReturnType<typeof mountAttached>) {
+    return wrapper.findAll('button[title="Delete"]')
+  }
+
+  async function answerDialog(action: 'confirm' | 'cancel'): Promise<void> {
+    const button = dialogNode(`confirm-dialog-${action}`)
+    expect(button).not.toBeNull()
+    button!.click()
+    await nextTick()
+    await flushPromises()
+  }
+
+  afterEach(() => {
+    document.body
+      .querySelectorAll('[data-testid="confirm-dialog-overlay"]')
+      .forEach((el) => el.remove())
+  })
+
+  it('asks with the in-app dialog instead of window.confirm', async () => {
+    const onRemove = vi.fn()
+    const wrapper = mountAttached({ onRemove })
+    const confirmSpy = vi.spyOn(window, 'confirm')
+
+    await deleteButtons(wrapper)[0].trigger('click')
+
+    expect(confirmSpy).not.toHaveBeenCalled()
+    expect(dialogNode('confirm-dialog')).not.toBeNull()
+    // The message names the source and the consequence.
+    expect(dialogNode('confirm-dialog-message')?.textContent).toContain('The Design of Tests')
+    expect(dialogNode('confirm-dialog-message')?.textContent).toContain('stop rendering')
+    expect(onRemove).not.toHaveBeenCalled()
+
+    confirmSpy.mockRestore()
+    wrapper.unmount()
+  })
+
+  it('removes the source only after the dialog is confirmed', async () => {
+    const onRemove = vi.fn()
+    const wrapper = mountAttached({ onRemove })
+
+    await deleteButtons(wrapper)[0].trigger('click')
+    await answerDialog('confirm')
+
+    expect(onRemove).toHaveBeenCalledWith('doe-2020')
+    expect(dialogNode('confirm-dialog')).toBeNull()
+    wrapper.unmount()
+  })
+
+  it('keeps the source when the dialog is cancelled', async () => {
+    const onRemove = vi.fn()
+    const wrapper = mountAttached({ onRemove })
+
+    await deleteButtons(wrapper)[0].trigger('click')
+    await answerDialog('cancel')
+
+    expect(onRemove).not.toHaveBeenCalled()
+    expect(dialogNode('confirm-dialog')).toBeNull()
+    wrapper.unmount()
+  })
+
+  it('lets the host dialog decide when confirmDestructive is supplied', async () => {
+    const confirmDestructive = vi.fn().mockResolvedValue(true)
+    const onRemove = vi.fn()
+    const wrapper = mountAttached({ confirmDestructive, onRemove })
+
+    await deleteButtons(wrapper)[0].trigger('click')
+    await flushPromises()
+
+    expect(confirmDestructive).toHaveBeenCalledWith(
+      'Delete source "The Design of Tests"? Citations referencing it will stop rendering.',
+    )
+    expect(onRemove).toHaveBeenCalledWith('doe-2020')
+    // The built-in dialog is never rendered when the host owns one.
+    expect(dialogNode('confirm-dialog')).toBeNull()
+    wrapper.unmount()
+  })
+
+  it('keeps the source when the host dialog declines', async () => {
+    const confirmDestructive = vi.fn().mockResolvedValue(false)
+    const onRemove = vi.fn()
+    const wrapper = mountAttached({ confirmDestructive, onRemove })
+
+    await deleteButtons(wrapper)[0].trigger('click')
+    await flushPromises()
+
+    expect(confirmDestructive).toHaveBeenCalledOnce()
+    expect(onRemove).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('keeps the source when the host dialog rejects', async () => {
+    const confirmDestructive = vi.fn().mockRejectedValue(new Error('dialog broke'))
+    const onRemove = vi.fn()
+    const wrapper = mountAttached({ confirmDestructive, onRemove })
+
+    await deleteButtons(wrapper)[0].trigger('click')
+    await flushPromises()
+
+    // A failing host dialog must never delete anything.
+    expect(onRemove).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('accepts a synchronous boolean from the host', async () => {
+    const onRemove = vi.fn()
+    const wrapper = mountAttached({ confirmDestructive: () => true, onRemove })
+
+    await deleteButtons(wrapper)[0].trigger('click')
+    await flushPromises()
+
+    expect(onRemove).toHaveBeenCalledWith('doe-2020')
     wrapper.unmount()
   })
 })

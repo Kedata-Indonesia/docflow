@@ -298,6 +298,7 @@ const MyPlugin = definePlugin({
 | `headerMarginCm` | `number` | `0.5` | Distance from the paper edge to the header/footer content, in cm. |
 | `footerMarginCm` | `number` | `0.5` | Distance from the bottom paper edge to the footer content, in cm. |
 | `unimplementedActions` | `Array<string \| { action: string; reason?: string }>` | `[]` | Actions this host does not implement. Dimmed (still visible), `aria-disabled="true"`, `reason` becomes the tooltip. (issue #153) |
+| `confirmDestructive` | `ConfirmDestructiveFn` | `—` | Confirmation for destructive actions inside the library (delete a reference source, delete a comment thread). When supplied, the host's dialog decides and the library's built-in dialog is never rendered. Resolve `true` to proceed, `false`/reject to cancel. |
 <!-- api:props:end -->
 
 ### Events

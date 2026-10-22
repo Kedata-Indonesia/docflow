@@ -61,6 +61,17 @@ export type SidebarKey = 'comments' | 'history' | 'ai' | 'toc' | 'references' | 
 export type ConnectionState = 'connected' | 'connecting' | 'disconnected'
 export type SavingStatus = 'saved' | 'saving' | 'offline'
 
+/**
+ * Issue #359 — host-supplied confirmation for destructive actions inside the
+ * library (delete a reference source, delete a comment thread).
+ *
+ * Pass it as `<DocsEditor :confirm-destructive="…">` and the built-in
+ * confirmation dialog is never rendered; the host's own dialog decides.
+ * Resolve `true` to proceed, `false`/reject to cancel. A synchronous boolean
+ * works too. Hosts without one get the library's in-app dialog.
+ */
+export type ConfirmDestructiveFn = (message: string) => boolean | Promise<boolean>
+
 export interface DocumentMeta {
   id: string
   title: string
