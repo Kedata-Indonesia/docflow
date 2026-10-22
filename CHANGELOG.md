@@ -103,6 +103,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   instead of hardcoding offsets.
   _([#320](https://github.com/Kedata-Indonesia/docflow/issues/320))_
 
+- **Header/footer margin follow-ups (issue #354):** the click band now spans the whole page
+  margin (the first-page header is narrower than the page, so the left/right margin used to
+  stay dead), and it ignores all document content — including block images and custom nodes,
+  which the old text-tag whitelist missed. The showcase e2e now covers a two-page document
+  (clicking page 2 opens page 2's editor), a last-block image sitting in the footer band, and
+  a 150 % zoom case; its footer body check uses the last block instead of the first paragraph.
+  _([#354](https://github.com/Kedata-Indonesia/docflow/issues/354))_
+
 - **Packaging:** statically imported runtime packages are no longer declared as
   *optional* peers. `y-webrtc`/`y-websocket` (core) and the TipTap extensions
   behind `defaultPlugins` (plugins) are regular dependencies now, and the

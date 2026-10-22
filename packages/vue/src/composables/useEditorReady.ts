@@ -6,10 +6,11 @@ import type { DocsEditor } from '@kedata-indonesia/docflow-core'
  * absolutely positioned on its text and the footer ends before the bottom margin. Clicking the
  * paper margin therefore has to be resolved against an explicit band, derived from the widget
  * rect plus the page margin — not from a fixed fudge factor that used to bleed into the body.
+ *
+ * Issue #354 — the band is vertical-only: the listener already receives clicks inside the paper,
+ * so there is no x range to guard (the first-page header is narrower than the page).
  */
 const MARGIN_BAND_PADDING = 8
-const MARGIN_PAGE_COLUMN_GUARD = 24
-const TEXT_BLOCK_SELECTOR = 'p, h1, h2, h3, h4, h5, h6, li, blockquote, pre, td, th, figcaption'
 
 function collectSlots(root: HTMLElement, side: 'header' | 'footer'): HTMLElement[] {
   return side === 'header'
@@ -38,15 +39,13 @@ function marginBand(
 function slotAtPoint(
   root: HTMLElement,
   side: 'header' | 'footer',
-  point: { x: number; y: number },
+  y: number,
   marginPx: number,
   paperTop: number,
 ): HTMLElement | null {
   for (const slot of collectSlots(root, side)) {
     const band = marginBand(slot, side, marginPx, paperTop)
-    if (!band || point.y < band.top || point.y > band.bottom) continue
-    const rect = slot.getBoundingClientRect()
-    if (point.x < rect.left - MARGIN_PAGE_COLUMN_GUARD || point.x > rect.right + MARGIN_PAGE_COLUMN_GUARD) continue
+    if (!band || y < band.top || y > band.bottom) continue
     return slot
   }
   return null
@@ -176,6 +175,8 @@ export function useEditorReady(options: UseEditorReadyOptions) {
       editor.value.view.dom.addEventListener('click', (e: MouseEvent) => {
         const target = e.target as HTMLElement | null
         if (!target) return
+        const root = editor.value?.view.dom
+        if (!root) return
 
         // Ignore the floating bar, its dropdown and the inline editors themselves.
         if (target.closest('.rm-google-docs-header-bar, .rm-options-dropdown, .rm-header-edit-overlay, .rm-footer-edit-overlay')) return
@@ -189,24 +190,24 @@ export function useEditorReady(options: UseEditorReadyOptions) {
           return
         }
 
-        // A click on a body block belongs to the document, never to a margin band.
-        if (target.closest(TEXT_BLOCK_SELECTOR)) return
+        // Issue #354 — a click on document content belongs to the document. The page widgets
+        // live in `.rm-pages-wrapper`; the first-page header is a direct ProseMirror widget and
+        // is handled above. Everything else inside the editor is content (paragraphs, images,
+        // tables, custom nodes), so it can never be a margin band.
+        if (target !== root && !target.closest('.rm-pages-wrapper')) return
 
-        const root = editor.value?.view.dom
-        if (!root) return
         const paperTop = target.closest<HTMLElement>('.docs-editor__paper')?.getBoundingClientRect().top ?? 0
         // Rects are visual px under the zoom transform; margins are layout px (#144).
         const zoomScale = Math.max(0.01, getZoomScale?.() ?? 1)
         const headerBandPx = headerMarginCm.value * 37.795 * zoomScale
         const footerBandPx = footerMarginCm.value * 37.795 * zoomScale
-        const point = { x: e.clientX, y: e.clientY }
 
-        const headerSlot = slotAtPoint(root, 'header', point, headerBandPx, paperTop)
+        const headerSlot = slotAtPoint(root, 'header', e.clientY, headerBandPx, paperTop)
         if (headerSlot) {
           startInlineHeaderEdit(e, headerSlot)
           return
         }
-        const footerSlot = slotAtPoint(root, 'footer', point, footerBandPx, paperTop)
+        const footerSlot = slotAtPoint(root, 'footer', e.clientY, footerBandPx, paperTop)
         if (footerSlot) startInlineFooterEdit(e, footerSlot)
       })
     }
