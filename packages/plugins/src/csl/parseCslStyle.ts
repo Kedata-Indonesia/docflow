@@ -57,24 +57,31 @@ export function parseCslStyle(xml: string): CslStyleInfo {
   }
 
   const info = source.match(/<info\b[^>]*>([\s\S]*?)<\/info>/i)?.[1] ?? ''
-  // CSL stores the identifier in `<info><id>` (a URI); some files also carry an
-  // `id` on the root. Prefer the spec location and derive a short id from the
-  // URI so the picker value matches the bundled ids (`apa`, not the Zotero
-  // URL). Note: citeproc itself rejects an `id` attribute on the `<style>` root,
-  // so spec-compliant files are the ones that actually register.
+  // CSL defines `<info><id>` as a globally unique URI, which is exactly the
+  // property a registry key needs — so that value IS the style id.
+  //
+  // Issue #360: this used to be narrowed to the URI's last segment (`apa`
+  // instead of the Zotero URL), which made the key collide across unrelated
+  // files and let an imported style silently replace a bundled one. The full
+  // URI is unique by construction, stable across sessions, and keeps
+  // re-importing the same file idempotent (same URI → same id → replace).
+  //
+  // Some files also carry an `id` on the root; citeproc rejects that attribute,
+  // so it is only a fallback for files that would fail registration anyway.
   const infoId = info.match(/<id(?![\w-])[^>]*>([\s\S]*?)<\/id>/i)?.[1]
   const infoIdValue = infoId ? decodeXmlEntities(infoId).trim() : ''
-  const derivedId = infoIdValue
-    ? (infoIdValue.replace(/\/+$/, '').split('/').pop() ?? infoIdValue)
-    : ''
-  const id = derivedId || readAttribute(styleTag, 'id')?.trim()
+  const id = infoIdValue || readAttribute(styleTag, 'id')?.trim()
   if (!id) {
     throw new Error('parseCslStyle: the CSL style is missing its required <info><id> element')
   }
 
   // `<title>` inside `<info>`; the negative lookahead keeps `<title-short>` out.
   const title = info.match(/<title(?![\w-])[^>]*>([\s\S]*?)<\/title>/i)?.[1]
-  const name = (title ? decodeXmlEntities(title).replace(/\s+/g, ' ').trim() : '') || id
+  const titleText = title ? decodeXmlEntities(title).replace(/\s+/g, ' ').trim() : ''
+  // A titleless style falls back to the id's last segment rather than the whole
+  // URI — the picker still has to show something a human can read.
+  const shortId = id.replace(/\/+$/, '').split('/').pop() || id
+  const name = titleText || shortId
 
   const citationFormat = (source.match(/<category\b[^>]*>/gi) ?? [])
     .map((tag) => readAttribute(tag, 'citation-format'))

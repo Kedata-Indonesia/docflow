@@ -35,10 +35,11 @@ const props = defineProps<{
   citationStyleId: string
   /**
    * Styles the reference picker offers — the engine's registry, i.e. the bundled
-   * four plus anything the host injected (issue #180). Optional: without it the
-   * sidebar falls back to its bundled list.
+   * four plus anything the host injected (issue #180). `removable` marks the
+   * ones the user imported (issue #361). Optional: without it the sidebar falls
+   * back to its bundled list.
    */
-  citationStyles?: { id: string; name: string }[]
+  citationStyles?: { id: string; name: string; removable?: boolean }[]
   pendingSourceRequest: boolean
   canImportSources: boolean
   importBusy: boolean
@@ -74,6 +75,7 @@ const emit = defineEmits<{
   update: [source: CslItemData]
   remove: [id: string]
   'update:style': [styleId: string]
+  'remove-style': [styleId: string]
   'import-doi': [doi: string]
   'import-bibliography': [payload: { format: BibliographyFormat; text: string }]
   'import-style': [payload: { text: string; filename?: string }]
@@ -142,6 +144,7 @@ const referencesSidebarProps = computed(() => ({
       @update="(source) => emit('update', source)"
       @remove="(id) => emit('remove', id)"
       @update:style="(styleId) => emit('update:style', styleId)"
+      @remove-style="(styleId) => emit('remove-style', styleId)"
       @import-doi="(doi) => emit('import-doi', doi)"
       @import-bibliography="(payload) => emit('import-bibliography', payload)"
       @import-style="(payload) => emit('import-style', payload)"

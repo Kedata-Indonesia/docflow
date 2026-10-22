@@ -22,6 +22,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Removable imported CSL styles (issue #361):** the style picker can now delete
+  a style the user imported. A remove control appears next to the Citation Style
+  dropdown whenever the active style is one of the user's own; the bundled four
+  never offer it, and the engine refuses them too (`CiteEngine.removeStyle`).
+  Removing the active style falls back explicitly to the default and repaints, so
+  the document never keeps naming a style that is gone. Hosts hear
+  `citation-style-removed` and drop the id from their persisted style list.
+  _([#361](https://github.com/Kedata-Indonesia/docflow/issues/361))_
+
 - **In-app confirmation for destructive actions (issue #359):** deleting a
   reference source and deleting a comment thread no longer call
   `window.confirm`. Both sidebars now render a `ConfirmDialog` — a real
@@ -102,6 +111,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   _([#179](https://github.com/Kedata-Indonesia/docflow/issues/179))_
 
 ### Fixed
+
+- **CSL styles keep their own identity (issue #360):** `parseCslStyle` used to
+  file an imported style under the last segment of its `<info><id>` URI, so two
+  unrelated files sharing that segment (`…/styles/harvard-cite-them-right` from
+  two hosts) collapsed into one registry key and the second silently replaced
+  the first. A file whose URI happened to end in `apa` also took the bundled
+  APA's slot, leaving that document unable to select the built-in style again.
+  The id is now the canonical CSL URI — unique by spec, stable across sessions,
+  and idempotent when re-importing the same file. Bundled styles keep their
+  short keys, and hosts that deliberately override one through
+  `citation.styles` still can.
+  _([#360](https://github.com/Kedata-Indonesia/docflow/issues/360))_
 
 - **Header/footer hit areas (issue #320):** clicking the page margin now opens the inline
   header or footer editor for the page that was clicked, on a single click, for both sides.

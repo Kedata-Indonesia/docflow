@@ -214,6 +214,31 @@ export class CiteEngine {
     return normalized
   }
 
+  /**
+   * Remove a style registered at runtime (issue #361) — the counterpart of
+   * `registerStyle`, for the `.csl` import path. Returns whether the registry
+   * changed.
+   *
+   * Bundled styles cannot be removed: they are the offline fallback every
+   * document can name, and the engine has to keep rendering them. Removing the
+   * active style falls back to `DEFAULT_CSL_STYLE` and repaints, so the
+   * document never keeps pointing at a style that is gone.
+   */
+  removeStyle(id: string): boolean {
+    const styleId = typeof id === 'string' ? id.trim() : ''
+    if (!styleId) return false
+    if (Object.prototype.hasOwnProperty.call(CSL_STYLES, styleId)) return false
+    if (!Object.prototype.hasOwnProperty.call(this.styles, styleId)) return false
+
+    delete this.styles[styleId]
+    if (this.style === styleId) {
+      this.style = DEFAULT_CSL_STYLE
+      this.recompute()
+    }
+    this.emitChange()
+    return true
+  }
+
   updateSources(sources: CslItemData[], emit = true): void {
     this.sources = new Map(sources.map((s) => [s.id, s]))
     this.recompute()

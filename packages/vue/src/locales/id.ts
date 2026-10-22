@@ -494,6 +494,8 @@ export default {
       etAl: 'dkk.',
       confirmDelete: 'Hapus sumber "{title}"? Sitasi yang merujuknya akan berhenti ditampilkan.',
       confirmDeleteTitle: 'Hapus sumber?',
+      /** Issue #361 — remove the imported style currently in use. */
+      removeStyle: 'Hapus gaya impor ini',
       import: {
         title: 'Impor',
         fromDoi: 'Dari DOI (CrossRef)',

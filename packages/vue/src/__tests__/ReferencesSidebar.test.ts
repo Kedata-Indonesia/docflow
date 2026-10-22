@@ -220,6 +220,65 @@ describe('ReferencesSidebar', () => {
 })
 
 /**
+ * Issue #361 — the user can delete a style they imported. The remove control is
+ * offered only for the active style, and only when it is not one of the four
+ * the library bundles.
+ */
+describe('ReferencesSidebar — removing imported styles (#361)', () => {
+  const HOUSE_ID = 'https://contoh.ac.id/styles/house'
+  const styles = [
+    { id: 'chicago-notes-bibliography', name: 'Chicago', removable: false },
+    { id: 'apa', name: 'APA', removable: false },
+    { id: HOUSE_ID, name: 'House style', removable: true },
+  ]
+
+  const removeButton = (wrapper: ReturnType<typeof mountSidebar>) =>
+    wrapper.find('[data-testid="citation-style-remove-button"]')
+
+  it('offers no remove control for a bundled style', () => {
+    const wrapper = mountSidebar({ availableStyles: styles, activeStyle: 'apa' })
+
+    expect(removeButton(wrapper).exists()).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('offers a remove control when the active style was imported', async () => {
+    const onRemoveStyle = vi.fn()
+    const wrapper = mountSidebar({
+      availableStyles: styles,
+      activeStyle: HOUSE_ID,
+      onRemoveStyle,
+    })
+
+    const button = removeButton(wrapper)
+    expect(button.exists()).toBe(true)
+    expect(button.attributes('aria-label')).toBe('Remove this imported style')
+
+    await button.trigger('click')
+    expect(onRemoveStyle).toHaveBeenCalledWith(HOUSE_ID)
+    wrapper.unmount()
+  })
+
+  it('hides the control while a bundled style is selected, even if an import exists', () => {
+    const wrapper = mountSidebar({ availableStyles: styles, activeStyle: 'chicago-notes-bibliography' })
+
+    expect(removeButton(wrapper).exists()).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('lists the imported style alongside the bundled ones', () => {
+    const wrapper = mountSidebar({ availableStyles: styles, activeStyle: 'apa' })
+
+    expect(wrapper.findAll('select option').map((o) => o.text())).toEqual([
+      'Chicago',
+      'APA',
+      'House style',
+    ])
+    wrapper.unmount()
+  })
+})
+
+/**
  * Issue #359 — deleting a source used `window.confirm`; it now goes through
  * the in-app dialog, and a host that owns a dialog can answer for us.
  *

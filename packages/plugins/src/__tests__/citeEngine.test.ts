@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import type { CslItemData, CslStyleInfo } from '@kedata-indonesia/docflow-core'
 import { CiteEngine, sanitizeCiteprocHtml } from '../citeEngine.js'
+import { parseCslStyle } from '../csl/parseCslStyle.js'
 
 const bookDoe: CslItemData = {
   id: 'doe-2020',
@@ -301,6 +302,144 @@ describe('runtime style registration (#251)', () => {
     expect(changes.length).toBeGreaterThan(0)
     expect(engine.renderCluster('c1')).not.toBe(before)
     expect(engine.renderCluster('c1')).toContain('IMP(')
+  })
+})
+
+/**
+ * Issue #360 — two styles whose URIs share a last segment must stay separate
+ * keys, and an imported style must never take a bundled one's slot.
+ */
+describe('style identity (#360)', () => {
+  function csl(uri: string, prefix: string): CslStyleInfo {
+    return parseCslStyle(
+      [
+        '<?xml version="1.0" encoding="utf-8"?>',
+        '<style xmlns="http://purl.org/net/xbiblio/csl" class="in-text" version="1.0" default-locale="en-US">',
+        `  <info><title>${prefix} style</title><id>${uri}</id><updated>2026-01-01T00:00:00+00:00</updated></info>`,
+        `  <citation><layout prefix="${prefix}(" suffix=")"><text variable="title"/></layout></citation>`,
+        '  <bibliography><layout><text variable="title"/></layout></bibliography>',
+        '</style>',
+      ].join('\n'),
+    )
+  }
+
+  it('keeps two styles with the same last URI segment apart', () => {
+    const zotero = csl('https://www.zotero.org/styles/harvard-cite-them-right', 'ZOT')
+    const campus = csl('https://contoh.ac.id/styles/harvard-cite-them-right', 'CAMPUS')
+
+    const engine = new CiteEngine({ sources: [bookDoe] })
+    engine.registerStyle(zotero)
+    engine.registerStyle(campus)
+
+    // Four bundled + both imports: neither replaced the other.
+    expect(engine.getAvailableStyles()).toHaveLength(6)
+    expect(engine.getAvailableStyles().map((s) => s.id)).toEqual(
+      expect.arrayContaining([zotero.id, campus.id]),
+    )
+
+    engine.syncCitations([{ citationId: 'c1', attrs: { sourceId: 'doe-2020' } }])
+    engine.setStyle(campus.id)
+    expect(engine.renderCluster('c1')).toContain('CAMPUS(')
+  })
+
+  it('leaves the bundled style alone when an import ends in the same segment', () => {
+    const imported = csl('https://contoh.ac.id/styles/apa', 'CAMPUS')
+
+    const engine = new CiteEngine({ sources: [bookDoe] })
+    const bundledApa = engine.getAvailableStyles().find((s) => s.id === 'apa')
+
+    engine.registerStyle(imported)
+
+    // The bundled apa keeps its slot and its identity; the import sits beside it.
+    expect(engine.getAvailableStyles()).toHaveLength(5)
+    expect(engine.getAvailableStyles().find((s) => s.id === 'apa')).toEqual(bundledApa)
+    expect(engine.getAvailableStyles().map((s) => s.id)).toContain(imported.id)
+  })
+
+  it('still replaces when the same file is imported twice', () => {
+    const first = csl('https://contoh.ac.id/styles/house-style', 'OLD')
+    const again = { ...first, name: 'Renamed house style' }
+
+    const engine = new CiteEngine()
+    engine.registerStyle(first)
+    engine.registerStyle(again)
+
+    expect(engine.getAvailableStyles()).toHaveLength(5)
+    expect(engine.getAvailableStyles().find((s) => s.id === first.id)?.name).toBe(
+      'Renamed house style',
+    )
+  })
+})
+
+/**
+ * Issue #361 — an imported style can be removed again. The bundled four stay:
+ * they are the offline fallback every document can name.
+ */
+describe('runtime style removal (#361)', () => {
+  const imported: CslStyleInfo = {
+    id: 'imported-lite',
+    name: 'Imported (test)',
+    category: 'in-text',
+    xml: [
+      '<?xml version="1.0" encoding="utf-8"?>',
+      '<style xmlns="http://purl.org/net/xbiblio/csl" class="in-text" version="1.0" default-locale="en-US">',
+      '  <info><title>Imported (test)</title><id>imported-lite</id><updated>2026-01-01T00:00:00+00:00</updated></info>',
+      '  <citation><layout prefix="IMP(" suffix=")"><text variable="title"/></layout></citation>',
+      '  <bibliography><layout><text variable="title"/></layout></bibliography>',
+      '</style>',
+    ].join('\n'),
+  }
+
+  it('removes an imported style', () => {
+    const engine = new CiteEngine()
+    engine.registerStyle(imported)
+    expect(engine.getAvailableStyles()).toHaveLength(5)
+
+    expect(engine.removeStyle('imported-lite')).toBe(true)
+    expect(engine.getAvailableStyles()).toHaveLength(4)
+    expect(engine.getAvailableStyles().map((s) => s.id)).not.toContain('imported-lite')
+  })
+
+  it('refuses to remove a bundled style', () => {
+    const engine = new CiteEngine()
+
+    expect(engine.removeStyle('apa')).toBe(false)
+    expect(engine.removeStyle('chicago-notes-bibliography')).toBe(false)
+    expect(engine.getAvailableStyles()).toHaveLength(4)
+  })
+
+  it('falls back to the default style when the removed one was active', () => {
+    const engine = new CiteEngine({ sources: [bookDoe] })
+    engine.registerStyle(imported)
+    engine.setStyle('imported-lite')
+    engine.syncCitations([{ citationId: 'c1', attrs: { sourceId: 'doe-2020' } }])
+    expect(engine.renderCluster('c1')).toContain('IMP(')
+
+    const changes: number[] = []
+    engine.onChange(() => changes.push(1))
+
+    expect(engine.removeStyle('imported-lite')).toBe(true)
+    expect(engine.getStyle()).toBe('chicago-notes-bibliography')
+    expect(changes.length).toBeGreaterThan(0)
+    // Repainted with the fallback rather than keeping the removed style's output.
+    expect(engine.renderCluster('c1')).not.toContain('IMP(')
+  })
+
+  it('returns false for an id it never registered', () => {
+    const engine = new CiteEngine()
+    expect(engine.removeStyle('never-registered')).toBe(false)
+    expect(engine.removeStyle('')).toBe(false)
+  })
+
+  it('leaves the active style and output untouched when removing another style', () => {
+    const engine = new CiteEngine({ sources: [bookDoe], style: 'apa' })
+    engine.registerStyle(imported)
+    engine.syncCitations([{ citationId: 'c1', attrs: { sourceId: 'doe-2020' } }])
+    const before = engine.renderCluster('c1')
+
+    expect(engine.removeStyle('imported-lite')).toBe(true)
+    expect(engine.getStyle()).toBe('apa')
+    expect(engine.renderCluster('c1')).toBe(before)
   })
 })
 

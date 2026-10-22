@@ -4,25 +4,28 @@ import { CSL_STYLES } from '../csl/index.js'
 
 /**
  * Issue #251 — the `.csl` import path derives the picker metadata from the
- * style XML: id from `<info><id>` (a URI in real styles; the short last segment
- * is what the picker uses), name from `<info><title>`, and category from
- * `<category citation-format>` (falling back to the root class).
+ * style XML: id from `<info><id>` (the canonical CSL URI), name from
+ * `<info><title>`, and category from `<category citation-format>` (falling
+ * back to the root class).
+ *
+ * Issue #360 — the id is the URI **verbatim**; narrowing it to the last
+ * segment made unrelated styles share a key.
  */
 describe('parseCslStyle (#251)', () => {
   it('reads the metadata of the bundled styles', () => {
+    // The id is the style's own CSL URI, not the key the library files it under.
     expect(parseCslStyle(CSL_STYLES.apa.xml)).toMatchObject({
-      id: 'apa',
+      id: 'http://www.zotero.org/styles/apa',
       name: 'APA Style 7th edition',
       category: 'in-text',
     })
     expect(parseCslStyle(CSL_STYLES['chicago-notes-bibliography'].xml)).toMatchObject({
-      id: 'chicago-notes-bibliography',
       name: 'Chicago Manual of Style 18th edition (notes and bibliography)',
       category: 'note',
     })
   })
 
-  it('derives a short id from the info URI, decodes entities, and skips <title-short>', () => {
+  it('keeps the full info URI as the id, decodes entities, and skips <title-short>', () => {
     const xml = [
       "<?xml version='1.0' encoding='utf-8'?>",
       "<style xmlns='http://purl.org/net/xbiblio/csl' class='in-text' version='1.0'>",
@@ -37,7 +40,7 @@ describe('parseCslStyle (#251)', () => {
     ].join('\n')
 
     expect(parseCslStyle(xml)).toMatchObject({
-      id: 'acme-2026',
+      id: 'http://example.org/styles/acme-2026',
       name: 'ACME Journal & Review 2026',
       category: 'in-text',
     })
@@ -106,5 +109,49 @@ describe('parseCslStyle (#251)', () => {
         '<style xmlns="http://purl.org/net/xbiblio/csl"><info><id>no-citation</id><title>x</title></info></style>',
       ),
     ).toThrow(/citation/)
+  })
+})
+
+/**
+ * Issue #360 — the id must be the canonical CSL URI, not its last segment.
+ * The segment used to be the registry key, so two unrelated files shared one
+ * key and an imported style could silently replace a bundled one.
+ */
+describe('parseCslStyle — style identity (#360)', () => {
+  function styleWith(info: string): string {
+    return [
+      '<style xmlns="http://purl.org/net/xbiblio/csl" class="in-text" version="1.0">',
+      `<info><title>Style</title>${info}</info>`,
+      '<citation><layout><text variable="title"/></layout></citation>',
+      '</style>',
+    ].join('')
+  }
+
+  it('gives two URIs with the same last segment distinct ids', () => {
+    const zotero = parseCslStyle(
+      styleWith('<id>https://www.zotero.org/styles/harvard-cite-them-right</id>'),
+    )
+    const campus = parseCslStyle(
+      styleWith('<id>https://contoh.ac.id/styles/harvard-cite-them-right</id>'),
+    )
+
+    // Before #360 both collapsed to `harvard-cite-them-right`.
+    expect(zotero.id).not.toBe(campus.id)
+    expect(zotero.id).toBe('https://www.zotero.org/styles/harvard-cite-them-right')
+    expect(campus.id).toBe('https://contoh.ac.id/styles/harvard-cite-them-right')
+  })
+
+  it('does not adopt a bundled style id, so an imported APA cannot shadow the bundled one', () => {
+    const imported = parseCslStyle(styleWith('<id>https://contoh.ac.id/styles/apa</id>'))
+
+    // The bundled style is filed under `apa`; the import must not claim it.
+    expect(imported.id).not.toBe('apa')
+    expect(imported.id).toBe('https://contoh.ac.id/styles/apa')
+    expect(Object.keys(CSL_STYLES)).toContain('apa')
+  })
+
+  it('is stable for the same file, so re-importing replaces instead of duplicating', () => {
+    const xml = styleWith('<id>https://contoh.ac.id/styles/house-style</id>')
+    expect(parseCslStyle(xml).id).toBe(parseCslStyle(xml).id)
   })
 })

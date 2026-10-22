@@ -94,7 +94,7 @@ const {
   initialDoc, persistCurrentDoc, updateCounts, saveTimer, slashCommands, wordCount, charCount, savingStatus,
   lastSaved, activeSidebar, showRuler, focusMode, scrollContainerRef, handleScroll, toggleSidebar, handlePrint,
   citationSources, citationStyleId, citationStyles, pendingSourceRequest, handleSourceCreate, handleSourceUpdate,
-  handleSourceRemove, handleCitationStyleChange, handleReferenceInsert, importBusy, importMessage,
+  handleSourceRemove, handleCitationStyleChange, handleStyleRemove, handleReferenceInsert, importBusy, importMessage,
   canImportSources, handleImportDoi, handleImportBibliography, styleImportMessage, handleStyleImport,
   editorRef, editor, pluginActions, isReady,
   docEditor, orphanedCommentIds, scheduleCommentAnchorScan, showBubbleMenu, bubblePosition, updateBubbleMenu,
@@ -379,7 +379,7 @@ void [openHeaderFormatModal, openPageNumberModal]
         :confirm-destructive="props.confirmDestructive"
         @close="activeSidebar = null" @insert="handleReferenceInsert" @create="handleSourceCreate"
         @update="handleSourceUpdate" @remove="handleSourceRemove"
-        @update:style="handleCitationStyleChange" @import-doi="handleImportDoi"
+        @update:style="handleCitationStyleChange" @remove-style="handleStyleRemove" @import-doi="handleImportDoi"
         @import-bibliography="handleImportBibliography" @import-style="handleStyleImport"
         @add-comment="(c, t, i) => $emit('add-comment', c, t, i)"
         @add-reply="(id, c) => $emit('add-reply', id, c)" @resolve-comment="(id) => $emit('resolve-comment', id)"

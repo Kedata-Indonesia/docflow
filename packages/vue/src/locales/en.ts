@@ -494,6 +494,8 @@ export default {
       etAl: 'et al.',
       confirmDelete: 'Delete source "{title}"? Citations referencing it will stop rendering.',
       confirmDeleteTitle: 'Delete source?',
+      /** Issue #361 — remove the imported style currently in use. */
+      removeStyle: 'Remove this imported style',
       import: {
         title: 'Import',
         fromDoi: 'From DOI (CrossRef)',
