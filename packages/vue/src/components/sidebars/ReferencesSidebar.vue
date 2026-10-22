@@ -33,6 +33,11 @@ import { FIELD_INPUT, FIELD_LABEL } from '../../styles/classes.js'
 export interface ReferenceStyleOption {
   id: string
   name: string
+  /**
+   * Issue #361 — true for styles the user imported, which they may remove. The
+   * bundled four are the offline fallback and stay put.
+   */
+  removable?: boolean
 }
 
 const props = withDefaults(
@@ -73,12 +78,21 @@ const emit = defineEmits<{
   update: [source: CslItemData]
   remove: [id: string]
   'update:style': [styleId: string]
+  'remove-style': [styleId: string]
   'import-doi': [doi: string]
   'import-bibliography': [payload: { format: BibliographyFormat; text: string }]
   'import-style': [payload: { text: string; filename?: string }]
 }>()
 
 const { t } = useLocale()
+
+/**
+ * Issue #361 — the remove control appears only for the style currently in use,
+ * and only when the user imported it (the bundled four are never removable).
+ */
+const activeStyleRemovable = computed(
+  () => props.availableStyles?.find((style) => style.id === props.activeStyle)?.removable === true,
+)
 
 // ─── List / search ──────────────────────────────────────────────────────────
 
@@ -342,14 +356,29 @@ async function handleStyleFileChange(event: Event) {
         <label class="mb-1.5 block text-[9px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">
           {{ t('sidebars.references.citationStyle') }}
         </label>
-        <select
-          data-testid="citation-style-select"
-          :value="activeStyle"
-          class="w-full rounded-xl border border-slate-200/80 bg-slate-50 px-3 py-2 text-xs text-slate-700 transition-all focus:outline-none focus:ring-1 focus:ring-cyan-500/50 dark:border-white/10 dark:bg-slate-900/40 dark:text-slate-200"
-          @change="emit('update:style', ($event.target as HTMLSelectElement).value)"
-        >
-          <option v-for="style in availableStyles" :key="style.id" :value="style.id">{{ style.name }}</option>
-        </select>
+        <div class="flex items-center gap-2">
+          <select
+            data-testid="citation-style-select"
+            :value="activeStyle"
+            class="min-w-0 flex-1 rounded-xl border border-slate-200/80 bg-slate-50 px-3 py-2 text-xs text-slate-700 transition-all focus:outline-none focus:ring-1 focus:ring-cyan-500/50 dark:border-white/10 dark:bg-slate-900/40 dark:text-slate-200"
+            @change="emit('update:style', ($event.target as HTMLSelectElement).value)"
+          >
+            <option v-for="style in availableStyles" :key="style.id" :value="style.id">{{ style.name }}</option>
+          </select>
+          <!-- Issue #361 — remove the imported style that is currently active.
+               Bundled styles never offer this. -->
+          <button
+            v-if="activeStyleRemovable"
+            type="button"
+            data-testid="citation-style-remove-button"
+            class="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-400 transition-colors hover:border-red-300 hover:bg-red-50 hover:text-red-500 dark:border-white/10 dark:hover:border-red-500/40 dark:hover:bg-red-500/10"
+            :title="t('sidebars.references.removeStyle')"
+            :aria-label="t('sidebars.references.removeStyle')"
+            @click="emit('remove-style', activeStyle)"
+          >
+            <Trash2 class="h-3.5 w-3.5" />
+          </button>
+        </div>
         <!-- Issue #251 — import a CSL style; parsed + registered by the library,
              so it is not gated on the host's reference-import ports. -->
         <button

@@ -198,6 +198,12 @@ export interface DocsEditorEmits {
    * through `citation.styles` on the next mount.
    */
   'citation-style-imported': [style: CslStyleInfo]
+  /**
+   * Issue #361 — an imported style was removed. Hosts drop it from whatever
+   * they persist (the per-document style list) so it does not come back on the
+   * next mount.
+   */
+  'citation-style-removed': [styleId: string]
   /** The star toggle was clicked. */
   'toggle-star': []
   /** The back button was clicked. */

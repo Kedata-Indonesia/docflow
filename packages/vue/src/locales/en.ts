@@ -492,6 +492,8 @@ export default {
       anonymous: 'Anonymous',
       etAl: 'et al.',
       confirmDelete: 'Delete source "{title}"? Citations referencing it will stop rendering.',
+      /** Issue #361 — remove the imported style currently in use. */
+      removeStyle: 'Remove this imported style',
       import: {
         title: 'Import',
         fromDoi: 'From DOI (CrossRef)',

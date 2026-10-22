@@ -53,7 +53,9 @@ describe('useCitations — style list (#180)', () => {
   it('falls back to the bundled four when the engine exposes no registry', () => {
     const { citations } = setup({ updateSources: () => {}, setStyle: () => {} })
 
-    expect(citations.citationStyles.value).toEqual(BUNDLED_REFERENCE_STYLES)
+    expect(citations.citationStyles.value).toEqual(
+      BUNDLED_REFERENCE_STYLES.map((style) => ({ ...style, removable: false })),
+    )
   })
 
   it('falls back while no editor is mounted', async () => {
@@ -70,6 +72,8 @@ describe('useCitations — style list (#180)', () => {
     activeSidebar.value = 'references'
     await nextTick()
 
-    expect(citations.citationStyles.value).toEqual(BUNDLED_REFERENCE_STYLES)
+    expect(citations.citationStyles.value).toEqual(
+      BUNDLED_REFERENCE_STYLES.map((style) => ({ ...style, removable: false })),
+    )
   })
 })

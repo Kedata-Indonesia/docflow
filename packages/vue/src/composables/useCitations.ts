@@ -6,7 +6,7 @@ import type {
   CslStyleInfo,
   DocsEditor,
 } from '@kedata-indonesia/docflow-core'
-import { parseCslStyle } from '@kedata-indonesia/docflow-plugins'
+import { parseCslStyle, DEFAULT_CSL_STYLE } from '@kedata-indonesia/docflow-plugins'
 import type { SidebarKey } from '../types.js'
 import type { LocaleContext } from './useLocale.js'
 
@@ -23,6 +23,22 @@ interface CitationEngineLike {
    * minimal/older engines can still render, they just cannot import files.
    */
   registerStyle?: (style: CslStyleInfo) => CslStyleInfo
+  /**
+   * Remove a runtime-registered style (issue #361). Optional for the same
+   * reason as `registerStyle`.
+   */
+  removeStyle?: (styleId: string) => boolean
+}
+
+/**
+ * One entry in the Citation Style picker. `removable` marks the styles the
+ * user imported — the bundled four are the offline fallback and cannot be
+ * deleted (issue #361).
+ */
+export interface CitationStyleOption {
+  id: string
+  name: string
+  removable: boolean
 }
 
 /**
@@ -43,6 +59,8 @@ export interface CitationsEmit {
   (event: 'update:citation-style', style: string): void
   /** Issue #251 — a `.csl` file was imported; hosts persist + re-supply `citation.styles`. */
   (event: 'citation-style-imported', style: CslStyleInfo): void
+  /** Issue #361 — an imported style was removed; hosts drop it from persistence. */
+  (event: 'citation-style-removed', styleId: string): void
 }
 
 export interface UseCitationsOptions {
@@ -129,13 +147,18 @@ export function useCitations(options: UseCitationsOptions) {
    * not `immediate`: at setup time the editor (and therefore the engine) does
    * not exist yet, and the fallback is already the right answer then.
    */
-  const citationStyles = ref<{ id: string; name: string }[]>(BUNDLED_REFERENCE_STYLES)
+  const citationStyles = ref<CitationStyleOption[]>(
+    BUNDLED_REFERENCE_STYLES.map((style) => ({ ...style, removable: false })),
+  )
+  const bundledStyleIds = new Set(BUNDLED_REFERENCE_STYLES.map((style) => style.id))
   const refreshCitationStyles = () => {
     const available = getCitationEngineLike()?.getAvailableStyles?.()
     citationStyles.value =
       available && available.length > 0
-        ? available.map(({ id, name }) => ({ id, name }))
-        : BUNDLED_REFERENCE_STYLES
+        ? // Anything that is not one of the bundled four was imported by the
+          // user, so it is theirs to remove (issue #361).
+          available.map(({ id, name }) => ({ id, name, removable: !bundledStyleIds.has(id) }))
+        : BUNDLED_REFERENCE_STYLES.map((style) => ({ ...style, removable: false }))
   }
   watch([activeSidebar, citationSources], refreshCitationStyles)
 
@@ -164,6 +187,23 @@ export function useCitations(options: UseCitationsOptions) {
     citationStyleId.value = styleId
     getCitationEngineLike()?.setStyle(styleId)
     emit('update:citation-style', styleId)
+  }
+
+  /**
+   * Issue #361 — drop an imported style. The engine refuses bundled ids itself,
+   * so a stale button can never remove the offline fallback; when the removed
+   * style was active the engine has already fallen back, and the picker plus
+   * the host are told so the document does not keep naming it.
+   */
+  const handleStyleRemove = (styleId: string) => {
+    const engine = getCitationEngineLike()
+    if (!engine?.removeStyle) return
+    const wasActive = citationStyleId.value === styleId
+    if (!engine.removeStyle(styleId)) return
+
+    refreshCitationStyles()
+    if (wasActive) handleCitationStyleChange(DEFAULT_CSL_STYLE)
+    emit('citation-style-removed', styleId)
   }
 
   const handleReferenceInsert = (sourceId: string) => {
@@ -288,6 +328,7 @@ export function useCitations(options: UseCitationsOptions) {
     handleSourceUpdate,
     handleSourceRemove,
     handleCitationStyleChange,
+    handleStyleRemove,
     handleReferenceInsert,
     importBusy,
     importMessage,
