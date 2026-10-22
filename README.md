@@ -12,7 +12,7 @@
 
 <p align="center">
   <a href="https://docflow-app.kedata.cloud"><b>Live demo</b></a> ·
-  <a href="./docs/PUBLISH.md"><b>Docs</b></a>
+  <a href="./docs/README.md"><b>Docs</b></a>
 </p>
 
 <p align="center">
@@ -219,7 +219,7 @@ const collaboration = {
 
 ### AI Hooks
 
-DocFlow ships injection ports (`aiStream`, `aiDraft`) so the host app can plug in layout-aware AI — drafts that respect A4 structure instead of dumping a wall of text. See `docs/LIBRARY_CONTRACT.md`.
+DocFlow ships injection ports (`aiStream`, `aiDraft`) so the host app can plug in layout-aware AI — drafts that respect A4 structure instead of dumping a wall of text. See `docs/reference/LIBRARY_CONTRACT.md`.
 
 ---
 
@@ -537,12 +537,18 @@ docflow/
 │   └── export/            @kedataindo/docflow-export
 ├── examples/
 │   └── playground/        backend-free demo app (tracked, not published)
-└── docs/                  Documentation
+└── docs/                  living documentation — start at docs/README.md
+    ├── guides/            integration, collaboration, AI
+    ├── reference/         library contract (the library/app boundary)
+    ├── operations/        deploy, publish, release
+    ├── product/           PRD, architecture, historical roadmap
+    ├── plans/             frozen execution plans
+    └── audits/            dated reviews
 ```
 
 ## Releasing
 
-Packages are published **automatically when `main` is updated**: a push (e.g. a merged PR) verifies, patch-bumps the packages it touched — plus their dependents — builds, and publishes them to the public **npm** registry under `@kedataindo/docflow-*` (the in-repo source scope stays `@kedata-indonesia`). The bump is committed back to `main` automatically, so merging is all it takes. A `v*` tag runs the same flow without the auto-bump. See [docs/PUBLISH.md](./docs/PUBLISH.md) for the full guide.
+Packages are published **automatically when `main` is updated**: a push (e.g. a merged PR) verifies, patch-bumps the packages it touched — plus their dependents — builds, and publishes them to the public **npm** registry under `@kedataindo/docflow-*` (the in-repo source scope stays `@kedata-indonesia`). The bump is committed back to `main` automatically, so merging is all it takes. A `v*` tag runs the same flow without the auto-bump. See [docs/operations/PUBLISH.md](./docs/operations/PUBLISH.md) for the full guide.
 
 ```bash
 # Merge your change into main — that's it.

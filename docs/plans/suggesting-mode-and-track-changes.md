@@ -235,6 +235,6 @@ SidebarKey, plugin commands, `DocumentMode` type. All **additive**.
 
 - Prior art in-repo: `packages/plugins/src/comment.ts` (mark + anchored review),
   `packages/core/src/PluginSystem.ts` (`definePlugin`), `HeaderBar.vue` menus,
-  `docs/LIBRARY_CONTRACT.md` (ports + boundary).
+  `docs/reference/LIBRARY_CONTRACT.md` (ports + boundary).
 - Issues: [#27](https://github.com/Kedata-Indonesia/docflow/issues/27),
   [#28](https://github.com/Kedata-Indonesia/docflow/issues/28).

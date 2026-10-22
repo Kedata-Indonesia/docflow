@@ -71,7 +71,7 @@ export default [
 
   {
     // Library boundary guardrail (Phase 0) — regression trap for future PRs.
-    // See docs/LIBRARY_CONTRACT.md §5.1.
+    // See docs/reference/LIBRARY_CONTRACT.md §5.1.
     files: ['packages/**/*.{ts,vue}'],
     rules: {
       'no-restricted-imports': [
@@ -81,12 +81,12 @@ export default [
             {
               group: ['**/apps/*', '**/apps/**', '@kedata-indonesia/docflow-server', '@kedata-indonesia/docflow-demo'],
               message:
-                'packages/* must not import from apps/*. Use an injection port instead — see docs/LIBRARY_CONTRACT.md.',
+                'packages/* must not import from apps/*. Use an injection port instead — see docs/reference/LIBRARY_CONTRACT.md.',
             },
             {
               group: ['mongoose', 'express', 'better-auth', 'better-auth/*'],
               message:
-                'Backend-only dependency is forbidden in packages/*. Move it to apps/* — see docs/LIBRARY_CONTRACT.md.',
+                'Backend-only dependency is forbidden in packages/*. Move it to apps/* — see docs/reference/LIBRARY_CONTRACT.md.',
             },
           ],
         },

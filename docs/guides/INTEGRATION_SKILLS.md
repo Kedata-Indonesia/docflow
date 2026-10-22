@@ -2,7 +2,7 @@
 
 > **Audience:** AI agents writing or serving DocFlow integration content — release notes, migration guides, integration recipes, support replies, third-party docs, and cross-team explanations.
 > **Status:** as of `main` @ `a25e96d` (post Phase 9 P9-4 C1+C2+C3).
-> **Use together with:** `docs/ARCHITECTURE.md` (system map) + `AGENTS.md` (commands + invariants).
+> **Use together with:** `docs/product/ARCHITECTURE.md` (system map) + `AGENTS.md` (commands + invariants).
 >
 > **Repo boundary.** This repo (`Kedata-Indonesia/docflow`) ships the **library only**
 > (`packages/*`). The product app — `apps/web` + `apps/server` — lives in the separate
@@ -26,10 +26,10 @@
 
 | Reader | What they need from your writing |
 |--------|-----------------------------------|
-| **Engineer integrating DocFlow into their own product** | "Which port does my X go through?" → see `docs/LIBRARY_CONTRACT.md` |
-| **Operator deploying DocFlow self-host** | "How do I configure this env var?" → `docs/DEPLOYMENT.md` §3 |
+| **Engineer integrating DocFlow into their own product** | "Which port does my X go through?" → see `docs/reference/LIBRARY_CONTRACT.md` |
+| **Operator deploying DocFlow self-host** | "How do I configure this env var?" → `docs/operations/DEPLOYMENT.md` §3 |
 | **Team lead planning a rollout** | "What's safe to parallelize?" → `docs/plans/sprint-9-10-execution-plan.md` |
-| **Another agentic AI extending or running DocFlow** | "What can I safely touch?" → `docs/ARCHITECTURE.md` §10 + §12 |
+| **Another agentic AI extending or running DocFlow** | "What can I safely touch?" → `docs/product/ARCHITECTURE.md` §10 + §12 |
 | **End user (rare; goes through support)** | "How do I…?" → host-app UI strings (`docflow-app` → `apps/web/src/locales/`) |
 
 Write **one document per audience**, don't try to hit all five at once.
@@ -107,7 +107,7 @@ The reader learns **why** the code is the way it is. They don't re-derive the co
 | Use | Don't use |
 |-----|-----------|
 | `file_path:line_number` for one-liner callout | `(line 10)` without file |
-| `docs/ARCHITECTURE.md §3.4` for cross-reference | `section 3.4` |
+| `docs/product/ARCHITECTURE.md §3.4` for cross-reference | `section 3.4` |
 | Inline `[link](url)` once per term | Re-linking every mention |
 | File-block reference at the top of a section | Repeating the same anchor |
 
@@ -126,7 +126,7 @@ The reader learns **why** the code is the way it is. They don't re-derive the co
 
 ### Bahasa Indonesia (when writing in Indonesian)
 
-Use `docs/PRD.md` as the voice reference (mixed Indonesian + English, technical-friendly). Key conventions:
+Use `docs/product/PRD.md` as the voice reference (mixed Indonesian + English, technical-friendly). Key conventions:
 
 - **Loanwords from English are normal:** `library`, `framework`, `editor`, `server`, `client`, `database`, `auth`, `route`, `middleware`, `plugin`. Don't translate them.
 - **Use Indonesian for:** UI strings (per `apps/web/src/locales/id.ts`), high-level explanations, stakeholder summaries.
@@ -214,7 +214,7 @@ For any feature, document:
 - **What happens when the assumption breaks** (e.g. "if `VITE_API_BASE_URL` is set, the Vite dev proxy is bypassed")
 - **How to verify the assumption** (e.g. "curl http://localhost:5174/api/health → JSON, not HTML")
 
-This pattern is called out in `AGENTS.md` for the `docs/DEPLOYMENT.md` doc — apply it everywhere.
+This pattern is called out in `AGENTS.md` for the `docs/operations/DEPLOYMENT.md` doc — apply it everywhere.
 
 ### Anti-patterns
 
@@ -371,11 +371,11 @@ pnpm test:unit
 
 - **Don't trust inline comments alone.** Comments can rot. Verify by reading the function call below the comment.
 - **Start at the entry point**, not the middle. For DocFlow: `packages/core/src/Editor.ts` (library entry) or `apps/server/src/index.ts` (server entry).
-- **Find the seams:** port calls, mount points, model boundaries. For DocFlow, the seams are catalogued in `docs/ARCHITECTURE.md` §2 (library boundary).
+- **Find the seams:** port calls, mount points, model boundaries. For DocFlow, the seams are catalogued in `docs/product/ARCHITECTURE.md` §2 (library boundary).
 
 ### When you debug
 
-- **Start with the error message and follow it upstream.** "Cannot POST /api/documents/.../comments" → which server is running this code? → is the route registered? → does the server image include the PR? (See `docs/ARCHITECTURE.md` §1 deploy trap.)
+- **Start with the error message and follow it upstream.** "Cannot POST /api/documents/.../comments" → which server is running this code? → is the route registered? → does the server image include the PR? (See `docs/product/ARCHITECTURE.md` §1 deploy trap.)
 - **Don't assume which layer is wrong.** It could be the SPA bundle (cache), the nginx config, the server routes, or the data. Verify each.
 - **One variable at a time.** Change one thing, test, change one thing, test.
 
@@ -408,7 +408,7 @@ When you encounter one of these terms in the codebase or docs, use them consiste
 | **Host** | The product app + API that runs the library for end users — `apps/web` + `apps/server`, which live in the separate repo `Kedata-Indonesia/docflow-app`. |
 | **Authoritative state** | The single source of truth (Yjs Y.Doc for collab documents; Mongo `User` for identity; etc.). Everything else is a derived view. |
 | **Derived read-model** | A field computed from authoritative state on demand (`Document.content` is a derived read-model of the Yjs Y.Doc; `Document.plainText` is derived from `content` via `extractPlainText` in `models/Document.ts`). |
-| **Port / Injection port** | A function or option the library accepts so the host can plug in behavior (`onImageUpload`, `collaboration`, `aiStream`). Catalogued in `docs/LIBRARY_CONTRACT.md`. |
+| **Port / Injection port** | A function or option the library accepts so the host can plug in behavior (`onImageUpload`, `collaboration`, `aiStream`). Catalogued in `docs/reference/LIBRARY_CONTRACT.md`. |
 | **Live cursor** | The position + selection of a remote peer, rendered in the editor. Powered by Yjs awareness (not the REST heartbeat). |
 | **Awareness** | Yjs transient state per client (cursor, color, name). Not persisted to `CollabState`. |
 | **Persistence / Debounce** | `CollabState` collection (Yjs binary, debounced 2.5s; flushed on last peer disconnect). NOT the same as `Document.content` which is a derived read-model. |
@@ -427,9 +427,9 @@ When you encounter one of these terms in the codebase or docs, use them consiste
 
 When you join a DocFlow task:
 
-1. **`docs/ARCHITECTURE.md`** — system map (§1–7), extension points (§10), safety contract (§12).
+1. **`docs/product/ARCHITECTURE.md`** — system map (§1–7), extension points (§10), safety contract (§12).
 2. **`docs/plans/sprint-9-10-execution-plan.md`** — what's shipped + what's left.
-3. **`docs/LIBRARY_CONTRACT.md`** — port definitions (only if you'll touch `packages/*`).
+3. **`docs/reference/LIBRARY_CONTRACT.md`** — port definitions (only if you'll touch `packages/*`).
 4. **`AGENTS.md`** — commands + invariants.
 5. **`CLAUDE.md`** — same target, different format.
 6. The plan file relevant to your task (`docs/plans/phase-N-*.md`).
@@ -505,7 +505,7 @@ Per `AGENTS.md` (and the Claude Code tools generally): use the `question` tool w
 
 **Bad questions:**
 - "Where do I find the auth code?" (grep `auth.ts`)
-- "What does the AI proxy do?" (read `docs/ARCHITECTURE.md` §3.4)
+- "What does the AI proxy do?" (read `docs/product/ARCHITECTURE.md` §3.4)
 - "Should I test this?" (per `AGENTS.md`, yes — lint, typecheck, test:unit before declaring done)
 
 ### Handoff
@@ -523,10 +523,10 @@ When handing off work:
 
 | Topic | File |
 |-------|------|
-| System architecture | `docs/ARCHITECTURE.md` |
-| Library contract | `docs/LIBRARY_CONTRACT.md` |
-| Deploy guide | `docs/DEPLOYMENT.md` |
-| AI provider matrix | `docs/AI_PROVIDERS.md` |
+| System architecture | `docs/product/ARCHITECTURE.md` |
+| Library contract | `docs/reference/LIBRARY_CONTRACT.md` |
+| Deploy guide | `docs/operations/DEPLOYMENT.md` |
+| AI provider matrix | `docs/guides/AI_PROVIDERS.md` |
 | Sprint status | `docs/plans/sprint-9-10-execution-plan.md` |
 | Phase plans | `docs/plans/phase-0..9-*.md` |
 | Agent rules | `AGENTS.md` |

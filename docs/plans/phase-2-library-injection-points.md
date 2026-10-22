@@ -1,6 +1,6 @@
 # Phase 2 — Library Boundary Completion (Injection Points) · Task-Level Implementation Plan
 
-**Roadmap ref:** [ENHANCEMENT_ROADMAP.md](../ENHANCEMENT_ROADMAP.md) Phase 2 · **Priority:** P0 · **Status:** ✅ Implemented (pending maintainer acceptance) · **Last updated:** 2026-07-19
+**Roadmap ref:** [ENHANCEMENT_ROADMAP.md](../product/ENHANCEMENT_ROADMAP.md) Phase 2 · **Priority:** P0 · **Status:** ✅ Implemented (pending maintainer acceptance) · **Last updated:** 2026-07-19
 
 > **Goal:** remove backend assumptions leaking into the library. The library (`packages/*`)
 > must reach persistence, storage, and infrastructure **only through narrow injectable ports**,
@@ -170,7 +170,7 @@ Tasks grouped by workstream (A/B/C). Each lists files, work, acceptance, layer, 
 - Accept: no public URL appears in `packages/*`; webrtc with no signaling never opens a connection to a non-localhost host (verify in unit test / network trace); websocket path unaffected.
 
 **B2. Document websocket + own-server as the production path.** ⇐ B1 · *layer: docs*
-- Files: [CLAUDE.md:70](../../CLAUDE.md) (collaboration invariant), `docs/LIBRARY_CONTRACT.md` (the `collaboration` port entry from Phase 0), collab-relevant `README`/deployment notes.
+- Files: [CLAUDE.md:70](../../CLAUDE.md) (collaboration invariant), `docs/reference/LIBRARY_CONTRACT.md` (the `collaboration` port entry from Phase 0), collab-relevant `README`/deployment notes.
 - State: `provider: 'websocket'` + a self-hosted `websocketUrl` is the recommended production topology (no external calls); `provider: 'webrtc'` requires a self-hosted signaling server for cross-network sync and is intended for local/demo use.
 - Accept: docs describe the production path and the webrtc caveat; matches code behavior from B1.
 
@@ -184,7 +184,7 @@ Tasks grouped by workstream (A/B/C). Each lists files, work, acceptance, layer, 
 
 **C1. Flag the hardcoded AI backend route (defer fix to Phase 7).** ⇐ none · *layer: vue (flag only)*
 - File: [AISidebar.vue:6,27](../../packages/vue/src/components/sidebars/AISidebar.vue) — `fetch(`${API_BASE}/api/ai/copilot`)` + `VITE_API_BASE_URL`.
-- This is a genuine boundary violation (library assumes a specific server route). **Do not rewrite here** — Phase 7 replaces it with the AI provider abstraction / injected action. Record it in `docs/LIBRARY_CONTRACT.md` as a **known, tracked violation → Phase 7**.
+- This is a genuine boundary violation (library assumes a specific server route). **Do not rewrite here** — Phase 7 replaces it with the AI provider abstraction / injected action. Record it in `docs/reference/LIBRARY_CONTRACT.md` as a **known, tracked violation → Phase 7**.
 - Accept: violation documented with its owning phase; no silent acceptance.
 
 **C2. Decide on library-owned `localStorage` persistence.** ⇐ none · *layer: vue*
@@ -198,7 +198,7 @@ Tasks grouped by workstream (A/B/C). Each lists files, work, acceptance, layer, 
 - Accept: audit records these as acceptable; no external network implication.
 
 **C4. Record the audit + refresh the contract.** ⇐ A1–A5, B1, C1–C3 · *layer: docs*
-- Files: `docs/LIBRARY_CONTRACT.md` (Phase 0 doc), [CLAUDE.md](../../CLAUDE.md).
+- Files: `docs/reference/LIBRARY_CONTRACT.md` (Phase 0 doc), [CLAUDE.md](../../CLAUDE.md).
 - Add `onImageUpload(file) => Promise<{ src }>` to the injection-points list with its type; update the collaboration entry (B2); list C1/C2 dispositions. Re-run the grep and assert `packages/*` contains no external `http(s)`/`wss` host except localhost defaults.
 - Accept: contract lists every port with types; grep for public hosts in `packages/*` returns nothing.
 

@@ -1,7 +1,7 @@
 # AI Providers — Compatibility Matrix
 
 > **Architecture:** pluggable AI provider (issue #119,
-> [`plans/PLUGGABLE_AI_PROVIDER.md`](plans/PLUGGABLE_AI_PROVIDER.md)).
+> [`plans/PLUGGABLE_AI_PROVIDER.md`](../plans/PLUGGABLE_AI_PROVIDER.md)).
 > LLM completions go **browser-direct**: the host app injects an
 > `openaiCompatibleProvider` (or a native `claudeProvider` for Anthropic — issue
 > #118), or our SaaS web app builds one from the tenant's
@@ -10,8 +10,8 @@
 >
 > **What this is:** a contract — the browser-side provider's SSE parsing,
 > auth headers, and abort semantics are asserted by unit tests
-> ([`openaiCompatibleProvider.test.ts`](../packages/core/src/ai/__tests__/openaiCompatibleProvider.test.ts),
-> [`claudeProvider.test.ts`](../packages/core/src/ai/__tests__/claudeProvider.test.ts)).
+> ([`openaiCompatibleProvider.test.ts`](../../packages/core/src/ai/__tests__/openaiCompatibleProvider.test.ts),
+> [`claudeProvider.test.ts`](../../packages/core/src/ai/__tests__/claudeProvider.test.ts)).
 >
 > **What this is NOT:** an exhaustive vendor list. The provider speaks the
 > **OpenAI `/chat/completions` streaming protocol** — any endpoint that
@@ -87,7 +87,7 @@ Agent orchestration, tool calling, multi-turn memory, RAG — deliberately out
 of the library's scope. Wrap your agent backend as a custom `AIProvider`
 (`complete(req) → AsyncIterable<StreamEvent>`) and inject it via
 `toAIStreamFn(...)` exactly like the default provider. See
-[`EMBEDDING_AI.md`](EMBEDDING_AI.md) §4.
+[`EMBEDDING_AI.md`](./EMBEDDING_AI.md) §4.
 
 ## 5. Where the API key lives (`KeyStorage`)
 
@@ -111,7 +111,7 @@ boundary.
 
 **For production, keep the key on the server:** `httpKeyStorage` plus
 `AIConfig.visibility: 'admin-only'` and a `/api/ai/complete`-style proxy, so the
-browser only ever sends prompts. Host-side wiring: [`EMBEDDING_AI.md`](EMBEDDING_AI.md).
+browser only ever sends prompts. Host-side wiring: [`EMBEDDING_AI.md`](./EMBEDDING_AI.md).
 
 Two bounds the host still owns:
 

@@ -1,6 +1,6 @@
 # Phase 0 — Boundary Contract & Guardrails · Task-Level Implementation Plan
 
-**Roadmap ref:** [ENHANCEMENT_ROADMAP.md](../ENHANCEMENT_ROADMAP.md) Phase 0 · **Priority:** P0 · **Last updated:** 2026-07-17
+**Roadmap ref:** [ENHANCEMENT_ROADMAP.md](../product/ENHANCEMENT_ROADMAP.md) Phase 0 · **Priority:** P0 · **Last updated:** 2026-07-17
 
 > **Goal:** make the **library/app boundary explicit and enforced** so it can't erode
 > silently. The library (`packages/*`) reaches the backend only through narrow, documented
@@ -42,7 +42,7 @@ are real but scattered across four files with no single reference.
   contract should record as a known deviation. (Fixed in Phase 2.)
 
 **Where the rule lives today:** only as prose in the roadmap
-([ENHANCEMENT_ROADMAP.md:30-37](../ENHANCEMENT_ROADMAP.md)). Neither
+([ENHANCEMENT_ROADMAP.md:30-37](../product/ENHANCEMENT_ROADMAP.md)). Neither
 [CLAUDE.md](../../CLAUDE.md) nor [AGENTS.md](../../AGENTS.md) states "don't import backend into
 `packages/*`", and there is no lint rule.
 
@@ -81,12 +81,12 @@ are real but scattered across four files with no single reference.
   │            hardcode external URLs/CDNs/storage                              │
   └────────────────────────────────────────────────────────────────────────────┘
         guardrail: ESLint no-restricted-imports on packages/*  (flags AISidebar leak)
-        source of record: docs/LIBRARY_CONTRACT.md  +  CLAUDE.md / AGENTS.md note
+        source of record: docs/reference/LIBRARY_CONTRACT.md  +  CLAUDE.md / AGENTS.md note
 ```
 
 **Design decisions:**
 
-1. **The contract is a document, not code.** `docs/LIBRARY_CONTRACT.md` is the single reference
+1. **The contract is a document, not code.** `docs/reference/LIBRARY_CONTRACT.md` is the single reference
    listing every port with its TypeScript signature, where it's declared, and how each layer
    (core → vue → element) threads it. Later phases (2, 5) *edit this file* when they add a port
    — it is the living spec, mirroring how Phase 1 keeps [CLAUDE.md](../../CLAUDE.md) truthful.
@@ -109,7 +109,7 @@ are real but scattered across four files with no single reference.
 ## 3. Data Model
 
 **N/A — docs & tooling only.** This phase adds no schema, model, table, or persisted state. Its
-deliverables are one new Markdown file (`docs/LIBRARY_CONTRACT.md`), edits to two existing
+deliverables are one new Markdown file (`docs/reference/LIBRARY_CONTRACT.md`), edits to two existing
 Markdown files (`CLAUDE.md`, `AGENTS.md`), and an optional ESLint config change. There is no
 data to model; the "model" being formalized is the **injection-port interface set** already
 typed in `EditorOptions` ([Editor.ts:23-32](../../packages/core/src/Editor.ts)) and
@@ -124,11 +124,11 @@ Tasks are grouped; each lists files, work, and acceptance. Dependencies noted as
 
 ### Group A — The contract document
 
-**A1. Author `docs/LIBRARY_CONTRACT.md`.** ⇐ none
-- File: `docs/LIBRARY_CONTRACT.md` (new)
+**A1. Author `docs/reference/LIBRARY_CONTRACT.md`.** ⇐ none
+- File: `docs/reference/LIBRARY_CONTRACT.md` (new)
 - Structure:
   1. **Principle** — quote the one architectural rule from
-     [ENHANCEMENT_ROADMAP.md:30-37](../ENHANCEMENT_ROADMAP.md): the library knows nothing about
+     [ENHANCEMENT_ROADMAP.md:30-37](../product/ENHANCEMENT_ROADMAP.md): the library knows nothing about
      the backend; persistence/auth/storage are the host app's job via narrow ports.
   2. **Port catalogue** — a table with one row per port: name, TypeScript signature, layer it's
      declared on, and the host-app responsibility. Cover the **existing** ports:
@@ -153,8 +153,8 @@ Tasks are grouped; each lists files, work, and acceptance. Dependencies noted as
   the three known deviations are listed with their owning phase.
 
 **A2. Cross-link the contract.** ⇐ A1
-- Files: [docs/ENHANCEMENT_ROADMAP.md](../ENHANCEMENT_ROADMAP.md) (Phase 0 "Deliverables" line
-  already names `docs/LIBRARY_CONTRACT.md`), [README.md](../../README.md) if it has a docs index.
+- Files: [docs/product/ENHANCEMENT_ROADMAP.md](../product/ENHANCEMENT_ROADMAP.md) (Phase 0 "Deliverables" line
+  already names `docs/reference/LIBRARY_CONTRACT.md`), [README.md](../../README.md) if it has a docs index.
 - Add a link from the roadmap Phase 0 section to the new contract; add to any docs index.
 - Accept: the contract is reachable by one click from the roadmap; no broken relative links.
 
@@ -165,7 +165,7 @@ Tasks are grouped; each lists files, work, and acceptance. Dependencies noted as
 - In "Core design invariants" (near [:64-72](../../CLAUDE.md)), add a short invariant:
   *"Never import backend concerns into `packages/*`. Persistence/auth/storage/AI are the host
   app's job, reached only via injection ports (`onUpdate`, `collaboration`, `onImageUpload`,
-  export hooks). See [docs/LIBRARY_CONTRACT.md](docs/LIBRARY_CONTRACT.md). A PR touching both
+  export hooks). See [docs/reference/LIBRARY_CONTRACT.md](../reference/LIBRARY_CONTRACT.md). A PR touching both
   `packages/*` and `apps/*` for one concern is a smell."*
 - Accept: the note exists, links to the contract, and matches the wording style of the
   surrounding invariants.
@@ -174,7 +174,7 @@ Tasks are grouped; each lists files, work, and acceptance. Dependencies noted as
 - File: [AGENTS.md](../../AGENTS.md)
 - Add a rule under "Orchestrator Rules" (after [:22-23](../../AGENTS.md), the single-source-of-
   truth rule): *"Respect the library boundary — no backend imports in `packages/*`; see
-  `docs/LIBRARY_CONTRACT.md`."* Add a matching item to the "Verification Checklist"
+  `docs/reference/LIBRARY_CONTRACT.md`."* Add a matching item to the "Verification Checklist"
   ([:29-36](../../AGENTS.md)): *"[ ] No new backend imports in `packages/*` (contract holds)."*
 - Accept: both the rule and the checklist item are present and reference the contract.
 
@@ -191,7 +191,7 @@ Tasks are grouped; each lists files, work, and acceptance. Dependencies noted as
   rules: {
     'no-restricted-imports': ['warn', {
       patterns: [
-        { group: ['**/apps/*', '**/apps/**'], message: 'packages/* must not import from apps/*. Use an injection port — see docs/LIBRARY_CONTRACT.md.' },
+        { group: ['**/apps/*', '**/apps/**'], message: 'packages/* must not import from apps/*. Use an injection port — see docs/reference/LIBRARY_CONTRACT.md.' },
         { group: ['mongoose', 'express', 'better-auth', 'better-auth/*'], message: 'Backend-only dependency is forbidden in packages/*. Move it to apps/*.' },
       ],
     }],
@@ -207,7 +207,7 @@ Tasks are grouped; each lists files, work, and acceptance. Dependencies noted as
   restricted-import message; removing it clears it.
 
 **C2. Record the escalation path.** ⇐ C1, A1
-- File: `docs/LIBRARY_CONTRACT.md` (the "Known deviations" section from A1)
+- File: `docs/reference/LIBRARY_CONTRACT.md` (the "Known deviations" section from A1)
 - State that the rule ships as `warn` and flips to `error` once the Phase 7 AI leak is removed;
   no code change needed beyond changing `'warn'` → `'error'`.
 - Accept: the escalation trigger (Phase 7 done) and the exact edit are written down.
@@ -247,7 +247,7 @@ unblocker.
 | Risk | Mitigation |
 |------|-----------|
 | **Guardrail turns `pnpm lint` red** because of the existing `AISidebar.vue` `/api/ai/copilot` leak | Ship `no-restricted-imports` as `warn`, not `error` (C1); document the exception + escalation to `error` after Phase 7 (C2). |
-| Contract drifts from code as later phases add ports | Make `docs/LIBRARY_CONTRACT.md` the file Phases 2 & 5 must edit when adding a port; the CLAUDE.md/AGENTS.md notes point every contributor to it (B1/B2). |
+| Contract drifts from code as later phases add ports | Make `docs/reference/LIBRARY_CONTRACT.md` the file Phases 2 & 5 must edit when adding a port; the CLAUDE.md/AGENTS.md notes point every contributor to it (B1/B2). |
 | `no-restricted-imports` doesn't catch the real leak (a `fetch('/api/*')` string, not an import) | Explicitly scope the guard to *import* boundaries; record the `fetch`-based leak class as a review-only "Known deviation" in the contract (C1 note); a custom AST rule is out of scope (§7). |
 | Rule doesn't fire inside `.vue` files | Override targets `packages/**/*.{ts,vue}` and relies on the existing `vue-eslint-parser`; D1 validates with a scratch import in a `.vue` file. |
 | Adding an ESLint plugin dependency bloats the on-prem footprint | Use the **built-in** `no-restricted-imports` only; no `eslint-plugin-import`/`-boundaries` added (§2, decision 4). |

@@ -1,6 +1,6 @@
 # Phase 8 — On-prem Deployment Packaging · Task-Level Implementation Plan
 
-**Roadmap ref:** [ENHANCEMENT_ROADMAP.md](../ENHANCEMENT_ROADMAP.md) Phase 8 · **Priority:** P1 · **Depends on:** Phases 1, 3, 4, 7 · **Last updated:** 2026-07-26
+**Roadmap ref:** [ENHANCEMENT_ROADMAP.md](../product/ENHANCEMENT_ROADMAP.md) Phase 8 · **Priority:** P1 · **Depends on:** Phases 1, 3, 4, 7 · **Last updated:** 2026-07-26
 
 > **Sprint execution plan:** see [`sprint-9-10-execution-plan.md`](sprint-9-10-execution-plan.md) for current-vs-target state per task and the recommended order (this doc is the task spec; the sprint plan is the work-breakdown).
 
@@ -29,7 +29,7 @@ Packaging today is **demo-oriented, two-service, and pre-dates Phases 1/3/4/7**.
 | DB init | creates `users/documents/sessions/collabsnapshots`; **unique `googleId` index**; no `collabstates`, no storage | [docker/mongo-init.js:1-21](../../docker/mongo-init.js) |
 | Env examples | Dokploy-oriented, **hardcoded `*.kedata.cloud` domains**; `.env.docker.example` is the compose `env_file` | [docker/server.env.example:1-52](../../docker/server.env.example), [docker/demo.env.example:1-19](../../docker/demo.env.example), [.env.docker.example:1-43](../../.env.docker.example) |
 | Health | server exposes `GET /api/health` (`status/db/uptime/timestamp`); compose + Dockerfile healthchecks curl it | [apps/server/src/index.ts:42-51](../../apps/server/src/index.ts), [docker/docker-compose.yml:13-18](../../docker/docker-compose.yml) |
-| Docs | `DEPLOYMENT.md` documents both modes but for the **demo**, and assumes **Mongo Atlas** (not self-hosted) | [docs/DEPLOYMENT.md:1-419](../DEPLOYMENT.md) |
+| Docs | `DEPLOYMENT.md` documents both modes but for the **demo**, and assumes **Mongo Atlas** (not self-hosted) | [docs/operations/DEPLOYMENT.md:1-419](../operations/DEPLOYMENT.md) |
 | Env surface | config reads Mongo/auth/OAuth/rate-limit/log vars — **no AI_*, no storage vars** | [apps/server/src/config.ts:13-43](../../apps/server/src/config.ts) |
 | Licensing | README says "MIT" ([README.md:342]); **no `license` field in any package.json, no `LICENSE` file** | [README.md:340-342](../../README.md) |
 
@@ -159,7 +159,7 @@ Phase 8 adds **no schema**; it consolidates the **env surface** across all servi
 
 | Var | Purpose | Default / example | Source |
 |-----|---------|-------------------|--------|
-| `AI_PROVIDER` | `claude` \| `openai-compatible` (Ollama/vLLM/OpenAI) | `claude` | [ROADMAP:224](../ENHANCEMENT_ROADMAP.md) |
+| `AI_PROVIDER` | `claude` \| `openai-compatible` (Ollama/vLLM/OpenAI) | `claude` | [ROADMAP:224](../product/ENHANCEMENT_ROADMAP.md) |
 | `AI_BASE_URL` | endpoint for OpenAI-compatible (`http://llm:11434/v1`) | — | Phase 7 |
 | `AI_MODEL` | model id (`claude-sonnet-*`, `llama3.1:8b`, …) | provider default | Phase 7 |
 | `AI_API_KEY` | Claude/OpenAI key (blank for keyless local) | — | Phase 7 |
@@ -236,24 +236,24 @@ Grouped **A** (compose + images), **B** (AI + local-model profile), **C** (docs)
 - Accept: `docker compose --profile local-llm up` starts the model server; with the local AI preset, an AI action completes and **no document content egresses** the host.
 
 **B3. GPU / hardware guidance.** ⇐ B2
-- File: `docs/DEPLOYMENT.md` (new AI section)
+- File: `docs/operations/DEPLOYMENT.md` (new AI section)
 - Document minimum GPU/VRAM per recommended local model, NVIDIA Container Toolkit prerequisite, CPU-only expectations, and the privacy trade-off (Claude quality vs local privacy). Resolves the ROADMAP open question on local AI hardware.
 - Accept: a reader can choose Claude vs local and, if local, size hardware and enable GPU from the doc alone.
 
 ### Group C — Documentation: modes, env reference, health/backup/upgrade
 
 **C1. Re-point deployment docs to the product (both modes, end-to-end).** ⇐ A2, A5
-- File: [docs/DEPLOYMENT.md](../DEPLOYMENT.md)
+- File: [docs/operations/DEPLOYMENT.md](../operations/DEPLOYMENT.md)
 - Rewrite around `apps/web` (not demo) and the **self-hosted** stack (default), keeping Atlas/external-S3 as an alternative. Fully specify same-domain and separate-domain: build args, `BACKEND_URL`, CORS/`CLIENT_ORIGIN`, `BETTER_AUTH_URL`, OAuth redirect URIs on the backend domain, and cross-domain better-auth (`storeStateStrategy: database`, `skipStateCookieCheck: true`, cookie `sameSite`/`secure`). Provide a copy-paste same-domain quickstart.
 - Accept: following the same-domain quickstart on a clean machine yields a working product login + collab edit.
 
 **C2. Consolidated env reference.** ⇐ A5, B1
-- File: [docs/DEPLOYMENT.md](../DEPLOYMENT.md) (or a linked `docs/CONFIG.md`)
+- File: [docs/operations/DEPLOYMENT.md](../operations/DEPLOYMENT.md) (or a linked `docs/CONFIG.md`)
 - Publish the full §3 matrix (server + collab + storage + AI + web + infra) with defaults, required-vs-optional, and per-mode differences in one table.
 - Accept: every var read by `config.ts` + Phase 4/7 + compose appears exactly once with purpose and default.
 
 **C3. Health checks, backup & restore, upgrade runbook.** ⇐ A3, A6
-- File: [docs/DEPLOYMENT.md](../DEPLOYMENT.md)
+- File: [docs/operations/DEPLOYMENT.md](../operations/DEPLOYMENT.md)
 - **Health:** document each service's healthcheck + `/api/health` semantics. **Backup:** `mongodump` of the DB (incl. `collabstates` + `documents`) and `mc mirror` / bucket snapshot of MinIO — stress **both must be backed up together** to stay consistent. **Restore:** `mongorestore` + `mc mirror` back, with volume-mount steps. **Upgrade:** pull new image tags → `docker compose up -d` (rolling within single-host limits), how to pin versions, and a rollback note. Cover volume persistence guarantees.
 - Accept: a dry-run backup→wipe→restore reproduces documents + collab state; upgrade steps change image tags without data loss.
 
@@ -265,12 +265,12 @@ Grouped **A** (compose + images), **B** (AI + local-model profile), **C** (docs)
 ### Group D — Licensing decision for on-prem distribution
 
 **D1. Confirm and record the license model.** ⇐ none
-- Files: [README.md](../../README.md), all `packages/*/package.json` + `apps/*/package.json`, new root `LICENSE`, [ENHANCEMENT_ROADMAP.md](../ENHANCEMENT_ROADMAP.md) §5 (resolve the open question)
+- Files: [README.md](../../README.md), all `packages/*/package.json` + `apps/*/package.json`, new root `LICENSE`, [ENHANCEMENT_ROADMAP.md](../product/ENHANCEMENT_ROADMAP.md) §5 (resolve the open question)
 - **Finding to act on:** only `README.md:342` states "MIT"; **no `package.json` declares a `license` field and there is no `LICENSE` file**. Decide the model for on-prem distribution (e.g. MIT for the `packages/*` library vs a separate/commercial license for the `apps/web` product), then make it consistent: add `LICENSE` file(s), add `"license"` to every package.json, and record the decision + rationale in the roadmap.
 - Accept: license is unambiguous and consistent across README, `LICENSE`, and every package.json; the roadmap open question is marked resolved.
 
 **D2. Third-party / dependency license note.** ⇐ D1
-- File: `docs/DEPLOYMENT.md` or `NOTICE`
+- File: `docs/operations/DEPLOYMENT.md` or `NOTICE`
 - If distributing images, note bundled third-party licenses (Mongo SSPL, MinIO AGPL, Ollama/model licenses) so customers understand redistribution constraints of the *stack* vs our code.
 - Accept: a short, accurate third-party license note ships with the distribution docs.
 
@@ -299,7 +299,7 @@ Land **A (compose + images) first** — a working self-hosted stack is the backb
 |------|-----------|
 | **Secrets in plaintext** (`.env.docker`, MinIO/Mongo creds, `BETTER_AUTH_SECRET`, `AI_API_KEY`) | Keep `.env.docker` in `.dockerignore` (already, [.dockerignore:8-10](../../.dockerignore)); document `openssl rand` generation, file perms, and Docker secrets / external secret-store as the production path; never bake secrets into images (web build args are public — only non-secret `VITE_*` there). |
 | **GPU unavailable / driver mismatch** for local LLM | Local LLM is opt-in (`--profile local-llm`); Claude is the default and needs no GPU; document NVIDIA Container Toolkit prereq, CPU-only fallback, and VRAM sizing (B3). |
-| **Cross-domain OAuth / cookies fail** (separate-domain) | Document mandatory better-auth `storeStateStrategy: database` + `skipStateCookieCheck: true`, `CLIENT_ORIGIN`/trustedOrigins, backend-domain redirect URI, HTTPS + `sameSite`/`secure` cookies (C1); mirrors existing [DEPLOYMENT.md:382-392](../DEPLOYMENT.md) troubleshooting. |
+| **Cross-domain OAuth / cookies fail** (separate-domain) | Document mandatory better-auth `storeStateStrategy: database` + `skipStateCookieCheck: true`, `CLIENT_ORIGIN`/trustedOrigins, backend-domain redirect URI, HTTPS + `sameSite`/`secure` cookies (C1); mirrors existing [DEPLOYMENT.md:382-392](../operations/DEPLOYMENT.md) troubleshooting. |
 | **Backup/restore inconsistency across Mongo + MinIO** | Document that both stores must be backed up/restored **together**; provide a coordinated `mongodump` + `mc mirror` runbook and a verified dry-run (C3); objects referenced by docs must exist in MinIO. |
 | **Data loss on upgrade** (volume handling) | Named volumes `mongo-data`/`minio-data` (A3); upgrade runbook only swaps image tags, never removes volumes; document `docker compose down` (not `down -v`) and pre-upgrade backup. |
 | **Two Dockerfile sets drift** | Consolidate to one canonical set (A1). |

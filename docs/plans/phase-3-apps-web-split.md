@@ -1,6 +1,6 @@
 # Phase 3 — `apps/web` Split (First-Party Product) · Task-Level Implementation Plan
 
-**Roadmap ref:** [ENHANCEMENT_ROADMAP.md](../ENHANCEMENT_ROADMAP.md) Phase 3 · **Priority:** P1 · **Depends on:** Phases 1 & 2 · **Status:** ✅ Implemented (pending maintainer acceptance) · **Last updated:** 2026-07-20
+**Roadmap ref:** [ENHANCEMENT_ROADMAP.md](../product/ENHANCEMENT_ROADMAP.md) Phase 3 · **Priority:** P1 · **Depends on:** Phases 1 & 2 · **Status:** ✅ Implemented (pending maintainer acceptance) · **Last updated:** 2026-07-20
 
 > **Goal:** extract the real, self-hostable product into **`apps/web`** (dashboard, editor,
 > sharing, folders, starred, search, auth) wired to `apps/server`, and slim **`apps/demo`**
@@ -255,7 +255,7 @@ Tasks are grouped A/B/C; each lists files, work, and acceptance. Dependencies no
 **C3. Make email/password first-class on the server + document it.** ⇐ none (server-side; enables B5)
 - Files: [apps/server/src/config.ts](../../apps/server/src/config.ts),
   [docker/server.env.example](../../docker/server.env.example), [.env.docker.example](../../.env.docker.example),
-  [docs/DEPLOYMENT.md](../DEPLOYMENT.md).
+  [docs/operations/DEPLOYMENT.md](../operations/DEPLOYMENT.md).
 - Work: email/password is currently **off by default** — `EMAIL_PASSWORD_ENABLED === 'true'` gate at
   [config.ts:19-22](../../apps/server/src/config.ts), consumed by [auth.ts:49-52,86](../../apps/server/src/auth.ts)
   and surfaced by [routes/auth.ts:9](../../apps/server/src/routes/auth.ts) / [index.ts:60-61](../../apps/server/src/index.ts).
@@ -281,7 +281,7 @@ Tasks are grouped A/B/C; each lists files, work, and acceptance. Dependencies no
 **C5. Update Docker/deployment to build `apps/web` as the product.** ⇐ B*, C1
 - Files: [docker/docker-compose.yml](../../docker/docker-compose.yml), [Dockerfile.demo](../../Dockerfile.demo)/[docker/Dockerfile.demo](../../docker/Dockerfile.demo),
   [docker/entrypoint.demo.sh](../../docker/entrypoint.demo.sh), [docker/nginx.conf](../../docker/nginx.conf),
-  [docker/demo.env.example](../../docker/demo.env.example), [docs/DEPLOYMENT.md](../DEPLOYMENT.md), [docs/INTEGRATION.md](../INTEGRATION.md).
+  [docker/demo.env.example](../../docker/demo.env.example), [docs/operations/DEPLOYMENT.md](../operations/DEPLOYMENT.md), [docs/guides/INTEGRATION.md](../guides/INTEGRATION.md).
 - Work: the deployment currently builds/serves `apps/demo` as the app (compose + nginx +
   `Dockerfile.demo`). Introduce a `Dockerfile.web` + compose service that builds `apps/web` and is
   the **default served frontend**; nginx proxies `/api/*` and `/collab` to the server (same-domain
@@ -290,7 +290,7 @@ Tasks are grouped A/B/C; each lists files, work, and acceptance. Dependencies no
 - Accept: `docker compose up` serves `apps/web` (the product) with working auth + collab against the server; demo is not required for a product deploy.
 
 **C6. Update architecture docs.** ⇐ all
-- Files: [CLAUDE.md](../../CLAUDE.md), [docs/PRD.md](../PRD.md), [docs/README.md](../README.md).
+- Files: [CLAUDE.md](../../CLAUDE.md), [docs/product/PRD.md](../product/PRD.md), [docs/README.md](../README.md).
 - Work: correct the "Apps" section of [CLAUDE.md:73-78](../../CLAUDE.md) to describe `apps/demo` as a
   backend-free showcase and `apps/web` as the product wired to `apps/server`; note the boundary rule
   (no cross-app imports). Update `pnpm dev` vs `pnpm dev:web` guidance in [CLAUDE.md:7-21](../../CLAUDE.md).

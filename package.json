@@ -16,6 +16,7 @@
     "test:e2e": "playwright test",
     "docs:api": "node scripts/generate-api-docs.mjs",
     "docs:api:check": "node scripts/generate-api-docs.mjs --check",
+    "docs:check": "node scripts/check-docs-links.mjs",
     "dev": "pnpm --filter @kedata-indonesia/docflow-playground dev",
     "dev:source": "pnpm --filter @kedata-indonesia/docflow-playground dev:source",
     "playground:restore": "node scripts/restore-playground.mjs",

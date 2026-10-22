@@ -9,7 +9,7 @@
 > — was split into `Kedata-Indonesia/docflow-app`.
 > Every `apps/*`, `docker/*`, and `e2e/*` path referenced below therefore lives in that
 > sibling repo, **not** here. For the library boundary itself, prefer
-> [`LIBRARY_CONTRACT.md`](LIBRARY_CONTRACT.md) and the root `README.md`.
+> [`LIBRARY_CONTRACT.md`](../reference/LIBRARY_CONTRACT.md) and the root `README.md`.
 >
 > This repo ships one runnable app for local UI review: `examples/playground` — a
 > backend-free Vite app that mounts `<DocsEditor>` through the public API. It is
@@ -120,7 +120,7 @@ Three deployable units in production:
 
 For local dev: `pnpm dev:server` (tsx watch) + `pnpm dev:web` (Vite, proxies `/api/*` and `/collab` to `:3001`).
 
-> **Deploy trap (2026-07-27 incident):** Dokploy's web-on-push does **not** auto-rebuild the server container. After any `apps/server/**` change you must manually redeploy + restart the server service on Dokploy, otherwise the SPA bundle references routes that don't exist on the running server. See `docs/DEPLOYMENT.md` §11.
+> **Deploy trap (2026-07-27 incident):** Dokploy's web-on-push does **not** auto-rebuild the server container. After any `apps/server/**` change you must manually redeploy + restart the server service on Dokploy, otherwise the SPA bundle references routes that don't exist on the running server. See `docs/operations/DEPLOYMENT.md` §11.
 
 Three deployable units in production:
 
@@ -147,7 +147,7 @@ packages/element        ← <docs-editor> Web Component wrapper.
 packages/export         ← docx/markdown/pdf export.
 ```
 
-**Rule:** `packages/*` MUST NOT import from `apps/*` or backend-only deps (`mongoose`, `express`, `better-auth`). Enforced by `.eslintrc.cjs` (`no-restricted-imports`). Host features reach library features only via **injection ports** catalogued in `docs/LIBRARY_CONTRACT.md`:
+**Rule:** `packages/*` MUST NOT import from `apps/*` or backend-only deps (`mongoose`, `express`, `better-auth`). Enforced by `.eslintrc.cjs` (`no-restricted-imports`). Host features reach library features only via **injection ports** catalogued in `docs/reference/LIBRARY_CONTRACT.md`:
 
 ```mermaid
 %%{init: {'flowchart': {'curve': 'linear'}}}%%
@@ -287,7 +287,7 @@ The **`mongo-init.js`** script (`docker/mongo-init.js`) declares every index for
 
 ### 3.5 Env surface (the contract for the operator)
 
-Authoritative reference: `docs/DEPLOYMENT.md` §3 and `.env.docker.example`. Highlights:
+Authoritative reference: `docs/operations/DEPLOYMENT.md` §3 and `.env.docker.example`. Highlights:
 
 | Var | Used by |
 |-----|---------|
@@ -532,8 +532,8 @@ Per-AGENTS.md gate order after any non-trivial change: **lint → typecheck → 
 | A new REST route | `apps/server/src/routes/<name>.ts`; mount in `apps/server/src/index.ts`; type the client surface in `apps/web/src/api.ts` | Mount order matters (`requireAuth` before role-aware routes); use `requireAuth` + `canRead`/`canMutate` |
 | A new MongoDB collection | `apps/server/src/models/<Name>.ts`; index in `docker/mongo-init.js` (self-host) + rely on Mongoose autoIndex (Atlas) | Backward-compat read of older docs (default values, migration on boot) |
 | A new sidebar | Add to `activeSidebar` union in `packages/vue/src/types.ts`; mount under `<DocsEditor>` with `v-if="activeSidebar === '…'"` | Establishes the mount pattern for later sidebars (TOC, Comments, History) |
-| A new AI provider | Hosts inject `toAIStreamFn(openaiCompatibleProvider({...}))` or a custom `AIProvider` class — no server work; document in `docs/AI_PROVIDERS.md` | Library-side `AIProvider` contract (prompt in / `StreamEvent` out) — pinned by `packages/core/src/ai/__tests__/openaiCompatibleProvider.test.ts` |
-| A new env var | `apps/server/src/config.ts` + `.env.docker.example` + `docker/server.env.example` + `docs/DEPLOYMENT.md` §3 + `apps/web/.env.example` | Default value + readonly validation at boot; do not log the value |
+| A new AI provider | Hosts inject `toAIStreamFn(openaiCompatibleProvider({...}))` or a custom `AIProvider` class — no server work; document in `docs/guides/AI_PROVIDERS.md` | Library-side `AIProvider` contract (prompt in / `StreamEvent` out) — pinned by `packages/core/src/ai/__tests__/openaiCompatibleProvider.test.ts` |
+| A new env var | `apps/server/src/config.ts` + `.env.docker.example` + `docker/server.env.example` + `docs/operations/DEPLOYMENT.md` §3 + `apps/web/.env.example` | Default value + readonly validation at boot; do not log the value |
 | A new WebSocket broadcast type | `routes/<name>.ts` for `broadcast(...)`; `apps/web` listener in `EditorView.vue` for `case msg.type === '<name>:…'` | The WS broadcast helper routes by `roomId`; pick a clear `type:` namespace |
 
 ---
@@ -556,7 +556,7 @@ Per-AGENTS.md gate order after any non-trivial change: **lint → typecheck → 
 | Cursor / selection plumbing | `apps/web/src/components/EditorView.vue` (`captureSelection`, `selectedTextSnippet`, `selectedTextIndex`) + `packages/vue/src/components/DocsEditor.vue` |
 | Heartbeat presence (REST, 15s) | `apps/server/src/routes/collab.ts` (`POST /heartbeat`, `GET /online/:room`) |
 | Awareness presence (Yjs, realtime) | `packages/core/src/Collaboration.ts` + `apps/web/src/components/EditorView.vue` (`onAwarenessChange`) |
-| Infra / prod env | `docker/nginx.conf`, `Dockerfile.{web,server,demo}`, `docs/DEPLOYMENT.md`, `.env.docker.example` |
+| Infra / prod env | `docker/nginx.conf`, `Dockerfile.{web,server,demo}`, `docs/operations/DEPLOYMENT.md`, `.env.docker.example` |
 | Deploy triggers | Dokploy UI — manual redeploy on `server` service after a code change to `apps/server` (web triggers automatically on `apps/web` change) |
 | Tests for a new feature | Add unit tests next to the code (`apps/server/src/__tests__/` / `packages/*/src/__tests__/`); E2E only for UI/layout behavior |
 
@@ -569,7 +569,7 @@ Per-AGENTS.md gate order after any non-trivial change: **lint → typecheck → 
 - Write to `docs/`, `packages/`, `apps/`, `docker/`, `e2e/`, `.github/workflows/` (none yet).
 - Add routes / models / migrations / sidebars / plugins **provided** the rules in §2 and §10 are followed.
 - Run `pnpm lint && pnpm typecheck && pnpm test:unit` before declaring done.
-- Update `LICENSE`, `NOTICE`, and `docs/DEPLOYMENT.md` env tables when adding third-party deps or env vars.
+- Update `LICENSE`, `NOTICE`, and `docs/operations/DEPLOYMENT.md` env tables when adding third-party deps or env vars.
 - Push commits to feature branches + open PRs.
 
 ### Coordinate, don't act unilaterally
@@ -633,14 +633,14 @@ If `roles` is missing (pre-RO1 docs), fall back to the legacy `collaborators` ar
 
 | Topic | File |
 |-------|------|
-| Library contract | `docs/LIBRARY_CONTRACT.md` |
-| Deploy guide | `docs/DEPLOYMENT.md` |
-| AI provider matrix | `docs/AI_PROVIDERS.md` |
-| Collab integration | `docs/COLLAB_INTEGRATION.md` |
-| Library integration (consumers) | `docs/INTEGRATION.md` |
-| Roadmap | `docs/ENHANCEMENT_ROADMAP.md` |
-| Product spec of record | `docs/PRD.md` |
-| Publishing | `docs/PUBLISH.md` |
+| Library contract | `docs/reference/LIBRARY_CONTRACT.md` |
+| Deploy guide | `docs/operations/DEPLOYMENT.md` |
+| AI provider matrix | `docs/guides/AI_PROVIDERS.md` |
+| Collab integration | `docs/guides/COLLAB_INTEGRATION.md` |
+| Library integration (consumers) | `docs/guides/INTEGRATION.md` |
+| Roadmap | `docs/product/ENHANCEMENT_ROADMAP.md` |
+| Product spec of record | `docs/product/PRD.md` |
+| Publishing | `docs/operations/PUBLISH.md` |
 | Phase plans | `docs/plans/phase-0..9-*.md` |
 | Sprint 9-10 status | `docs/plans/sprint-9-10-execution-plan.md` |
 | Third-party licenses | `NOTICE` |

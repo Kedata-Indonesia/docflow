@@ -6,9 +6,9 @@
  * reference implementations; hosts may write their own (e.g. keyed per-tenant
  * in their own backend). No *endpoint* is hardcoded on the storage path —
  * `httpKeyStorage` receives its endpoints from the host, keeping the library
- * backend-agnostic (docs/LIBRARY_CONTRACT.md rule 3). The only hardcoded host
+ * backend-agnostic (docs/reference/LIBRARY_CONTRACT.md rule 3). The only hardcoded host
  * is the overridable `DEFAULT_BASE_URL` default in `claudeProvider.ts`
- * (contract rule 4 exception; see §5 of docs/LIBRARY_CONTRACT.md).
+ * (contract rule 4 exception; see §5 of docs/reference/LIBRARY_CONTRACT.md).
  *
  * ⚠️ Secrets note (issue #179): `localStorageKeyStorage` **and**
  * `sessionStorageKeyStorage` keep an API key in the browser in plaintext — any
@@ -19,7 +19,7 @@
  * completion proxy, the key never reaches the client. That is the recommended
  * production path. `ttlMs` (both browser storages) bounds how long a stored key
  * stays readable, and hosts should call `clear()` on sign-out.
- * See docs/AI_PROVIDERS.md §5.
+ * See docs/guides/AI_PROVIDERS.md §5.
  */
 
 export type Auth =

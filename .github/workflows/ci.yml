@@ -73,6 +73,11 @@ jobs:
       - name: Verify generated API docs are up to date
         run: pnpm docs:api:check
 
+      # Living docs must not point at files that no longer exist (moved pages,
+      # renamed sources). Historical plans are excluded — see docs/plans/README.md.
+      - name: Check documentation links
+        run: pnpm docs:check
+
       # Only the publishable packages: `examples/*` must not be able to block CI.
       - name: Build packages
         run: pnpm -r --filter "./packages/*" run build

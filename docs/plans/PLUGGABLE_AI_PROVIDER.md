@@ -6,7 +6,7 @@ Make the AI sidebar usable by both our SaaS web app and consumers who embed `@do
 
 We ship a thin transport: an `AIProvider` interface the library knows about, a default `openaiCompatibleProvider` implementation consumers can opt into, and a `KeyStorage` interface so consumers decide where the URL/key live. Anything beyond prompt-in / tokens-out (agent orchestration, RAG, tool calling, multi-turn memory, structured outputs, citation streams) is out of scope. Consumers wire whatever they want behind their endpoint.
 
-This plan **supersedes** Phase 7's "browser → server → LLM" proxy direction for the SaaS path ([phase-7-ai-assistance.md §2](phase-7-ai-assistance.md)) and **closes library-contract deviation #1** ([LIBRARY_CONTRACT.md §5](../LIBRARY_CONTRACT.md)) — `AISidebar.vue` already uses host-injected `aiStream` / `aiDraft` ports, so this work retires the server proxy in favor of direct-from-browser calls configured by the host.
+This plan **supersedes** Phase 7's "browser → server → LLM" proxy direction for the SaaS path ([phase-7-ai-assistance.md §2](phase-7-ai-assistance.md)) and **closes library-contract deviation #1** ([LIBRARY_CONTRACT.md §5](../reference/LIBRARY_CONTRACT.md)) — `AISidebar.vue` already uses host-injected `aiStream` / `aiDraft` ports, so this work retires the server proxy in favor of direct-from-browser calls configured by the host.
 
 ## 2. Why we are changing direction
 
@@ -16,7 +16,7 @@ Phase 7 (server proxy) was correct when "internal LLM" meant *our* deployment. N
 - **Wrong-shaped for SaaS tenants who want their own key.** Proxying a tenant's OpenAI key through our infra adds cost, latency, and a SOC2 question we don't need on the table.
 - **Wrong-shaped for hot-reload.** `getProvider()` reads `process.env` once at boot. A settings page that requires a redeploy is not a settings page.
 
-The fix is to **push the transport into the host boundary** — same pattern as `onImageUpload` ([LIBRARY_CONTRACT.md §2.1](../LIBRARY_CONTRACT.md)). The library gets a port; the host plugs in whatever it wants.
+The fix is to **push the transport into the host boundary** — same pattern as `onImageUpload` ([LIBRARY_CONTRACT.md §2.1](../reference/LIBRARY_CONTRACT.md)). The library gets a port; the host plugs in whatever it wants.
 
 ## 3. System architecture
 
@@ -136,7 +136,7 @@ Today the library has two parallel mechanisms for AI:
 - `AIStreamFn` / `AIDraftFn` types in [`packages/core/src/ai/types.ts`](../../packages/core/src/ai/types.ts) and [`packages/plugins/src/ai.ts`](../../packages/plugins/src/ai.ts).
 - `AISidebar.vue` accepts `aiStream` as a prop AND falls back to `editor.storage.editorContext.aiStream` ([AISidebar.vue:42-45, 74-77](../../packages/vue/src/components/sidebars/AISidebar.vue)).
 
-That's a partial port — it works for `apps/web`, but a consumer reading [`LIBRARY_CONTRACT.md §2.1`](../LIBRARY_CONTRACT.md) will not find `aiStream` documented as a port. **This plan promotes it to a real port** alongside `onImageUpload`, with a single canonical declaration on `EditorOptions`:
+That's a partial port — it works for `apps/web`, but a consumer reading [`LIBRARY_CONTRACT.md §2.1`](../reference/LIBRARY_CONTRACT.md) will not find `aiStream` documented as a port. **This plan promotes it to a real port** alongside `onImageUpload`, with a single canonical declaration on `EditorOptions`:
 
 ```ts
 interface EditorOptions {
@@ -148,7 +148,7 @@ interface EditorOptions {
 }
 ```
 
-The `editorContext` storage mechanism stays — it's how the prop is carried into extensions that don't have prop access — but the prop becomes the documented entry point. Updating [`LIBRARY_CONTRACT.md §2.1`](../LIBRARY_CONTRACT.md) is part of this work (closes deviation #1).
+The `editorContext` storage mechanism stays — it's how the prop is carried into extensions that don't have prop access — but the prop becomes the documented entry point. Updating [`LIBRARY_CONTRACT.md §2.1`](../reference/LIBRARY_CONTRACT.md) is part of this work (closes deviation #1).
 
 ## 4. Interface boundaries
 
@@ -156,7 +156,7 @@ These three exports are the entire public surface of this feature.
 
 ### 4.1 `AIProvider` — the library's only knowledge of LLMs
 
-Lives in [`packages/core/src/ai/provider.ts`](../../packages/core/src/ai/) (new).
+Lives in [`packages/core/src/ai/provider.ts`](../../packages/core/src/ai) (new).
 
 ```ts
 type StreamEvent =
@@ -198,7 +198,7 @@ The adapter means `AISidebar.vue` keeps working unchanged whether the host passe
 
 ### 4.3 `openaiCompatibleProvider(config)` — the one default impl we ship
 
-Lives in [`packages/core/src/ai/openaiCompatibleProvider.ts`](../../packages/core/src/ai/) (new).
+Lives in [`packages/core/src/ai/openaiCompatibleProvider.ts`](../../packages/core/src/ai) (new).
 
 ```ts
 export function openaiCompatibleProvider(config: {
@@ -217,7 +217,7 @@ export function openaiCompatibleProvider(config: {
 
 ### 4.4 `KeyStorage` — how the provider remembers its config
 
-Lives in [`packages/core/src/ai/keyStorage.ts`](../../packages/core/src/ai/) (new).
+Lives in [`packages/core/src/ai/keyStorage.ts`](../../packages/core/src/ai) (new).
 
 ```ts
 interface KeyStorage {
@@ -252,7 +252,7 @@ The HTTP variant is what closes the loop with `apps/web`'s settings page: the ho
 - **Embedded apps with a backend** can either (a) point at their own `/api/ai` proxy using our HTTP provider, or (b) write a custom `AIProvider` class that calls their in-process agent SDK directly.
 - **Our SaaS web app's config moves** from `process.env` + redeploy to a settings page + click. Hot-reloadable. The `/api/ai/config` admin endpoint validates by making a one-shot test call before persisting (mirrors the "Test connection" UX).
 - **Adding a new provider** (Gemini, Anthropic-direct, Bedrock) becomes a one-file change in the library — no server work, no env wiring. The HTTP shape covers them all.
-- **Library contract closes** — `AISidebar.vue`'s fallback to `editorContext.aiStream` becomes a documented port, deviation #1 in [`LIBRARY_CONTRACT.md §5`](../LIBRARY_CONTRACT.md) is resolved.
+- **Library contract closes** — `AISidebar.vue`'s fallback to `editorContext.aiStream` becomes a documented port, deviation #1 in [`LIBRARY_CONTRACT.md §5`](../reference/LIBRARY_CONTRACT.md) is resolved.
 
 ### 5.2 Things that get harder
 
@@ -324,7 +324,7 @@ The five open questions below were resolved in product review. Each lists the ch
 
 4. **CORS for embedded cross-origin LLMs — chosen: document only.**
    - No `withCors()` wrapper in `packages/core`. Consumers who ask are confusing "library" with "BFF" — the correct answer is to point at their backend / proxy / vLLM config.
-   - `docs/EMBEDDING_AI.md` ships a one-paragraph note + a small proxy code sample. That's the whole surface area.
+   - `docs/guides/EMBEDDING_AI.md` ships a one-paragraph note + a small proxy code sample. That's the whole surface area.
 
 5. **`/api/ai/config` test-call shape — chosen: A. `GET {baseUrl}/models`, with graceful degradation.**
    - Catches the two most common misconfigs (wrong URL string, key not valid for this host) without spending tokens.
@@ -354,7 +354,7 @@ The five open questions below were resolved in product review. Each lists the ch
 | `packages/plugins/src/ai.ts`                         | No shape change; the existing `aiPlugin` keeps working because `AISidebar.vue` already reads from `editorContext`.                                                                                             |
 | `packages/vue/src/components/sidebars/AISidebar.vue` | No behavior change. The prop/fallback already does the right thing. Add a JSDoc pointing at `LIBRARY_CONTRACT.md`.                                                                                             |
 | `packages/vue/src/index.ts`                          | Export `openaiCompatibleProvider`, `KeyStorage` reference impls, `useAIProvider` so consumers can pick without reaching into internals.                                                                        |
-| `docs/LIBRARY_CONTRACT.md`                           | **§2.1**: add `aiStream` and `aiDraft` to the port catalogue. **§3**: add threading maps. **§5**: mark deviation #1 resolved. Update last-updated date.                                                        |
+| `docs/reference/LIBRARY_CONTRACT.md`                           | **§2.1**: add `aiStream` and `aiDraft` to the port catalogue. **§3**: add threading maps. **§5**: mark deviation #1 resolved. Update last-updated date.                                                        |
 
 ### 8.3 Server (`apps/server`)
 
@@ -386,10 +386,10 @@ The five open questions below were resolved in product review. Each lists the ch
 
 | File                           | Purpose                                                                                                                                                                                                                                       |
 |--------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `docs/EMBEDDING_AI.md` (new)   | Embedded-app guide: minimal 5-line setup (`openaiCompatibleProvider` directly), full setup (`KeyStorage` + custom port), advanced (custom `AIProvider` class for in-process agent). Code samples for Vue, React (via Web Component), vanilla. |
-| `docs/SELF_HOSTED_AI.md` (new) | Operator guide: settings page walkthrough, env vars, admin role setup, what happens if config is wrong.                                                                                                                                       |
-| `docs/AI_PROVIDERS.md`         | Rewrite. Was per-provider env config; becomes a per-provider compatibility matrix for `openaiCompatibleProvider` (which base URLs, auth shapes, models work).                                                                                 |
-| `docs/PRD.md`                  | Update Phase 7 status to "superseded by [this plan]."                                                                                                                                                                                         |
+| `docs/guides/EMBEDDING_AI.md` (new)   | Embedded-app guide: minimal 5-line setup (`openaiCompatibleProvider` directly), full setup (`KeyStorage` + custom port), advanced (custom `AIProvider` class for in-process agent). Code samples for Vue, React (via Web Component), vanilla. |
+| `docs/operations/SELF_HOSTED_AI.md` (new) | Operator guide: settings page walkthrough, env vars, admin role setup, what happens if config is wrong.                                                                                                                                       |
+| `docs/guides/AI_PROVIDERS.md`         | Rewrite. Was per-provider env config; becomes a per-provider compatibility matrix for `openaiCompatibleProvider` (which base URLs, auth shapes, models work).                                                                                 |
+| `docs/product/PRD.md`                  | Update Phase 7 status to "superseded by [this plan]."                                                                                                                                                                                         |
 
 ## 9. Order of work
 
@@ -402,7 +402,7 @@ The five open questions below were resolved in product review. Each lists the ch
 7. Server `/api/ai/config` route + admin middleware.
 8. `aiProviderBootstrap.ts` + `SettingsAI.vue` + admin-gated route.
 9. Delete Phase 7 proxy code (`apps/server/src/ai/*`, `routes/ai.ts`, `apps/web/src/ai/aiStream.ts` / `aiDraft.ts`).
-10. Update `docs/AI_PROVIDERS.md`, write `docs/EMBEDDING_AI.md`, write `docs/SELF_HOSTED_AI.md`.
+10. Update `docs/guides/AI_PROVIDERS.md`, write `docs/guides/EMBEDDING_AI.md`, write `docs/operations/SELF_HOSTED_AI.md`.
 11. Manual smoke: SaaS path (settings page → AI sidebar), embedded path (5-line `openaiCompatibleProvider` setup in a sample app).
 12. E2E: extend `e2e/product/ai.spec.ts` with settings-page flow + embedded-style test that passes a stub provider.
 

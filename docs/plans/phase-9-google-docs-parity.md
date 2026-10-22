@@ -1,6 +1,6 @@
 # Phase 9 — Google-Docs Feature Parity · Task-Level Implementation Plan
 
-**Roadmap ref:** [ENHANCEMENT_ROADMAP.md](../ENHANCEMENT_ROADMAP.md) Phase 9 · **Priority:** P2 (candidate scope) · **Last updated:** 2026-07-26
+**Roadmap ref:** [ENHANCEMENT_ROADMAP.md](../product/ENHANCEMENT_ROADMAP.md) Phase 9 · **Priority:** P2 (candidate scope) · **Last updated:** 2026-07-26
 
 > **Sprint execution plan:** see [`sprint-9-10-execution-plan.md`](sprint-9-10-execution-plan.md) for current-vs-target state per task and the recommended order (this doc is the task spec; the sprint plan is the work-breakdown).
 
@@ -397,7 +397,7 @@ restart-durability test passes.**
 
 | Risk | Analysis / Mitigation |
 |------|-----------------------|
-| **Comments: Yjs-native vs. separate collection** | *Yjs-native* (comment data in the Y.Doc): anchors survive edits and sync free, offline-capable — but data is buried in binary (no cross-doc queries, notifications, or moderation), bloats the doc, and can't be role-gated (Yjs sync is all-or-nothing). *Separate Mongo collection with position anchors*: queryable + notifiable, but **plain positions drift under concurrent editing** — the hard, error-prone part. **Chosen: hybrid** — anchor via a `commentMark { threadId }` tracked by a Yjs relative position (Yjs's core strength) while thread bodies/replies/resolve-state live in Mongo keyed by `threadId`. Mark holds **id only, never text** (same invariant as Phase 6 citations, [ENHANCEMENT_ROADMAP.md](../ENHANCEMENT_ROADMAP.md) §Phase 6). *Validate anchor survival under concurrent edits — the #1 correctness risk here.* |
+| **Comments: Yjs-native vs. separate collection** | *Yjs-native* (comment data in the Y.Doc): anchors survive edits and sync free, offline-capable — but data is buried in binary (no cross-doc queries, notifications, or moderation), bloats the doc, and can't be role-gated (Yjs sync is all-or-nothing). *Separate Mongo collection with position anchors*: queryable + notifiable, but **plain positions drift under concurrent editing** — the hard, error-prone part. **Chosen: hybrid** — anchor via a `commentMark { threadId }` tracked by a Yjs relative position (Yjs's core strength) while thread bodies/replies/resolve-state live in Mongo keyed by `threadId`. Mark holds **id only, never text** (same invariant as Phase 6 citations, [ENHANCEMENT_ROADMAP.md](../product/ENHANCEMENT_ROADMAP.md) §Phase 6). *Validate anchor survival under concurrent edits — the #1 correctness risk here.* |
 | **Versioning: Yjs snapshots vs. separate collection** | *Yjs-native snapshots* (`Y.snapshot`) require **keeping the full update history (gc off)** → the live doc grows unbounded, and listing versions with metadata from Mongo is awkward. *Separate collection of encoded states* costs storage per version but keeps the live doc lean (gc stays on), is trivially queryable, and **reuses Phase 1's existing `Y.encodeStateAsUpdate` path**. **Chosen: `DocumentVersion` collection storing encoded Yjs state**, captured server-side; restore applies the decoded state as an update so connected clients converge (never a raw replace mid-session). |
 | **Permission enforcement on the collab WS (the crux)** | A connected Yjs client can always emit updates; Yjs sync is bidirectional and full-fidelity, so a "read-only Yjs connection" is not a protocol primitive. `canAccessRoom` today is binary owner/collaborator ([index.ts:80-93](../../apps/server/src/index.ts)). **Mitigation:** resolve **role** on connect (RO3) and, for viewer/commenter, **drop their inbound sync (doc-update) messages at the WS layer** while still relaying awareness — requires intercepting messages in the vendored `y-websocket/*.cjs`. Commenter = suggest/comment only (no direct doc mutation), enforced the same way at the message boundary. Prototype RO3 first; treat it as the phase's security gate. |
 | **TOC never live / sidebar never mounted** | The sidebars are orphan exports (§1). Establish the `activeSidebar`-driven mount pattern in T2 and reuse it for Comments/History; add a transaction subscription in T1. |
@@ -410,7 +410,7 @@ restart-durability test passes.**
 - **AI features / `AISidebar`** — owned by Phase 7 (provider abstraction, inline transforms, chat).
 - **Citations / references** — owned by Phase 6.
 - **Export (PDF/DOCX) of comments or suggestions** — depends on Phase 5; revisit when both land.
-- **Enterprise SSO / SCIM group-based roles** — roles here are per-document (viewer/commenter/editor), not org-wide (see [ENHANCEMENT_ROADMAP.md](../ENHANCEMENT_ROADMAP.md) §5).
+- **Enterprise SSO / SCIM group-based roles** — roles here are per-document (viewer/commenter/editor), not org-wide (see [ENHANCEMENT_ROADMAP.md](../product/ENHANCEMENT_ROADMAP.md) §5).
 - **Horizontal multi-instance collaboration scaling** — single-server assumption inherited from Phase 1.
 - **Real-time co-editing of comments' bodies** — comment bodies are edited by a single author; only thread lists sync live.
 - **Version diff visualization (visual redline between two arbitrary versions)** — restore/preview only for now; diff UI is a follow-on.

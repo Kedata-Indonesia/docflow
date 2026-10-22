@@ -21,7 +21,7 @@ import type { Node as PMNode } from '@tiptap/pm/model'
  *
  * The People/File/Location chips use the same `window.prompt` fallback as the
  * link extension for the v1 insert flow; a host can later inject a picker port
- * (see docs/LIBRARY_CONTRACT.md §4) without changing the node schema.
+ * (see docs/reference/LIBRARY_CONTRACT.md §4) without changing the node schema.
  */
 
 // ─── helpers ──────────────────────────────────────────────────────────────

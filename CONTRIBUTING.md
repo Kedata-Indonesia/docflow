@@ -60,12 +60,13 @@ This repo contains the **library packages only** (`packages/*`). The deployable 
 | `packages/layout-engine` | Page split / pagination engine |
 | `packages/export` | DOCX / Markdown export |
 | `examples/playground` | Backend-free demo app that mounts `<DocsEditor>` via the public API (tracked, not published) |
+| `docs/` | Living documentation — start at [docs/README.md](./docs/README.md); plans and audits are dated snapshots |
 
 ### Architectural invariants (please don't violate)
 
 - **ProseMirror state is the single source of truth.** Page layout and collaboration are derived views — never a second editable model.
 - **Add editor features as plugins**, not by hardcoding extensions into `core`. See `packages/core/src/PluginSystem.ts` for the `DocsEditorPlugin` contract.
-- **Library boundary:** `packages/*` must not import backend-only deps (mongoose, express, better-auth). Persistence/auth/storage/AI are the host app's job, reached through the injection ports in `docs/LIBRARY_CONTRACT.md`.
+- **Library boundary:** `packages/*` must not import backend-only deps (mongoose, express, better-auth). Persistence/auth/storage/AI are the host app's job, reached through the injection ports in `docs/reference/LIBRARY_CONTRACT.md`.
 - **Intra-source imports use `.js` extensions** even for TypeScript files (e.g. `from './PluginSystem.js'`) — required by the ESM build output.
 
 ## Verification (required before every PR)
@@ -79,6 +80,7 @@ pnpm test:unit     # vitest
 pnpm test:coverage # vitest + per-package coverage thresholds (what CI runs)
 pnpm test:e2e      # Playwright, runs in CI (needs `pnpm build` locally)
 pnpm docs:api:check # generated README API tables up to date (CI enforces it)
+pnpm docs:check    # living docs: no broken links (CI enforces it)
 pnpm build         # for affected packages
 ```
 
@@ -111,7 +113,8 @@ pnpm build && pnpm dev                    # http://localhost:5200
 # 4. Run the gate
 pnpm lint && pnpm typecheck && pnpm test:coverage
 pnpm test:e2e                             # CI runs it; run it locally for UI/layout changes
-pnpm docs:api:check                        # if you changed DocsEditor props/emits (CI-enforced; fix with `pnpm docs:api`)
+pnpm docs:api:check                       # if you changed DocsEditor props/emits (fix with `pnpm docs:api`)
+pnpm docs:check                           # if you added/moved pages under docs/
 
 # 5. Commit (Conventional Commits), push the branch, open a PR against main
 git push -u origin feat/<short-topic>
@@ -190,7 +193,7 @@ merge:
 | Rule | Effect |
 |------|--------|
 | Pull request required | No direct pushes to `main`. |
-| **`ci` check required** | `pnpm dedupe --check`, `lint`, `typecheck`, `test:coverage`, `test:scripts`, `docs:api:check` and the package build must pass (`ci.yml`). |
+| **`ci` check required** | `pnpm dedupe --check`, `lint`, `typecheck`, `test:coverage`, `test:scripts`, `docs:api:check`, `docs:check` and the package build must pass (`ci.yml`). |
 | **`e2e` check required** | The Playwright showcase suite runs in a separate job (needs `ci`); a failing/regressed e2e blocks merge. |
 | **1 approving review** | One approval from a collaborator; approvals are dismissed on new commits and review conversations must be resolved. |
 | Force-push / deletion | Blocked. |
@@ -211,7 +214,7 @@ first try.
 |--------|---------|
 | `main` | Default and only long-lived branch. Protected — all changes land via PR. |
 
-Releases are cut from `main` by pushing a version tag (`v*`), which triggers the publish workflow. See [docs/PUBLISH.md](./docs/PUBLISH.md).
+Releases are cut from `main` by pushing a version tag (`v*`), which triggers the publish workflow. See [docs/operations/PUBLISH.md](./docs/operations/PUBLISH.md).
 
 ## Reporting issues
 

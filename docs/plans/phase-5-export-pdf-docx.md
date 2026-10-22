@@ -1,6 +1,6 @@
 # Phase 5 — Export (PDF / DOCX) · Task-Level Implementation Plan
 
-**Roadmap ref:** [ENHANCEMENT_ROADMAP.md](../ENHANCEMENT_ROADMAP.md) Phase 5 · **Priority:** P1 · **Depends on:** Phase 2 · **Last updated:** 2026-07-19
+**Roadmap ref:** [ENHANCEMENT_ROADMAP.md](../product/ENHANCEMENT_ROADMAP.md) Phase 5 · **Priority:** P1 · **Depends on:** Phase 2 · **Last updated:** 2026-07-19
 
 > **Goal:** Google-Docs-grade export. **PDF** reuses the existing pagination model
 > (`layout-engine`) so page breaks in the file match what the user sees on screen.
@@ -364,6 +364,6 @@ Tasks updated to reflect current code. **✅ = done**, **⬜ = not started**, **
 - **PDF/A, digital signatures, password protection, accessibility tagging.**
 - **Headers/footers/page numbers in exports** beyond what the current schema and geometry provide (Phase 9).
 - **Batch/scheduled export and export-to-storage** — app may add this atop the hooks later.
-- **Changesets workflow** for package publishing — see `docs/PUBLISH.md`.
+- **Changesets workflow** for package publishing — see `docs/operations/PUBLISH.md`.
 </content>
 </invoke>

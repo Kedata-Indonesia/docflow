@@ -1,8 +1,8 @@
 # Embedding AI — Host App Guide
 
 > How to wire AI into an app that embeds `@docflow/vue` (or `@docflow/core`).
-> Architecture: [`plans/PLUGGABLE_AI_PROVIDER.md`](plans/PLUGGABLE_AI_PROVIDER.md).
-> Operator guide (our SaaS / self-hosted deployment): [`SELF_HOSTED_AI.md`](SELF_HOSTED_AI.md).
+> Architecture: [`plans/PLUGGABLE_AI_PROVIDER.md`](../plans/PLUGGABLE_AI_PROVIDER.md).
+> Operator guide (our SaaS / self-hosted deployment): [`SELF_HOSTED_AI.md`](../operations/SELF_HOSTED_AI.md).
 
 The library is a **thin transport**. It knows one interface — `AIProvider`,
 prompt in / event stream out — and nothing else: no URLs, no keys, no agent
@@ -50,7 +50,7 @@ memoryKeyStorage()                          // tests / SSR
 > `httpKeyStorage()` so the key stays in your backend, or a non-persistent
 > storage, whenever the embedding app is not fully trusted. See the rule-5
 > credential note and deviation #6 in
-> [LIBRARY_CONTRACT.md](LIBRARY_CONTRACT.md).
+> [LIBRARY_CONTRACT.md](../reference/LIBRARY_CONTRACT.md).
 
 Typical boot flow (mirror of our SaaS `aiProviderBootstrap.ts`):
 
@@ -67,7 +67,7 @@ from `editor.storage.editorContext.aiStream` — assignable at runtime).
 The browser calls the LLM directly, so the endpoint must allow your origin.
 Ollama: `OLLAMA_ORIGINS`. Hosted providers without browser CORS (OpenAI):
 put a thin proxy on your backend and point `baseUrl` at it. Recipe + matrix:
-[`AI_PROVIDERS.md`](AI_PROVIDERS.md). We deliberately do **not** ship a CORS
+[`AI_PROVIDERS.md`](./AI_PROVIDERS.md). We deliberately do **not** ship a CORS
 wrapper — your backend is your CORS layer (plan §7 decision 4).
 
 ## 4. Custom providers (agents, RAG, tool calling)

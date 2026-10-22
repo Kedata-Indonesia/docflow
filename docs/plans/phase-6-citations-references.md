@@ -1,6 +1,6 @@
 # Phase 6 — Citations & References (Chicago / CSL) · Task-Level Implementation Plan
 
-**Roadmap ref:** [ENHANCEMENT_ROADMAP.md](../ENHANCEMENT_ROADMAP.md) Phase 6 · **Priority:** P1 (headline feature) · **Last updated:** 2026-07-17
+**Roadmap ref:** [ENHANCEMENT_ROADMAP.md](../product/ENHANCEMENT_ROADMAP.md) Phase 6 · **Priority:** P1 (headline feature) · **Last updated:** 2026-07-17
 
 > **Goal:** academic-grade citations and a bibliography with real style support, driven by
 > **structured source data — never formatted strings**. A citation node stores
@@ -22,7 +22,7 @@ footnote node, and it stores rendered text, not a source reference.
 | Footnote plugin | `footnotePlugin` = `insertFootnote` command (`insertContent({ type:'footnote', attrs:{ content }})`), toolbar + slash entries | [packages/plugins/src/footnote.ts:66-83](../../packages/plugins/src/footnote.ts) |
 | Footnote numbering / rendering | `updateFootnotes()` walks `.docs-footnote-ref` DOM, **DOM-numbers** refs `1..n`, and builds per-page contenteditable footnote areas that sync the string back to PM **on blur** | [packages/vue/src/components/DocsEditor.vue:400-620](../../packages/vue/src/components/DocsEditor.vue) |
 | Insert path | Toolbar `insert-footnote` → PM `tr.insert` of a `footnote` node, then `updateFootnotes()` | [DocsEditor.vue:400-420](../../packages/vue/src/components/DocsEditor.vue), [HeaderBar.vue:129](../../packages/vue/src/components/HeaderBar.vue) |
-| Sidebars present | `AISidebar`, `CommentsSidebar`, `HistorySidebar`, `TOCSidebar` — **no references/sources sidebar** | [packages/vue/src/components/sidebars/](../../packages/vue/src/components/sidebars/) |
+| Sidebars present | `AISidebar`, `CommentsSidebar`, `HistorySidebar`, `TOCSidebar` — **no references/sources sidebar** | [packages/vue/src/components/sidebars/](../../packages/vue/src/components/sidebars) |
 | Server routes present | `documents`, `collab`, `users`, `auth` — **no sources/reference-library route** | [apps/server/src/routes/](../../apps/server/src/routes/) |
 | Document model | `content` (TipTap JSON), `plainText`, `owner`, `collaborators[]`, `starred`, `folderId` — **no embedded source snapshot** | [apps/server/src/models/Document.ts:3-33](../../apps/server/src/models/Document.ts) |
 

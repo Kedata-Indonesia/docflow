@@ -1,7 +1,7 @@
 /**
  * Injectable ports — the narrow interfaces through which the library reaches
  * host-provided backend capabilities (storage, persistence, …). The library
- * declares them; the host app implements them. See docs/LIBRARY_CONTRACT.md.
+ * declares them; the host app implements them. See docs/reference/LIBRARY_CONTRACT.md.
  */
 
 import type { BibliographyFormat } from './bibliographyFormats.js'

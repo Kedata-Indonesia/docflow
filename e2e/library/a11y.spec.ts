@@ -4,7 +4,7 @@ import AxeBuilder from '@axe-core/playwright'
 /**
  * Accessibility gate for issue #170 (phase 3).
  *
- * Scope is deliberately narrow: the audit in `docs/a11y-button-audit.md` owns
+ * Scope is deliberately narrow: the audit in `docs/audits/2026-10-20-a11y-button-audit.md` owns
  * *names* on buttons, so this spec runs the ARIA rules that back that claim rather
  * than the whole WCAG set — a broad axe run would fail on contrast/landmark work
  * nobody has done yet and the gate would be turned off within a week.
