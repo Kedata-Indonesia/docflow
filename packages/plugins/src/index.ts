@@ -5,6 +5,7 @@ export { alignmentPlugin } from './alignment.js'
 export { linkPlugin } from './link.js'
 export { imagePlugin } from './image.js'
 export { tablePlugin } from './table.js'
+export { chartPlugin, ChartNode, ChartCommandsExtension } from './chart.js'
 export { blockquotePlugin } from './blockquote.js'
 export { codeBlockPlugin } from './codeBlock.js'
 export {

@@ -5,6 +5,7 @@ import {
   FileText, Pencil, FolderInput, History, Info, ShieldCheck, Languages, Settings,
   Printer, Undo2, Redo2, Scissors, ClipboardPaste, Text as TextIcon, Search,
   PanelLeft, Maximize2, Ruler, Trash2, NotebookPen, ImagePlus, Table, Code2, Minus,
+  BarChart3,
   Link2, SeparatorHorizontal, Heading, PanelBottom, List, Hash, ScrollText,
   Bold, Italic, Underline, Heading1, Heading2, Heading3, IndentIncrease,
   IndentDecrease,
@@ -165,6 +166,14 @@ export function buildMenus(ctx: MenuStructureContext): Record<string, { label: s
         { label: 'divider', divider: true },
         { label: t('header.image'), action: 'insert-image', icon: ImagePlus },
         { label: t('header.table'), action: 'insert-table', icon: Table },
+        {
+          label: t('header.chart'), icon: BarChart3, sub: [
+            { label: t('header.chartBar'), action: 'insert-chart-bar', icon: BarChart3 },
+            { label: t('header.chartColumn'), action: 'insert-chart-column', icon: BarChart3 },
+            { label: t('header.chartLine'), action: 'insert-chart-line', icon: BarChart3 },
+            { label: t('header.chartPie'), action: 'insert-chart-pie', icon: BarChart3 },
+          ]
+        },
         { label: t('header.codeBlock'), action: 'insert-code', icon: Code2 },
         { label: t('header.horizontalLine'), action: 'horizontal-line', icon: Minus },
         { label: 'divider', divider: true },

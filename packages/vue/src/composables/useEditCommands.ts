@@ -56,6 +56,10 @@ export const EDIT_FORMAT_MENU_ACTIONS: readonly string[] = [
   'clear-formatting',
   'insert-image',
   'insert-table',
+  'insert-chart-bar',
+  'insert-chart-column',
+  'insert-chart-line',
+  'insert-chart-pie',
   'insert-code',
   'insert-page-break',
   'insert-bibliography',
@@ -307,6 +311,10 @@ export function useEditCommands(options: UseEditCommandsOptions) {
     // email-draft stay host-level and are still emitted).
     'insert-image': () => runPluginMenuAction('insertImage'),
     'insert-table': () => runPluginMenuAction('insertTable', { rows: 3, cols: 3, withHeaderRow: true }),
+    'insert-chart-bar': () => runPluginMenuAction('insertChart', { type: 'bar' }),
+    'insert-chart-column': () => runPluginMenuAction('insertChart', { type: 'column' }),
+    'insert-chart-line': () => runPluginMenuAction('insertChart', { type: 'line' }),
+    'insert-chart-pie': () => runPluginMenuAction('insertChart', { type: 'pie' }),
     'insert-code': () => runPluginMenuAction('toggleCodeBlock'),
     'insert-page-break': () => runPluginMenuAction('insertPageBreak'),
     // Citation plugin command: inserts the derived bibliography block (one per
