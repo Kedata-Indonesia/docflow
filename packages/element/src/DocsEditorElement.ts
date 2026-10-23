@@ -35,6 +35,13 @@ export class DocsEditorElement extends HTMLElement {
   private _shadowRoot?: ShadowRoot
   private _plugins: DocsEditorPlugin[] = []
   private _onImageUpload?: ImageUploadHandler
+  /**
+   * Last document the editor emitted, kept alive across a disconnect so moving
+   * the element does not discard unsaved edits (issue #392).
+   */
+  private _modelValue?: object | string
+  /** `content` attribute that produced `_modelValue`; a host rewrite wins. */
+  private _contentAttr?: string | null
 
   get plugins(): DocsEditorPlugin[] {
     return this._plugins
@@ -79,11 +86,13 @@ export class DocsEditorElement extends HTMLElement {
     const props = this._buildProps()
     registerVueElement()
     const vueElement = new VueDocsEditorElement(props)
+    vueElement.addEventListener('update:modelValue', this._onModelUpdate)
     this._vueElement = vueElement
     shadowRoot.appendChild(vueElement)
   }
 
   disconnectedCallback() {
+    this._vueElement?.removeEventListener('update:modelValue', this._onModelUpdate)
     this._vueElement?.remove()
     this._vueElement = undefined
   }
@@ -91,6 +100,43 @@ export class DocsEditorElement extends HTMLElement {
   private _ensureShadowRoot(): ShadowRoot {
     this._shadowRoot ??= this.shadowRoot ?? this.attachShadow({ mode: 'open' })
     return this._shadowRoot
+  }
+
+  /**
+   * Vue's custom-element wrapper dispatches emit arguments as an array in
+   * `detail`, so `update:modelValue` carries the document at index 0.
+   */
+  private _onModelUpdate = (event: Event): void => {
+    const { detail } = event as CustomEvent<unknown>
+    // Vue passes emit arguments as an array; tolerate a bare payload too, in
+    // case a future version drops the wrapper.
+    const value = Array.isArray(detail) ? detail[0] : detail
+    if (typeof value === 'string' || (typeof value === 'object' && value !== null)) {
+      this._modelValue = value
+    }
+  }
+
+  /**
+   * Reuse the editor's latest document while the host has not rewritten the
+   * `content` attribute; a rewrite (including while disconnected) is parsed
+   * fresh and becomes the new baseline.
+   */
+  private _currentModelValue(): object | string | undefined {
+    const contentAttr = this.getAttribute('content')
+    if (contentAttr !== this._contentAttr) {
+      this._contentAttr = contentAttr
+      this._modelValue = this._parseContent(contentAttr)
+    }
+    return this._modelValue
+  }
+
+  private _parseContent(contentAttr: string | null): object | string | undefined {
+    if (contentAttr === null) return undefined
+    try {
+      return JSON.parse(contentAttr) as object
+    } catch {
+      return contentAttr
+    }
   }
 
   attributeChangedCallback(_name: string, oldValue: string | null, newValue: string | null) {
@@ -107,15 +153,7 @@ export class DocsEditorElement extends HTMLElement {
     const debugAttr = this.getAttribute('debug')
     const debug = debugAttr === null ? false : debugAttr !== 'false'
 
-    let modelValue: object | string | undefined
-    const contentAttr = this.getAttribute('content')
-    if (contentAttr !== null) {
-      try {
-        modelValue = JSON.parse(contentAttr)
-      } catch {
-        modelValue = contentAttr
-      }
-    }
+    const modelValue = this._currentModelValue()
 
     const room = this.getAttribute('room')
     const websocketUrl = this.getAttribute('websocket-url')
