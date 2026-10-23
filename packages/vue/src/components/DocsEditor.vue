@@ -101,7 +101,8 @@ const {
   computeBubblePosition, showLinkDialog, linkDialogInitialText, linkDialogInitialUrl, linkDialogIsEditing,
   openLinkDialog, applyLinkDialog, removeLink,
 } = useDocsEditorSession({
-  emit, t, modelValue: props.modelValue, getPlugins: () => props.plugins,   // A computed ref so `useEditor`'s editable watch stays live — passing the
+  emit, t, getModelValue: () => props.modelValue, getPlugins: () => props.plugins,
+  // A computed ref so `useEditor`'s editable watch stays live — passing the
   // plain `props.editable` snapshot froze the editor's editable state at mount.
   editable: effectiveEditable,
   collaboration: props.collaboration, onImageUpload: props.onImageUpload, getCitation: () => props.citation,

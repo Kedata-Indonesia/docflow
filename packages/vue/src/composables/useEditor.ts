@@ -1,8 +1,15 @@
 import { createEditor, type DocsEditor, type EditorOptions } from '@kedata-indonesia/docflow-core'
-import { computed, onMounted, onUnmounted, ref, shallowRef, watch, type ComputedRef, type Ref, type ShallowRef, nextTick, unref } from 'vue'
+import {
+  computed, nextTick, onMounted, onUnmounted, ref, shallowRef, toRaw, unref, watch,
+  type ComputedRef, type Ref, type ShallowRef,
+} from 'vue'
 
 export type UseEditorOptions = Omit<EditorOptions, 'target' | 'content' | 'collaboration' | 'editable'> & {
-  /** Plain value or ref — both are `unref`-ed at init. */
+  /**
+   * Plain value or ref — `unref`-ed at init, then watched so a host write
+   * replaces the document without a remount. Ignored in collaboration mode,
+   * where Yjs is authoritative.
+   */
   content?: EditorOptions['content'] | Ref<EditorOptions['content']>
   collaboration?: EditorOptions['collaboration'] | Ref<EditorOptions['collaboration']>
   /**
@@ -29,6 +36,16 @@ export function useEditor(options: UseEditorOptions): UseEditorReturn {
   const editor = computed(() => docsEditor.value?.editor ?? null)
   const pluginActions = computed(() => docsEditor.value?.pluginActions ?? {})
 
+  /**
+   * The last document the editor reported through `onUpdate`. When the content
+   * ref is fed back (the host's `v-model` write), the reference matches and the
+   * watcher below skips `setContent`, so the editor never loops on itself.
+   */
+  let lastEmittedContent: unknown = null
+
+  /** Compare unwrapped documents: Vite/Vue refs hand back reactive proxies. */
+  const isSameContent = (a: unknown, b: unknown): boolean => toRaw(a) === toRaw(b)
+
   const initEditor = () => {
     if (!editorRef.value || docsEditor.value) return
 
@@ -40,7 +57,10 @@ export function useEditor(options: UseEditorOptions): UseEditorReturn {
       plugins: options.plugins,
       editable: unref(options.editable) ?? true,
       collaboration: collabVal,
-      onUpdate: options.onUpdate,
+      onUpdate: (json) => {
+        lastEmittedContent = toRaw(json)
+        options.onUpdate?.(json)
+      },
       getPageMap: options.getPageMap,
       paginationOptions: options.paginationOptions,
       onImageUpload: options.onImageUpload,
@@ -77,6 +97,21 @@ export function useEditor(options: UseEditorOptions): UseEditorReturn {
       if (editor.value) {
         editor.value.setEditable(value ?? true)
       }
+    },
+  )
+
+  // Host-driven content replacement after mount (version-history restore,
+  // document switching, web-component `content` rewrite). `emitUpdate: false`
+  // keeps the replacement out of the persistence pipeline; collaboration mode
+  // is skipped because Yjs owns the document there.
+  watch(
+    () => unref(options.content),
+    (value) => {
+      if (value === undefined || isSameContent(value, lastEmittedContent)) return
+      if (unref(options.collaboration)) return
+      if (!editor.value) return
+      lastEmittedContent = toRaw(value)
+      editor.value.commands.setContent(value, { emitUpdate: false })
     },
   )
 

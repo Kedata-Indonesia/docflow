@@ -29,6 +29,15 @@ const paginatedWidth = (wrapper: VueWrapper): number => {
 
 const pageWidthOf = (id: string): number => getPageSize(id)?.pageWidth ?? 0
 
+/** Minimal ProseMirror document carrying one paragraph of text. */
+const docWithText = (text: string): object => ({
+  type: 'doc',
+  content: [{ type: 'paragraph', content: [{ type: 'text', text }] }],
+})
+
+const paperText = (wrapper: VueWrapper): string =>
+  wrapper.find('.docs-editor__paper .ProseMirror').text()
+
 describe('DocsEditor reactive props', () => {
   it('re-lays out the paper when the pageSize prop changes', async () => {
     const wrapper = mount(DocsEditor, { props: { pageSize: 'a4' } })
@@ -49,6 +58,57 @@ describe('DocsEditor reactive props', () => {
       expect(paperWidth(wrapper)).toBe(`${pageWidthOf('a4')}px`)
       expect(paginatedWidth(wrapper)).toBe(pageWidthOf('a4'))
       expect(proseMirror(wrapper)).toBe(mountTimePaper)
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  it('applies a host modelValue write after mount without remounting', async () => {
+    const wrapper = mount(DocsEditor, { props: { modelValue: docWithText('First') } })
+    try {
+      await nextTick()
+      await nextTick()
+      expect(paperText(wrapper)).toContain('First')
+      const mountTimePaper = proseMirror(wrapper)
+
+      await wrapper.setProps({ modelValue: docWithText('Second') })
+      await nextTick()
+      await nextTick()
+
+      expect(paperText(wrapper)).toContain('Second')
+      expect(paperText(wrapper)).not.toContain('First')
+      // Content replacement must not recreate the editor instance.
+      expect(proseMirror(wrapper)).toBe(mountTimePaper)
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  it('does not loop when the host feeds the emitted document back', async () => {
+    const wrapper = mount(DocsEditor)
+    try {
+      await nextTick()
+      const vm = wrapper.vm as unknown as {
+        editor?: { commands: { insertContent: (content: string) => void } }
+      }
+      vm.editor?.commands.insertContent('typed text')
+      await nextTick()
+      await nextTick()
+
+      const emitted = wrapper.emitted('update:modelValue') ?? []
+      expect(emitted.length).toBeGreaterThan(0)
+      const lastDoc = emitted.at(-1)?.[0]
+      expect(lastDoc).toBeDefined()
+      const emitCount = emitted.length
+
+      // A host may clone the payload (REST round-trip); applying it must not
+      // trigger another update:modelValue emission.
+      await wrapper.setProps({ modelValue: JSON.parse(JSON.stringify(lastDoc)) })
+      await nextTick()
+      await nextTick()
+
+      expect(wrapper.emitted('update:modelValue')?.length ?? 0).toBe(emitCount)
+      expect(paperText(wrapper)).toContain('typed text')
     } finally {
       wrapper.unmount()
     }

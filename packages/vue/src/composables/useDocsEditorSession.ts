@@ -19,7 +19,8 @@ import { useLinkDialog } from './useLinkDialog.js'
 export interface UseDocsEditorSessionOptions {
   emit: EmitFn<DocsEditorEmits>
   t: LocaleContext['t']
-  modelValue: object | string | undefined
+  /** Read lazily so a host `modelValue` write after mount is observed. */
+  getModelValue: () => object | string | undefined
   /** Plugin list is read lazily so slash-command changes stay reactive. */
   getPlugins: () => DocsEditorPlugin[]
   editable: boolean | Ref<boolean>
@@ -73,8 +74,9 @@ export function useDocsEditorSession(options: UseDocsEditorSessionOptions) {
     updateCounts,
     slashCommands,
   } = useDocumentModel({
-    modelValue: options.modelValue,
+    getModelValue: options.getModelValue,
     getPlugins,
+    isCollaborative: () => Boolean(getCollaboration()),
     emit,
     getHeaderFooter,
     getEditor: () => editor.value,
