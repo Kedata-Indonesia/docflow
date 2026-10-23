@@ -112,6 +112,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- **RTF export keeps non-ASCII text and titles with braces (issue #368):** the
+  writer emitted UTF-8 bytes under a `\ansicpg1252` header, so readers decoded
+  them as Latin-1 — `—` became `â€”`, `café` became `cafÃ©`, and an emoji turned
+  into four junk characters. Every code unit above `0x7F` is now written as a
+  `\uN?` control word, with surrogate halves as signed 16-bit values so astral
+  characters still round-trip. The document title goes through the same escaper,
+  so a `{` or `\` in it can no longer corrupt the RTF group structure and make
+  Word refuse the file. Covered by unit tests for dashes, curly quotes, accents,
+  emoji, line breaks, and braces in the title.
+  _([#368](https://github.com/Kedata-Indonesia/docflow/issues/368))_
+
 - **`<docs-editor>` mounts and survives being moved (issue #369):** the wrapper
   never rendered in any browser — it built Vue's custom-element class with `new`,
   which is an `Illegal constructor` until that class is registered, so every
