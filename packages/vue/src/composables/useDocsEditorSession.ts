@@ -1,3 +1,4 @@
+import { watch } from 'vue'
 import type { EmitFn, Ref } from 'vue'
 import type {
   CitationPort,
@@ -74,6 +75,8 @@ export function useDocsEditorSession(options: UseDocsEditorSessionOptions) {
     tabContents,
     activeTabId,
     persistCurrentDoc,
+    schedulePersistCurrentDoc,
+    flushPendingEmit,
     applyModelValue,
     lastEmitted,
     updateCounts,
@@ -148,8 +151,16 @@ export function useDocsEditorSession(options: UseDocsEditorSessionOptions) {
     paginationOptions,
     onUpdate: (json) => {
       tabContents.value[activeTabId.value] = json
-      persistCurrentDoc()
+      schedulePersistCurrentDoc()
     },
+  })
+
+  // Flush a coalesced typing update as soon as the editor loses focus, so a
+  // host that saves on blur does not miss the last few hundred milliseconds
+  // (issue #374). A collaboration re-init swaps the instance, hence the off.
+  watch(editor, (instance, previous) => {
+    previous?.off('blur', flushPendingEmit)
+    instance?.on('blur', flushPendingEmit)
   })
 
   // ─── Host writes to modelValue (issue #370) ─────────────────────────────────

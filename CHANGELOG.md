@@ -237,6 +237,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **Debounced `update:modelValue` (issue #374):** typing now coalesces into a
+  single trailing emit (~300 ms) instead of emitting a rebuilt tabbed document
+  on every keystroke. A pending edit is flushed when the editor loses focus or
+  the component unmounts, and a host write cancels it so a stale snapshot can
+  never land after the host replaced the document. Discrete changes
+  (header/footer edits, commands) still emit immediately.
+  _([#374](https://github.com/Kedata-Indonesia/docflow/issues/374))_
+
 - **Tailwind CSS 3 → 4 (issue #215):** `packages/vue`, `packages/element` and
   `examples/playground` compile their stylesheet with `tailwindcss@4` and
   `@tailwindcss/postcss`; the three `tailwind.config.js` files are gone and their tokens

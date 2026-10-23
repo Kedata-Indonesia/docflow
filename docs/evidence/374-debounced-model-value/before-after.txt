@@ -1,0 +1,62 @@
+Pengukuran: satu burst 3x insertContent; hitung emit update:modelValue pada
+t=0, t=200 ms, t=350 ms. Skenario blur: ketik lalu kirim event blur. Skenario
+unmount: ketik lalu unmount. Skrip pengukur sementara (tidak dikomit), dijalankan
+dengan source tiap versi.
+
+# Sebelum — main (a042c87)
+
+$ cd packages/vue && npx vitest run src/__tests__/zz-374-measure.test.ts
+
+BURST immediate=3 at200ms=3 at350ms=3
+BLUR before=1 after=1
+UNMOUNT before=1 after=0
+Tests  3 passed (3)
+
+Catatan: di main, tiap ketikan sudah memancarkan update (3 emit), jadi blur dan
+unmount tidak punya antrean untuk di-flush. `after=0` pada unmount hanya karena
+Vue Test Utils mengosongkan riwayat emit saat unmount; dokumen sudah terkirim
+sebelumnya.
+
+# Sesudah — branch perf/374-debounce-model-value
+
+$ cd packages/vue && npx vitest run src/__tests__/zz-374-measure.test.ts
+
+BURST immediate=0 at200ms=0 at350ms=1
+BLUR before=0 after=1
+UNMOUNT before=0 after=1
+Tests  3 passed (3)
+
+# Test regresi (branch)
+
+$ cd packages/vue && npx vitest run src/__tests__/DocsEditor.emits.test.ts --reporter=verbose
+
+coalesces a burst of keystrokes into one trailing emit      ✓
+flushes the pending document when the element unmounts      ✓
+flushes the pending document when the editor loses focus    ✓
+drops a queued edit when the host replaces the document     ✓
+Tests  4 passed (4)
+
+$ cd packages/vue && npx vitest run src/__tests__/useDocumentModel.debounce.test.ts --reporter=verbose
+
+coalesces scheduled persists and flips saving → saved                    ✓
+stays saving when a burst outlasts the previous saved timer              ✓
+drops the queued emit when the host writes modelValue                    ✓
+Tests  3 passed (3)
+
+Tanpa pembatalan timer "saved" pada antrean baru, test kedua gagal:
+expected 'saved' to be 'saving'.
+
+# Suite penuh (branch)
+
+$ pnpm --filter @kedata-indonesia/docflow-vue test:unit
+Test Files  45 passed (45)
+Tests       250 passed (250)
+
+$ pnpm --filter @kedata-indonesia/docflow-element test:unit
+Test Files  3 passed (3)
+Tests       14 passed (14)
+
+$ pnpm --filter @kedata-indonesia/docflow-vue typecheck   # exit 0
+$ npx eslint packages/vue/src --max-warnings 0            # exit 0
+$ pnpm docs:api:check                                     # README up to date
+$ pnpm docs:check                                         # 43 files, no broken links
