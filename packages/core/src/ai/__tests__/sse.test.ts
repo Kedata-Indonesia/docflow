@@ -37,4 +37,25 @@ describe('takeSseEvent', () => {
     expect(takeSseEvent('data: x\r')).toBeNull()
     expect(takeSseEvent('data: x\r\n\r\n')?.data).toBe('x')
   })
+
+  it('supports CR-only line endings and double-CR separators', () => {
+    const event = takeSseEvent('data: a\rdata: b\r\r')
+    expect(event).toEqual({ data: 'a\nb', rest: '' })
+  })
+
+  it('supports multi-line CR-only streams forming complete JSON', () => {
+    const event = takeSseEvent('data: {\rdata:   "a": 1\rdata: }\r\r')
+    expect(event?.data).toBe('{\n  "a": 1\n}')
+  })
+
+  it('handles a CRLF separator truncated to \\r\\n\\r followed by \\n safely', () => {
+    // Truncated chunk ending with \r\n\r followed by \n in the next chunk
+    // As per the issue: "bila separator CRLF terpotong tepat setelah 3 dari 4 byte (\r\n\r), regex menganggap event selesai karena \r dihitung sebagai terminator. Ini aman — payload sudah lengkap di titik itu, dan sisa \n di chunk berikutnya menjadi baris kosong di awal block yang diabaikan."
+    const chunk1 = 'data: first\r\n\r\n'
+    const event1 = takeSseEvent(chunk1)
+    expect(event1?.data).toBe('first')
+    const buffer2 = '\n' + 'data: second\r\n\r\n'
+    const event2 = takeSseEvent(buffer2)
+    expect(event2?.data).toBe('second')
+  })
 })

@@ -3,8 +3,8 @@
  *
  * Providers used to split on `'\n\n'` and feed each `data:` line to
  * `JSON.parse` on its own. Both assumptions are wrong for spec-compliant
- * servers: SSE allows CRLF line endings, and one event may carry several
- * `data:` lines that must be joined with `'\n'` before parsing.
+ * servers: SSE allows LF, CRLF, or CR line endings, and one event may carry
+ * several `data:` lines that must be joined with `'\n'` before parsing.
  */
 
 export interface SseEvent {
@@ -25,12 +25,12 @@ export interface SseEvent {
  * keep reading network chunks.
  */
 export function takeSseEvent(buffer: string): SseEvent | null {
-  const separator = /\r?\n\r?\n/.exec(buffer)
+  const separator = /(\r\n|\r|\n)\1/.exec(buffer)
   if (!separator) return null
 
   const block = buffer.slice(0, separator.index)
   const data: string[] = []
-  for (const line of block.split(/\r?\n/)) {
+  for (const line of block.split(/\r\n|\r|\n/)) {
     if (!line.startsWith('data:')) continue
     const value = line.slice('data:'.length)
     data.push(value.startsWith(' ') ? value.slice(1) : value)

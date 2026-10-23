@@ -129,7 +129,7 @@ export function claudeProvider(config: ClaudeConfig): AIProvider {
             if (done) break
             buffer += decoder.decode(value, { stream: true })
 
-            // SSE events end at a blank line, with either LF or CRLF endings.
+            // SSE events end at a blank line, with LF, CR, or CRLF endings.
             for (let event = takeSseEvent(buffer); event; event = takeSseEvent(buffer)) {
               buffer = event.rest
               const data = event.data?.trim()
