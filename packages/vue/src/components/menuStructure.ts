@@ -11,6 +11,7 @@ import {
   AlignLeft, AlignCenter, AlignRight, AlignJustify, ListOrdered, ListChecks,
   RemoveFormatting, SpellCheck, SlidersHorizontal, Puzzle, Keyboard, Bug, CircleHelp,
   Sparkles, LayoutTemplate, Calendar, MapPin, Eye, PenLine, GitPullRequest, BookOpen,
+  ChartColumn, ChartBar, ChartLine, ChartPie,
 } from 'lucide-vue-next'
 import type { Locale } from '../composables/useLocale.js'
 
@@ -165,6 +166,14 @@ export function buildMenus(ctx: MenuStructureContext): Record<string, { label: s
         { label: 'divider', divider: true },
         { label: t('header.image'), action: 'insert-image', icon: ImagePlus },
         { label: t('header.table'), action: 'insert-table', icon: Table },
+        {
+          label: t('header.chart'), icon: ChartColumn, sub: [
+            { label: t('header.chartBar'), action: 'insert-chart-bar', icon: ChartBar },
+            { label: t('header.chartColumn'), action: 'insert-chart-column', icon: ChartColumn },
+            { label: t('header.chartLine'), action: 'insert-chart-line', icon: ChartLine },
+            { label: t('header.chartPie'), action: 'insert-chart-pie', icon: ChartPie },
+          ]
+        },
         { label: t('header.codeBlock'), action: 'insert-code', icon: Code2 },
         { label: t('header.horizontalLine'), action: 'horizontal-line', icon: Minus },
         { label: 'divider', divider: true },

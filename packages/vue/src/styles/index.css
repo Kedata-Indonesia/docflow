@@ -1103,6 +1103,120 @@
   pointer-events: none;
 }
 
+/* ── Chart block (Insert → Chart, issue #26) ──────────────────────────── */
+.docs-chart {
+  margin: 1.25em 0;
+  padding: 0.5em;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.docs-chart__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 2px 4px 8px;
+  user-select: none;
+}
+
+.docs-chart__type {
+  font-size: 0.78em;
+  padding: 2px 6px;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  background: #f8fafc;
+  color: #334155;
+  cursor: pointer;
+}
+
+.docs-chart__edit,
+.docs-chart__apply,
+.docs-chart__cancel {
+  font-size: 0.78em;
+  padding: 3px 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  background: #f8fafc;
+  color: #334155;
+  cursor: pointer;
+}
+
+.docs-chart__edit:hover,
+.docs-chart__apply:hover,
+.docs-chart__cancel:hover {
+  background: #e2e8f0;
+}
+
+.docs-chart__apply {
+  border-color: #2563eb;
+  background: #2563eb;
+  color: #fff;
+}
+
+.docs-chart__apply:hover {
+  background: #1d4ed8;
+}
+
+.docs-chart__canvas {
+  position: relative;
+  height: 300px;
+}
+
+.docs-chart__editor {
+  padding: 4px;
+}
+
+.docs-chart__textarea {
+  width: 100%;
+  min-height: 120px;
+  resize: vertical;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  padding: 8px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+.docs-chart__error {
+  margin: 4px 0 0;
+  color: #dc2626;
+  font-size: 0.75em;
+}
+
+.docs-chart__actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.docs-chart img {
+  max-width: 100%;
+  height: auto;
+}
+
+.dark .docs-chart {
+  border-color: #334155;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.dark .docs-chart__type,
+.dark .docs-chart__edit,
+.dark .docs-chart__cancel,
+.dark .docs-chart__textarea {
+  border-color: #334155;
+  background: rgba(255, 255, 255, 0.04);
+  color: #e2e8f0;
+}
+
+.dark .docs-chart__error {
+  color: #f87171;
+}
+
 /* Print page setup — standard document margins */
 @page {
   margin: 20mm;

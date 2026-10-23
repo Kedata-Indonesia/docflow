@@ -87,6 +87,22 @@ async function docToDocxDocument(title: string, doc: PmNode, ctx: ExportContext)
       } else if (child.type === 'image') {
         const img = await imageToDocxParagraph(child, ctx)
         if (img) children.push(img)
+      } else if (child.type === 'chart') {
+        // Charts are live canvases in the editor; export uses the cached PNG
+        // preview stored on the node (issue #26).
+        const preview = child.attrs?.preview
+        if (typeof preview === 'string' && preview) {
+          const img = await imageToDocxParagraph({
+            type: 'image',
+            attrs: {
+              src: preview,
+              alt: 'Chart',
+              width: child.attrs?.width,
+              height: child.attrs?.height,
+            },
+          }, ctx)
+          if (img) children.push(img)
+        }
       } else if (child.type === 'referenceList') {
         // Cited-only block (issue #252): rendered from the active CSL style.
         if (ctx.citation) children.push(...bibliographyToParagraphs(ctx.citation.getReferenceList(), 'Reference list'))
