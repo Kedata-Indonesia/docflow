@@ -112,6 +112,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- **AI streaming accepts CR-only SSE streams (issue #398):** SSE permits LF,
+  CRLF, or a lone CR as line terminators, but the framing helper added in #384
+  only knew the first two, so a CR-only server still produced an empty answer.
+  The separator now matches all three, with a `\r(?!\n)` guard so the regex
+  cannot backtrack and split one CRLF into two terminators — which would cut
+  every `event:`/`data:` pair in half. Covered by tests for CR-only streams,
+  CR-only multi-line data, the half-received `\r\n\r` separator, and one
+  end-to-end test per provider.
+  _([#398](https://github.com/Kedata-Indonesia/docflow/issues/398))_
+
 - **AI streaming survives CRLF and multi-line SSE events (issue #384):** both
   providers split the stream on `\n\n` and parsed every `data:` line on its own.
   A compliant server using `\r\n\r\n` therefore produced no deltas — the UI
