@@ -3,7 +3,7 @@ import type { ParagraphChild } from 'docx'
 import type { ExportContext, PageGeometry } from '../types.js'
 import { listToParagraphs, mapBlockNode, mapAlignment, inlineNodesToRuns, type PmNode, type WalkContext } from './nodes.js'
 import { tableToDocxTable } from './table.js'
-import { imageToDocxParagraph } from './image.js'
+import { imageToDocxParagraph, resolveDocxImage, type DocxImage } from './image.js'
 import { FootnoteCollector, bibliographyToParagraphs } from './citation.js'
 
 /** CSS pixels → twips (1440 twips per inch ÷ 96 px per inch). */
@@ -70,7 +70,26 @@ async function docToDocxDocument(title: string, doc: PmNode, ctx: ExportContext)
   // document order, matching the editor's C2 pass.
   const equationNumbers = new Map<PmNode, number>()
   collectEquationNumbers(doc, equationNumbers, { value: 0 })
-  const walkCtx: WalkContext = { citation: ctx.citation, footnotes: new FootnoteCollector(), equationNumbers }
+
+  // Resolve every image once, up front. The list/heading/table mappers are
+  // synchronous, so this is what lets images there reach the DOCX at all
+  // (issues #371, #382).
+  const images = new WeakMap<PmNode, DocxImage | null>()
+  async function collectImages(node: PmNode): Promise<void> {
+    if (node.type === 'image') {
+      const src = node.attrs?.src
+      images.set(node, typeof src === 'string' && src ? await resolveDocxImage(src, ctx) : null)
+    }
+    for (const child of node.content ?? []) await collectImages(child)
+  }
+  await collectImages(doc)
+
+  const walkCtx: WalkContext = {
+    citation: ctx.citation,
+    footnotes: new FootnoteCollector(),
+    equationNumbers,
+    images,
+  }
 
   async function processBlock(node: PmNode) {
     if (!node.content) return
@@ -82,10 +101,10 @@ async function docToDocxDocument(title: string, doc: PmNode, ctx: ExportContext)
 
     for (const child of node.content) {
       if (child.type === 'table') {
-        const table = tableToDocxTable(child)
+        const table = tableToDocxTable(child, walkCtx)
         if (table) children.push(table)
       } else if (child.type === 'image') {
-        const img = await imageToDocxParagraph(child, ctx)
+        const img = await imageToDocxParagraph(child, ctx, walkCtx)
         if (img) children.push(img)
       } else if (child.type === 'chart') {
         // Charts are live canvases in the editor; export uses the cached PNG
@@ -129,9 +148,12 @@ async function docToDocxDocument(title: string, doc: PmNode, ctx: ExportContext)
         }
         if (runs.length > 0) {
           children.push(new Paragraph({ children: runs, alignment: mapAlignment(child.attrs?.textAlign) }))
+        } else if (imageNodes.length === 0) {
+          // Keep the blank line the author inserted (issue #371).
+          children.push(new Paragraph({ alignment: mapAlignment(child.attrs?.textAlign) }))
         }
         for (const imageNode of imageNodes) {
-          const img = await imageToDocxParagraph(imageNode, ctx)
+          const img = await imageToDocxParagraph(imageNode, ctx, walkCtx)
           if (img) children.push(img)
         }
       } else {

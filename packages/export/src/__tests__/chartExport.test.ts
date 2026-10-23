@@ -21,6 +21,18 @@ describe('decodeDataUrl', () => {
     expect(new TextDecoder().decode(decoded?.data)).toBe('<svg/>')
   })
 
+  it('accepts media-type parameters before the payload', () => {
+    const decoded = decodeDataUrl('data:image/svg+xml;charset=utf-8,%3Csvg%2F%3E')
+    expect(decoded?.mime).toBe('image/svg+xml')
+    expect(new TextDecoder().decode(decoded?.data)).toBe('<svg/>')
+  })
+
+  it('accepts parameters combined with base64', () => {
+    const decoded = decodeDataUrl(`data:image/png;charset=utf-8;base64,${TINY_PNG}`)
+    expect(decoded?.mime).toBe('image/png')
+    expect(decoded?.data[0]).toBe(0x89)
+  })
+
   it('returns null for non-data URLs', () => {
     expect(decodeDataUrl('https://example.com/a.png')).toBeNull()
   })

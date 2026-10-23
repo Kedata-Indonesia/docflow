@@ -10,9 +10,11 @@ import {
   FootnoteReferenceRun,
   TabStopType,
   TabStopPosition,
+  ImageRun,
 } from 'docx'
 import type { ParagraphChild } from 'docx'
 import type { CitationExportPort } from '../types.js'
+import type { DocxImage } from './image.js'
 import { citeHtmlToRuns, footnoteBodyRuns, type FootnoteCollector } from './citation.js'
 import { displayEquationChildren, inlineEquationRuns } from './equation.js'
 
@@ -31,6 +33,11 @@ export interface WalkContext {
   footnotes?: FootnoteCollector
   /** Derived display-equation numbers (C2), keyed by node object. */
   equationNumbers?: Map<PmNode, number>
+  /**
+   * Images pre-resolved by the document walk (issue #371/#382). `null` means
+   * the image could not be decoded — emit the placeholder text instead.
+   */
+  images?: WeakMap<PmNode, DocxImage | null>
 }
 
 /** Display names for the code-block language attribute (issue #247). */
@@ -128,8 +135,21 @@ export function inlineNodesToRuns(node: PmNode, walkCtx?: WalkContext): Paragrap
     } else if (child.type === 'hardBreak') {
       runs.push(new TextRun({ text: '', break: 1 }))
     } else if (child.type === 'image') {
-      // Images are handled separately by the block mapper.
-      continue
+      // Use the document walk's pre-resolved bytes so images inside list
+      // items, headings and table cells survive too (issues #371, #382).
+      const image = walkCtx?.images?.get(child)
+      if (image === null) {
+        runs.push(new TextRun({ text: `[Image failed to load: ${String(child.attrs?.alt ?? child.attrs?.src ?? '')}]` }))
+      } else if (image) {
+        runs.push(new ImageRun({
+          data: image.data,
+          type: image.type,
+          transformation: {
+            width: (child.attrs?.width as number | undefined) ?? 600,
+            height: (child.attrs?.height as number | undefined) ?? 400,
+          },
+        }))
+      }
     } else if (child.type === 'inlineEquation') {
       // Native Word equation (OMML) when docx can parse the LaTeX.
       runs.push(...inlineEquationRuns(String(child.attrs?.latex ?? '')))
@@ -152,7 +172,10 @@ export function inlineNodesToRuns(node: PmNode, walkCtx?: WalkContext): Paragrap
 export function listToParagraphs(node: PmNode, walkCtx?: WalkContext, depth = 0): Paragraph[] {
   const type = node.type === 'orderedList' ? 'ordered' : 'bullet'
   const paragraphs: Paragraph[] = []
-  let level = 0
+  // A list may start at any number (`start: 5`); numbering must follow it
+  // instead of always restarting at 1 (issue #385).
+  const start = Number(node.attrs?.start ?? 1)
+  let level = Number.isFinite(start) && start > 0 ? start - 1 : 0
   for (const item of node.content ?? []) {
     if (item.type !== 'listItem') continue
     paragraphs.push(...mapBlockNode(item, { type, level, depth }, walkCtx))
@@ -170,8 +193,9 @@ export function mapBlockNode(
 
   switch (node.type) {
     case 'paragraph': {
+      // An empty paragraph is content: it is the blank line the author pressed
+      // Enter for. Dropping it reflows the exported document (issue #371).
       const children = inlineNodesToRuns(node, walkCtx)
-      if (children.length === 0) return []
       return [new Paragraph({ children, alignment: align })]
     }
     case 'heading': {
@@ -201,6 +225,13 @@ export function mapBlockNode(
       }
       paragraphs.push(new Paragraph({ children, style: 'Code', alignment: align }))
       return paragraphs
+    }
+    case 'bulletList':
+    case 'orderedList': {
+      // Lists inside a table cell (or any other block context) are blocks too;
+      // without this case they fell through to the inline mapper and vanished
+      // (issue #382).
+      return listToParagraphs(node, walkCtx)
     }
     case 'horizontalRule': {
       return [new Paragraph({

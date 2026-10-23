@@ -4,8 +4,11 @@ import { defaultMarkdownSerializer, MarkdownSerializer } from 'prosemirror-markd
 import katex from 'katex'
 
 export function filenameFromTitle(title: string, ext: string): string {
+  // Keep any Unicode letter/number (plus combining marks), not just Latin ones:
+  // titles like "合同" or "تقرير" must not all collapse to "Untitled Document",
+  // which also made same-folder exports overwrite each other (issue #380).
   const safe = (title || 'Untitled Document')
-    .replace(/[^a-zA-Z0-9\u00C0-\u024F\u1E00-\u1EFF _.-]/g, '')
+    .replace(/[^\p{L}\p{M}\p{N} _.-]/gu, '')
     .trim() || 'Untitled Document'
   return `${safe}.${ext}`
 }
