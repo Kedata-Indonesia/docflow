@@ -48,11 +48,11 @@ Fixture yang dipakai:
 ## 4. Cara memverifikasi
 
 ```bash
-# Unit test (7 test helper + 2 test CRLF + 2 test multi-baris, per provider)
+# Unit test (7 test helper + 2 test CRLF + 2 test multi-baris, per provider = 11 test baru)
 pnpm --filter @kedata-indonesia/docflow-core test:unit
 ```
 
-Hasil: 19 file, **172 test** lulus (sebelumnya 162). Untuk memeriksa manual, kirim stream dari
+Hasil: 19 file, **172 test** lulus (sebelumnya 161). Untuk memeriksa manual, kirim stream dari
 fixture di atas ke `complete()` provider dan pastikan delta `Hello, ` dan `world!` muncul; sebelum
 perbaikan hanya `done` yang keluar.
 
