@@ -13,6 +13,7 @@ behaves today.
 
 | Date | Report | Scope | Findings |
 |---|---|---|---|
+| 2026-10-23 | [2026-10-23-audit-followup.md](./2026-10-23-audit-followup.md) | Re-audit at `67b76b0`: carried-over findings + new export/AI/a11y issues | 14 carried over, 5 new |
 | 2026-10-22 | [2026-10-22-code-audit.md](./2026-10-22-code-audit.md) | Whole library (`packages/*`): correctness, safety, scale, tests, speed, lean | 14 (3 must fix) |
 | 2026-10-20 | [2026-10-20-a11y-button-audit.md](./2026-10-20-a11y-button-audit.md) | Accessible names of toolbar buttons (issue #170) | — |
 
