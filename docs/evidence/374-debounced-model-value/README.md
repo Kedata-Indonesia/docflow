@@ -42,10 +42,10 @@ karena file test mengimpor konstanta dari branch): burst 3 ketikan menghasilkan
 3 emit, sehingga assertion "0 emit sebelum 300 ms" gagal. Test regresi di branch
 lulus.
 
-## 4. Test & Verifikasi
+## 4. Test & Verifikasi (setelah rebase ke `main` @ `2c94a1f`)
 
 ```bash
-pnpm --filter @kedata-indonesia/docflow-vue test:unit      # 45 file, 244 test
+pnpm --filter @kedata-indonesia/docflow-vue test:unit      # 45 file, 250 test
 pnpm --filter @kedata-indonesia/docflow-vue typecheck      # bersih
 pnpm --filter @kedata-indonesia/docflow-element test:unit  # 3 file, 14 test
 npx eslint packages/vue/src --max-warnings 0               # exit 0
