@@ -182,7 +182,10 @@ export const docsEditorPropDefaults = {
 } satisfies Record<keyof Required<DocsEditorProps>, unknown>
 
 export interface DocsEditorEmits {
-  /** Document content changed (`v-model`). */
+  /**
+   * Document content changed (`v-model`). Typing is debounced (~300 ms
+   * trailing) and flushed on blur/unmount; structural changes emit immediately.
+   */
   'update:modelValue': [value: object]
   /** Document title changed. */
   'update:title': [title: string]

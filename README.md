@@ -306,7 +306,7 @@ const MyPlugin = definePlugin({
 <!-- api:emits:begin -->
 | Event | Payload | Description |
 |-------|---------|-------------|
-| `update:modelValue` | `value: object` | Document content changed (`v-model`). |
+| `update:modelValue` | `value: object` | Document content changed (`v-model`). Typing is debounced (~300 ms trailing) and flushed on blur/unmount; structural changes emit immediately. |
 | `update:title` | `title: string` | Document title changed. |
 | `update:pageSize` | `pageSize: string` | Page size changed. |
 | `update:orientation` | `orientation: 'portrait' \| 'landscape'` | Page orientation changed. |

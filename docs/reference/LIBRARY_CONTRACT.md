@@ -204,7 +204,7 @@ How each existing port flows through the layers (verified 2026-07-19):
 |-------|--------|
 | core | Declared on `EditorOptions` — [Editor.ts:28](../../packages/core/src/Editor.ts); invoked inside `createTiptapEditor` as `options.onUpdate?.(editor.getJSON())` — [Editor.ts:198-200](../../packages/core/src/Editor.ts) |
 | vue (composable) | Accepted on `UseEditorOptions` — [useEditor.ts:7](../../packages/vue/src/composables/useEditor.ts); forwarded to `createEditor` — [useEditor.ts:41](../../packages/vue/src/composables/useEditor.ts) |
-| vue (component) | `DocsEditor.vue` passes a handler — [:191](../../packages/vue/src/components/DocsEditor.vue) — that reassembles the tabbed document and re-emits it as `update:modelValue` — [:202](../../packages/vue/src/components/DocsEditor.vue) |
+| vue (component) | `DocsEditor.vue` passes a handler — [:191](../../packages/vue/src/components/DocsEditor.vue) — that reassembles the tabbed document and re-emits it as `update:modelValue` — [:202](../../packages/vue/src/components/DocsEditor.vue). Typing emissions are debounced (~300 ms trailing) and flushed on blur/unmount (issue #374) |
 | element | No dedicated attribute; `defineCustomElement` re-dispatches the Vue component's emits as DOM `CustomEvent`s, so hosts listen for `update:modelValue` |
 
 ### `collaboration`

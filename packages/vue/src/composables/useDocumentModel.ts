@@ -32,6 +32,9 @@ export interface HeaderFooterValues {
   footerRight: string
 }
 
+/** Trailing window for coalescing `update:modelValue` while typing (#374). */
+const PERSIST_DEBOUNCE_MS = 300
+
 export interface UseDocumentModelOptions {
   /** Initial host value, read once at setup. Later writes arrive via the sync composable. */
   modelValue: object | string | undefined
@@ -94,10 +97,24 @@ export function useDocumentModel(options: UseDocumentModelOptions) {
   const lastSaved = ref(Date.now())
   const saveTimer = ref<ReturnType<typeof setTimeout> | null>(null)
 
+  // Keystroke-driven persistence is coalesced: rebuilding the tabbed document
+  // and emitting `update:modelValue` on every transaction is expensive on long
+  // documents (issue #374). Explicit actions still persist immediately.
+  let persistTimer: ReturnType<typeof setTimeout> | null = null
+  let persistPending = false
+
+  const clearPersistTimer = () => {
+    if (!persistTimer) return
+    clearTimeout(persistTimer)
+    persistTimer = null
+  }
+
   // Build the full tabbed document from current state and emit it to the host.
   // Persistence is the host's job (via update:modelValue / onUpdate) — the
   // library deliberately performs no storage writes (LIBRARY_CONTRACT rule 5).
   const persistCurrentDoc = () => {
+    clearPersistTimer()
+    persistPending = false
     const { headerLeft, headerRight, footerLeft, footerRight } = getHeaderFooter()
     const fullDoc: TabbedDoc = {
       type: 'tabbed-doc',
@@ -113,6 +130,22 @@ export function useDocumentModel(options: UseDocumentModelOptions) {
     savingStatus.value = 'saving'
     if (saveTimer.value) clearTimeout(saveTimer.value)
     saveTimer.value = setTimeout(() => { savingStatus.value = 'saved'; lastSaved.value = Date.now() }, 800)
+  }
+
+  /** Debounced persistence for typing: coalesces bursts into one emission. */
+  const schedulePersist = () => {
+    persistPending = true
+    clearPersistTimer()
+    persistTimer = setTimeout(() => {
+      persistTimer = null
+      persistCurrentDoc()
+    }, PERSIST_DEBOUNCE_MS)
+  }
+
+  /** Emit any pending typing update immediately (blur / unmount). */
+  const flushPersist = () => {
+    if (!persistPending) return
+    persistCurrentDoc()
   }
 
   /**
@@ -181,6 +214,8 @@ export function useDocumentModel(options: UseDocumentModelOptions) {
     lastSaved,
     saveTimer,
     persistCurrentDoc,
+    schedulePersist,
+    flushPersist,
     applyModelValue,
     lastEmitted,
     updateCounts,

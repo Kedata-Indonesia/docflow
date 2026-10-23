@@ -16,6 +16,7 @@ interface EditorHandle {
     getJSON: () => object
     getText: () => string
     commands: { focus: () => void; insertContent: (value: string) => void }
+    view: { dom: HTMLElement }
     state: { selection: { from: number } }
   }
 }
@@ -49,6 +50,7 @@ describe('DocsEditor modelValue after mount (#370)', () => {
     const editor = editorOf(wrapper)
     editor?.commands.focus()
     editor?.commands.insertContent('typed')
+    await settle(350)
 
     const emitted = wrapper.emitted('update:modelValue') ?? []
     expect(emitted.length).toBeGreaterThan(0)
@@ -62,12 +64,59 @@ describe('DocsEditor modelValue after mount (#370)', () => {
     wrapper.unmount()
   })
 
+  it('debounces typing updates and flushes them on blur (#374)', async () => {
+    const wrapper = mount(DocsEditor, { props: { modelValue: docA } })
+    await settle()
+    const editor = editorOf(wrapper)
+    const before = wrapper.emitted('update:modelValue')?.length ?? 0
+
+    editor?.commands.focus()
+    editor?.commands.insertContent('a')
+    editor?.commands.insertContent('b')
+    editor?.commands.insertContent('c')
+    await wrapper.vm.$nextTick()
+    expect(wrapper.emitted('update:modelValue')?.length ?? 0).toBe(before)
+
+    await settle(350)
+    expect(wrapper.emitted('update:modelValue')?.length ?? 0).toBe(before + 1)
+    const debounced = wrapper.emitted('update:modelValue')?.at(-1)?.[0]
+    expect(JSON.stringify(debounced)).toContain('abc')
+
+    editor?.commands.insertContent('delta')
+    await wrapper.vm.$nextTick()
+    expect(wrapper.emitted('update:modelValue')?.length ?? 0).toBe(before + 1)
+    editor?.view.dom.dispatchEvent(new Event('blur'))
+    await wrapper.vm.$nextTick()
+    expect(wrapper.emitted('update:modelValue')?.length ?? 0).toBe(before + 2)
+    const flushed = wrapper.emitted('update:modelValue')?.at(-1)?.[0]
+    expect(JSON.stringify(flushed)).toContain('delta')
+    wrapper.unmount()
+  })
+
+  it('flushes a pending typing update on unmount (#374)', async () => {
+    const wrapper = mount(DocsEditor, { props: { modelValue: docA } })
+    await settle()
+    const editor = editorOf(wrapper)
+    const before = wrapper.emitted('update:modelValue')?.length ?? 0
+
+    editor?.commands.focus()
+    editor?.commands.insertContent('pending')
+    await wrapper.vm.$nextTick()
+    expect(wrapper.emitted('update:modelValue')?.length ?? 0).toBe(before)
+
+    wrapper.unmount()
+    expect(wrapper.emitted('update:modelValue')?.length ?? 0).toBe(before + 1)
+    const flushed = wrapper.emitted('update:modelValue')?.at(-1)?.[0]
+    expect(JSON.stringify(flushed)).toContain('pending')
+  })
+
   it('applies a host write that reverts to an older emitted document', async () => {
     const wrapper = mount(DocsEditor, { props: { modelValue: docA } })
     await settle()
     const editor = editorOf(wrapper)
     editor?.commands.focus()
     editor?.commands.insertContent('typed')
+    await settle(350)
     const olderEmitted = wrapper.emitted('update:modelValue')?.at(-1)?.[0] as object
 
     await wrapper.setProps({ modelValue: docB })
@@ -122,6 +171,7 @@ describe('DocsEditor modelValue after mount (#370)', () => {
 
     editor?.commands.focus()
     editor?.commands.insertContent('!')
+    await settle(350)
     const last = wrapper.emitted('update:modelValue')?.at(-1)?.[0] as
       | { activeTabId: string; tabs: Array<{ id: string; content: object }> }
       | undefined

@@ -74,6 +74,8 @@ export function useDocsEditorSession(options: UseDocsEditorSessionOptions) {
     tabContents,
     activeTabId,
     persistCurrentDoc,
+    schedulePersist,
+    flushPersist,
     applyModelValue,
     lastEmitted,
     updateCounts,
@@ -148,7 +150,7 @@ export function useDocsEditorSession(options: UseDocsEditorSessionOptions) {
     paginationOptions,
     onUpdate: (json) => {
       tabContents.value[activeTabId.value] = json
-      persistCurrentDoc()
+      schedulePersist()
     },
   })
 
@@ -201,6 +203,7 @@ export function useDocsEditorSession(options: UseDocsEditorSessionOptions) {
   return {
     initialDoc,
     persistCurrentDoc,
+    flushPersist,
     updateCounts,
     saveTimer,
     slashCommands,

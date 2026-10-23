@@ -92,7 +92,7 @@ const setDocumentMode = (mode: DocumentMode) => {
 }
 
 const {
-  initialDoc, persistCurrentDoc, updateCounts, saveTimer, slashCommands, wordCount, charCount, savingStatus,
+  initialDoc, persistCurrentDoc, flushPersist, updateCounts, saveTimer, slashCommands, wordCount, charCount, savingStatus,
   lastSaved, activeSidebar, showRuler, focusMode, scrollContainerRef, handleScroll, toggleSidebar, handlePrint,
   citationSources, citationStyleId, citationStyles, pendingSourceRequest, handleSourceCreate, handleSourceUpdate,
   handleSourceRemove, handleCitationStyleChange, handleStyleRemove, handleReferenceInsert, importBusy, importMessage,
@@ -258,7 +258,7 @@ const { showTableMenu, tableMenuPosition, updateTableMenu } = useTableMenu({ edi
 useDocsEditorBootstrap({
   isReady, editor, docEditor, userHeaderLeft, userHeaderRight, userFooterLeft, userFooterRight, headerMarginCm,
   footerMarginCm, applyHeaderFooter, startInlineHeaderEdit, startInlineFooterEdit, updateBubbleMenu, updateTableMenu, updatePageStats,
-  updateCounts, scheduleCommentAnchorScan, openLinkDialog, emit, finishHeaderEdit, saveTimer,
+  updateCounts, scheduleCommentAnchorScan, openLinkDialog, emit, finishHeaderEdit, saveTimer, flushPersist,
   getCollaboration: () => props.collaboration,
   getZoomScale: () => scale.value,
 })
