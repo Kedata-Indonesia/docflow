@@ -200,4 +200,15 @@ describe('openaiCompatibleProvider', () => {
     const events = await collect(openaiCompatibleProvider(baseConfig).complete({ prompt: 'x' }))
     expect(events).toEqual([{ type: 'delta', text: 'multi' }, { type: 'done' }])
   })
+
+  it('parses CR-only SSE events', async () => {
+    const delta = JSON.stringify({ choices: [{ delta: { content: 'cr' } }] })
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(sseResponse([`data: ${delta}\r\rdata: [DONE]\r\r`]))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const events = await collect(openaiCompatibleProvider(baseConfig).complete({ prompt: 'x' }))
+    expect(events).toEqual([{ type: 'delta', text: 'cr' }, { type: 'done' }])
+  })
 })

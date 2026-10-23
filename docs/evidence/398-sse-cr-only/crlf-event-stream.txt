@@ -1,0 +1,1 @@
+event: content_block_delta<CRLF>data: {"type":"content_block_delta"}<CRLF><CRLF>
