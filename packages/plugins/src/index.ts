@@ -46,6 +46,21 @@ export {
   type SuggestionSummary,
   type SuggestionAuthor,
 } from './suggestChanges.js'
+export { chartPlugin } from './chart.js'
+export { ChartNode } from './chartNode.js'
+export {
+  CHART_KINDS,
+  CHART_PALETTE,
+  DEFAULT_CHART_DATA,
+  buildChartConfig,
+  chartDataToCsv,
+  csvToChartData,
+  parseChartData,
+  serializeChartData,
+  type ChartData,
+  type ChartKind,
+  type ChartSeries,
+} from './chartData.js'
 export { smartElementsPlugin, DateChipNode, PeopleChipNode, FileChipNode, DropdownChipNode, LocationChipNode } from './smartElements.js'
 export { BibliographyNode, ReferenceListNode } from './bibliography.js'
 export { CiteEngine, nextCitationId, sanitizeCiteprocHtml, resolveCslStyles, type CitationAttrs, type CitationMode, type CitationCluster, type CiteEngineOptions, type CslStyleInfo } from './citeEngine.js'
@@ -77,6 +92,7 @@ import { aiPlugin } from './ai.js'
 import { commentPlugin } from './comment.js'
 import { suggestChangesPlugin } from './suggestChanges.js'
 import { smartElementsPlugin } from './smartElements.js'
+import { chartPlugin } from './chart.js'
 import { tablePageSplitPlugin } from './tablePageSplit.js'
 
 export const defaultPlugins = [
@@ -104,6 +120,7 @@ export const defaultPlugins = [
   commentPlugin,
   suggestChangesPlugin,
   smartElementsPlugin,
+  chartPlugin,
 ]
 
 export type { DocsEditorPlugin, ToolbarItem, SlashCommand } from '@kedata-indonesia/docflow-core'
