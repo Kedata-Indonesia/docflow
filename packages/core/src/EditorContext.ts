@@ -19,7 +19,7 @@ export interface EditorContextOptions {
  *   editor.storage.editorContext.aiDraft
  *
  * Plugins must never import backend concerns — they read injected ports from
- * this storage instead. See docs/LIBRARY_CONTRACT.md.
+ * this storage instead. See docs/reference/LIBRARY_CONTRACT.md.
  */
 export const EditorContextExtension = Extension.create<EditorContextOptions>({
   name: 'editorContext',

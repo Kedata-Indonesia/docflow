@@ -1,10 +1,10 @@
 # Self-Hosted AI — Operator Guide
 
-> **Catatan Cakupan Repositori:** Dokumen ini adalah panduan operator untuk server host di `Kedata-Indonesia/docflow-app`. Untuk integrasi library AI, lihat [`EMBEDDING_AI.md`](EMBEDDING_AI.md).
+> **Catatan Cakupan Repositori:** Dokumen ini adalah panduan operator untuk server host di `Kedata-Indonesia/docflow-app`. Untuk integrasi library AI, lihat [`EMBEDDING_AI.md`](../guides/EMBEDDING_AI.md).
 >
 > For operators deploying the DocFlow SaaS stack (Docker / Dokploy).
-> Architecture: [`plans/PLUGGABLE_AI_PROVIDER.md`](plans/PLUGGABLE_AI_PROVIDER.md).
-> Embedding the library in your own app: [`EMBEDDING_AI.md`](EMBEDDING_AI.md).
+> Architecture: [`plans/PLUGGABLE_AI_PROVIDER.md`](../plans/PLUGGABLE_AI_PROVIDER.md).
+> Embedding the library in your own app: [`EMBEDDING_AI.md`](../guides/EMBEDDING_AI.md).
 
 ## How it works
 
@@ -15,7 +15,7 @@ traffic, holds no LLM keys in env, and does no token metering.
 
 ## Setup checklist
 
-1. **Server env** (see [`DEPLOYMENT.md` §3.4](DEPLOYMENT.md)):
+1. **Server env** (see [`DEPLOYMENT.md` §3.4](./DEPLOYMENT.md)):
 
    ```env
    ADMIN_EMAILS=admin@yourcompany.com        # required — who may write AI config
@@ -73,7 +73,7 @@ Browsers call the LLM directly → the endpoint must allow your web origin:
 
 - **Ollama:** `OLLAMA_ORIGINS=https://your-docflow-host`
 - **OpenAI API:** no browser CORS — put a thin same-origin proxy in front
-  (recipe in [`AI_PROVIDERS.md` §3](AI_PROVIDERS.md)) and point AI Settings
+  (recipe in [`AI_PROVIDERS.md` §3](../guides/AI_PROVIDERS.md)) and point AI Settings
   at it.
 
 Symptom: "Test connection" passes (it probes from the *server*) but the AI
@@ -84,7 +84,7 @@ sidebar errors on first use → almost always browser-side CORS.
 The cited-drafting extension (`POST /api/ai-extensions/draft`) stays
 server-side because vector search needs Mongo. It uses the saved tenant
 config for its LLM call, plus server-side embeddings env
-([`DEPLOYMENT.md` §3.5](DEPLOYMENT.md)): `AI_EMBED_BASE_URL` /
+([`DEPLOYMENT.md` §3.5](./DEPLOYMENT.md)): `AI_EMBED_BASE_URL` /
 `AI_EMBED_MODEL` / `AI_EMBED_API_KEY` (+ `AI_RAG_VECTOR_BACKEND=scan`
 default). Without embeddings configured, the route returns 503 and the
 sidebar's draft action stays disabled — everything else keeps working.

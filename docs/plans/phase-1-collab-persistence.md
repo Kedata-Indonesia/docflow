@@ -1,6 +1,6 @@
 # Phase 1 — Collaboration Persistence · Task-Level Implementation Plan
 
-**Roadmap ref:** [ENHANCEMENT_ROADMAP.md](../ENHANCEMENT_ROADMAP.md) Phase 1 · **Priority:** P0 · **Status:** ✅ Implemented (pending maintainer acceptance) · **Last updated:** 2026-07-19
+**Roadmap ref:** [ENHANCEMENT_ROADMAP.md](../product/ENHANCEMENT_ROADMAP.md) Phase 1 · **Priority:** P0 · **Status:** ✅ Implemented (pending maintainer acceptance) · **Last updated:** 2026-07-19
 
 > **Goal:** make the **Yjs document the single durable source of truth**, persisted
 > **server-side** and independent of any connected client, so on-prem installs never lose

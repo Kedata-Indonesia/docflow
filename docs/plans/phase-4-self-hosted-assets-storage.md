@@ -1,6 +1,6 @@
 # Phase 4 — Self-hosted Assets & Storage · Task-Level Implementation Plan
 
-**Roadmap ref:** [ENHANCEMENT_ROADMAP.md](../ENHANCEMENT_ROADMAP.md) Phase 4 · **Priority:** P1 · **Depends on:** Phase 2 · **Status:** 🟡 Core implemented (Groups A–C1 landed; endpoint test suite + E2E pending) · **Last updated:** 2026-07-19
+**Roadmap ref:** [ENHANCEMENT_ROADMAP.md](../product/ENHANCEMENT_ROADMAP.md) Phase 4 · **Priority:** P1 · **Depends on:** Phase 2 · **Status:** 🟡 Core implemented (Groups A–C1 landed; endpoint test suite + E2E pending) · **Last updated:** 2026-07-19
 
 > **Goal:** uploaded images/files live in **infrastructure the customer controls**. Add a
 > storage service in `apps/server` with **S3-compatible (MinIO) as the primary target** and a
@@ -25,7 +25,7 @@ There is **no storage service today** — nothing in `apps/server` accepts or se
 |---------|-------------|------|
 | Image insertion | Hardcoded placeholder + `window.prompt` for a URL; no upload | [packages/plugins/src/image.ts:5-24](../../packages/plugins/src/image.ts) |
 | Default image src | `https://via.placeholder.com/300x200` (external URL) | [image.ts:5](../../packages/plugins/src/image.ts) |
-| Upload injection point | **Added in Phase 2** — `onImageUpload(file) => Promise<{ src }>` threaded core→vue→element; not present yet | [ENHANCEMENT_ROADMAP.md:113](../ENHANCEMENT_ROADMAP.md) |
+| Upload injection point | **Added in Phase 2** — `onImageUpload(file) => Promise<{ src }>` threaded core→vue→element; not present yet | [ENHANCEMENT_ROADMAP.md:113](../product/ENHANCEMENT_ROADMAP.md) |
 | Server routes | `documents`, `collab`, `users`, auth only — no `assets` | [index.ts:76-78](../../apps/server/src/index.ts) |
 | Body size limit | `express.json({ limit: '10mb' })` — JSON only; no multipart parser | [index.ts:40](../../apps/server/src/index.ts) |
 | Auth on routes | `requireAuth` reads the Better Auth session, sets `req.userId` | [middleware/auth-guard.ts:4-23](../../apps/server/src/middleware/auth-guard.ts) |
@@ -235,7 +235,7 @@ Tasks are grouped; each lists files, work, and acceptance. Dependencies noted as
 - Accept: dropping/pasting an image into the editor uploads it and renders from `/api/assets/:id`; **zero external network calls** (satisfies the roadmap boundary + Phase 2 acceptance).
 
 **C2. Env examples + deployment docs.** ⇐ A1, A5
-- Files: [docker/server.env.example](../../docker/server.env.example), [.env.docker.example](../../.env.docker.example), [docs/DEPLOYMENT.md](../../docs/DEPLOYMENT.md)
+- Files: [docker/server.env.example](../../docker/server.env.example), [.env.docker.example](../../.env.docker.example), [docs/operations/DEPLOYMENT.md](../operations/DEPLOYMENT.md)
 - Document `STORAGE_BACKEND` (`gridfs` default vs `s3`), the `S3_*` keys, `STORAGE_MAX_UPLOAD_BYTES`, `STORAGE_ALLOWED_MIME`. Explain the trade-off: GridFS = one datastore/single-container; MinIO = production object storage.
 - Accept: a reader can enable either backend from the examples alone.
 

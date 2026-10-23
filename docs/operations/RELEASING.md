@@ -9,7 +9,7 @@ For the mechanics of the publish workflow itself, see [`PUBLISH.md`](./PUBLISH.m
 
 ## The changelog
 
-[`CHANGELOG.md`](../CHANGELOG.md) follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+[`CHANGELOG.md`](../../CHANGELOG.md) follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Because the packages version and publish independently (CI patch-bumps each push
 to `main`), the changelog is grouped by **date and milestone**, not by a single
 semver.
@@ -43,7 +43,7 @@ notes and the demo GIF attached — so treat every release as a small launch.
 
 3. The workflow takes it from there: once the packages reach npm, its `release`
    job creates the Release for the tag — notes generated from
-   [`.github/release.yml`](../.github/release.yml) (grouped by label), a
+   [`.github/release.yml`](../../.github/release.yml) (grouped by label), a
    changelog pointer prepended, and `docs/assets/docflow-demo.gif` attached. The
    step is idempotent, so re-running the workflow on an announced tag is a no-op.
 

@@ -24,7 +24,7 @@ function collectSources(dir: string): string[] {
 }
 
 /**
- * Invariant documented in `docs/ARCHITECTURE.md` §2.1 and required by issue
+ * Invariant documented in `docs/product/ARCHITECTURE.md` §2.1 and required by issue
  * #43: the layout engine is a *derived read model*. It measures the DOM but
  * must never mutate ProseMirror document state.
  *

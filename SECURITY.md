@@ -72,4 +72,4 @@ Out of scope here:
   in the package;
 - the browser never holds LLM/API credentials in the library's default
   configuration (see `packages/core/src/ai/keyStorage.ts` and
-  [docs/AI_PROVIDERS.md](docs/AI_PROVIDERS.md)).
+  [docs/guides/AI_PROVIDERS.md](docs/guides/AI_PROVIDERS.md)).

@@ -7,8 +7,8 @@
 > Built on TipTap/ProseMirror + Yjs. Same-domain mode is the default and the path the reference
 > deploy (`https://dev-docflow.kedata.cloud`) uses.
 >
-> **Plan refs:** [`docs/plans/phase-8-deployment-packaging.md`](phase-8-deployment-packaging.md) §A1-C4,
-> [`docs/plans/sprint-9-10-execution-plan.md`](sprint-9-10-execution-plan.md) §2.
+> **Plan refs:** [`docs/plans/phase-8-deployment-packaging.md`](../plans/phase-8-deployment-packaging.md) §A1-C4,
+> [`docs/plans/sprint-9-10-execution-plan.md`](../plans/sprint-9-10-execution-plan.md) §2.
 
 ---
 
@@ -185,7 +185,7 @@ removed.
 **CORS note:** because browsers call the LLM directly, the endpoint must
 allow the web origin. Ollama: set `OLLAMA_ORIGINS`. Hosted OpenAI does not
 allow browser-direct calls — put a small same-origin proxy/gateway in front
-(see [`docs/AI_PROVIDERS.md`](AI_PROVIDERS.md)).
+(see [`docs/guides/AI_PROVIDERS.md`](../guides/AI_PROVIDERS.md)).
 
 ### 3.5 AI embeddings / RAG (Phase 7E)
 
@@ -290,13 +290,13 @@ Ollama, vLLM, a gateway — anything speaking `/chat/completions` SSE).
 | Hosted provider without browser CORS (e.g. OpenAI) | Small same-origin proxy/gateway in front; point AI Settings at it |
 
 For the **compatibility matrix** (per-provider base URLs, auth shapes, CORS
-notes, and known quirks), see [`docs/AI_PROVIDERS.md`](AI_PROVIDERS.md). The
+notes, and known quirks), see [`docs/guides/AI_PROVIDERS.md`](../guides/AI_PROVIDERS.md). The
 browser-side provider is unit-tested in
 `packages/core/src/ai/__tests__/openaiCompatibleProvider.test.ts`.
 
 > **B2 scope:** the local LLM compose profile (Ollama container in `docker-compose.yml`
 > under `profiles: [local-llm]`) is **deferred** to the "pure on-prem" backlog per
-> [`sprint-9-10-execution-plan.md`](sprint-9-10-execution-plan.md) §2 — revisit when a
+> [`sprint-9-10-execution-plan.md`](../plans/sprint-9-10-execution-plan.md) §2 — revisit when a
 > privacy-strict on-prem customer is on the roadmap. The library is **already** agnostic
 > for any provider that speaks OpenAI's `/chat/completions` streaming protocol.
 

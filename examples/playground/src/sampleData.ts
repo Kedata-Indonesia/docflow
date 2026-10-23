@@ -3,7 +3,7 @@
  *
  * Everything here is what a real consumer would feed the library: a ProseMirror
  * document, comment threads, version snapshots and collaborators. The library
- * never fetches this data itself (see docs/LIBRARY_CONTRACT.md).
+ * never fetches this data itself (see docs/reference/LIBRARY_CONTRACT.md).
  */
 
 import type { Collaborator, CommentItem, DocumentSnapshot } from '@kedata-indonesia/docflow-vue'

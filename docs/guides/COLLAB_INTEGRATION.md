@@ -586,7 +586,7 @@ onMounted(() => {
 
 ## Referensi
 
-- [PRD — Collaboration Section](../PRD.md#43-collaboration-fase-3)
-- [Phase 1 Plan: Collab + Persistence](./plans/phase-1-collab-persistence.md)
+- [PRD — Collaboration Section](../product/PRD.md#43-collaboration-fase-3)
+- [Phase 1 Plan: Collab + Persistence](../plans/phase-1-collab-persistence.md)
 - [Yjs Documentation](https://docs.yjs.dev)
 - [y-websocket Server](https://github.com/yjs/y-websocket)

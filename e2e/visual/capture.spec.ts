@@ -13,7 +13,7 @@ import path from 'node:path'
  *
  * It is NOT a CI gate. Baselines churn with every intentional design change, and a
  * permanently-red visual job is one nobody reads. Run it before and after the
- * migration (see docs/tailwind4-migration-plan.md).
+ * migration (see docs/plans/tailwind4-migration-plan.md).
  *
  *   VISUAL_OUT=test-results/visual/before pnpm exec playwright test --project=visual
  *   VISUAL_OUT=test-results/visual/after  pnpm exec playwright test --project=visual

@@ -9,7 +9,7 @@
 
 **2026-07-26 update:** A1, A5, C1, C2, C3 shipped (PR #83, #85, #86). A3/4 latency fix shipped in #84. B1 verified in prod. A6 verified in prod (live cold start).
 
-**2026-07-26 update (2):** B2-r1/r2/r3 shipped (PR #88) — provider-agnostic AI compat matrix with 38 unit tests + `docs/AI_PROVIDERS.md`. C4 shipped (PR #89) — `GenflowAi.md` §Deployment now lists the prod stack + links to operator-facing docs.
+**2026-07-26 update (2):** B2-r1/r2/r3 shipped (PR #88) — provider-agnostic AI compat matrix with 38 unit tests + `docs/guides/AI_PROVIDERS.md`. C4 shipped (PR #89) — `GenflowAi.md` §Deployment now lists the prod stack + links to operator-facing docs.
 
 **2026-07-26 update (3):** D1 shipped (PR #90) — proprietary LICENSE + NOTICE + `license: "UNLICENSED"` across all 11 package.jsons + README badge + license pointer. D2 is **folded into D1** — the third-party license surface lives in the dedicated `NOTICE` file plus the on-prem compose notes in `DEPLOYMENT.md` §2; no further code change needed. Status table below reflects this. **Phase 8 is functionally complete**: only license *enforcement* (tier caps, signed file, audit log) and A6 live verification remain — both deferred to Sprint 11+.
 
@@ -99,7 +99,7 @@ Legend:
 | **A6** | Healthchecks + startup order | ✅ | Server healthcheck + `depends_on: service_healthy` + `entrypoint.sh` wait-for-Mongo. Confirmed live (SPA + backend responsive at `dev-docflow.kedata.cloud`). | Cold start reaches all-healthy without manual restart. ✅ in prod. |
 | **B1** | AI env in compose + server env | ✅ | `config.ts:46-71` reads `AI_*` (7F-1). Documented in `docker/server.env.example` + `.env.docker.example` + `DEPLOYMENT.md` §3.4 + §7. Prod runs `openai-compatible` → DeepSeek. | `AI_PROVIDER=claude` works; switch to local preset works, env-only, no rebuild. ✅ in prod (openai-compatible → DeepSeek). |
 | **B2-r1** | Compat test suite (fixtures) | ✅ #88 | PR #88. `apps/server/src/ai/__tests__/openaiCompat.spec.ts` (NEW, 21 tests): happy-path + error-path fixtures for DeepSeek / OpenAI / Ollama / vLLM / LM Studio / OpenRouter. | Each provider in the matrix (DeepSeek, OpenAI, Ollama, vLLM, LM Studio, OpenRouter) has a recorded happy-path + an error-path fixture that the OpenAI-compatible adapter must normalize correctly. |
-| **B2-r2** | Compat matrix docs | ✅ #88 | PR #88. `docs/AI_PROVIDERS.md` (NEW, 146 lines) — provider matrix + per-provider env config + per-provider quirks + recipe for adding a new provider. Linked from `DEPLOYMENT.md` §7. | A `docs/AI_PROVIDERS.md` documents (a) the matrix of supported providers, (b) the per-provider env config, (c) known quirks (e.g. DeepSeek's `finish_reason: 'tool_calls'` vs OpenAI's `finish_reason: 'stop'`). Linked from `DEPLOYMENT.md` §7. |
+| **B2-r2** | Compat matrix docs | ✅ #88 | PR #88. `docs/guides/AI_PROVIDERS.md` (NEW, 146 lines) — provider matrix + per-provider env config + per-provider quirks + recipe for adding a new provider. Linked from `DEPLOYMENT.md` §7. | A `docs/guides/AI_PROVIDERS.md` documents (a) the matrix of supported providers, (b) the per-provider env config, (c) known quirks (e.g. DeepSeek's `finish_reason: 'tool_calls'` vs OpenAI's `finish_reason: 'stop'`). Linked from `DEPLOYMENT.md` §7. |
 | **B2-r3** | Streaming edge-case tests | ✅ #88 | PR #88. `apps/server/src/ai/__tests__/openaiCompatEdges.spec.ts` (NEW, 17 tests): empty choices, double done, missing `[DONE]`, multi-byte UTF-8 chunks, abort mid-stream, response-body edge cases, parser-level edge cases. | Each edge case pinned by a unit test in `apps/server/src/ai/__tests__/openaiCompatEdges.spec.ts`. |
 | **B2-c** | Local-LLM compose profile | 🔵 backlog | No `llm` service, no `profiles: [local-llm]`, no GPU override. Cloud-AI customers (current prod) don't need it; pure on-prem + privacy-strict customers do. | `docker compose --profile local-llm up` starts model server; local preset AI action completes with no egress (asserted by privacy test from 7F-3). |
 | **B3** | GPU / hardware doc | ✅ | `DEPLOYMENT.md` §7 documents Claude vs DeepSeek vs local-Ollama/vLLM options. NVIDIA Container Toolkit + GPU sizing is the next thing to add — but only relevant once B2 is built. | Reader can pick Claude vs cloud openai-compatible vs local; specifics of GPU/VRAM sizing deferred to B2. |
@@ -212,7 +212,7 @@ Status as of 2026-07-26:
 | 13 | **A5** Consolidated env template | ✅ #84 + #85 | After A2/A3; remove `*.kedata.cloud` hardcodes; include all vars. | A2, A3, B1 |
 | 14 | **B1** AI env in compose | ✅ live + documented | Server env is done (7F-1); expose to compose. | Phase 7 |
 | 15a | **B2-r1** Compat test suite (fixtures) | ✅ #88 | Each provider in the matrix must have a happy-path + error-path fixture. Hardens the library's "truly agnostic" claim. | B1 |
-| 15b | **B2-r2** Compat matrix docs | ✅ #88 | `docs/AI_PROVIDERS.md` — supported providers, env config, known quirks. Linked from `DEPLOYMENT.md` §7. | B2-r1 |
+| 15b | **B2-r2** Compat matrix docs | ✅ #88 | `docs/guides/AI_PROVIDERS.md` — supported providers, env config, known quirks. Linked from `DEPLOYMENT.md` §7. | B2-r1 |
 | 15c | **B2-r3** Streaming edge-case tests | ✅ #88 | Empty choices, double done, missing `[DONE]`, multi-byte chunk splits, abort mid-stream. | B2-r1 |
 | 15d | **B2-c** Local-LLM compose profile | 🔵 backlog | Privacy-strict on-prem customers. Pull into a sprint when needed. | B1 |
 | 16 | **V1** `DocumentVersion` model | ✅ | Phase 1 Yjs persistence is the encode path. | Phase 1 |
@@ -333,9 +333,9 @@ A3 (self-hosted Mongo + MinIO), B2-c (local-LLM profile), B3 (GPU guide). Pull i
 - [`github-issues-execution-order.md`](github-issues-execution-order.md) — sprint-by-sprint backlog
 - [`phase-8-deployment-packaging.md`](phase-8-deployment-packaging.md) — A/B/C/D task spec
 - [`phase-9-google-docs-parity.md`](phase-9-google-docs-parity.md) — T/PR/RO/C/V/TP/OF/SG task spec
-- [`ENHANCEMENT_ROADMAP.md`](../ENHANCEMENT_ROADMAP.md) §5 — open questions including licensing
-- [`DEPLOYMENT.md`](../DEPLOYMENT.md) — current deployment doc (rewritten by C1 in PR #86, both modes + consolidated env reference)
+- [`ENHANCEMENT_ROADMAP.md`](../product/ENHANCEMENT_ROADMAP.md) §5 — open questions including licensing
+- [`DEPLOYMENT.md`](../operations/DEPLOYMENT.md) — current deployment doc (rewritten by C1 in PR #86, both modes + consolidated env reference)
 - [`GenflowAi.md`](../../CLAUDE.md) §Deployment — deployment note (updated by C4 in PR #89 — lists live prod stack + links to `DEPLOYMENT.md` + `AI_PROVIDERS.md`)
-- [`AI_PROVIDERS.md`](../AI_PROVIDERS.md) — supported OpenAI-compatible providers matrix (shipped in B2-r2 PR #88)
+- [`AI_PROVIDERS.md`](../guides/AI_PROVIDERS.md) — supported OpenAI-compatible providers matrix (shipped in B2-r2 PR #88)
 - [`LICENSE`](../LICENSE) — proprietary EULA reference (shipped in D1 PR #90)
 - [`NOTICE`](../NOTICE) — third-party license notices (shipped in D1 / D2 PR #90)

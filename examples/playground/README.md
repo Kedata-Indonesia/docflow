@@ -51,7 +51,7 @@ the library sources; see `tailwind.config.js` and `postcss.config.js`.
 
 Anything **not** wired here is deliberate: persistence, auth, storage and AI are
 host responsibilities reached through the injection ports described in
-[`docs/LIBRARY_CONTRACT.md`](../../docs/LIBRARY_CONTRACT.md). This example keeps
+[`docs/reference/LIBRARY_CONTRACT.md`](../../docs/reference/LIBRARY_CONTRACT.md). This example keeps
 the fixtures in memory so the repository stays backend-free.
 
 ## Notes for contributors

@@ -1,7 +1,7 @@
 name: Publish to npm
 
 # Publishes the @kedataindo/* packages to the public npm registry.
-# GitHub Packages is intentionally NOT used (see docs/PUBLISH.md).
+# GitHub Packages is intentionally NOT used (see docs/operations/PUBLISH.md).
 #
 # Triggers:
 #   - push to `main`     -> verify + auto-bump + build + publish (unattended)
@@ -16,7 +16,7 @@ name: Publish to npm
 # ruleset requires the `ci` check and one approving review, so the merge needs a
 # human click (or a ruleset bypass actor via RELEASE_TOKEN); when the merge does
 # not happen, the PR is left open with a notice instead of failing the run, and
-# `docs/PUBLISH.md` documents the follow-up. Publishing itself stays idempotent: a
+# `docs/operations/PUBLISH.md` documents the follow-up. Publishing itself stays idempotent: a
 # version already on npm is skipped, never a hard failure.
 # The bump commit deliberately does NOT carry `[skip ci]`: with it, the required
 # `ci` check could never report on the bump PR, and only a bypass actor could land
@@ -103,6 +103,10 @@ jobs:
       # a stale README must never reach npm. Regenerate with `pnpm docs:api`.
       - name: Verify generated API docs are up to date
         run: pnpm docs:api:check
+
+      # Never publish packages whose living docs point at moved/missing files.
+      - name: Check documentation links
+        run: pnpm docs:check
 
       # Patch-bump every package changed since the last release commit, so `main`
       # ships a fresh version without a manual bump. Versions are raised above
@@ -330,7 +334,7 @@ jobs:
           ruleset bypass actor — usually seconds after this PR opens, before \`ci\`
           here reports. Without that secret the run stays green and waits for a
           maintainer. Either way, until this lands, npm is ahead of \`main\` — see
-          \`docs/PUBLISH.md\` → "Landing the bump".
+          \`docs/operations/PUBLISH.md\` → "Landing the bump".
           EOF
 
           # A human merge can land while this run publishes (the concurrency group
@@ -379,7 +383,7 @@ jobs:
           OPEN_PR=$(gh pr list --head "$BRANCH" --state open --json url \
             --jq '.[0].url // ""' 2>/dev/null || echo "")
           if [ -z "$OPEN_PR" ]; then
-            echo "::error::the bump commit did not reach main and no open PR carries it (branch ${BRANCH}) — the automation itself failed, and main has drifted behind npm. See docs/PUBLISH.md."
+            echo "::error::the bump commit did not reach main and no open PR carries it (branch ${BRANCH}) — the automation itself failed, and main has drifted behind npm. See docs/operations/PUBLISH.md."
             exit 1
           fi
 
@@ -391,13 +395,13 @@ jobs:
             echo "The run is green on purpose: waiting for a review is a normal state, not an automation failure."
             echo "A RELEASE_TOKEN secret (PAT owned by a ruleset bypass actor) lets this step merge the bump unattended."
           } >> "$GITHUB_STEP_SUMMARY"
-          echo "::notice title=Release bump awaiting review::${OPEN_PR} — npm is ahead of main until it is merged (docs/PUBLISH.md)."
+          echo "::notice title=Release bump awaiting review::${OPEN_PR} — npm is ahead of main until it is merged (docs/operations/PUBLISH.md)."
           exit 0
 
   # A `v*` tag is the deliberate "ship it" marker. The publish job above has
   # already sent the packages to npm, so this job only announces the release:
   # generated notes (grouped by label in `.github/release.yml`) with the demo
-  # GIF attached, so the announcement is self-contained (docs/RELEASING.md).
+  # GIF attached, so the announcement is self-contained (docs/operations/RELEASING.md).
   # Runs only for tags — never for a push to `main`, which is noise.
   release:
     if: startsWith(github.ref, 'refs/tags/v')

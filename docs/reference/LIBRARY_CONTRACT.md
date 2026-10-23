@@ -1,6 +1,6 @@
 # Library Contract — DocsEditor
 
-**Status:** Living document · **Owner:** Kedata Indonesia · **Last updated:** 2026-10-16
+**Status:** Living document · **Owner:** Kedata Indonesia · **Last updated:** 2026-10-22
 
 > This file is the **single source of truth for the library/app boundary**. It catalogues
 > every injection port through which the library (`packages/*`) may reach backend concerns,
@@ -14,7 +14,7 @@
 
 ## 1. The Principle
 
-From [ENHANCEMENT_ROADMAP.md §1](ENHANCEMENT_ROADMAP.md):
+From [ENHANCEMENT_ROADMAP.md §1](../product/ENHANCEMENT_ROADMAP.md):
 
 > **The library must know nothing about the backend.** Persistence, auth, and storage are
 > the host app's job, reached only through narrow injectable interfaces. Everything
@@ -48,14 +48,14 @@ A change that respects this principle touches either the library *or* the app �
 
 | Port | TypeScript signature | Declared at | Host-app responsibility |
 |------|----------------------|-------------|-------------------------|
-| `onUpdate` | `(json: object) => void` | `EditorOptions` — [packages/core/src/Editor.ts:28](../packages/core/src/Editor.ts) | Persist the document JSON for **single-user / non-collaborative** documents. In collaboration mode the Yjs document is authoritative and this hook must not be used as the edit source (see [phase-1-collab-persistence.md](plans/phase-1-collab-persistence.md)). |
-| `collaboration` | `CollaborationOptions` — see field table below | `EditorOptions` — [Editor.ts:29](../packages/core/src/Editor.ts); interface — [Collaboration.ts:15-23](../packages/core/src/Collaboration.ts) | Supply the full collaboration configuration: room id, transport provider, signaling/websocket endpoints, user identity, and awareness callback. The library never picks endpoints on its own; webrtc without explicit `signaling` is localhost-only with a one-time warning (Phase 2). |
-| `onImageUpload` | `(file: File) => Promise<ImageUploadResult>` (`{ src, alt?, title? }`) | `EditorOptions` — [Editor.ts:33](../packages/core/src/Editor.ts); type — [ports.ts](../packages/core/src/ports.ts); carried in `editor.storage.editorContext` ([EditorContext.ts](../packages/core/src/EditorContext.ts)) | Store the user's picked file (object storage — Phase 4) and resolve its URL. With no handler, `insertImage` falls back to a URL prompt; the library never names a storage host. |
-| `aiStream` | `AIStreamFn` — `(req: AIActionRequest, signal: AbortSignal) => AsyncIterable<string>` | `EditorOptions` — [Editor.ts:122](../packages/core/src/Editor.ts); type — [ai/types.ts](../packages/core/src/ai/types.ts); carried in `editor.storage.editorContext` ([EditorContext.ts](../packages/core/src/EditorContext.ts)) | Provide the AI completion transport (Phase 7; promoted to a declared port by [PLUGGABLE_AI_PROVIDER](plans/PLUGGABLE_AI_PROVIDER.md)). The library never names an LLM endpoint: hosts inject `toAIStreamFn(openaiCompatibleProvider({ baseUrl, auth, model }))` or a custom function wrapping their own backend/agent. With no port injected, AI actions are inert (one-time `console.warn`). |
-| `aiDraft` | `AIDraftFn` — `(req: { prompt, context?, k? }, signal: AbortSignal) => AsyncIterable<AIDraftEvent>` | `EditorOptions` — [Editor.ts:124](../packages/core/src/Editor.ts); type — [ai/types.ts](../packages/core/src/ai/types.ts); carried in `editor.storage.editorContext` | Opt-in RAG-cited drafting transport (Phase 7E): streams text with `[n]` markers plus a terminal citation table. Hosts plug their own corpus/RAG backend; the library only maps markers to citation nodes. Disabled when not injected. |
-| `citation` | `CitationPort` — see field table below | `EditorOptions` — [Editor.ts:58-59](../packages/core/src/Editor.ts); interface — [ports.ts:67](../packages/core/src/ports.ts); carried in `editor.storage.editorContext` | Supply the reference library (CSL-JSON) and own all citation persistence. The library never fetches, stores, or looks up sources itself — no CrossRef call, no DOI resolution, no storage. Mirrors the `onImageUpload` injection pattern. Without the port, citation UI stays hidden/inert. |
+| `onUpdate` | `(json: object) => void` | `EditorOptions` — [packages/core/src/Editor.ts:28](../../packages/core/src/Editor.ts) | Persist the document JSON for **single-user / non-collaborative** documents. In collaboration mode the Yjs document is authoritative and this hook must not be used as the edit source (see [phase-1-collab-persistence.md](../plans/phase-1-collab-persistence.md)). |
+| `collaboration` | `CollaborationOptions` — see field table below | `EditorOptions` — [Editor.ts:29](../../packages/core/src/Editor.ts); interface — [Collaboration.ts:15-23](../../packages/core/src/Collaboration.ts) | Supply the full collaboration configuration: room id, transport provider, signaling/websocket endpoints, user identity, and awareness callback. The library never picks endpoints on its own; webrtc without explicit `signaling` is localhost-only with a one-time warning (Phase 2). |
+| `onImageUpload` | `(file: File) => Promise<ImageUploadResult>` (`{ src, alt?, title? }`) | `EditorOptions` — [Editor.ts:33](../../packages/core/src/Editor.ts); type — [ports.ts](../../packages/core/src/ports.ts); carried in `editor.storage.editorContext` ([EditorContext.ts](../../packages/core/src/EditorContext.ts)) | Store the user's picked file (object storage — Phase 4) and resolve its URL. With no handler, `insertImage` falls back to a URL prompt; the library never names a storage host. |
+| `aiStream` | `AIStreamFn` — `(req: AIActionRequest, signal: AbortSignal) => AsyncIterable<string>` | `EditorOptions` — [Editor.ts:122](../../packages/core/src/Editor.ts); type — [ai/types.ts](../../packages/core/src/ai/types.ts); carried in `editor.storage.editorContext` ([EditorContext.ts](../../packages/core/src/EditorContext.ts)) | Provide the AI completion transport (Phase 7; promoted to a declared port by [PLUGGABLE_AI_PROVIDER](../plans/PLUGGABLE_AI_PROVIDER.md)). The library never names an LLM endpoint: hosts inject `toAIStreamFn(openaiCompatibleProvider({ baseUrl, auth, model }))` or a custom function wrapping their own backend/agent. With no port injected, AI actions are inert (one-time `console.warn`). |
+| `aiDraft` | `AIDraftFn` — `(req: { prompt, context?, k? }, signal: AbortSignal) => AsyncIterable<AIDraftEvent>` | `EditorOptions` — [Editor.ts:124](../../packages/core/src/Editor.ts); type — [ai/types.ts](../../packages/core/src/ai/types.ts); carried in `editor.storage.editorContext` | Opt-in RAG-cited drafting transport (Phase 7E): streams text with `[n]` markers plus a terminal citation table. Hosts plug their own corpus/RAG backend; the library only maps markers to citation nodes. Disabled when not injected. |
+| `citation` | `CitationPort` — see field table below | `EditorOptions` — [Editor.ts:58-59](../../packages/core/src/Editor.ts); interface — [ports.ts:67](../../packages/core/src/ports.ts); carried in `editor.storage.editorContext` | Supply the reference library (CSL-JSON) and own all citation persistence. The library never fetches, stores, or looks up sources itself — no CrossRef call, no DOI resolution, no storage. Mirrors the `onImageUpload` injection pattern. Without the port, citation UI stays hidden/inert. |
 
-**`CollaborationOptions` fields** ([Collaboration.ts:15-23](../packages/core/src/Collaboration.ts)):
+**`CollaborationOptions` fields** ([Collaboration.ts:15-23](../../packages/core/src/Collaboration.ts)):
 
 | Field | Type | Notes |
 |-------|------|-------|
@@ -67,7 +67,7 @@ A change that respects this principle touches either the library *or* the app �
 | `onAwarenessChange` | `(states: AwarenessState[]) => void` | Optional presence/cursor callback. |
 | `initialStorageState` | `Uint8Array` | Optional Yjs state to seed the room (e.g. from host persistence). |
 
-**`CitationPort` fields** ([ports.ts:67](../packages/core/src/ports.ts)):
+**`CitationPort` fields** ([ports.ts:67](../../packages/core/src/ports.ts)):
 
 | Field | Type | Notes |
 |-------|------|-------|
@@ -127,7 +127,7 @@ page numbers/relevance — can replace it wholesale:
 
 | Port | Planned signature | Phase | Replaces |
 |------|-------------------|-------|----------|
-| Export hooks | TBD in Phase 5 design | [Phase 5](plans/phase-5-export-pdf-docx.md) | Host-side export wiring; today only the `export` emit exists (§2.3). |
+| Export hooks | TBD in Phase 5 design | [Phase 5](../plans/phase-5-export-pdf-docx.md) | Host-side export wiring; today only the `export` emit exists (§2.3). |
 | `CitationPort.onSourceSearch` | `(query: string) => Promise<SourceSearchResult[]>` where `SourceSearchResult = { source: CslItemData; snippet?: string; score?: number; locator?: string }` | — | A **host-bound search** rendered inside the *built-in* references sidebar (a search box appears only when the port is provided; results replace the list while searching, then the CRUD list returns). Complements the `#references-sidebar` slot (§2.1) for hosts that want search **and** the built-in add/import UI. |
 
 **When to build it:** the issue upstream of this table ([#22](https://github.com/Kedata-Indonesia/docflow/issues/22)) deliberately *defers* `onSourceSearch`. Implement it **port-only** (no extra slot) once one of these fires: a second host needs KB-style search, `fe-aktifai` wants to retire its separate picker modal, or users find the separate modal confusing. Until then the `#references-sidebar` replace slot is the extension point — the library itself never fetches.
@@ -137,13 +137,13 @@ page numbers/relevance — can replace it wholesale:
 These props/emits wire the host app into editor chrome but carry **no backend concern**;
 they are listed here so reviewers don't mistake them for leaks:
 
-- `export` emit — [DocsEditor.vue:67](../packages/vue/src/components/DocsEditor.vue):
+- `export` emit — [DocsEditor.vue:67](../../packages/vue/src/components/DocsEditor.vue):
   `export: [format: 'markdown' | 'html' | 'html-zip' | 'txt' | 'docx' | 'pdf' | 'odt' | 'rtf']`.
   The host (or the component's built-in print path for PDF) produces the file.
-- `citation-sources-change` emit — [docsEditorContracts.ts:154](../packages/vue/src/components/docsEditorContracts.ts), fired from [useCitations.ts:91](../packages/vue/src/composables/useCitations.ts):
+- `citation-sources-change` emit — [docsEditorContracts.ts:154](../../packages/vue/src/components/docsEditorContracts.ts), fired from [useCitations.ts:91](../../packages/vue/src/composables/useCitations.ts):
   `[sources: CslItemData[]]`. **Full snapshot of the reference library after every source CRUD** (create / update / remove / import). This is the persistence channel — hosts that store sources (e.g. `apps/web`) listen to it and write the array back.
   ⚠️ Do not confuse with `CitationPort.onSourcesChange` (§2.1), which carries **only the ids of sources cited in the document** — a document-level event, not library persistence.
-- `update:citation-style` emit — [docsEditorContracts.ts:156](../packages/vue/src/components/docsEditorContracts.ts), fired from [useCitations.ts:112](../packages/vue/src/composables/useCitations.ts):
+- `update:citation-style` emit — [docsEditorContracts.ts:156](../../packages/vue/src/components/docsEditorContracts.ts), fired from [useCitations.ts:112](../../packages/vue/src/composables/useCitations.ts):
   `[style: string]`. Fired when the user picks a different CSL style; hosts persist the preference and can re-supply it via `citation.style` on next mount.
 
   ```vue
@@ -153,7 +153,7 @@ they are listed here so reviewers don't mistake them for leaks:
     @update:citation-style="persistStyle"
   />
   ```
-- `citation-style-imported` emit — [docsEditorContracts.ts](../packages/vue/src/components/docsEditorContracts.ts), fired from [useCitations.ts](../packages/vue/src/composables/useCitations.ts):
+- `citation-style-imported` emit — [docsEditorContracts.ts](../../packages/vue/src/components/docsEditorContracts.ts), fired from [useCitations.ts](../../packages/vue/src/composables/useCitations.ts):
   `[style: CslStyleInfo]`. Fired after the user imports a `.csl` file and the engine registers it. The style is available (and selected) for this session immediately; hosts that want it after a reload persist `{ id, name, category, xml }` and re-supply it through `citation.styles` on the next mount. Only `.csl` files are CSL — `.bst` (BibTeX) and `.ens` (EndNote) are rejected with a message, not converted. The style's `id` is its canonical CSL URI (`<info><id>`), not a shortened form — issue #360, because the short segment collided across files.
 - `citation-style-removed` emit (issue #361) — `[styleId: string]`, fired when the user removes an imported style from the picker. The sidebar only offers the control for the active style, and only when it is not one of the bundled four; `CiteEngine.removeStyle` refuses bundled ids regardless. If the removed style was active, `update:citation-style` follows with the default, so the host's persisted `cslStyle` never names a style that no longer exists. Hosts drop `styleId` from their persisted style list.
 - `share`, `toggle-star`, `back`, `menu-click`, `update:title`, `update:pageSize`,
@@ -169,12 +169,12 @@ they are listed here so reviewers don't mistake them for leaks:
   props — host-supplied display data, rendered but never fetched by the library.
 - `confirmDestructive` prop (issue #359) — host-supplied confirmation for the
   library's destructive actions: deleting a reference source
-  ([ReferencesSidebar.vue](../packages/vue/src/components/sidebars/ReferencesSidebar.vue))
+  ([ReferencesSidebar.vue](../../packages/vue/src/components/sidebars/ReferencesSidebar.vue))
   and deleting a comment thread
-  ([CommentsSidebar.vue](../packages/vue/src/components/sidebars/CommentsSidebar.vue)).
+  ([CommentsSidebar.vue](../../packages/vue/src/components/sidebars/CommentsSidebar.vue)).
   Signature `(message: string) => boolean | Promise<boolean>`; resolve `true` to
   proceed, `false`/reject to cancel. Omit it and both sidebars render the built-in
-  [ConfirmDialog.vue](../packages/vue/src/components/ConfirmDialog.vue) (an
+  [ConfirmDialog.vue](../../packages/vue/src/components/ConfirmDialog.vue) (an
   `alertdialog` with focus starting on **Cancel**, Escape/backdrop cancelling and
   focus restored to the trigger), so no host gets a `window.confirm`. Hosts that
   already own a dialog — e.g. `docflow-app`'s `confirmAction` — pass theirs and the
@@ -182,10 +182,10 @@ they are listed here so reviewers don't mistake them for leaks:
 - `HOST_OWNED_ACTIONS` + `unimplementedActions` prop (issue #153) — the header menu
   actions the library only *emits* (`export:*`, `share`, `move`, `trash`, `rename`,
   `add-to-starred`, `open-doc`, …). The list is derived once from the real dispatchers —
-  [menuStructure.ts](../packages/vue/src/components/menuStructure.ts) (the menu tree as
+  [menuStructure.ts](../../packages/vue/src/components/menuStructure.ts) (the menu tree as
   data) minus the library command maps and the header-bar-local table
-  ([menuActions.ts](../packages/vue/src/components/menuActions.ts)), guarded by
-  [`menuActions.drift.test.ts`](../packages/vue/src/__tests__/menuActions.drift.test.ts) —
+  ([menuActions.ts](../../packages/vue/src/components/menuActions.ts)), guarded by
+  [`menuActions.drift.test.ts`](../../packages/vue/src/__tests__/menuActions.drift.test.ts) —
   and exported from the package entry. A host passes the subset it does **not**
   implement: `<DocsEditor :unimplemented-actions="HOST_OWNED_ACTIONS" />`. Flagging is
   presentational only — the item stays visible, is dimmed with `aria-disabled="true"`
@@ -202,48 +202,48 @@ How each existing port flows through the layers (verified 2026-07-19):
 
 | Layer | Wiring |
 |-------|--------|
-| core | Declared on `EditorOptions` — [Editor.ts:28](../packages/core/src/Editor.ts); invoked inside `createTiptapEditor` as `options.onUpdate?.(editor.getJSON())` — [Editor.ts:198-200](../packages/core/src/Editor.ts) |
-| vue (composable) | Accepted on `UseEditorOptions` — [useEditor.ts:7](../packages/vue/src/composables/useEditor.ts); forwarded to `createEditor` — [useEditor.ts:41](../packages/vue/src/composables/useEditor.ts) |
-| vue (component) | `DocsEditor.vue` passes a handler — [:191](../packages/vue/src/components/DocsEditor.vue) — that reassembles the tabbed document and re-emits it as `update:modelValue` — [:202](../packages/vue/src/components/DocsEditor.vue) |
+| core | Declared on `EditorOptions` — [Editor.ts:28](../../packages/core/src/Editor.ts); invoked inside `createTiptapEditor` as `options.onUpdate?.(editor.getJSON())` — [Editor.ts:198-200](../../packages/core/src/Editor.ts) |
+| vue (composable) | Accepted on `UseEditorOptions` — [useEditor.ts:7](../../packages/vue/src/composables/useEditor.ts); forwarded to `createEditor` — [useEditor.ts:41](../../packages/vue/src/composables/useEditor.ts) |
+| vue (component) | `DocsEditor.vue` passes a handler — [:191](../../packages/vue/src/components/DocsEditor.vue) — that reassembles the tabbed document and re-emits it as `update:modelValue` — [:202](../../packages/vue/src/components/DocsEditor.vue) |
 | element | No dedicated attribute; `defineCustomElement` re-dispatches the Vue component's emits as DOM `CustomEvent`s, so hosts listen for `update:modelValue` |
 
 ### `collaboration`
 
 | Layer | Wiring |
 |-------|--------|
-| core | Declared on `EditorOptions` — [Editor.ts:29](../packages/core/src/Editor.ts); consumed by `createEditor` → `createCollaboration` — [Editor.ts:90-92](../packages/core/src/Editor.ts); implementation — [Collaboration.ts:50-96](../packages/core/src/Collaboration.ts) |
-| vue (composable) | Accepted on `UseEditorOptions` — [useEditor.ts:9](../packages/vue/src/composables/useEditor.ts); forwarded — [useEditor.ts:40](../packages/vue/src/composables/useEditor.ts); watched for `room`/`provider` changes with editor rebuild — [useEditor.ts:76-89](../packages/vue/src/composables/useEditor.ts) |
-| vue (component) | `collaboration` prop typed `NonNullable<EditorOptions['collaboration']>` — [DocsEditor.vue:27](../packages/vue/src/components/DocsEditor.vue) |
-| element | `room` + `websocket-url` attributes mapped to a collaboration config (websocket provider when `websocket-url` is set, webrtc otherwise) — [DocsEditorElement.ts:70-82](../packages/element/src/DocsEditorElement.ts) |
+| core | Declared on `EditorOptions` — [Editor.ts:29](../../packages/core/src/Editor.ts); consumed by `createEditor` → `createCollaboration` — [Editor.ts:90-92](../../packages/core/src/Editor.ts); implementation — [Collaboration.ts:50-96](../../packages/core/src/Collaboration.ts) |
+| vue (composable) | Accepted on `UseEditorOptions` — [useEditor.ts:9](../../packages/vue/src/composables/useEditor.ts); forwarded — [useEditor.ts:40](../../packages/vue/src/composables/useEditor.ts); watched for `room`/`provider` changes with editor rebuild — [useEditor.ts:76-89](../../packages/vue/src/composables/useEditor.ts) |
+| vue (component) | `collaboration` prop typed `NonNullable<EditorOptions['collaboration']>` — [DocsEditor.vue:27](../../packages/vue/src/components/DocsEditor.vue) |
+| element | `room` + `websocket-url` attributes mapped to a collaboration config (websocket provider when `websocket-url` is set, webrtc otherwise) — [DocsEditorElement.ts:70-82](../../packages/element/src/DocsEditorElement.ts) |
 
 ### `onImageUpload`
 
 | Layer | Wiring |
 |-------|--------|
-| core | Declared on `EditorOptions` — [Editor.ts:33](../packages/core/src/Editor.ts); carried by the always-registered `EditorContextExtension` into `editor.storage.editorContext` — [EditorContext.ts](../packages/core/src/EditorContext.ts), wired in [Editor.ts](../packages/core/src/Editor.ts) |
-| plugins | `imagePlugin.insertImage` reads the port from storage — with a handler: file picker → `await onImageUpload(file)` → `setImage(result)`; without: URL prompt fallback (no default host) — [image.ts](../packages/plugins/src/image.ts) |
-| vue (composable) | Forwarded via `UseEditorOptions` into `createEditor` — [useEditor.ts](../packages/vue/src/composables/useEditor.ts) |
-| vue (component) | `onImageUpload` prop, forwarded to `useEditor` — [DocsEditor.vue](../packages/vue/src/components/DocsEditor.vue) |
-| element | JS property `el.onImageUpload` with a setter that re-applies props (functions can't be HTML attributes) — [DocsEditorElement.ts](../packages/element/src/DocsEditorElement.ts) |
+| core | Declared on `EditorOptions` — [Editor.ts:33](../../packages/core/src/Editor.ts); carried by the always-registered `EditorContextExtension` into `editor.storage.editorContext` — [EditorContext.ts](../../packages/core/src/EditorContext.ts), wired in [Editor.ts](../../packages/core/src/Editor.ts) |
+| plugins | `imagePlugin.insertImage` reads the port from storage — with a handler: file picker → `await onImageUpload(file)` → `setImage(result)`; without: URL prompt fallback (no default host) — [image.ts](../../packages/plugins/src/image.ts) |
+| vue (composable) | Forwarded via `UseEditorOptions` into `createEditor` — [useEditor.ts](../../packages/vue/src/composables/useEditor.ts) |
+| vue (component) | `onImageUpload` prop, forwarded to `useEditor` — [DocsEditor.vue](../../packages/vue/src/components/DocsEditor.vue) |
+| element | JS property `el.onImageUpload` with a setter that re-applies props (functions can't be HTML attributes) — [DocsEditorElement.ts](../../packages/element/src/DocsEditorElement.ts) |
 
 ### `aiStream` / `aiDraft`
 
 | Layer | Wiring |
 |-------|--------|
-| core | Declared on `EditorOptions` — [Editor.ts:61-63](../packages/core/src/Editor.ts); carried by the always-registered `EditorContextExtension` into `editor.storage.editorContext` — [EditorContext.ts](../packages/core/src/EditorContext.ts), forwarded in [Editor.ts:238-239](../packages/core/src/Editor.ts). Default transport + adapter ship in [packages/core/src/ai/](../packages/core/src/ai) (`openaiCompatibleProvider`, `toAIStreamFn`, `KeyStorage` impls) |
-| plugins | `aiPlugin` reads `editorContext.aiStream` for inline transforms / generation — [ai.ts](../packages/plugins/src/ai.ts); no shape change, no endpoint knowledge |
-| vue (component) | `AISidebar.vue` accepts `aiStream` / `aiDraft` props and falls back to `editor.storage.editorContext` — [AISidebar.vue:75-82](../packages/vue/src/components/sidebars/AISidebar.vue) |
-| vue (composable) | `useAIProvider(editor)` exposes the injected ports reactively — [useAIProvider.ts](../packages/vue/src/composables/useAIProvider.ts); provider + key-storage impls re-exported from [packages/vue/src/index.ts](../packages/vue/src/index.ts) |
-| element | Not wired — embedded hosts using the Web Component inject transports via JS properties (planned; see [PLUGGABLE_AI_PROVIDER](plans/PLUGGABLE_AI_PROVIDER.md)) |
+| core | Declared on `EditorOptions` — [Editor.ts:61-63](../../packages/core/src/Editor.ts); carried by the always-registered `EditorContextExtension` into `editor.storage.editorContext` — [EditorContext.ts](../../packages/core/src/EditorContext.ts), forwarded in [Editor.ts:238-239](../../packages/core/src/Editor.ts). Default transport + adapter ship in [packages/core/src/ai/](../../packages/core/src/ai) (`openaiCompatibleProvider`, `toAIStreamFn`, `KeyStorage` impls) |
+| plugins | `aiPlugin` reads `editorContext.aiStream` for inline transforms / generation — [ai.ts](../../packages/plugins/src/ai.ts); no shape change, no endpoint knowledge |
+| vue (component) | `AISidebar.vue` accepts `aiStream` / `aiDraft` props and falls back to `editor.storage.editorContext` — [AISidebar.vue:75-82](../../packages/vue/src/components/sidebars/AISidebar.vue) |
+| vue (composable) | `useAIProvider(editor)` exposes the injected ports reactively — [useAIProvider.ts](../../packages/vue/src/composables/useAIProvider.ts); provider + key-storage impls re-exported from [packages/vue/src/index.ts](../../packages/vue/src/index.ts) |
+| element | Not wired — embedded hosts using the Web Component inject transports via JS properties (planned; see [PLUGGABLE_AI_PROVIDER](../plans/PLUGGABLE_AI_PROVIDER.md)) |
 
 ### `citation`
 
 | Layer | Wiring |
 |-------|--------|
-| core | Declared on `EditorOptions` — [Editor.ts:58-59](../packages/core/src/Editor.ts); carried into `editor.storage.editorContext` — [Editor.ts:233-237](../packages/core/src/Editor.ts) |
-| plugins | `citationPlugin` reads the port at init and creates the `CiteEngine` ([citation.ts:280](../packages/plugins/src/citation.ts)); citations render as footnote-backed nodes, so `footnotePlugin` is required (integration rule 3) |
-| vue (composable) | `useCitations` snapshots the port's sources once, owns the live copy, and re-emits CRUD as `citation-sources-change` / `update:citation-style` — [useCitations.ts](../packages/vue/src/composables/useCitations.ts) |
-| vue (component) | `citation` prop — [docsEditorContracts.ts:66](../packages/vue/src/components/docsEditorContracts.ts) |
+| core | Declared on `EditorOptions` — [Editor.ts:58-59](../../packages/core/src/Editor.ts); carried into `editor.storage.editorContext` — [Editor.ts:233-237](../../packages/core/src/Editor.ts) |
+| plugins | `citationPlugin` reads the port at init and creates the `CiteEngine` ([citation.ts:280](../../packages/plugins/src/citation.ts)); citations render as footnote-backed nodes, so `footnotePlugin` is required (integration rule 3) |
+| vue (composable) | `useCitations` snapshots the port's sources once, owns the live copy, and re-emits CRUD as `citation-sources-change` / `update:citation-style` — [useCitations.ts](../../packages/vue/src/composables/useCitations.ts) |
+| vue (component) | `citation` prop — [docsEditorContracts.ts:66](../../packages/vue/src/components/docsEditorContracts.ts) |
 | element | Not wired — embedded hosts pass the port as a JS property. |
 
 ---
@@ -296,20 +296,20 @@ here with the reason it is accepted **and the ticket that owns the follow-up**
 
 | # | Deviation | Location | Class | Status | Remediation |
 |---|-----------|----------|-------|--------|-------------|
-| 1 | `AISidebar.vue` fetched the AI backend directly | [AISidebar.vue](../packages/vue/src/components/sidebars/AISidebar.vue) — previously `fetch(\`${API_BASE}/api/ai/copilot\`)` | Direct backend call (rule 3) | ✅ **Resolved** ([PLUGGABLE_AI_PROVIDER](plans/PLUGGABLE_AI_PROVIDER.md)) | AI is behind the host-injected `aiStream` / `aiDraft` ports (§2.1) with a browser-side default transport (`openaiCompatibleProvider`); no `fetch` to any AI endpoint remains in `packages/*` (`grep -rn "fetch.*api/ai" packages` returns nothing). |
+| 1 | `AISidebar.vue` fetched the AI backend directly | [AISidebar.vue](../../packages/vue/src/components/sidebars/AISidebar.vue) — previously `fetch(\`${API_BASE}/api/ai/copilot\`)` | Direct backend call (rule 3) | ✅ **Resolved** ([PLUGGABLE_AI_PROVIDER](../plans/PLUGGABLE_AI_PROVIDER.md)) | AI is behind the host-injected `aiStream` / `aiDraft` ports (§2.1) with a browser-side default transport (`openaiCompatibleProvider`); no `fetch` to any AI endpoint remains in `packages/*` (`grep -rn "fetch.*api/ai" packages` returns nothing). |
 | 2 | Image plugin hardcoded `via.placeholder.com` + `window.prompt` fallback | `packages/plugins/src/image.ts` (pre-Phase-2) | Hardcoded external URL / storage assumption (rule 4) | ✅ **Resolved in Phase 2** | Replaced by the `onImageUpload` port (§2.1); URL prompt kept as an explicit no-host fallback. |
 | 3 | webrtc signaling defaulted to public servers (`wss://signaling.yjs.dev`, `wss://y-webrtc-eu.fly.dev`) | `packages/core/src/Collaboration.ts` (pre-Phase-2) | External-network assumption (rule 4) | ✅ **Resolved in Phase 2** | Defaults to localhost-only + one-time `console.warn`; cross-network webrtc requires explicit `signaling`; websocket + own server is the documented production path. |
 | 4 | Document draft autosave to `localStorage` (`docs-editor-current-doc`) | `packages/vue/src/components/DocsEditor.vue` (pre-Phase-2) | Document persistence in the library (rule 5) | ✅ **Resolved in Phase 2** | Write removed (it was never read anywhere); hosts persist via `update:modelValue` / `onUpdate`. |
-| 5 | `DEFAULT_BASE_URL = 'https://api.anthropic.com'` is a hardcoded external host | [claudeProvider.ts:33](../packages/core/src/ai/claudeProvider.ts) | Hardcoded external URL (rule 4) | ⚠️ **Accepted deviation** — audited 2026-10 | Named, host-overridable default for a host-injected port (the host passes `baseUrl`), not a feature-path assumption. Recorded as the rule-4 exception above; revisit if the library ever picks an endpoint on its own. |
-| 6 | `localStorageKeyStorage()` persists **AI credentials** (API keys) as plaintext in `localStorage` | [keyStorage.ts](../packages/core/src/ai/keyStorage.ts) | Client-side secret persistence (rule 5, by analogy) | ✅ **Resolved** — [#179](https://github.com/Kedata-Indonesia/docflow/issues/179) | A tab-scoped option (`sessionStorageKeyStorage()`) ships alongside it, both browser storages accept `ttlMs` (expired entries are deleted, not hidden), the risk is stated in the module docblock and [`AI_PROVIDERS.md`](AI_PROVIDERS.md) §5, and `httpKeyStorage` + `visibility: 'admin-only'` is named as the production path. Deliberate deviation from the original tracker: **no runtime `console.warn`** — the corrected issue asks for docs, and a warning on every `set()` would be noise in hosts that chose this store on purpose. `sessionStorage` is documented as a *lifetime* bound, **not** an XSS mitigation. |
-| 7 | `Collaboration.offline` mirrors the doc into `y-indexeddb` (`IndexeddbPersistence`) | [Collaboration.ts:145-147](../packages/core/src/Collaboration.ts) | IndexedDB use inside the library (rule 5) | ⚠️ **Accepted, opt-in** — lifecycle tracked in [#162](https://github.com/Kedata-Indonesia/docflow/issues/162) | Off by default, never a seed source: the Yjs room stays authoritative and the mirror only replays local offline edits (comments in-file). Purge/quota lifecycle is handled by #162. |
+| 5 | `DEFAULT_BASE_URL = 'https://api.anthropic.com'` is a hardcoded external host | [claudeProvider.ts:33](../../packages/core/src/ai/claudeProvider.ts) | Hardcoded external URL (rule 4) | ⚠️ **Accepted deviation** — audited 2026-10 | Named, host-overridable default for a host-injected port (the host passes `baseUrl`), not a feature-path assumption. Recorded as the rule-4 exception above; revisit if the library ever picks an endpoint on its own. |
+| 6 | `localStorageKeyStorage()` persists **AI credentials** (API keys) as plaintext in `localStorage` | [keyStorage.ts](../../packages/core/src/ai/keyStorage.ts) | Client-side secret persistence (rule 5, by analogy) | ✅ **Resolved** — [#179](https://github.com/Kedata-Indonesia/docflow/issues/179) | A tab-scoped option (`sessionStorageKeyStorage()`) ships alongside it, both browser storages accept `ttlMs` (expired entries are deleted, not hidden), the risk is stated in the module docblock and [`AI_PROVIDERS.md`](../guides/AI_PROVIDERS.md) §5, and `httpKeyStorage` + `visibility: 'admin-only'` is named as the production path. Deliberate deviation from the original tracker: **no runtime `console.warn`** — the corrected issue asks for docs, and a warning on every `set()` would be noise in hosts that chose this store on purpose. `sessionStorage` is documented as a *lifetime* bound, **not** an XSS mitigation. |
+| 7 | `Collaboration.offline` mirrors the doc into `y-indexeddb` (`IndexeddbPersistence`) | [Collaboration.ts:145-147](../../packages/core/src/Collaboration.ts) | IndexedDB use inside the library (rule 5) | ⚠️ **Accepted, opt-in** — lifecycle tracked in [#162](https://github.com/Kedata-Indonesia/docflow/issues/162) | Off by default, never a seed source: the Yjs room stays authoritative and the mirror only replays local offline edits (comments in-file). Purge/quota lifecycle is handled by #162. |
 
 > The theme/locale `localStorage` uses in `useTheme.ts` / `useLocale.ts` are **not**
 > deviations — they are presentation preferences, allowed by the rule-5 exception in §4.
 
 ### 5.1 Guardrail & escalation path
 
-The ESLint guardrail in [.eslintrc.cjs](../.eslintrc.cjs) (override scoped to
+The ESLint guardrail in [eslint.config.mjs](../../eslint.config.mjs) (override scoped to
 `packages/**/*.{ts,vue}`, built-in `no-restricted-imports`, zero new dependencies) ships as
 **`error`** — a regression trap for future PRs that now fails CI on a violation.
 

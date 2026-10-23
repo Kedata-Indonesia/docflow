@@ -23,5 +23,5 @@
 - [ ] `pnpm test:unit` passes
 - [ ] `pnpm test:e2e` passes (if editor UI/layout changed)
 - [ ] `pnpm docs:api:check` passes (if `DocsEditor` props/emits changed)
-- [ ] No backend-only imports added in `packages/*` (see docs/LIBRARY_CONTRACT.md)
+- [ ] No backend-only imports added in `packages/*` (see docs/reference/LIBRARY_CONTRACT.md)
 - [ ] Conventional commit title (e.g. `fix(pagination): ...`)

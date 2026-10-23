@@ -18,7 +18,7 @@ Status: **selesai** (runtime import `.csl`; `.bst`/`.ens` ditolak dengan pesan y
 - **Persistence host** — emit baru `citation-style-imported` membawa `{ id, name, category, xml }`.
   Playground menyimpannya di `localStorage` dan mengirimkannya kembali lewat `citation.styles`
   saat mount berikutnya — contoh lengkap untuk host.
-- **Docs/kontrak** — `docs/LIBRARY_CONTRACT.md` (port `styles`, emit baru, aturan impor),
+- **Docs/kontrak** — `docs/reference/LIBRARY_CONTRACT.md` (port `styles`, emit baru, aturan impor),
   README API (emit), CHANGELOG.
 
 ## Demo (source mode, port 5200)

@@ -144,7 +144,7 @@ No changes — endpoint, authz (author/editor/owner), and the
 
 ### 5.6 Docs
 
-`docs/LIBRARY_CONTRACT.md` currently has no comment section, so no contract
+`docs/reference/LIBRARY_CONTRACT.md` currently has no comment section, so no contract
 update is strictly required; if you document the emits surface, add a short
 "Comment lifecycle" note there describing `delete-comment` and the orphan
 convention.

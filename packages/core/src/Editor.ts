@@ -63,7 +63,7 @@ export interface EditorOptions {
    * `keepTogetherTypes`. Pass `[]` to opt out.
    */
   keepTogetherTypes?: string[]
-  /** Host-injected image upload port (see docs/LIBRARY_CONTRACT.md). */
+  /** Host-injected image upload port (see docs/reference/LIBRARY_CONTRACT.md). */
   onImageUpload?: ImageUploadHandler
   /** Host-injected citation port (Phase 6 — reference library + CSL styles). */
   citation?: CitationPort

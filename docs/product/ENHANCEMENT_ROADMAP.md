@@ -4,20 +4,20 @@
 
 > **Catatan Cakupan Repositori (2026-10):** Dokumen roadmap historis ini mendokumentasikan evolusi DocFlow sebelum pemisahan monorepo. Repositori ini (`docflow`) adalah **library-only** (`packages/*`), sedangkan aplikasi web dan server (`apps/*`) kini berada di repositori `Kedata-Indonesia/docflow-app`.
 
-**Task-level plans** — each phase has a detailed, code-grounded implementation plan in [docs/plans/](plans/):
+**Task-level plans** — each phase has a detailed, code-grounded implementation plan in [docs/plans/](../plans):
 
 | Phase | Plan |
 |-------|------|
-| 0 — Boundary contract & guardrails | [phase-0-boundary-contract.md](plans/phase-0-boundary-contract.md) |
-| 1 — Collaboration persistence | [phase-1-collab-persistence.md](plans/phase-1-collab-persistence.md) |
-| 2 — Library injection points | [phase-2-library-injection-points.md](plans/phase-2-library-injection-points.md) |
-| 3 — apps/web split | [phase-3-apps-web-split.md](plans/phase-3-apps-web-split.md) |
-| 4 — Self-hosted assets & storage | [phase-4-self-hosted-assets-storage.md](plans/phase-4-self-hosted-assets-storage.md) |
-| 5 — Export (PDF/DOCX) | [phase-5-export-pdf-docx.md](plans/phase-5-export-pdf-docx.md) |
-| 6 — Citations & references | [phase-6-citations-references.md](plans/phase-6-citations-references.md) |
-| 7 — AI assistance | [phase-7-ai-assistance.md](plans/phase-7-ai-assistance.md) |
-| 8 — On-prem deployment packaging | [phase-8-deployment-packaging.md](plans/phase-8-deployment-packaging.md) |
-| 9 — Google-Docs feature parity | [phase-9-google-docs-parity.md](plans/phase-9-google-docs-parity.md) |
+| 0 — Boundary contract & guardrails | [phase-0-boundary-contract.md](../plans/phase-0-boundary-contract.md) |
+| 1 — Collaboration persistence | [phase-1-collab-persistence.md](../plans/phase-1-collab-persistence.md) |
+| 2 — Library injection points | [phase-2-library-injection-points.md](../plans/phase-2-library-injection-points.md) |
+| 3 — apps/web split | [phase-3-apps-web-split.md](../plans/phase-3-apps-web-split.md) |
+| 4 — Self-hosted assets & storage | [phase-4-self-hosted-assets-storage.md](../plans/phase-4-self-hosted-assets-storage.md) |
+| 5 — Export (PDF/DOCX) | [phase-5-export-pdf-docx.md](../plans/phase-5-export-pdf-docx.md) |
+| 6 — Citations & references | [phase-6-citations-references.md](../plans/phase-6-citations-references.md) |
+| 7 — AI assistance | [phase-7-ai-assistance.md](../plans/phase-7-ai-assistance.md) |
+| 8 — On-prem deployment packaging | [phase-8-deployment-packaging.md](../plans/phase-8-deployment-packaging.md) |
+| 9 — Google-Docs feature parity | [phase-9-google-docs-parity.md](../plans/phase-9-google-docs-parity.md) |
 
 ---
 
@@ -87,7 +87,7 @@ stage needs Phase 6.
 - Add a short "Do not import backend concerns into `packages/*`" note to `CLAUDE.md` and `AGENTS.md`.
 - (Optional) lint guard: forbid `packages/*` from importing `apps/*` or server-only deps.
 
-**Deliverables:** [docs/LIBRARY_CONTRACT.md](LIBRARY_CONTRACT.md); updated `CLAUDE.md`, `AGENTS.md`, `.eslintrc.cjs` (lint guardrail).
+**Deliverables:** [docs/reference/LIBRARY_CONTRACT.md](../reference/LIBRARY_CONTRACT.md); updated `CLAUDE.md`, `AGENTS.md`, `.eslintrc.cjs` (lint guardrail).
 **Acceptance:** the contract lists every injection point with types; no `packages/*` file imports from `apps/*`.
 
 ---
@@ -98,7 +98,7 @@ stage needs Phase 6.
 **Problem (today):** three uncoordinated persistence paths exist and can diverge —
 `Document.content` (TipTap JSON via `onUpdate`/`auto-save`), `CollabSnapshot.yDocState`
 (client-posted binary), and the live in-memory ydoc on the websocket server. The websocket
-server ([apps/server/src/y-websocket/utils.cjs](../apps/server/src/y-websocket/utils.cjs))
+server ([`apps/server/src/y-websocket/utils.cjs`](https://github.com/Kedata-Indonesia/docflow-app) — host repo)
 does **not** persist server-side — a restart with no client mid-save loses edits.
 
 **Scope**
@@ -122,8 +122,8 @@ does **not** persist server-side — a restart with no client mid-save loses edi
 **Goal:** remove backend assumptions leaking into the library.
 
 **Scope**
-- **Image/file upload injection.** Replace the `window.prompt` + `via.placeholder.com` default in [packages/plugins/src/image.ts](../packages/plugins/src/image.ts) with an injectable `onImageUpload(file) => Promise<{ src }>` handler. Library never hardcodes a storage location; falls back to a URL prompt only when no handler is provided.
-- **Collaboration defaults safe for self-host.** In [packages/core/src/Collaboration.ts](../packages/core/src/Collaboration.ts), stop defaulting webrtc signaling to public servers (`signaling.yjs.dev`, `y-webrtc-eu.fly.dev`); require explicit config, and document websocket + own-server as the production path.
+- **Image/file upload injection.** Replace the `window.prompt` + `via.placeholder.com` default in [packages/plugins/src/image.ts](../../packages/plugins/src/image.ts) with an injectable `onImageUpload(file) => Promise<{ src }>` handler. Library never hardcodes a storage location; falls back to a URL prompt only when no handler is provided.
+- **Collaboration defaults safe for self-host.** In [packages/core/src/Collaboration.ts](../../packages/core/src/Collaboration.ts), stop defaulting webrtc signaling to public servers (`signaling.yjs.dev`, `y-webrtc-eu.fly.dev`); require explicit config, and document websocket + own-server as the production path.
 - Audit `packages/*` for any remaining external URLs / backend assumptions.
 
 **Deliverables:** `onImageUpload` prop threaded through core → vue → element; safer collab defaults.
@@ -184,7 +184,7 @@ citeproc-js derives all in-text citations + the bibliography from source metadat
 + the active CSL style. Changing the style, or editing a source, re-renders everything —
 the same "single source of truth, derived view" pattern used for pagination and collab.
 
-**Connection to existing work:** the current [footnote node](../packages/plugins/src/footnote.ts)
+**Connection to existing work:** the current [footnote node](../../packages/plugins/src/footnote.ts)
 stores `content` as a plain string. Chicago notes-bibliography reuses the footnote mechanism,
 but the footnote must be extended to optionally hold a `sourceId` so it reformats with style.
 
@@ -210,13 +210,13 @@ but the footnote must be extended to optionally hold a `sourceId` so it reformat
 ### Phase 7 — AI assistance (pluggable LLM) · **P1, headline feature**
 
 > **Status (2026-07-31): the server-proxy direction of this phase is SUPERSEDED
-> by [PLUGGABLE_AI_PROVIDER](plans/PLUGGABLE_AI_PROVIDER.md) (issue #119).** The
+> by [PLUGGABLE_AI_PROVIDER](../plans/PLUGGABLE_AI_PROVIDER.md) (issue #119).** The
 > "never call an LLM from the browser" non-negotiable below was deliberately
 > reversed: completions now go browser-direct through the host-injected
 > `aiStream`/`aiDraft` ports; the server only stores the tenant config
 > (`/api/ai/config`) and the opt-in RAG draft extension
 > (`/api/ai-extensions/draft`). The transaction-safety non-negotiables still
-> stand. Operator guide: [SELF_HOSTED_AI.md](SELF_HOSTED_AI.md).
+> stand. Operator guide: [SELF_HOSTED_AI.md](../operations/SELF_HOSTED_AI.md).
 
 **Goal:** AI writing help — inline transforms, generation, chat, and cited drafting — with the LLM provider chosen per deployment (Claude API *or* self-hosted local).
 
@@ -225,7 +225,7 @@ but the footnote must be extended to optionally hold a `sourceId` so it reformat
 - **Data privacy:** **configurable per customer** — some allow external API, some require local-only. This is *why* the abstraction is mandatory, not optional.
 - **Scope:** all four capabilities are in scope (inline transforms, generative at cursor, doc-aware chat, cited/RAG drafting).
 
-**Current state:** [AISidebar.vue](../packages/vue/src/components/sidebars/AISidebar.vue) calls
+**Current state:** [AISidebar.vue](../../packages/vue/src/components/sidebars/AISidebar.vue) calls
 `/api/ai/copilot`, but **no such server route exists** — AI is a UI stub. It also has the
 wrong shape to keep: non-streaming, sends the whole document each call, inserts plain text
 (bypassing the transaction model), and has no provider abstraction. Treat as a clean slate.
@@ -291,7 +291,7 @@ live TOC, real-time presence polish, templates, offline editing, permission role
 
 ## 4. Cross-Cutting Concerns
 
-- **Verification gate (every phase):** lint → typecheck → unit → e2e (if UI/layout changed) → build for affected packages, per [AGENTS.md](../AGENTS.md).
+- **Verification gate (every phase):** lint → typecheck → unit → e2e (if UI/layout changed) → build for affected packages, per [CONTRIBUTING.md](../../CONTRIBUTING.md).
 - **Boundary rule:** any PR touching both `packages/*` and `apps/*` for the same concern is a smell — re-check the injection contract.
 - **Data safety:** Phase 1 lands before any feature that increases write volume to documents.
 

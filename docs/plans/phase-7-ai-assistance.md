@@ -1,6 +1,6 @@
 # Phase 7 — AI Assistance (pluggable LLM) · Task-Level Implementation Plan
 
-**Roadmap ref:** [ENHANCEMENT_ROADMAP.md](../ENHANCEMENT_ROADMAP.md) Phase 7 · **Priority:** P1 (headline feature) · **Last updated:** 2026-07-17
+**Roadmap ref:** [ENHANCEMENT_ROADMAP.md](../product/ENHANCEMENT_ROADMAP.md) Phase 7 · **Priority:** P1 (headline feature) · **Last updated:** 2026-07-17
 
 > **Goal:** AI writing help — inline transforms, generation at cursor, doc-aware chat, and
 > cited RAG drafting — with the LLM provider chosen **per deployment** by env config
@@ -382,7 +382,7 @@ Grouped 7A–7E. Each task lists **layer** (library / server / app), files, work
 
 **7E-4. Insert Phase 6 citations as transactions.** (library) ⇐ 7E-3, 6A
 - Files: `packages/plugins/src/ai.ts` — on accept, insert the drafted text **plus Phase 6 citation
-  nodes** (`{ sourceId, locator }`, from [Phase 6](../ENHANCEMENT_ROADMAP.md)'s `citationPlugin`) as a
+  nodes** (`{ sourceId, locator }`, from [Phase 6](../product/ENHANCEMENT_ROADMAP.md)'s `citationPlugin`) as a
   single transaction, so citeproc-js renders them per the active style.
 - Accept: RAG draft is inserted with live, style-rendered citations that resolve to reference-library
   sources; converges in a collab room.
