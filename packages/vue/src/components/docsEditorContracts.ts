@@ -19,6 +19,7 @@ import type {
   DocumentSnapshot,
 } from '../types.js'
 import type { Locale } from '../composables/useLocale.js'
+import type { DocsTheme } from '../composables/useTheme.js'
 
 export interface DocsEditorProps {
   /**
@@ -44,6 +45,13 @@ export interface DocsEditorProps {
    * `editable === false` maps to `viewing`. Reactive — switching does not remount.
    */
   mode?: DocumentMode
+  /**
+   * Editor theme. `light`/`dark` scopes the theme to this editor instance: the
+   * `dark` class is applied to the editor root (never to the host page), so it
+   * also works inside Shadow DOM. Omit it for the auto document-level theme
+   * (localStorage / prefers-color-scheme).
+   */
+  theme?: DocsTheme
   /**
    * Whether the track-changes review UI may accept/reject suggestions
    * (issues #27/#28). Defaults to `true`; hosts pass `false` for viewer roles.
@@ -147,6 +155,7 @@ export interface DocsEditorProps {
 export const docsEditorPropDefaults = {
   editable: true,
   mode: undefined,
+  theme: undefined,
   canReviewSuggestions: true,
   modelValue: undefined,
   plugins: () => [],

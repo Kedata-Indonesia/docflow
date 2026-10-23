@@ -102,7 +102,7 @@ const collaborationOptions = {
 | Attribute | Type | Description |
 |-----------|------|-------------|
 | `room` | string | Collaboration room name |
-| `theme` | `"light"` \| `"dark"` | Editor theme |
+| `theme` | `"light"` \| `"dark"` | Scoped to this editor instance (the `dark` class goes on the editor root, never the host page). Omit for the auto theme (`localStorage` / `prefers-color-scheme`). |
 | `editable` | `"true"` \| `"false"` | Enable editing |
 | `content` | JSON string | Initial document content |
 | `websocket-url` | string | WebSocket server for collab |

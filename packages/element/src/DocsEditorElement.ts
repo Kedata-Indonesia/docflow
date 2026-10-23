@@ -6,7 +6,10 @@ import type { DocsEditorPlugin, ImageUploadHandler } from '@kedata-indonesia/doc
 // This enables Tailwind + ProseMirror styles inside the Shadow DOM.
 import shadowStyles from './shadow.css?inline'
 
-const VueDocsEditorElement = defineCustomElement(DocsEditor)
+// `defineCustomElement` gives the Vue app its own shadow root, so the styles
+// must be handed to Vue: appending them to the host's shadow root leaves the
+// component itself unstyled.
+const VueDocsEditorElement = defineCustomElement(DocsEditor, { styles: [shadowStyles] })
 
 let vueElementTag: string | undefined
 
@@ -76,12 +79,6 @@ export class DocsEditorElement extends HTMLElement {
     // reuse it instead of attaching a second one (which throws NotSupportedError).
     const shadowRoot = this._ensureShadowRoot()
     shadowRoot.replaceChildren()
-
-    // Inject editor styles into the shadow root so Tailwind utilities,
-    // ProseMirror overrides, and page layout styles work inside Shadow DOM.
-    const styleEl = document.createElement('style')
-    styleEl.textContent = shadowStyles
-    shadowRoot.appendChild(styleEl)
 
     const props = this._buildProps()
     registerVueElement()
@@ -155,6 +152,12 @@ export class DocsEditorElement extends HTMLElement {
 
     const modelValue = this._currentModelValue()
 
+    // Issue #375 — explicit theme, scoped to this element's editor instance.
+    // Anything other than light/dark (including a missing attribute) keeps the
+    // auto document-level behaviour.
+    const themeAttr = this.getAttribute('theme')
+    const theme = themeAttr === 'light' || themeAttr === 'dark' ? themeAttr : undefined
+
     const room = this.getAttribute('room')
     const websocketUrl = this.getAttribute('websocket-url')
     let collaboration: Record<string, unknown> | undefined
@@ -172,6 +175,7 @@ export class DocsEditorElement extends HTMLElement {
     return {
       modelValue,
       editable,
+      theme,
       debug,
       collaboration,
       plugins: this._plugins,

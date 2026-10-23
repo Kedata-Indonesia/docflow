@@ -1,4 +1,5 @@
 import { mount } from '@vue/test-utils'
+import { nextTick } from 'vue'
 import { describe, expect, it, vi } from 'vitest'
 import type { DocsEditorPlugin } from '@kedata-indonesia/docflow-core'
 import type { Editor } from '@tiptap/core'
@@ -37,6 +38,21 @@ describe('DocsEditor', () => {
     const wrapper = mount(DocsEditor)
     expect(wrapper.find('.docs-editor').exists()).toBe(true)
     expect(wrapper.find('.docs-editor__paper').exists()).toBe(true)
+  })
+
+  it('scopes an explicit theme to the editor root (#375)', async () => {
+    document.documentElement.classList.remove('dark')
+    const wrapper = mount(DocsEditor, { props: { theme: 'dark' } })
+    await nextTick()
+
+    expect(wrapper.find('.docs-editor').classes()).toContain('dark')
+    expect(document.documentElement.classList.contains('dark')).toBe(false)
+
+    await wrapper.setProps({ theme: 'light' })
+    await nextTick()
+    expect(wrapper.find('.docs-editor').classes()).not.toContain('dark')
+
+    wrapper.unmount()
   })
 
   it('renders toolbar when plugins are provided', () => {

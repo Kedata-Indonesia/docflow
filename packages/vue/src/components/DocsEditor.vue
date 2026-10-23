@@ -29,6 +29,7 @@ import DocsEditorDialogs from './DocsEditorDialogs.vue'
 import FindReplaceDialog from './FindReplaceDialog.vue'
 import { Menu, Minimize2 } from 'lucide-vue-next'
 import { provideLocale } from '../composables/useLocale.js'
+import { provideTheme } from '../composables/useTheme.js'
 import { docsEditorPropDefaults, type DocsEditorEmits, type DocsEditorProps } from './docsEditorContracts.js'
 import type { ReferencesSidebarSlotProps } from '../types.js'
 import type { HeaderFooterValues } from '../composables/useDocumentModel.js'
@@ -37,6 +38,11 @@ import type { DocumentMode } from '@kedata-indonesia/docflow-core'
 const props = withDefaults(defineProps<DocsEditorProps>(), docsEditorPropDefaults)
 
 const emit = defineEmits<DocsEditorEmits>()
+
+// Issue #375 — an explicit `theme` scopes dark mode to this editor instance and
+// classes its root, so it works inside Shadow DOM; without it the legacy
+// document-level theme keeps working unchanged.
+const theme = provideTheme(() => props.theme)
 
 // Provide locale context for all editor chrome components.
 const { locale: currentLocale, setLocale, t } = provideLocale(props.locale)
@@ -67,7 +73,7 @@ const {
   // Header/footer interactions are created further down; read them lazily.
   getStartInlineHeaderEdit: () => startInlineHeaderEdit,
   getStartInlineFooterEdit: () => startInlineFooterEdit,
-})
+}, theme)
 
 // ─── Editor session: document model → editor → citations → bubble / link ─────
 // Document mode (#27/#28). Controlled: an explicit `mode` prop wins. Uncontrolled:
@@ -307,7 +313,10 @@ void [openHeaderFormatModal, openPageNumberModal]
 </script>
 
 <template>
-  <div class="docs-editor flex h-screen w-full flex-col overflow-hidden bg-slate-50 transition-colors dark:bg-[#02040a]">
+  <div
+    class="docs-editor flex h-screen w-full flex-col overflow-hidden bg-slate-50 transition-colors dark:bg-[#02040a]"
+    :class="{ dark: isDark }"
+  >
     <HeaderBar
       v-if="!focusMode"
       :title="title" :editable="editable" :collaborators="collaborators" :starred="starred" :user-name="userName" :user-avatar="userAvatar"

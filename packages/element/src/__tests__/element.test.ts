@@ -43,6 +43,29 @@ describe('DocsEditorElement', () => {
     expect(buildProps(missing).debug).toBe(false)
   })
 
+  it('forwards a valid theme attribute and ignores anything else (#375)', () => {
+    class DocsEditorThemeElement extends DocsEditorElement {}
+    customElements.define('docs-editor-theme-test', DocsEditorThemeElement)
+
+    const buildProps = (el: DocsEditorThemeElement) =>
+      (el as unknown as { _buildProps: () => Record<string, unknown> })._buildProps()
+
+    const dark = document.createElement('docs-editor-theme-test') as DocsEditorThemeElement
+    dark.setAttribute('theme', 'dark')
+    expect(buildProps(dark).theme).toBe('dark')
+
+    const light = document.createElement('docs-editor-theme-test') as DocsEditorThemeElement
+    light.setAttribute('theme', 'light')
+    expect(buildProps(light).theme).toBe('light')
+
+    const invalid = document.createElement('docs-editor-theme-test') as DocsEditorThemeElement
+    invalid.setAttribute('theme', 'blue')
+    expect(buildProps(invalid).theme).toBeUndefined()
+
+    const missing = document.createElement('docs-editor-theme-test') as DocsEditorThemeElement
+    expect(buildProps(missing).theme).toBeUndefined()
+  })
+
   it('registerDocsEditor defines the element in a mock registry', () => {
     const registry = createMockRegistry()
     registerDocsEditor('docs-editor', registry)

@@ -268,6 +268,7 @@ const MyPlugin = definePlugin({
 | `plugins` | `DocsEditorPlugin[]` | `[]` | Active plugins — usually `defaultPlugins` from `@kedataindo/docflow-plugins`. |
 | `editable` | `boolean` | `true` | Let the user edit the document. Reactive after mount: toggling it calls `editor.setEditable()` instead of requiring a remount. |
 | `mode` | `DocumentMode` | `—` | Document mode (issues #27/#28): `editing` (default) · `suggesting` (edits become suggestions) · `viewing` (read-only). Supersedes `editable` when set; `editable === false` maps to `viewing`. Reactive — switching does not remount. |
+| `theme` | `DocsTheme` | `—` | Editor theme. `light`/`dark` scopes the theme to this editor instance: the `dark` class is applied to the editor root (never to the host page), so it also works inside Shadow DOM. Omit it for the auto document-level theme (localStorage / prefers-color-scheme). |
 | `canReviewSuggestions` | `boolean` | `true` | Whether the track-changes review UI may accept/reject suggestions (issues #27/#28). Defaults to `true`; hosts pass `false` for viewer roles. |
 | `collaboration` | `CollaborationOptions \| CollaborationSetup` | `—` | Collaboration config (`room`, `provider`, `user`) — the host owns the transport. |
 | `pageSize` | `string` | `'a4'` | Page size id (`a4`, `f4`, `letter`, `legal`, `a5`). Reactive after mount: changing it re-lays out the paper instead of requiring a remount. |
@@ -361,6 +362,11 @@ const MyPlugin = definePlugin({
   debug="true|false"
 ></docs-editor>
 ```
+
+`theme` is optional. When set, it is scoped to that element (the `dark` class goes on
+the editor root, not the host page), so it works inside Shadow DOM and multiple
+embeds stay independent. Without it the editor follows the document-level auto
+theme (`localStorage` / `prefers-color-scheme`).
 
 JS properties on the element: `plugins`, `onImageUpload` (everything else is an
 attribute — see `observedAttributes` in `DocsEditorElement`).
