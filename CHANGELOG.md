@@ -112,6 +112,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- **`<docs-editor>` mounts and survives being moved (issue #369):** the wrapper
+  never rendered in any browser — it built Vue's custom-element class with `new`,
+  which is an `Illegal constructor` until that class is registered, so every
+  mount threw before the editor appeared. The class is now registered under an
+  internal tag (`docflow-docs-editor-internal`, plus a numeric suffix when a page
+  already uses that name) and instantiated afterwards, which makes `new` legal and
+  lets the host hand props to the constructor. `connectedCallback()` also called
+  `attachShadow()` unconditionally, and the browser keeps the shadow root attached
+  to the host after removal, so re-inserting the element (modals, drag-and-drop,
+  framework re-parenting) threw `NotSupportedError`. The shadow root is now
+  created once, reused on reconnect and re-populated with a fresh `<style>` and
+  editor instance; `disconnectedCallback()` only unmounts the Vue element.
+  Covered by a connect → disconnect → reconnect unit test and a Chromium check.
+  _([#369](https://github.com/Kedata-Indonesia/docflow/issues/369))_
+
 - **CSL styles keep their own identity (issue #360):** `parseCslStyle` used to
   file an imported style under the last segment of its `<info><id>` URI, so two
   unrelated files sharing that segment (`…/styles/harvard-cite-them-right` from
