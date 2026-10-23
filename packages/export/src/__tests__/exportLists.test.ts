@@ -38,6 +38,21 @@ describe('docx list export', () => {
     expect(body).toContain('Second')
   })
 
+  it('honours a non-default ordered list start (#385)', async () => {
+    const { body } = await exportText({
+      type: 'doc',
+      content: [{
+        type: 'orderedList',
+        attrs: { start: 5 },
+        content: [item('Five'), item('Six')],
+      }],
+    })
+    expect(body).toContain('5.')
+    expect(body).toContain('6.')
+    expect(body).not.toContain('1.')
+    expect(body).not.toContain('2.')
+  })
+
   it('exports nested list items', async () => {
     const { body } = await exportText({
       type: 'doc',

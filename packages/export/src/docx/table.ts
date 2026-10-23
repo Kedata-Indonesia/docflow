@@ -1,25 +1,32 @@
-import { Table, TableRow, TableCell, Paragraph, TextRun, WidthType, BorderStyle } from 'docx'
-import type { PmNode } from './nodes.js'
+import { Table, TableRow, TableCell, Paragraph, WidthType, BorderStyle } from 'docx'
+import { mapBlockNode, type PmNode, type WalkContext } from './nodes.js'
 
-function cellToParagraph(node: PmNode): Paragraph {
-  const runs: TextRun[] = []
-  for (const child of node.content || []) {
-    if (child.type === 'paragraph' || child.type === 'text') {
-      if (child.type === 'text') {
-        runs.push(new TextRun({ text: child.text || '' }))
-      } else {
-        for (const inline of child.content || []) {
-          if (inline.type === 'text') {
-            runs.push(new TextRun({ text: inline.text || '' }))
-          }
-        }
-      }
+/**
+ * A table cell's children are blocks, not inline text: mapping them through the
+ * shared block mapper keeps marks, citations, footnotes, equations, lists,
+ * images and nested tables (issue #382). DOCX requires at least one paragraph.
+ */
+function cellChildren(cellNode: PmNode, walkCtx?: WalkContext): (Paragraph | Table)[] {
+  const children: (Paragraph | Table)[] = []
+  for (const child of cellNode.content ?? []) {
+    if (child.type === 'table') {
+      const nested = tableToDocxTable(child, walkCtx)
+      if (nested) children.push(nested)
+      continue
     }
+    children.push(...mapBlockNode(child, undefined, walkCtx))
   }
-  return new Paragraph({ children: runs.length > 0 ? runs : [new TextRun('')] })
+  if (children.length === 0) children.push(new Paragraph(''))
+  return children
 }
 
-export function tableToDocxTable(node: PmNode): Table | null {
+/** ProseMirror table attrs are `colspan`/`rowspan`; accept the camelCase form too. */
+function span(value: unknown): number | undefined {
+  const parsed = Number(value)
+  return Number.isInteger(parsed) && parsed > 1 ? parsed : undefined
+}
+
+export function tableToDocxTable(node: PmNode, walkCtx?: WalkContext): Table | null {
   if (node.type !== 'table' || !node.content) return null
 
   const rows: TableRow[] = []
@@ -30,7 +37,9 @@ export function tableToDocxTable(node: PmNode): Table | null {
       if (cellNode.type !== 'tableCell' && cellNode.type !== 'tableHeader') continue
       const isHeader = cellNode.type === 'tableHeader'
       cells.push(new TableCell({
-        children: [cellToParagraph(cellNode)],
+        children: cellChildren(cellNode, walkCtx),
+        columnSpan: span(cellNode.attrs?.colspan ?? cellNode.attrs?.columnSpan),
+        rowSpan: span(cellNode.attrs?.rowspan ?? cellNode.attrs?.rowSpan),
         shading: isHeader ? { fill: 'E5E7EB' } : undefined,
         borders: {
           top: { style: BorderStyle.SINGLE, size: 6, color: '000000' },

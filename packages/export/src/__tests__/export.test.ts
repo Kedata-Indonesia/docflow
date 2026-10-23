@@ -11,6 +11,12 @@ describe('utils', () => {
     expect(filenameFromTitle('   ', 'txt')).toBe('Untitled Document.txt')
   })
 
+  it('keeps non-Latin letters and numbers in file names (#380)', () => {
+    expect(filenameFromTitle('合同', 'docx')).toBe('合同.docx')
+    expect(filenameFromTitle('تقرير', 'docx')).toBe('تقرير.docx')
+    expect(filenameFromTitle('Résumé 2026', 'docx')).toBe('Résumé 2026.docx')
+  })
+
   it('wrapHtmlDocument escapes title', () => {
     const html = wrapHtmlDocument('<script>alert(1)</script>', '<p>hi</p>')
     expect(html).toContain('&lt;script&gt;')
