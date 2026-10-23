@@ -1,6 +1,9 @@
-import { computed, ref, shallowRef } from 'vue'
+import { computed, onUnmounted, ref, shallowRef } from 'vue'
 import type { DocsEditor, DocsEditorPlugin } from '@kedata-indonesia/docflow-core'
 import type { SavingStatus } from '../types.js'
+
+/** Trailing delay before `update:modelValue` while typing (issue #374). */
+export const MODEL_UPDATE_DEBOUNCE_MS = 300
 
 /** One tab of the tabbed document surface. */
 export interface TabItem {
@@ -49,9 +52,10 @@ export interface UseDocumentModelOptions {
 
 /**
  * Tabbed-document model + persistence pipeline + derived counters. Owns the
- * `TabbedDoc` shape and the debounced `savingStatus`/`lastSaved` signal, but
- * never writes to storage — persistence is the host's job via
- * `update:modelValue` (LIBRARY_CONTRACT rule 5).
+ * `TabbedDoc` shape, the debounced `update:modelValue` stream (typing is
+ * coalesced; discrete edits flush immediately) and the `savingStatus`/
+ * `lastSaved` signal, but never writes to storage — persistence is the host's
+ * job via `update:modelValue` (LIBRARY_CONTRACT rule 5).
  */
 export function useDocumentModel(options: UseDocumentModelOptions) {
   const { modelValue, getPlugins, emit, getHeaderFooter, getEditor } = options
@@ -93,11 +97,19 @@ export function useDocumentModel(options: UseDocumentModelOptions) {
   const savingStatus = ref<SavingStatus>('saved')
   const lastSaved = ref(Date.now())
   const saveTimer = ref<ReturnType<typeof setTimeout> | null>(null)
+  /** Pending trailing emit while the user types (issue #374). */
+  let pendingEmit: ReturnType<typeof setTimeout> | null = null
+
+  const clearPendingEmit = () => {
+    if (pendingEmit === null) return
+    clearTimeout(pendingEmit)
+    pendingEmit = null
+  }
 
   // Build the full tabbed document from current state and emit it to the host.
   // Persistence is the host's job (via update:modelValue / onUpdate) — the
   // library deliberately performs no storage writes (LIBRARY_CONTRACT rule 5).
-  const persistCurrentDoc = () => {
+  const emitCurrentDoc = () => {
     const { headerLeft, headerRight, footerLeft, footerRight } = getHeaderFooter()
     const fullDoc: TabbedDoc = {
       type: 'tabbed-doc',
@@ -116,6 +128,38 @@ export function useDocumentModel(options: UseDocumentModelOptions) {
   }
 
   /**
+   * Immediate emit for discrete actions (header/footer edit, commands, tab
+   * switch). Cancels a pending typing emit because this snapshot is newer.
+   */
+  const persistCurrentDoc = () => {
+    clearPendingEmit()
+    emitCurrentDoc()
+  }
+
+  /**
+   * Trailing emit for typing (issue #374): a burst of transactions produces one
+   * `update:modelValue` instead of one per keystroke. The content itself is
+   * already stored per transaction, so a flush always emits the latest state.
+   */
+  const schedulePersistCurrentDoc = () => {
+    clearPendingEmit()
+    savingStatus.value = 'saving'
+    pendingEmit = setTimeout(() => {
+      pendingEmit = null
+      emitCurrentDoc()
+    }, MODEL_UPDATE_DEBOUNCE_MS)
+  }
+
+  /** Emit an outstanding typing update now (editor blur / component unmount). */
+  const flushPendingEmit = () => {
+    if (pendingEmit === null) return
+    clearPendingEmit()
+    emitCurrentDoc()
+  }
+
+  onUnmounted(flushPendingEmit)
+
+  /**
    * Replace the tab/document state with a host-written `modelValue` (issue
    * #370). Returns the content the editor should show and, for tabbed docs,
    * the header/footer slots the component should paint. A plain JSON document
@@ -124,6 +168,18 @@ export function useDocumentModel(options: UseDocumentModelOptions) {
   const applyModelValue = (
     value: unknown,
   ): { content?: object; headerFooter?: HeaderFooterValues } => {
+    // The host's write replaces the document; a queued local emit is stale and
+    // must not land afterwards as if it were newer.
+    if (pendingEmit !== null) {
+      clearPendingEmit()
+      savingStatus.value = 'saved'
+      lastSaved.value = Date.now()
+      if (saveTimer.value) {
+        clearTimeout(saveTimer.value)
+        saveTimer.value = null
+      }
+    }
+
     const next = parseModelValue(value)
     const activeId = next.tabs.some(t => t.id === next.activeTabId)
       ? next.activeTabId
@@ -181,6 +237,8 @@ export function useDocumentModel(options: UseDocumentModelOptions) {
     lastSaved,
     saveTimer,
     persistCurrentDoc,
+    schedulePersistCurrentDoc,
+    flushPendingEmit,
     applyModelValue,
     lastEmitted,
     updateCounts,

@@ -118,9 +118,11 @@ seeds it and later rewrites are ignored.
 
 `modelValue` is two-way: the editor emits `update:modelValue` on edits, and writing the prop
 after mount replaces the document — snapshot restore and document switching work without a
-remount. The component ignores echoes of its own emission, so a `v-model` host never resets
-the caret. In collaboration mode the Yjs document is authoritative, so host writes are
-ignored there; seed the room instead.
+remount. Typing is coalesced on a ~300 ms trailing debounce (flushed on blur and unmount), so
+a burst of keystrokes produces one host update instead of one per character; discrete changes
+such as header/footer edits still emit immediately. The component ignores echoes of its own
+emission, so a `v-model` host never resets the caret. In collaboration mode the Yjs document
+is authoritative, so host writes are ignored there; seed the room instead.
 
 ```ts
 interface DocsEditorProps {

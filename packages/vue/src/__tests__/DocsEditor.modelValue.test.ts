@@ -50,6 +50,8 @@ describe('DocsEditor modelValue after mount (#370)', () => {
     editor?.commands.focus()
     editor?.commands.insertContent('typed')
 
+    // Typing is coalesced; wait for the trailing emit (issue #374).
+    await settle(350)
     const emitted = wrapper.emitted('update:modelValue') ?? []
     expect(emitted.length).toBeGreaterThan(0)
     const caretBefore = editor?.state.selection.from
@@ -68,6 +70,7 @@ describe('DocsEditor modelValue after mount (#370)', () => {
     const editor = editorOf(wrapper)
     editor?.commands.focus()
     editor?.commands.insertContent('typed')
+    await settle(350)
     const olderEmitted = wrapper.emitted('update:modelValue')?.at(-1)?.[0] as object
 
     await wrapper.setProps({ modelValue: docB })
@@ -122,6 +125,7 @@ describe('DocsEditor modelValue after mount (#370)', () => {
 
     editor?.commands.focus()
     editor?.commands.insertContent('!')
+    await settle(350)
     const last = wrapper.emitted('update:modelValue')?.at(-1)?.[0] as
       | { activeTabId: string; tabs: Array<{ id: string; content: object }> }
       | undefined
