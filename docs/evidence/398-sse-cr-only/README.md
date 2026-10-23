@@ -44,7 +44,8 @@ Perbaikannya menambahkan lookahead agar `\r` tidak boleh diikuti `\n`:
 const separator = /(?:\r\n|\r(?!\n)|\n){2}/.exec(buffer)
 ```
 
-Ada test regresi khusus untuk kasus ini, jadi kesalahan yang sama tidak bisa masuk lagi.
+Test CRLF `event:` + `data:` yang sudah ada sejak #384 kini menjaga kasus ini, jadi kesalahan yang
+sama tidak bisa masuk lagi.
 
 ## 4. Perubahan
 
