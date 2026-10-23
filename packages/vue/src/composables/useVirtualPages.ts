@@ -1,4 +1,4 @@
-import { ref, onMounted, onUnmounted, unref, watch, computed, type Ref } from 'vue'
+import { ref, onUnmounted, unref, watch, computed, type Ref } from 'vue'
 import { VirtualPageOverlay, type PageOverlayConfig, type PageOverlayData } from '@kedata-indonesia/docflow-layout-engine'
 
 export interface UseVirtualPagesOptions {
@@ -20,25 +20,55 @@ export function useVirtualPages(options: UseVirtualPagesOptions) {
 
   let overlay: VirtualPageOverlay | null = null
   let resizeObserver: ResizeObserver | null = null
+  // Guards async layout results: a re-init while a previous `layout()` is still
+  // running must not let the stale result overwrite the new editor's data.
+  let generation = 0
+
+  const teardown = () => {
+    generation++
+    overlay?.disconnect()
+    overlay = null
+    resizeObserver?.disconnect()
+    resizeObserver = null
+    isReady.value = false
+  }
 
   const init = async () => {
     const editor = options.editorRef.value
     const scrollEl = options.scrollRef.value
     if (!editor?.view?.dom || !scrollEl) return
 
-    overlay = new VirtualPageOverlay(editor.view.dom, unref(options.config), scrollEl, options.bufferPages ?? 2)
-    overlay.observe()
+    // Rebuild from scratch: the previous editor/scroll container (issue #373).
+    teardown()
+    const gen = generation
+    data.value = { ...data.value, totalPages: 1, visiblePages: [] }
 
-    data.value = await overlay.layout()
+    const nextOverlay = new VirtualPageOverlay(
+      editor.view.dom,
+      unref(options.config),
+      scrollEl,
+      options.bufferPages ?? 2,
+    )
+    overlay = nextOverlay
+    // Scroll/visibility changes are pushed, so no polling timer is needed (#376).
+    nextOverlay.onVisibleChange = (next) => {
+      if (gen === generation) data.value = next
+    }
+    nextOverlay.observe()
+
+    const initial = await nextOverlay.layout()
+    if (gen !== generation) return
+    data.value = initial
     isReady.value = true
 
     // Re-layout on resize to reflect font-size / window changes.
-    resizeObserver = new ResizeObserver(async () => {
-      if (overlay) {
-        data.value = await overlay.layout()
-      }
+    const observer = new ResizeObserver(async () => {
+      if (gen !== generation) return
+      const next = await nextOverlay.layout()
+      if (gen === generation) data.value = next
     })
-    resizeObserver.observe(editor.view.dom)
+    observer.observe(editor.view.dom)
+    resizeObserver = observer
   }
 
   const updateConfig = async (config: Partial<PageOverlayConfig>) => {
@@ -53,23 +83,25 @@ export function useVirtualPages(options: UseVirtualPagesOptions) {
     }
   }
 
-  // Poll for visibility updates (scroll events are handled by overlay.observe())
-  let pollTimer: ReturnType<typeof setInterval> | null = null
-
-  onMounted(() => {
-    pollTimer = setInterval(refreshData, 250)
-  })
-
   onUnmounted(() => {
-    if (pollTimer) clearInterval(pollTimer)
-    overlay?.disconnect()
-    resizeObserver?.disconnect()
+    teardown()
   })
 
-  // Re-init when editor or scroll container becomes available
-  watch([() => options.editorRef.value?.view?.dom, options.scrollRef], () => {
-    if (!isReady.value) init()
-  }, { immediate: true })
+  // Re-init when the editor instance or scroll container changes — including a
+  // collaboration room switch, which hands us a new `view.dom` (#373).
+  watch(
+    [() => options.editorRef.value?.view?.dom ?? null, options.scrollRef],
+    ([dom, scrollEl], previous) => {
+      const changed = !previous || previous[0] !== dom || previous[1] !== scrollEl
+      if (!changed) return
+      if (!dom || !scrollEl) {
+        teardown()
+        return
+      }
+      void init()
+    },
+    { immediate: true, flush: 'post' },
+  )
 
   // Re-layout when config changes (plain object or ref, see `UseVirtualPagesOptions`)
   watch(() => unref(options.config), (newConfig) => {

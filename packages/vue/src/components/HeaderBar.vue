@@ -174,6 +174,21 @@ const menuItemClass = (action?: string): string[] => [
 
 // Sub-menu hover state
 const hoveredSub = ref<string | null>(null)
+// Open upward when the sub-menu would run past the viewport bottom (e.g. the
+// Insert → Page numbers item sits near the bottom of a long menu).
+const submenuUp = ref(false)
+
+function openSubmenu(key: string, idx: number) {
+  hoveredSub.value = `${key}-${idx}`
+  submenuUp.value = false
+  void nextTick(() => {
+    const panel = document.querySelector<HTMLElement>(
+      '[data-testid="header-menu-panel"] [data-submenu-panel]',
+    )
+    if (!panel) return
+    submenuUp.value = panel.getBoundingClientRect().bottom > window.innerHeight - 8
+  })
+}
 
 const toggleMenu = (key: string) => {
   const opening = activeMenu.value !== key
@@ -388,7 +403,7 @@ onUnmounted(() => {
                     <div
                       v-else-if="item.sub"
                       class="relative"
-                      @mouseenter="hoveredSub = `${key}-${idx}`"
+                      @mouseenter="openSubmenu(key, idx)"
                       @mouseleave="hoveredSub = null"
                     >
                       <button
@@ -417,7 +432,9 @@ onUnmounted(() => {
                       >
                         <div
                           v-if="hoveredSub === `${key}-${idx}`"
-                          class="absolute left-full top-0 z-50 ml-1 min-w-[200px] rounded-lg border border-slate-200 bg-white py-1 text-sm text-slate-700 shadow-xl dark:border-slate-700 dark:bg-[#0e1525] dark:text-slate-200"
+                          data-submenu-panel
+                          :class="submenuUp ? 'bottom-0' : 'top-0'"
+                          class="absolute left-full z-50 ml-1 min-w-[200px] rounded-lg border border-slate-200 bg-white py-1 text-sm text-slate-700 shadow-xl dark:border-slate-700 dark:bg-[#0e1525] dark:text-slate-200"
                         >
                           <button
                             v-for="sub in item.sub"

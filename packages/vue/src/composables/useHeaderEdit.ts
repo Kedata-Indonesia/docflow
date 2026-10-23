@@ -317,9 +317,31 @@ export function useHeaderEdit(options: UseHeaderEditOptions) {
 
     slotEl.classList.add(side === 'header' ? 'rm-header-active' : 'rm-footer-active')
 
+    // The footer bar sits just above the footer text, i.e. close to the bottom
+    // of the viewport. The options menu must flip upward there or its last item
+    // (Page numbers) is clipped (footer page-number bug).
+    const placeOptionsDropdown = (openDropdown: HTMLElement) => {
+      openDropdown.classList.remove('opens-up')
+      const wrapper = openDropdown.closest('.rm-options-wrapper')
+      const button = wrapper?.querySelector<HTMLElement>('.rm-options-btn')
+      if (!button) return
+      const rect = button.getBoundingClientRect()
+      const height = openDropdown.offsetHeight
+      const spaceBelow = window.innerHeight - rect.bottom
+      if (spaceBelow < height + 8 && rect.top >= height + 8) {
+        openDropdown.classList.add('opens-up')
+      }
+    }
+
     const onResize = () => {
       const current = headerEditSession.value
-      if (current) positionSlotEdit(current)
+      if (current) {
+        positionSlotEdit(current)
+        const openDropdown = current.activeBar.querySelector<HTMLElement>(
+          '.rm-options-dropdown.is-open',
+        )
+        if (openDropdown) placeOptionsDropdown(openDropdown)
+      }
     }
     const onScroll = onResize
     const onWindowScroll = onResize
@@ -383,8 +405,10 @@ export function useHeaderEdit(options: UseHeaderEditOptions) {
     optionsButton?.addEventListener('click', (clickEvent) => {
       clickEvent.stopPropagation()
       clickEvent.preventDefault()
-      const open = dropdown?.classList.toggle('is-open') ?? false
+      const open = !(dropdown?.classList.contains('is-open') ?? false)
+      dropdown?.classList.toggle('is-open', open)
       if (arrow) arrow.textContent = open ? '▲' : '▼'
+      if (open && dropdown) placeOptionsDropdown(dropdown)
     })
 
     const formatButton = activeBar.querySelector('.rm-opt-format') as HTMLButtonElement | null

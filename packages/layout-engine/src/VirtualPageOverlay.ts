@@ -48,12 +48,19 @@ const sameMargins = (
  */
 export class VirtualPageOverlay {
   pageLayout: PageLayout
+  /**
+   * Pushed whenever the page count or the visible window changes. Consumers use
+   * this instead of polling `getData()` on a timer (issue #376).
+   */
+  onVisibleChange?: (data: PageOverlayData) => void
+
   private config: Required<PageOverlayConfig> & { pageSize: PageSize }
   private scrollEl: HTMLElement
   private editorEl: HTMLElement
   private bufferPages: number
   private lastResult: LayoutResult | null = null
   private lastVisible: VisiblePage[] = []
+  private lastTotalPages = 0
   private lastScrollTop = -1
   private scrollHandler: (() => void) | null = null
   private rafId = 0
@@ -208,7 +215,18 @@ export class VirtualPageOverlay {
       })
     }
 
+    const changed =
+      totalPages !== this.lastTotalPages ||
+      visible.length !== this.lastVisible.length ||
+      visible.some((page, index) => {
+        const previous = this.lastVisible[index]
+        return !previous || previous.index !== page.index || previous.top !== page.top || previous.height !== page.height
+      })
+
     this.lastVisible = visible
-    return { totalPages, visiblePages: visible, config: this.config }
+    this.lastTotalPages = totalPages
+    const result = { totalPages, visiblePages: visible, config: this.config }
+    if (changed) this.onVisibleChange?.(result)
+    return result
   }
 }

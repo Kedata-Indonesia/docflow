@@ -194,9 +194,54 @@ describe('ConfirmDialog — focus management (issue #359)', () => {
 
     await wrapper.setProps({ isOpen: false })
     await nextTick()
+    await nextTick()
     expect(document.activeElement).toBe(trigger)
 
     wrapper.unmount()
     trigger.remove()
+  })
+
+  it('falls back to a stable container when the trigger was deleted (#386)', async () => {
+    const list = document.createElement('div')
+    list.setAttribute('role', 'list')
+    const trigger = document.createElement('button')
+    list.appendChild(trigger)
+    document.body.appendChild(list)
+    trigger.focus()
+
+    const wrapper = mountDialog({ isOpen: false })
+    await wrapper.setProps({ isOpen: true })
+    await nextTick()
+
+    // The confirmed action removes the row before the dialog restores focus.
+    trigger.remove()
+    await wrapper.setProps({ isOpen: false })
+    await nextTick()
+    await nextTick()
+
+    expect(document.activeElement).toBe(list)
+    wrapper.unmount()
+    list.remove()
+  })
+
+  it('uses the caller fallback when the trigger was deleted (#386)', async () => {
+    const fallback = document.createElement('button')
+    const trigger = document.createElement('button')
+    document.body.appendChild(fallback)
+    document.body.appendChild(trigger)
+    trigger.focus()
+
+    const wrapper = mountDialog({ isOpen: false, fallbackFocus: () => fallback })
+    await wrapper.setProps({ isOpen: true })
+    await nextTick()
+
+    trigger.remove()
+    await wrapper.setProps({ isOpen: false })
+    await nextTick()
+    await nextTick()
+
+    expect(document.activeElement).toBe(fallback)
+    wrapper.unmount()
+    fallback.remove()
   })
 })
