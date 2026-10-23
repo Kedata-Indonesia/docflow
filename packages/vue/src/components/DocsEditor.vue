@@ -31,6 +31,7 @@ import { Menu, Minimize2 } from 'lucide-vue-next'
 import { provideLocale } from '../composables/useLocale.js'
 import { docsEditorPropDefaults, type DocsEditorEmits, type DocsEditorProps } from './docsEditorContracts.js'
 import type { ReferencesSidebarSlotProps } from '../types.js'
+import type { HeaderFooterValues } from '../composables/useDocumentModel.js'
 import type { DocumentMode } from '@kedata-indonesia/docflow-core'
 
 const props = withDefaults(defineProps<DocsEditorProps>(), docsEditorPropDefaults)
@@ -101,7 +102,14 @@ const {
   computeBubblePosition, showLinkDialog, linkDialogInitialText, linkDialogInitialUrl, linkDialogIsEditing,
   openLinkDialog, applyLinkDialog, removeLink,
 } = useDocsEditorSession({
-  emit, t, modelValue: props.modelValue, getPlugins: () => props.plugins,   // A computed ref so `useEditor`'s editable watch stays live — passing the
+  emit,
+  t,
+  getModelValue: () => props.modelValue,
+  // Header/footer slots are applied by the composable created below; the
+  // closure only runs when the host writes a tabbed document.
+  applyHeaderFooter: (values) => applyHeaderFooterValues(values),
+  getPlugins: () => props.plugins,
+  // A computed ref so `useEditor`'s editable watch stays live — passing the
   // plain `props.editable` snapshot froze the editor's editable state at mount.
   editable: effectiveEditable,
   collaboration: props.collaboration, onImageUpload: props.onImageUpload, getCitation: () => props.citation,
@@ -205,6 +213,18 @@ const {
     mode: pageNumberMode, startAt: pageNumberStartAt,
   },
 })
+
+/**
+ * Paint the header/footer slots carried by a host-written tabbed document
+ * (issue #370). Wired lazily into the model sync, which runs after mount.
+ */
+const applyHeaderFooterValues = (values: HeaderFooterValues) => {
+  userHeaderLeft.value = values.headerLeft
+  userHeaderRight.value = values.headerRight
+  userFooterLeft.value = values.footerLeft
+  userFooterRight.value = values.footerRight
+  applyHeaderFooter()
+}
 
 // ─── Page setup + virtual pages + page statistics ────────────────────────────
 const {

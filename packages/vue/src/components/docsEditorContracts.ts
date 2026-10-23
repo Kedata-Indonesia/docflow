@@ -21,7 +21,13 @@ import type {
 import type { Locale } from '../composables/useLocale.js'
 
 export interface DocsEditorProps {
-  /** Document content (ProseMirror JSON). Two-way bound via `v-model`. */
+  /**
+   * Document content: a ProseMirror JSON document or a tabbed document.
+   * Two-way via `v-model` — writes after mount replace the document (snapshot
+   * restore, switching documents). Echoes of the editor's own emission are
+   * ignored, and collaboration mode ignores host writes because Yjs owns the
+   * document there.
+   */
   modelValue?: object | string
   /** Active plugins — usually `defaultPlugins` from `@kedataindo/docflow-plugins`. */
   plugins?: DocsEditorPlugin[]
