@@ -8,6 +8,26 @@ import shadowStyles from './shadow.css?inline'
 
 const VueDocsEditorElement = defineCustomElement(DocsEditor)
 
+let vueElementTag: string | undefined
+
+/**
+ * A custom element constructor can only be instantiated after it has been
+ * registered. Keep the internal tag private and pick a free name so multiple
+ * copies of this package can coexist on one page.
+ */
+function registerVueElement(): void {
+  if (vueElementTag) return
+
+  let suffix = 0
+  let tag = 'docflow-docs-editor-internal'
+  while (customElements.get(tag)) {
+    tag = `docflow-docs-editor-internal-${++suffix}`
+  }
+
+  customElements.define(tag, VueDocsEditorElement)
+  vueElementTag = tag
+}
+
 export class DocsEditorElement extends HTMLElement {
   static observedAttributes = ['room', 'theme', 'editable', 'content', 'websocket-url', 'debug']
 
@@ -45,24 +65,32 @@ export class DocsEditorElement extends HTMLElement {
   connectedCallback() {
     if (typeof window === 'undefined' || typeof document === 'undefined') return
 
-    this._shadowRoot = this.attachShadow({ mode: 'open' })
+    // The browser keeps the shadow root on the host after a disconnect, so
+    // reuse it instead of attaching a second one (which throws NotSupportedError).
+    const shadowRoot = this._ensureShadowRoot()
+    shadowRoot.replaceChildren()
 
     // Inject editor styles into the shadow root so Tailwind utilities,
     // ProseMirror overrides, and page layout styles work inside Shadow DOM.
     const styleEl = document.createElement('style')
     styleEl.textContent = shadowStyles
-    this._shadowRoot.appendChild(styleEl)
+    shadowRoot.appendChild(styleEl)
 
     const props = this._buildProps()
+    registerVueElement()
     const vueElement = new VueDocsEditorElement(props)
     this._vueElement = vueElement
-    this._shadowRoot.appendChild(vueElement)
+    shadowRoot.appendChild(vueElement)
   }
 
   disconnectedCallback() {
     this._vueElement?.remove()
     this._vueElement = undefined
-    this._shadowRoot = undefined
+  }
+
+  private _ensureShadowRoot(): ShadowRoot {
+    this._shadowRoot ??= this.shadowRoot ?? this.attachShadow({ mode: 'open' })
+    return this._shadowRoot
   }
 
   attributeChangedCallback(_name: string, oldValue: string | null, newValue: string | null) {
