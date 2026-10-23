@@ -1,3 +1,10 @@
+import {
+  removeComments,
+  removeElementsWithSubtree,
+  unwrap,
+  walkElementsPostOrder,
+} from './domSanitize.js'
+
 /**
  * DOM-based clipboard HTML normalization (Stage 2 of the paste pipeline —
  * docs/plans/clipboard-paste-pipeline-plan.md).
@@ -148,14 +155,6 @@ function cleanAttrs(el: Element): void {
   cleanUrlAttrs(el)
 }
 
-/** Replace an element with its children. */
-function unwrap(el: Element): void {
-  const parent = el.parentNode
-  if (!parent) return
-  while (el.firstChild) parent.insertBefore(el.firstChild, el)
-  parent.removeChild(el)
-}
-
 /**
  * Convert a <span> carrying a background(-color) into a <mark>, preserving
  * text color as an inner span so the Highlight and TextStyle marks both
@@ -212,17 +211,6 @@ function normalizeElement(el: Element, source: ClipboardSource): void {
   }
 }
 
-function removeComments(root: Node): void {
-  const walker = root.ownerDocument!.createTreeWalker(root, 128 /* NodeFilter.SHOW_COMMENT */)
-  const comments: Node[] = []
-  let node = walker.nextNode()
-  while (node) {
-    comments.push(node)
-    node = walker.nextNode()
-  }
-  for (const c of comments) c.parentNode?.removeChild(c)
-}
-
 export function normalizeClipboardHTML(html: string): string {
   if (!html || typeof html !== 'string') return html ?? ''
   // Plain text (no tags) passes through untouched.
@@ -233,21 +221,12 @@ export function normalizeClipboardHTML(html: string): string {
 
   removeComments(doc.body)
 
-  // Remove non-content elements (deepest-first via live query loop).
-  for (const tag of REMOVE_TAGS) {
-    for (const el of Array.from(doc.body.getElementsByTagName(tag))) {
-      el.parentNode?.removeChild(el)
-    }
-  }
+  // Remove non-content elements with their subtrees.
+  removeElementsWithSubtree(doc.body, REMOVE_TAGS)
 
   // Post-order walk so children normalize before their parent is
   // potentially unwrapped/replaced.
-  const walk = (node: Node): void => {
-    if (node.nodeType !== 1) return
-    for (const child of Array.from(node.childNodes)) walk(child)
-    normalizeElement(node as Element, source)
-  }
-  for (const child of Array.from(doc.body.childNodes)) walk(child)
+  walkElementsPostOrder(doc.body, (el) => normalizeElement(el, source))
 
   return doc.body.innerHTML
 }

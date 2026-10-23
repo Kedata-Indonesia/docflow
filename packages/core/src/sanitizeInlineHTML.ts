@@ -1,3 +1,10 @@
+import {
+  removeComments,
+  removeElementsWithSubtree,
+  unwrap,
+  walkElementsPostOrder,
+} from './domSanitize.js'
+
 /**
  * Inline-HTML allowlist sanitizer for document-derived header/footer templates
  * (issue #51).
@@ -33,29 +40,8 @@ const DROP_TAGS = new Set([
   'source', 'track',
 ])
 
-/** Replace an element with its children (keep text, drop the wrapper). */
-function unwrap(el: Element): void {
-  const parent = el.parentNode
-  if (!parent) return
-  while (el.firstChild) parent.insertBefore(el.firstChild, el)
-  parent.removeChild(el)
-}
-
 function stripAttributes(el: Element): void {
   for (const attr of Array.from(el.attributes)) el.removeAttribute(attr.name)
-}
-
-function removeComments(root: Node): void {
-  const doc = root.ownerDocument
-  if (!doc) return
-  const walker = doc.createTreeWalker(root, 128 /* NodeFilter.SHOW_COMMENT */)
-  const comments: Node[] = []
-  let node = walker.nextNode()
-  while (node) {
-    comments.push(node)
-    node = walker.nextNode()
-  }
-  for (const comment of comments) comment.parentNode?.removeChild(comment)
 }
 
 export function sanitizeInlineHTML(html: string): string {
@@ -69,21 +55,13 @@ export function sanitizeInlineHTML(html: string): string {
     removeComments(doc.body)
 
     // Remove dangerous/non-content elements with their subtrees.
-    for (const tag of DROP_TAGS) {
-      for (const el of Array.from(doc.body.getElementsByTagName(tag))) {
-        el.parentNode?.removeChild(el)
-      }
-    }
+    removeElementsWithSubtree(doc.body, DROP_TAGS)
 
     // Post-order walk so children are normalized before a parent unwraps.
-    const walk = (node: Node): void => {
-      if (node.nodeType !== 1) return
-      for (const child of Array.from(node.childNodes)) walk(child)
-      const el = node as Element
+    walkElementsPostOrder(doc.body, (el) => {
       if (ALLOWED_TAGS.has(el.tagName.toLowerCase())) stripAttributes(el)
       else unwrap(el)
-    }
-    for (const child of Array.from(doc.body.childNodes)) walk(child)
+    })
 
     return doc.body.innerHTML
   } catch {
