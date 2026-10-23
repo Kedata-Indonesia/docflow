@@ -3,6 +3,7 @@ import { coverage } from '../../test/vitest.coverage'
 
 export default defineConfig({
   test: {
+    environment: 'happy-dom',
     coverage: coverage({ lines: 66, statements: 66, branches: 60, functions: 76 }),
   },
 })
