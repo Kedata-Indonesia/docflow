@@ -15,6 +15,7 @@
  */
 import type { Auth } from './keyStorage.js'
 import type { AICompleteRequest, AIProvider, StreamEvent } from './provider.js'
+import { takeSseEvent } from './sse.js'
 
 export interface ClaudeConfig {
   /** Base URL of the Anthropic (or compatible) endpoint. Defaults to `https://api.anthropic.com`. */
@@ -128,52 +129,47 @@ export function claudeProvider(config: ClaudeConfig): AIProvider {
             if (done) break
             buffer += decoder.decode(value, { stream: true })
 
-            // SSE events are separated by a blank line.
-            let sep: number
-            while ((sep = buffer.indexOf('\n\n')) >= 0) {
-              const block = buffer.slice(0, sep)
-              buffer = buffer.slice(sep + 2)
-              for (const line of block.split('\n')) {
-                if (!line.startsWith('data:')) continue
-                const data = line.slice('data:'.length).trim()
-                if (!data) continue
-                let json: AnthropicSseEvent
-                try {
-                  json = JSON.parse(data) as AnthropicSseEvent
-                } catch {
-                  // Tolerate non-JSON SSE payloads (keep-alives, provider quirks).
-                  continue
+            // SSE events end at a blank line, with either LF or CRLF endings.
+            for (let event = takeSseEvent(buffer); event; event = takeSseEvent(buffer)) {
+              buffer = event.rest
+              const data = event.data?.trim()
+              if (!data) continue
+              let json: AnthropicSseEvent
+              try {
+                json = JSON.parse(data) as AnthropicSseEvent
+              } catch {
+                // Tolerate non-JSON SSE payloads (keep-alives, provider quirks).
+                continue
+              }
+              switch (json.type) {
+                case 'content_block_delta': {
+                  const text = json.delta?.text
+                  if (text) yield { type: 'delta', text }
+                  break
                 }
-                switch (json.type) {
-                  case 'content_block_delta': {
-                    const text = json.delta?.text
-                    if (text) yield { type: 'delta', text }
-                    break
-                  }
-                  case 'message_delta': {
-                    // stop_reason arrives here, before message_stop.
-                    if (json.delta?.stop_reason) stopReason = json.delta.stop_reason
-                    break
-                  }
-                  case 'message_stop': {
-                    sawDone = true
-                    yield stopReason ? { type: 'done', stopReason } : { type: 'done' }
-                    return
-                  }
-                  case 'error': {
-                    yield {
-                      type: 'error',
-                      error: new Error(
-                        json.error?.message
-                          ? `Claude provider error: ${json.error.message}`
-                          : 'Claude provider stream error',
-                      ),
-                    }
-                    return
-                  }
-                  default:
-                    break
+                case 'message_delta': {
+                  // stop_reason arrives here, before message_stop.
+                  if (json.delta?.stop_reason) stopReason = json.delta.stop_reason
+                  break
                 }
+                case 'message_stop': {
+                  sawDone = true
+                  yield stopReason ? { type: 'done', stopReason } : { type: 'done' }
+                  return
+                }
+                case 'error': {
+                  yield {
+                    type: 'error',
+                    error: new Error(
+                      json.error?.message
+                        ? `Claude provider error: ${json.error.message}`
+                        : 'Claude provider stream error',
+                    ),
+                  }
+                  return
+                }
+                default:
+                  break
               }
             }
           }

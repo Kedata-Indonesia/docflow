@@ -1,0 +1,6 @@
+data: {"choices":[{"delta":{"content":"Hello, "}}]}<CR>
+<CR>
+data: {"choices":[{"delta":{"content":"world!"}}]}<CR>
+<CR>
+data: [DONE]<CR>
+<CR>
