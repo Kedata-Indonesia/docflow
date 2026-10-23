@@ -1,6 +1,6 @@
 import { computed, ref, watch } from 'vue'
 import { PAGE_SIZES, getPageSize } from '@kedata-indonesia/docflow-layout-engine'
-import { useTheme } from './useTheme.js'
+import { useTheme, type ThemeController } from './useTheme.js'
 
 /** Page margins in CSS pixels, as consumed by the layout engine. */
 export interface DocsEditorPageMargins {
@@ -34,7 +34,10 @@ export interface UseDocsEditorPageSurfaceOptions {
  * These refs stay the single source of truth for the rendered page; the
  * ProseMirror document is never mutated here.
  */
-export function useDocsEditorPageSurface(options: UseDocsEditorPageSurfaceOptions) {
+export function useDocsEditorPageSurface(
+  options: UseDocsEditorPageSurfaceOptions,
+  theme?: ThemeController,
+) {
   const margins = ref<DocsEditorPageMargins>({
     top: options.getMargins()?.top ?? 94,
     bottom: options.getMargins()?.bottom ?? 94,
@@ -73,7 +76,7 @@ export function useDocsEditorPageSurface(options: UseDocsEditorPageSurfaceOption
 
   const paperMaxWidth = computed(() => `${resolvedLayoutOptions.value.pageWidth}px`)
 
-  const { isDark } = useTheme()
+  const isDark = theme?.isDark ?? useTheme().isDark
 
   // Experimental: virtual page overlay flag. Must be defined early — referenced
   // by paginationOptions computed (below) to disable PaginationPlus when active.

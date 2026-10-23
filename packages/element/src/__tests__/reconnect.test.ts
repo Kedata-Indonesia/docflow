@@ -11,7 +11,7 @@ vi.mock('@kedata-indonesia/docflow-vue', async () => {
       name: 'DocsEditor',
       // Declared so the custom-element wrapper exposes them as element props,
       // which is what `_buildProps()` writes to.
-      props: ['modelValue', 'editable', 'debug', 'collaboration', 'plugins', 'onImageUpload'],
+      props: ['modelValue', 'editable', 'theme', 'debug', 'collaboration', 'plugins', 'onImageUpload'],
       emits: ['update:modelValue'],
       setup(
         props: { modelValue?: unknown },
@@ -37,9 +37,9 @@ import { DocsEditorElement } from '../index.js'
 
 type EditorProps = HTMLElement & { modelValue?: unknown }
 
-/** The internal Vue element is the second child, after the injected <style>. */
+/** The internal Vue element is the only child of the host shadow root. */
 function editorInstance(wrapper: HTMLElement): EditorProps {
-  const child = wrapper.shadowRoot?.children[1]
+  const child = wrapper.shadowRoot?.children[0]
   if (!(child instanceof HTMLElement)) throw new Error('editor did not mount')
   return child as EditorProps
 }
@@ -89,7 +89,10 @@ describe('DocsEditorElement lifecycle', () => {
     expect(() => document.body.append(element)).not.toThrow()
 
     expect(element.shadowRoot).toBe(shadowRoot)
-    expect(shadowRoot?.querySelector('style')).not.toBeNull()
+    // The styles live on the Vue element's own shadow root now, so the host
+    // shadow holds exactly the internal element.
+    expect(shadowRoot?.children).toHaveLength(1)
+    expect(editorInstance(element)).toBeInstanceOf(HTMLElement)
   })
 
   it('rebuilds the shadow content once per connect', () => {
@@ -103,7 +106,7 @@ describe('DocsEditorElement lifecycle', () => {
     element.remove()
     document.body.append(element)
 
-    expect(element.shadowRoot?.children).toHaveLength(2)
+    expect(element.shadowRoot?.children).toHaveLength(1)
   })
 
   it('keeps unsaved edits when the editor is moved', () => {
