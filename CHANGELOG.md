@@ -112,6 +112,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- **Host `modelValue` writes reach the editor after mount (issue #370):**
+  `v-model` was one-way in practice — the prop was read once at setup and
+  passed to `createEditor`, so snapshot restore, document switching, and the
+  web component's `content` attribute silently kept the old document. A sync
+  composable now applies post-mount writes with
+  `setContent(value, { emitUpdate: false })`, updates the tab state (switching
+  documents can change the active tab and its header/footer slots), and skips
+  echoes of the editor's own emission so a `v-model` round-trip cannot reset
+  the caret. Collaboration mode is skipped entirely: the Yjs document is
+  authoritative there.
+  _([#370](https://github.com/Kedata-Indonesia/docflow/issues/370))_
+
 - **`<docs-editor>` keeps unsaved edits when the element is moved (issue #392):**
   reconnecting rebuilt the Vue editor from the `content` attribute, so anything
   typed since the host last wrote that attribute was silently discarded. The

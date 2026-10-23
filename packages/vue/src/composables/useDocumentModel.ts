@@ -1,4 +1,4 @@
-import { computed, ref } from 'vue'
+import { computed, ref, shallowRef } from 'vue'
 import type { DocsEditor, DocsEditorPlugin } from '@kedata-indonesia/docflow-core'
 import type { SavingStatus } from '../types.js'
 
@@ -33,6 +33,7 @@ export interface HeaderFooterValues {
 }
 
 export interface UseDocumentModelOptions {
+  /** Initial host value, read once at setup. Later writes arrive via the sync composable. */
   modelValue: object | string | undefined
   /** Plugin list is read lazily so slash-command changes stay reactive. */
   getPlugins: () => DocsEditorPlugin[]
@@ -55,11 +56,13 @@ export interface UseDocumentModelOptions {
 export function useDocumentModel(options: UseDocumentModelOptions) {
   const { modelValue, getPlugins, emit, getHeaderFooter, getEditor } = options
 
-  const parseModelValue = (val: unknown): TabbedDoc => {
+  const isTabbedDoc = (val: unknown): val is TabbedDoc => {
     const obj = val as Record<string, unknown> | null
-    if (obj && typeof obj === 'object' && obj.type === 'tabbed-doc' && Array.isArray(obj.tabs)) {
-      return obj as unknown as TabbedDoc
-    }
+    return Boolean(obj && typeof obj === 'object' && obj.type === 'tabbed-doc' && Array.isArray(obj.tabs))
+  }
+
+  const parseModelValue = (val: unknown): TabbedDoc => {
+    if (isTabbedDoc(val)) return val
     return {
       type: 'tabbed-doc',
       activeTabId: 'tab-1',
@@ -76,6 +79,13 @@ export function useDocumentModel(options: UseDocumentModelOptions) {
   initialDoc.tabs.forEach(t => { tabContents.value[t.id] = t.content })
   const activeTabId = ref(initialDoc.activeTabId)
   const activeTabContent = computed(() => tabContents.value[activeTabId.value])
+
+  /**
+   * Last document handed to the host through `update:modelValue`. Echoes of it
+   * (a `v-model` host writing the same value back, cloned or not) are ignored
+   * by the host-write sync so they cannot reset the editor/selection.
+   */
+  const lastEmitted = shallowRef<object | null>(null)
 
   const wordCount = ref(0)
   const charCount = ref(0)
@@ -97,10 +107,44 @@ export function useDocumentModel(options: UseDocumentModelOptions) {
       footerLeft,
       footerRight,
     }
+    lastEmitted.value = fullDoc
     emit('update:modelValue', fullDoc)
     savingStatus.value = 'saving'
     if (saveTimer.value) clearTimeout(saveTimer.value)
     saveTimer.value = setTimeout(() => { savingStatus.value = 'saved'; lastSaved.value = Date.now() }, 800)
+  }
+
+  /**
+   * Replace the tab/document state with a host-written `modelValue` (issue
+   * #370). Returns the content the editor should show and, for tabbed docs,
+   * the header/footer slots the component should paint. A plain JSON document
+   * collapses the surface back to a single tab.
+   */
+  const applyModelValue = (
+    value: unknown,
+  ): { content?: object; headerFooter?: HeaderFooterValues } => {
+    const next = parseModelValue(value)
+    const activeId = next.tabs.some(t => t.id === next.activeTabId)
+      ? next.activeTabId
+      : next.tabs[0]?.id ?? 'tab-1'
+
+    tabs.value = next.tabs.map(t => ({ id: t.id, label: t.label, active: t.id === activeId }))
+    const contents: Record<string, object> = {}
+    next.tabs.forEach(t => { contents[t.id] = t.content })
+    tabContents.value = contents
+    activeTabId.value = activeId
+
+    return {
+      content: contents[activeId],
+      headerFooter: isTabbedDoc(value)
+        ? {
+            headerLeft: next.headerLeft ?? '',
+            headerRight: next.headerRight ?? '',
+            footerLeft: next.footerLeft ?? '',
+            footerRight: next.footerRight ?? '',
+          }
+        : undefined,
+    }
   }
 
   const updateCounts = () => {
@@ -131,6 +175,8 @@ export function useDocumentModel(options: UseDocumentModelOptions) {
     lastSaved,
     saveTimer,
     persistCurrentDoc,
+    applyModelValue,
+    lastEmitted,
     updateCounts,
     slashCommands,
   }

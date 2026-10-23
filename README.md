@@ -264,7 +264,7 @@ const MyPlugin = definePlugin({
 <!-- api:props:begin -->
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
-| `modelValue` | `object \| string` | `—` | Document content (ProseMirror JSON). Two-way bound via `v-model`. |
+| `modelValue` | `object \| string` | `—` | Document content: a ProseMirror JSON document or a tabbed document. Two-way via `v-model` — writes after mount replace the document (snapshot restore, switching documents). Echoes of the editor's own emission are ignored, and collaboration mode ignores host writes because Yjs owns the document there. |
 | `plugins` | `DocsEditorPlugin[]` | `[]` | Active plugins — usually `defaultPlugins` from `@kedataindo/docflow-plugins`. |
 | `editable` | `boolean` | `true` | Let the user edit the document. Reactive after mount: toggling it calls `editor.setEditable()` instead of requiring a remount. |
 | `mode` | `DocumentMode` | `—` | Document mode (issues #27/#28): `editing` (default) · `suggesting` (edits become suggestions) · `viewing` (read-only). Supersedes `editable` when set; `editable === false` maps to `viewing`. Reactive — switching does not remount. |

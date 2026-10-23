@@ -15,11 +15,13 @@ import { useEditor } from './useEditor.js'
 import { useCommentAnchors } from './useCommentAnchors.js'
 import { useBubbleMenu } from './useBubbleMenu.js'
 import { useLinkDialog } from './useLinkDialog.js'
+import { useModelValueSync } from './useModelValueSync.js'
 
 export interface UseDocsEditorSessionOptions {
   emit: EmitFn<DocsEditorEmits>
   t: LocaleContext['t']
-  modelValue: object | string | undefined
+  /** Host value: read once for the initial model and watched for later writes. */
+  getModelValue: () => object | string | undefined
   /** Plugin list is read lazily so slash-command changes stay reactive. */
   getPlugins: () => DocsEditorPlugin[]
   editable: boolean | Ref<boolean>
@@ -36,6 +38,8 @@ export interface UseDocsEditorSessionOptions {
   getCollaboration: () => EditorOptions['collaboration']
   /** Header/footer slots live on a composable created after this one. */
   getHeaderFooter: () => HeaderFooterValues
+  /** Paints slots carried by a host-written tabbed document (issue #370). */
+  applyHeaderFooter?: (values: HeaderFooterValues) => void
   paginationOptions: NonNullable<EditorOptions['paginationOptions']>
 }
 
@@ -70,10 +74,12 @@ export function useDocsEditorSession(options: UseDocsEditorSessionOptions) {
     tabContents,
     activeTabId,
     persistCurrentDoc,
+    applyModelValue,
+    lastEmitted,
     updateCounts,
     slashCommands,
   } = useDocumentModel({
-    modelValue: options.modelValue,
+    modelValue: options.getModelValue(),
     getPlugins,
     emit,
     getHeaderFooter,
@@ -144,6 +150,21 @@ export function useDocsEditorSession(options: UseDocsEditorSessionOptions) {
       tabContents.value[activeTabId.value] = json
       persistCurrentDoc()
     },
+  })
+
+  // ─── Host writes to modelValue (issue #370) ─────────────────────────────────
+  // `modelValue` is the host's source of truth: post-mount rewrites must reach
+  // the editor so snapshot restore, document switching and the web component's
+  // `content` attribute work. Echoes of our own emission and collaboration
+  // mode are skipped inside the sync.
+  useModelValueSync({
+    getModelValue: options.getModelValue,
+    getEditor: () => editor.value,
+    isCollaborative: () => Boolean(options.getCollaboration()),
+    getLastEmitted: () => lastEmitted.value,
+    applyModelValue,
+    applyHeaderFooter: options.applyHeaderFooter,
+    onApplied: updateCounts,
   })
 
   // ─── Comment anchors (Issue #133) ────────────────────────────────────────────

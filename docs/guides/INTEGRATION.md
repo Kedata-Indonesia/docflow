@@ -107,12 +107,19 @@ const collaborationOptions = {
 | `content` | JSON string | Initial document content |
 | `websocket-url` | string | WebSocket server for collab |
 
-`content` is the initial document, not a live mirror: the element never writes back to it.
-Unsaved edits survive removing and re-inserting the element (modals, tabs, drag-and-drop).
-Rewriting `content` still wins — the editor reloads from the new value on the next connect,
-even when the rewrite happens while the element is detached.
+`content` seeds the document and then follows the host: rewriting it replaces the document
+immediately, and a rewrite made while the element is detached is applied on the next
+connect. The element never writes back to the attribute. Unsaved edits survive removing and
+re-inserting the element (modals, tabs, drag-and-drop); only a `content` rewrite overrides
+them.
 
 ## DocsEditor Component Props
+
+`modelValue` is two-way: the editor emits `update:modelValue` on edits, and writing the prop
+after mount replaces the document — snapshot restore and document switching work without a
+remount. The component ignores echoes of its own emission, so a `v-model` host never resets
+the caret. In collaboration mode the Yjs document is authoritative, so host writes are
+ignored there; seed the room instead.
 
 ```ts
 interface DocsEditorProps {
