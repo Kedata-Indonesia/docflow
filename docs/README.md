@@ -148,6 +148,7 @@ the gate for that.
 
 | Date | Report | Scope |
 |---|---|---|
+| 2026-10-23 | [audits/2026-10-23-audit-followup.md](./audits/2026-10-23-audit-followup.md) | Re-audit at `67b76b0`: 14 carried over + 5 new findings |
 | 2026-10-22 | [audits/2026-10-22-code-audit.md](./audits/2026-10-22-code-audit.md) | Whole-repo correctness, safety, scale, tests, speed, lean review |
 | 2026-10-20 | [audits/2026-10-20-a11y-button-audit.md](./audits/2026-10-20-a11y-button-audit.md) | Accessible names of toolbar buttons (issue #170) |
 
