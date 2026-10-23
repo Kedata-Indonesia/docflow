@@ -29,6 +29,7 @@ Test integrasi yang sama dijalankan terhadap kode `main` (sebelum) dan kode bran
 | `applies a host write that reverts to an older emitted document` | **gagal** — `Bravo` tetap tampil | lulus |
 | `applies header/footer slots carried by a tabbed document` | **gagal** — `userHeaderLeft` tetap kosong | lulus |
 | `switches to the active tab of a host-written tabbed document` | **gagal** — tab aktif tidak berpindah | lulus |
+| `replaces the rendered document without a remount` (web component, `content` ditulis ulang saat terpasang) | **gagal** — dokumen baru tidak pernah dirender (`timeout`) | lulus |
 | `keeps the caret when a v-model host echoes the emitted document` | lulus (trivial, kode lama tidak pernah menerapkan apa pun) | lulus |
 | 7 unit test `useModelValueSync` (guard, tulisan pra-mount, header/footer, kolaborasi) | — (modul baru) | lulus |
 
@@ -48,6 +49,14 @@ Tests  4 failed | 1 passed (5)
 
 # sesudah
 Tests  12 passed (12)
+
+# sebelum — web component (`content` ditulis ulang saat terpasang)
+× replaces the rendered document without a remount
+  → timeout waiting for the rewrite to render
+Tests  1 failed (1)
+
+# sesudah
+Tests  1 passed (1)
 ```
 
 ## 3. Perbaikan
@@ -67,6 +76,9 @@ Tests  12 passed (12)
 - Tulisan yang tiba sebelum editor selesai mount tetap memperbarui model; editor lalu
   diinisialisasi dari konten tab aktif terbaru (bukan snapshot lama).
 - Dokumen JSON biasa menyusutkan surface kembali menjadi satu tab (`tab-1`).
+- Web component: `attributeChangedCallback` sudah memperbarui prop `modelValue` saat elemen
+  terpasang, jadi dengan sync ini penulisan ulang `content` langsung diterapkan tanpa remount
+  (diuji lewat custom element + shadow DOM asli).
 
 ## 4. Perubahan file
 
@@ -80,14 +92,16 @@ Tests  12 passed (12)
   (README di-generate ulang lewat `pnpm docs:api`).
 - `docs/guides/INTEGRATION.md` — catatan `v-model` dua arah dan perilaku `content` web component.
 - `packages/vue/src/__tests__/DocsEditor.modelValue.test.ts` (baru, 5 test integrasi).
-- `packages/vue/src/__tests__/useModelValueSync.test.ts` (baru, 6 test unit).
+- `packages/vue/src/__tests__/useModelValueSync.test.ts` (baru, 7 test unit).
+- `packages/element/src/__tests__/content-live.test.ts` (baru, 1 test custom element + shadow DOM).
 - `CHANGELOG.md` — entri `[Unreleased] → Fixed`.
 
 ## 5. Cara memverifikasi
 
 ```bash
-pnpm --filter @kedata-indonesia/docflow-vue test:unit      # seluruh suite vue
+pnpm --filter @kedata-indonesia/docflow-vue test:unit      # 43 file, 237 test
 pnpm --filter @kedata-indonesia/docflow-vue typecheck      # bersih
+pnpm --filter @kedata-indonesia/docflow-element test:unit  # 3 file, 14 test
 npx eslint packages/vue/src --max-warnings 0               # exit 0
 node scripts/check-docs-links.mjs                           # tanpa link rusak
 pnpm docs:api:check                                         # README sinkron dengan kontrak
