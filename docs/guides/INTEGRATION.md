@@ -111,7 +111,8 @@ const collaborationOptions = {
 immediately, and a rewrite made while the element is detached is applied on the next
 connect. The element never writes back to the attribute. Unsaved edits survive removing and
 re-inserting the element (modals, tabs, drag-and-drop); only a `content` rewrite overrides
-them.
+them. With `room` set the room's collaborative document is authoritative, so `content` only
+seeds it and later rewrites are ignored.
 
 ## DocsEditor Component Props
 

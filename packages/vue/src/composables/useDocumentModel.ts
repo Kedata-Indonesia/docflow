@@ -81,9 +81,10 @@ export function useDocumentModel(options: UseDocumentModelOptions) {
   const activeTabContent = computed(() => tabContents.value[activeTabId.value])
 
   /**
-   * Last document handed to the host through `update:modelValue`. Echoes of it
-   * (a `v-model` host writing the same value back, cloned or not) are ignored
-   * by the host-write sync so they cannot reset the editor/selection.
+   * Last document both sides agree on: what this component handed to the host
+   * through `update:modelValue`, or the value a host write installed. Echoes of
+   * it (a `v-model` host writing the same value back, cloned or not) are
+   * ignored by the host-write sync so they cannot reset the editor/selection.
    */
   const lastEmitted = shallowRef<object | null>(null)
 
@@ -133,6 +134,11 @@ export function useDocumentModel(options: UseDocumentModelOptions) {
     next.tabs.forEach(t => { contents[t.id] = t.content })
     tabContents.value = contents
     activeTabId.value = activeId
+
+    // Both sides now agree on this value. Tracking it keeps a later host write
+    // of an *older* emitted document (e.g. undoing a document switch) from
+    // being mistaken for an echo and silently ignored.
+    lastEmitted.value = (typeof value === 'object' && value !== null ? value : next) as object
 
     return {
       content: contents[activeId],

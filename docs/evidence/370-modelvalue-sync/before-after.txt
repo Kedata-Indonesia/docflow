@@ -1,16 +1,18 @@
 # Sebelum — packages/vue/src dari main (175f19d)
 $ npx vitest run src/__tests__/DocsEditor.modelValue.test.ts  # di packages/vue
- × src/__tests__/DocsEditor.modelValue.test.ts > DocsEditor modelValue after mount (#370) > replaces the document when the host writes modelValue 460ms
+ × src/__tests__/DocsEditor.modelValue.test.ts > DocsEditor modelValue after mount (#370) > replaces the document when the host writes modelValue 488ms
    → expected 'Alpha' to contain 'Bravo'
  ✓ src/__tests__/DocsEditor.modelValue.test.ts > DocsEditor modelValue after mount (#370) > keeps the caret when a v-model host echoes the emitted document
+ × src/__tests__/DocsEditor.modelValue.test.ts > DocsEditor modelValue after mount (#370) > applies a host write that reverts to an older emitted document
+   → expected 'typedAlpha' to contain 'Bravo'
  × src/__tests__/DocsEditor.modelValue.test.ts > DocsEditor modelValue after mount (#370) > applies header/footer slots carried by a tabbed document
    → expected '' to be 'Header dari host' // Object.is equality
  × src/__tests__/DocsEditor.modelValue.test.ts > DocsEditor modelValue after mount (#370) > switches to the active tab of a host-written tabbed document
    → expected 'Alpha' to contain 'Bravo'
-⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
-      Tests  3 failed | 1 passed (4)
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  4 failed | 1 passed (5)
 
-# Sesudah — versi branch fix/370-modelvalue-sync
+# Sesudah — branch fix/370-modelvalue-sync (commit terakhir)
 $ npx vitest run src/__tests__/DocsEditor.modelValue.test.ts src/__tests__/useModelValueSync.test.ts
  ✓ src/__tests__/useModelValueSync.test.ts > useModelValueSync > applies a host write without echoing it back
  ✓ src/__tests__/useModelValueSync.test.ts > useModelValueSync > ignores a v-model echo of the last emitted document
@@ -19,8 +21,9 @@ $ npx vitest run src/__tests__/DocsEditor.modelValue.test.ts src/__tests__/useMo
  ✓ src/__tests__/useModelValueSync.test.ts > useModelValueSync > does not replace content the editor already shows
  ✓ src/__tests__/useModelValueSync.test.ts > useModelValueSync > updates the model even when the editor has not mounted yet
  ✓ src/__tests__/useModelValueSync.test.ts > useModelValueSync > ignores undefined and null writes
- ✓ src/__tests__/DocsEditor.modelValue.test.ts > DocsEditor modelValue after mount (#370) > replaces the document when the host writes modelValue 518ms
+ ✓ src/__tests__/DocsEditor.modelValue.test.ts > DocsEditor modelValue after mount (#370) > replaces the document when the host writes modelValue 525ms
  ✓ src/__tests__/DocsEditor.modelValue.test.ts > DocsEditor modelValue after mount (#370) > keeps the caret when a v-model host echoes the emitted document
+ ✓ src/__tests__/DocsEditor.modelValue.test.ts > DocsEditor modelValue after mount (#370) > applies a host write that reverts to an older emitted document
  ✓ src/__tests__/DocsEditor.modelValue.test.ts > DocsEditor modelValue after mount (#370) > applies header/footer slots carried by a tabbed document
  ✓ src/__tests__/DocsEditor.modelValue.test.ts > DocsEditor modelValue after mount (#370) > switches to the active tab of a host-written tabbed document
-      Tests  11 passed (11)
+      Tests  12 passed (12)

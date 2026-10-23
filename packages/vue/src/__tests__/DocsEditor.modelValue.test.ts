@@ -62,6 +62,27 @@ describe('DocsEditor modelValue after mount (#370)', () => {
     wrapper.unmount()
   })
 
+  it('applies a host write that reverts to an older emitted document', async () => {
+    const wrapper = mount(DocsEditor, { props: { modelValue: docA } })
+    await settle()
+    const editor = editorOf(wrapper)
+    editor?.commands.focus()
+    editor?.commands.insertContent('typed')
+    const olderEmitted = wrapper.emitted('update:modelValue')?.at(-1)?.[0] as object
+
+    await wrapper.setProps({ modelValue: docB })
+    await wrapper.vm.$nextTick()
+    expect(editor?.getText()).toContain('Bravo')
+
+    // The host switches back to the document it emitted before the switch;
+    // this is a real write, not an echo of the current state.
+    await wrapper.setProps({ modelValue: olderEmitted })
+    await wrapper.vm.$nextTick()
+    expect(editor?.getText()).toContain('typed')
+    expect(editor?.getText()).not.toContain('Bravo')
+    wrapper.unmount()
+  })
+
   it('applies header/footer slots carried by a tabbed document', async () => {
     const wrapper = mount(DocsEditor, { props: { modelValue: docA } })
     await settle()

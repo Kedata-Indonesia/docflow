@@ -26,6 +26,7 @@ Test integrasi yang sama dijalankan terhadap kode `main` (sebelum) dan kode bran
 | Test | `main` | Branch |
 | --- | --- | --- |
 | `replaces the document when the host writes modelValue` | **gagal** — teks tetap `Alpha`, `Bravo` tidak pernah muncul | lulus |
+| `applies a host write that reverts to an older emitted document` | **gagal** — `Bravo` tetap tampil | lulus |
 | `applies header/footer slots carried by a tabbed document` | **gagal** — `userHeaderLeft` tetap kosong | lulus |
 | `switches to the active tab of a host-written tabbed document` | **gagal** — tab aktif tidak berpindah | lulus |
 | `keeps the caret when a v-model host echoes the emitted document` | lulus (trivial, kode lama tidak pernah menerapkan apa pun) | lulus |
@@ -37,14 +38,16 @@ Keluaran terminal lengkap: [`before-after.txt`](./before-after.txt).
 # sebelum
 × replaces the document when the host writes modelValue
   → expected 'Alpha' to contain 'Bravo'
+× applies a host write that reverts to an older emitted document
+  → expected 'typedAlpha' to contain 'Bravo'
 × applies header/footer slots carried by a tabbed document
   → expected '' to be 'Header dari host'
 × switches to the active tab of a host-written tabbed document
   → expected 'Alpha' to contain 'Bravo'
-Tests  3 failed | 1 passed (4)
+Tests  4 failed | 1 passed (5)
 
 # sesudah
-Tests  11 passed (11)
+Tests  12 passed (12)
 ```
 
 ## 3. Perbaikan
@@ -55,6 +58,8 @@ Tests  11 passed (11)
 - Guard terhadap loop `v-model`: dokumen yang persis sama dengan emisi terakhir komponen
   (`lastEmitted`, dibandingkan by-reference lalu by-JSON) dilewati. Selain itu isi yang sudah
   tampil di editor tidak di-`setContent` ulang, jadi kursor tidak melompat.
+- `lastEmitted` juga diperbarui saat tulisan host diterapkan, sehingga host yang kembali ke
+  dokumen lama (mis. undo perpindahan dokumen) tetap diterapkan, bukan disangka echo.
 - Tab state ikut disinkronkan (`tabs`, `tabContents`, `activeTabId`), dan untuk dokumen
   bertipe `tabbed-doc` slot header/footer-nya dipasang kembali — snapshot restore tidak lagi
   kehilangan header/footer.
@@ -74,7 +79,7 @@ Tests  11 passed (11)
 - `packages/vue/src/components/docsEditorContracts.ts` + `README.md` — dokumentasi prop
   (README di-generate ulang lewat `pnpm docs:api`).
 - `docs/guides/INTEGRATION.md` — catatan `v-model` dua arah dan perilaku `content` web component.
-- `packages/vue/src/__tests__/DocsEditor.modelValue.test.ts` (baru, 4 test integrasi).
+- `packages/vue/src/__tests__/DocsEditor.modelValue.test.ts` (baru, 5 test integrasi).
 - `packages/vue/src/__tests__/useModelValueSync.test.ts` (baru, 6 test unit).
 - `CHANGELOG.md` — entri `[Unreleased] → Fixed`.
 
