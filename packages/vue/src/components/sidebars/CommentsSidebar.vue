@@ -147,7 +147,8 @@ function onDeleteConfirmed() {
       </div>
     </div>
 
-    <div class="flex-1 space-y-4 overflow-y-auto p-4">
+    <!-- Issue #386 — survives removing a comment row, so focus can land here. -->
+    <div data-confirm-fallback class="flex-1 space-y-4 overflow-y-auto p-4">
       <div
         v-for="comment in filteredComments"
         :key="comment.id"

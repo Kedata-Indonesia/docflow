@@ -499,7 +499,8 @@ async function handleStyleFileChange(event: Event) {
           <p class="text-xs font-semibold">{{ t('sidebars.references.noMatchingSources') }}</p>
         </div>
 
-        <div v-else class="space-y-2 font-sans">
+        <!-- Issue #386 — survives removing a source row, so focus can land here. -->
+        <div v-else data-confirm-fallback class="space-y-2 font-sans">
           <div
             v-for="source in filteredSources"
             :key="source.id"

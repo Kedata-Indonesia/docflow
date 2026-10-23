@@ -1505,6 +1505,13 @@
   display: flex !important;
 }
 
+/* Footer bars sit near the viewport bottom; flip the menu so every option stays
+   visible instead of being clipped by the viewport edge. */
+.rm-options-dropdown.opens-up {
+  top: auto !important;
+  bottom: calc(100% + 6px) !important;
+}
+
 .dark .rm-options-dropdown {
   background-color: #1e293b !important;
   border-color: #334155 !important;

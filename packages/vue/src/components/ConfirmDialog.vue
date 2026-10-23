@@ -30,6 +30,12 @@ const props = defineProps<{
   confirmLabel?: string
   /** Defaults to the localized "Cancel". */
   cancelLabel?: string
+  /**
+   * Stable target to focus when the confirmed action removed the trigger from
+   * the DOM. Without it the component falls back to the nearest surviving
+   * list/navigation container (issue #386).
+   */
+  fallbackFocus?: () => HTMLElement | null
 }>()
 
 const emit = defineEmits<{
@@ -52,10 +58,33 @@ const cancelText = computed(() => props.cancelLabel ?? t('common.cancel'))
 
 /** Element that had focus when the dialog opened, restored when it closes. */
 let previouslyFocused: HTMLElement | null = null
+/** Survives the confirmed action; used when the trigger is removed. */
+let fallbackTarget: HTMLElement | null = null
+
+const STABLE_CONTAINER =
+  '[data-confirm-fallback], [role="list"], [role="listbox"], [role="menu"], [role="navigation"], main, [role="main"]'
+
+function findStableContainer(el: HTMLElement | null): HTMLElement | null {
+  return el?.closest<HTMLElement>(STABLE_CONTAINER) ?? null
+}
 
 function restoreFocus() {
-  previouslyFocused?.focus?.()
+  const previous = previouslyFocused
+  const fallback = fallbackTarget
   previouslyFocused = null
+  fallbackTarget = null
+
+  if (previous?.isConnected) {
+    previous.focus()
+    return
+  }
+
+  // The row was deleted by the confirmed action, so the trigger is detached and
+  // `.focus()` on it is a no-op. Keep keyboard/screen-reader users in place.
+  if (fallback?.isConnected) {
+    if (!fallback.hasAttribute('tabindex')) fallback.setAttribute('tabindex', '-1')
+    fallback.focus()
+  }
 }
 
 function cancel() {
@@ -113,9 +142,12 @@ watch(
     if (open) {
       previouslyFocused =
         typeof document !== 'undefined' ? (document.activeElement as HTMLElement | null) : null
+      fallbackTarget = props.fallbackFocus?.() ?? findStableContainer(previouslyFocused)
       void nextTick(() => cancelButton.value?.focus())
     } else {
-      restoreFocus()
+      // Wait for the parent to apply the confirmed action (which may remove the
+      // trigger) before deciding where focus should land.
+      void nextTick(restoreFocus)
     }
   },
   { immediate: true },

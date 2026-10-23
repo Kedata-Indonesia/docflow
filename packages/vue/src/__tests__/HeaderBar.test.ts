@@ -1,6 +1,6 @@
 import { nextTick } from 'vue'
 import { mount } from '@vue/test-utils'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import HeaderBar from '../components/HeaderBar.vue'
 
 describe('HeaderBar', () => {
@@ -67,5 +67,49 @@ describe('HeaderBar', () => {
     await nextTick()
     expect(wrapper.findAll('nav.header-menu-container [class*="min-w"]').some((menu) => menu.text().includes('Undo'))).toBe(false)
     wrapper.unmount()
+  })
+
+  it('flips a sub-menu upward when it would cross the viewport bottom', async () => {
+    const originalRect = Element.prototype.getBoundingClientRect
+    const rect = (top: number, bottom: number) =>
+      ({ top, bottom, left: 0, right: 100, width: 100, height: bottom - top, x: 0, y: top, toJSON: () => ({}) }) as DOMRect
+
+    const rectSpy = vi
+      .spyOn(Element.prototype, 'getBoundingClientRect')
+      .mockImplementation(function (this: Element) {
+        if (this instanceof HTMLElement && this.hasAttribute('data-submenu-panel')) return rect(600, 800)
+        return originalRect.call(this) as DOMRect
+      })
+
+    const originalHeight = window.innerHeight
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 700 })
+
+    const wrapper = mount(HeaderBar, {
+      props: { title: 'Project Brief' },
+      attachTo: document.body,
+    })
+
+    try {
+      const insertButton = wrapper.findAll('nav button').find((button) => button.text().trim() === 'Insert')
+      await insertButton!.trigger('click')
+
+      const pageNumbers = wrapper
+        .findAll('[data-testid="header-menu-panel"] div.relative')
+        .find((item) => item.text().includes('Page numbers'))
+      expect(pageNumbers).toBeDefined()
+
+      await pageNumbers!.trigger('mouseenter')
+      await nextTick()
+      await nextTick()
+
+      const panel = wrapper.find('[data-submenu-panel]')
+      expect(panel.exists()).toBe(true)
+      expect(panel.classes()).toContain('bottom-0')
+      expect(panel.classes()).not.toContain('top-0')
+    } finally {
+      wrapper.unmount()
+      rectSpy.mockRestore()
+      Object.defineProperty(window, 'innerHeight', { configurable: true, value: originalHeight })
+    }
   })
 })
