@@ -35,6 +35,8 @@ export class DocsEditorElement extends HTMLElement {
   private _shadowRoot?: ShadowRoot
   private _plugins: DocsEditorPlugin[] = []
   private _onImageUpload?: ImageUploadHandler
+  private _lastContentAttr: string | null = null
+  private _lastModelValue?: unknown
 
   get plugins(): DocsEditorPlugin[] {
     return this._plugins
@@ -84,6 +86,9 @@ export class DocsEditorElement extends HTMLElement {
   }
 
   disconnectedCallback() {
+    if (this._vueElement && 'modelValue' in this._vueElement) {
+      this._lastModelValue = (this._vueElement as unknown as { modelValue: unknown }).modelValue
+    }
     this._vueElement?.remove()
     this._vueElement = undefined
   }
@@ -109,7 +114,15 @@ export class DocsEditorElement extends HTMLElement {
 
     let modelValue: object | string | undefined
     const contentAttr = this.getAttribute('content')
-    if (contentAttr !== null) {
+    
+    if (contentAttr !== this._lastContentAttr) {
+      this._lastContentAttr = contentAttr
+      this._lastModelValue = undefined
+    }
+
+    if (this._lastModelValue !== undefined) {
+      modelValue = this._lastModelValue as object | string
+    } else if (contentAttr !== null) {
       try {
         modelValue = JSON.parse(contentAttr)
       } catch {
