@@ -1,0 +1,12 @@
+data: {
+data:   "choices": [
+data:     {
+data:       "delta": {
+data:         "content": "multi-line answer"
+data:       }
+data:     }
+data:   ]
+data: }
+
+data: [DONE]
+

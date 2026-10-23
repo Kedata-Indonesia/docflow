@@ -176,4 +176,44 @@ describe('claudeProvider', () => {
 
     expect(fetchSignal?.aborted).toBe(true)
   })
+
+  it('parses CRLF-terminated SSE events', async () => {
+    const delta = JSON.stringify({
+      type: 'content_block_delta',
+      delta: { type: 'text_delta', text: 'crlf' },
+    })
+    const fetchMock = vi.fn().mockResolvedValue(
+      sseResponse([
+        `event: content_block_delta\r\ndata: ${delta}\r\n\r\n`,
+        'event: message_delta\r\ndata: {"type":"message_delta","delta":{"stop_reason":"end_turn"}}\r\n\r\n',
+        'event: message_stop\r\ndata: {"type":"message_stop"}\r\n\r\n',
+      ]),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const events = await collect(claudeProvider(baseConfig).complete({ prompt: 'x' }))
+    expect(events).toEqual([
+      { type: 'delta', text: 'crlf' },
+      { type: 'done', stopReason: 'end_turn' },
+    ])
+  })
+
+  it('joins multi-line data fields before parsing JSON', async () => {
+    const payload = JSON.stringify(
+      { type: 'content_block_delta', delta: { type: 'text_delta', text: 'multi' } },
+      null,
+      2,
+    )
+    const event = `${payload
+      .split('\n')
+      .map((line) => `data: ${line}`)
+      .join('\n')}\n\n`
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(sseResponse([event, 'data: {"type":"message_stop"}\n\n']))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const events = await collect(claudeProvider(baseConfig).complete({ prompt: 'x' }))
+    expect(events).toEqual([{ type: 'delta', text: 'multi' }, { type: 'done' }])
+  })
 })

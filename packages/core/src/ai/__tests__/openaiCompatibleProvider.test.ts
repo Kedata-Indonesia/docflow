@@ -174,4 +174,30 @@ describe('openaiCompatibleProvider', () => {
 
     expect(fetchSignal?.aborted).toBe(true)
   })
+
+  it('parses CRLF-terminated SSE events', async () => {
+    const delta = JSON.stringify({ choices: [{ delta: { content: 'crlf' } }] })
+    const fetchMock = vi.fn().mockResolvedValue(
+      sseResponse([`data: ${delta}\r\n\r\ndata: [DONE]\r\n\r\n`]),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const events = await collect(openaiCompatibleProvider(baseConfig).complete({ prompt: 'x' }))
+    expect(events).toEqual([{ type: 'delta', text: 'crlf' }, { type: 'done' }])
+  })
+
+  it('joins multi-line data fields before parsing JSON', async () => {
+    // A compliant server may pretty-print the payload across several `data:`
+    // lines; SSE concatenates them with a newline before the client parses.
+    const payload = JSON.stringify({ choices: [{ delta: { content: 'multi' } }] }, null, 2)
+    const event = `${payload
+      .split('\n')
+      .map((line) => `data: ${line}`)
+      .join('\n')}\n\n`
+    const fetchMock = vi.fn().mockResolvedValue(sseResponse([event, 'data: [DONE]\n\n']))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const events = await collect(openaiCompatibleProvider(baseConfig).complete({ prompt: 'x' }))
+    expect(events).toEqual([{ type: 'delta', text: 'multi' }, { type: 'done' }])
+  })
 })

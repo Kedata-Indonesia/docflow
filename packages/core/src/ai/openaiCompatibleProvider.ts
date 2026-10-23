@@ -10,6 +10,7 @@
  */
 import type { Auth } from './keyStorage.js'
 import type { AICompleteRequest, AIProvider, StreamEvent } from './provider.js'
+import { takeSseEvent } from './sse.js'
 
 export interface OpenAICompatibleConfig {
   /** Base URL of the OpenAI-compatible endpoint, e.g. `https://api.openai.com/v1`. */
@@ -94,28 +95,24 @@ export function openaiCompatibleProvider(config: OpenAICompatibleConfig): AIProv
             if (done) break
             buffer += decoder.decode(value, { stream: true })
 
-            // SSE events are separated by a blank line.
-            let sep: number
-            while ((sep = buffer.indexOf('\n\n')) >= 0) {
-              const block = buffer.slice(0, sep)
-              buffer = buffer.slice(sep + 2)
-              for (const line of block.split('\n')) {
-                if (!line.startsWith('data:')) continue
-                const data = line.slice('data:'.length).trim()
-                if (data === '[DONE]') {
-                  sawDone = true
-                  yield { type: 'done' }
-                  return
+            // SSE events end at a blank line, with either LF or CRLF endings.
+            for (let event = takeSseEvent(buffer); event; event = takeSseEvent(buffer)) {
+              buffer = event.rest
+              const data = event.data?.trim()
+              if (!data) continue
+              if (data === '[DONE]') {
+                sawDone = true
+                yield { type: 'done' }
+                return
+              }
+              try {
+                const json = JSON.parse(data) as {
+                  choices?: Array<{ delta?: { content?: string }; finish_reason?: string }>
                 }
-                try {
-                  const json = JSON.parse(data) as {
-                    choices?: Array<{ delta?: { content?: string }; finish_reason?: string }>
-                  }
-                  const text = json.choices?.[0]?.delta?.content
-                  if (text) yield { type: 'delta', text }
-                } catch {
-                  // Tolerate non-JSON SSE payloads (keep-alives, provider quirks).
-                }
+                const text = json.choices?.[0]?.delta?.content
+                if (text) yield { type: 'delta', text }
+              } catch {
+                // Tolerate non-JSON SSE payloads (keep-alives, provider quirks).
               }
             }
           }
