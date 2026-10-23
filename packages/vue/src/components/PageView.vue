@@ -67,7 +67,6 @@ const resolvedLayout = computed<Required<LayoutOptions>>(() => ({
     left: 96,
     right: 96,
   },
-  maxCharsPerPage: 0,
   // #249: quote and code blocks must not be cut in half when they fit a page.
   // Hosts can override the list through `layoutOptions.keepTogetherTypes`.
   keepTogetherTypes: props.layoutOptions?.keepTogetherTypes ?? DEFAULT_KEEP_TOGETHER_TYPES,
