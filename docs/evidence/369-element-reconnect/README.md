@@ -2,7 +2,7 @@
 
 Dokumen ini merekam bukti visual dan laporan eksekusi perbaikan bug pada `<docs-editor>` (`@kedata-indonesia/docflow-element`).
 
-- **Base**: `main` @ `67b76b0`
+- **Base**: `main` @ `67b76b0`, di-update ke `main` @ `046d577` sebelum merge
 - **Head**: `fix/issue-369-fix-element-docs-editor-throws`
 - **PR**: [#389](https://github.com/Kedata-Indonesia/docflow/pull/389)
 - **Issue**: [#369](https://github.com/Kedata-Indonesia/docflow/issues/369)
