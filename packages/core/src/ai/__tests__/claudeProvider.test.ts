@@ -216,4 +216,21 @@ describe('claudeProvider', () => {
     const events = await collect(claudeProvider(baseConfig).complete({ prompt: 'x' }))
     expect(events).toEqual([{ type: 'delta', text: 'multi' }, { type: 'done' }])
   })
+
+  it('parses CR-only SSE events', async () => {
+    const delta = JSON.stringify({
+      type: 'content_block_delta',
+      delta: { type: 'text_delta', text: 'cr' },
+    })
+    const fetchMock = vi.fn().mockResolvedValue(
+      sseResponse([
+        `event: content_block_delta\rdata: ${delta}\r\r`,
+        'event: message_stop\rdata: {"type":"message_stop"}\r\r',
+      ]),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const events = await collect(claudeProvider(baseConfig).complete({ prompt: 'x' }))
+    expect(events).toEqual([{ type: 'delta', text: 'cr' }, { type: 'done' }])
+  })
 })
