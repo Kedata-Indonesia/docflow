@@ -143,6 +143,12 @@ export function useDocumentModel(options: UseDocumentModelOptions) {
    */
   const schedulePersistCurrentDoc = () => {
     clearPendingEmit()
+    // A queued edit supersedes the previous emit's "saved" timer: the status
+    // must not flip to saved while newer content is still waiting to go out.
+    if (saveTimer.value) {
+      clearTimeout(saveTimer.value)
+      saveTimer.value = null
+    }
     savingStatus.value = 'saving'
     pendingEmit = setTimeout(() => {
       pendingEmit = null

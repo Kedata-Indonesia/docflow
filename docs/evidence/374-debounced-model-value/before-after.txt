@@ -36,11 +36,21 @@ flushes the pending document when the editor loses focus    ✓
 drops a queued edit when the host replaces the document     ✓
 Tests  4 passed (4)
 
+$ cd packages/vue && npx vitest run src/__tests__/useDocumentModel.debounce.test.ts --reporter=verbose
+
+coalesces scheduled persists and flips saving → saved                    ✓
+stays saving when a burst outlasts the previous saved timer              ✓
+drops the queued emit when the host writes modelValue                    ✓
+Tests  3 passed (3)
+
+Tanpa pembatalan timer "saved" pada antrean baru, test kedua gagal:
+expected 'saved' to be 'saving'.
+
 # Suite penuh (branch)
 
 $ pnpm --filter @kedata-indonesia/docflow-vue test:unit
-Test Files  44 passed (44)
-Tests       241 passed (241)
+Test Files  45 passed (45)
+Tests       244 passed (244)
 
 $ pnpm --filter @kedata-indonesia/docflow-element test:unit
 Test Files  3 passed (3)
@@ -49,4 +59,4 @@ Tests       14 passed (14)
 $ pnpm --filter @kedata-indonesia/docflow-vue typecheck   # exit 0
 $ npx eslint packages/vue/src --max-warnings 0            # exit 0
 $ pnpm docs:api:check                                     # README up to date
-$ pnpm docs:check                                         # 42 files, no broken links
+$ pnpm docs:check                                         # 43 files, no broken links
