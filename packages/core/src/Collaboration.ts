@@ -323,11 +323,15 @@ const CollaborationCursor = Extension.create<{
   },
 })
 
-export function collaborationExtensions(
-  options: CollaborationOptions | CollaborationSetup,
-): AnyExtension[] {
-  const setup = 'ydoc' in options ? options : createCollaboration(options)
-
+/**
+ * Extensions for a collaboration session.
+ *
+ * The caller owns the setup: create it with `createCollaboration(options)` and
+ * call `setup.destroy()` when the editor unmounts. Accepting plain options here
+ * was removed because the internally-created provider (websocket/webrtc) had no
+ * disposal handle and leaked a live connection per mount (issue #372).
+ */
+export function collaborationExtensions(setup: CollaborationSetup): AnyExtension[] {
   const extensions: AnyExtension[] = [
     Collaboration.configure({ document: setup.ydoc }),
   ]
