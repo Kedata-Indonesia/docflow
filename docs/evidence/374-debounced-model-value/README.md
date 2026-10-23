@@ -37,8 +37,10 @@ t=0, t=200 ms, dan t=350 ms; ditambah skenario blur dan unmount.
 
 Log mentah ada di [`before-after.txt`](./before-after.txt).
 
-Test regresi `packages/vue/src/__tests__/DocsEditor.emits.test.ts` (4 test):
-di `main` gagal karena emit sudah terjadi sebelum debounce; di branch lulus.
+Perilaku `main` diukur memakai skrip sementara (konstanta debounce di-inline,
+karena file test mengimpor konstanta dari branch): burst 3 ketikan menghasilkan
+3 emit, sehingga assertion "0 emit sebelum 300 ms" gagal. Test regresi di branch
+lulus.
 
 ## 4. Test & Verifikasi
 
