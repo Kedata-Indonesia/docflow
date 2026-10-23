@@ -112,6 +112,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- **AI streaming survives CRLF and multi-line SSE events (issue #384):** both
+  providers split the stream on `\n\n` and parsed every `data:` line on its own.
+  A compliant server using `\r\n\r\n` therefore produced no deltas — the UI
+  showed an empty answer — and pretty-printed JSON spread over several `data:`
+  lines was dropped by the JSON `catch`. Framing now lives in one helper
+  (`takeSseEvent`) that accepts LF or CRLF separators, joins an event's `data:`
+  lines with a newline, and ignores events without a payload. The OpenAI and
+  Claude providers share it; `[DONE]`, `message_stop`, and `stop_reason`
+  handling are unchanged.
+  _([#384](https://github.com/Kedata-Indonesia/docflow/issues/384))_
+
 - **RTF export keeps non-ASCII text and titles with braces (issue #368):** the
   writer emitted UTF-8 bytes under a `\ansicpg1252` header, so readers decoded
   them as Latin-1 — `—` became `â€”`, `café` became `cafÃ©`, and an emoji turned
