@@ -1,4 +1,4 @@
-# Sebelum — packages/element/src/DocsEditorElement.ts dari main
+# Sebelum — packages/element/src/DocsEditorElement.ts dari main (76bd7c2)
 $ pnpm --filter @kedata-indonesia/docflow-element exec vitest run src/__tests__/reconnect.test.ts
  ✓ src/__tests__/reconnect.test.ts > DocsEditorElement lifecycle > survives disconnect and reconnect without attaching a second shadow root
  ✓ src/__tests__/reconnect.test.ts > DocsEditorElement lifecycle > rebuilds the shadow content once per connect
@@ -7,8 +7,11 @@ $ pnpm --filter @kedata-indonesia/docflow-element exec vitest run src/__tests__/
  ✓ src/__tests__/reconnect.test.ts > DocsEditorElement lifecycle > lets a host rewrite of content win over cached edits
  × src/__tests__/reconnect.test.ts > DocsEditorElement lifecycle > keeps edits when plugins are replaced after mount
    → expected { type: 'doc', …(1) } to deeply equal { type: 'tabbed-doc', …(2) }
-⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
-      Tests  2 failed | 3 passed (5)
+ ✓ src/__tests__/reconnect.test.ts > DocsEditorElement lifecycle > lets a rewrite made while detached win over cached edits
+ × src/__tests__/reconnect.test.ts > DocsEditorElement lifecycle > captures documents emitted through the Vue wrapper
+   → expected { type: 'doc', …(1) } to deeply equal { marker: 'clicked', …(1) }
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  3 failed | 4 passed (7)
 
 # Sesudah — versi branch fix/392-element-reconnect-state
  ✓ src/__tests__/reconnect.test.ts > DocsEditorElement lifecycle > survives disconnect and reconnect without attaching a second shadow root
@@ -16,4 +19,6 @@ $ pnpm --filter @kedata-indonesia/docflow-element exec vitest run src/__tests__/
  ✓ src/__tests__/reconnect.test.ts > DocsEditorElement lifecycle > keeps unsaved edits when the editor is moved
  ✓ src/__tests__/reconnect.test.ts > DocsEditorElement lifecycle > lets a host rewrite of content win over cached edits
  ✓ src/__tests__/reconnect.test.ts > DocsEditorElement lifecycle > keeps edits when plugins are replaced after mount
-      Tests  5 passed (5)
+ ✓ src/__tests__/reconnect.test.ts > DocsEditorElement lifecycle > lets a rewrite made while detached win over cached edits
+ ✓ src/__tests__/reconnect.test.ts > DocsEditorElement lifecycle > captures documents emitted through the Vue wrapper
+      Tests  7 passed (7)

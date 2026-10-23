@@ -1,16 +1,37 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 // Mount a lightweight stub instead of the full editor: this suite only covers
-// the custom element's lifecycle, not the Vue editor itself.
-vi.mock('@kedata-indonesia/docflow-vue', () => ({
-  DocsEditor: {
-    name: 'DocsEditor',
-    // Declared so the custom-element wrapper exposes them as element props,
-    // which is what `_buildProps()` writes to.
-    props: ['modelValue', 'editable', 'debug', 'collaboration', 'plugins', 'onImageUpload'],
-    render: () => null,
-  },
-}))
+// the custom element's lifecycle, not the Vue editor itself. The stub renders a
+// button so tests can exercise a real `emit('update:modelValue')` through Vue's
+// custom-element wrapper, not just a hand-built event.
+vi.mock('@kedata-indonesia/docflow-vue', async () => {
+  const { h } = await import('vue')
+  return {
+    DocsEditor: {
+      name: 'DocsEditor',
+      // Declared so the custom-element wrapper exposes them as element props,
+      // which is what `_buildProps()` writes to.
+      props: ['modelValue', 'editable', 'debug', 'collaboration', 'plugins', 'onImageUpload'],
+      emits: ['update:modelValue'],
+      setup(
+        props: { modelValue?: unknown },
+        { emit }: { emit: (event: string, value: unknown) => void },
+      ) {
+        return () =>
+          h(
+            'button',
+            {
+              type: 'button',
+              'data-emit-model': '',
+              onClick: () =>
+                emit('update:modelValue', { marker: 'clicked', modelValue: props.modelValue }),
+            },
+            'emit',
+          )
+      },
+    },
+  }
+})
 
 import { DocsEditorElement } from '../index.js'
 
@@ -133,5 +154,43 @@ describe('DocsEditorElement lifecycle', () => {
     element.plugins = []
 
     expect(editorInstance(element).modelValue).toEqual(edited)
+  })
+
+  it('lets a rewrite made while detached win over cached edits', () => {
+    class DetachedElement extends DocsEditorElement {}
+    customElements.define('docs-editor-detached-test', DetachedElement)
+
+    const element = document.createElement('docs-editor-detached-test') as DetachedElement
+    element.setAttribute('content', JSON.stringify(initialDoc))
+    document.body.append(element)
+    emitModelUpdate(element, tabbedDoc('tambahan'))
+
+    const replacement = tabbedDoc('dari host')
+    element.remove()
+    element.setAttribute('content', JSON.stringify(replacement))
+    document.body.append(element)
+
+    expect(editorInstance(element).modelValue).toEqual(replacement)
+  })
+
+  it('captures documents emitted through the Vue wrapper', () => {
+    class EmitElement extends DocsEditorElement {}
+    customElements.define('docs-editor-emit-test', EmitElement)
+
+    const element = document.createElement('docs-editor-emit-test') as EmitElement
+    element.setAttribute('content', JSON.stringify(initialDoc))
+    document.body.append(element)
+
+    const button = editorInstance(element).shadowRoot?.querySelector('button[data-emit-model]')
+    expect(button).not.toBeNull()
+    ;(button as HTMLButtonElement).click()
+
+    element.remove()
+    document.body.append(element)
+
+    expect(editorInstance(element).modelValue).toEqual({
+      marker: 'clicked',
+      modelValue: initialDoc,
+    })
   })
 })

@@ -107,6 +107,11 @@ const collaborationOptions = {
 | `content` | JSON string | Initial document content |
 | `websocket-url` | string | WebSocket server for collab |
 
+`content` is the initial document, not a live mirror: the element never writes back to it.
+Unsaved edits survive removing and re-inserting the element (modals, tabs, drag-and-drop).
+Rewriting `content` still wins — the editor reloads from the new value on the next connect,
+even when the rewrite happens while the element is detached.
+
 ## DocsEditor Component Props
 
 ```ts
