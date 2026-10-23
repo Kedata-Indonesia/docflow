@@ -112,6 +112,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- **`<docs-editor>` keeps unsaved edits when the element is moved (issue #392):**
+  reconnecting rebuilt the Vue editor from the `content` attribute, so anything
+  typed since the host last wrote that attribute was silently discarded. The
+  wrapper now remembers the document emitted through `update:modelValue` and
+  reuses it while the attribute is unchanged; a host rewrite of `content` still
+  wins, including one made while the element is detached.
+  _([#392](https://github.com/Kedata-Indonesia/docflow/issues/392))_
+
 - **AI streaming accepts CR-only SSE streams (issue #398):** SSE permits LF,
   CRLF, or a lone CR as line terminators, but the framing helper added in #384
   only knew the first two, so a CR-only server still produced an empty answer.
