@@ -127,53 +127,58 @@ export function claudeProvider(config: ClaudeConfig): AIProvider {
             const { done, value } = await reader.read()
             if (done) break
             buffer += decoder.decode(value, { stream: true })
+            buffer = buffer.replace(/\r\n/g, '\n')
 
             // SSE events are separated by a blank line.
             let sep: number
             while ((sep = buffer.indexOf('\n\n')) >= 0) {
               const block = buffer.slice(0, sep)
               buffer = buffer.slice(sep + 2)
+              const dataLines: string[] = []
               for (const line of block.split('\n')) {
-                if (!line.startsWith('data:')) continue
-                const data = line.slice('data:'.length).trim()
-                if (!data) continue
-                let json: AnthropicSseEvent
-                try {
-                  json = JSON.parse(data) as AnthropicSseEvent
-                } catch {
-                  // Tolerate non-JSON SSE payloads (keep-alives, provider quirks).
-                  continue
+                if (line.startsWith('data:')) {
+                  dataLines.push(line.slice('data:'.length).trim())
                 }
-                switch (json.type) {
-                  case 'content_block_delta': {
-                    const text = json.delta?.text
-                    if (text) yield { type: 'delta', text }
-                    break
-                  }
-                  case 'message_delta': {
-                    // stop_reason arrives here, before message_stop.
-                    if (json.delta?.stop_reason) stopReason = json.delta.stop_reason
-                    break
-                  }
-                  case 'message_stop': {
-                    sawDone = true
-                    yield stopReason ? { type: 'done', stopReason } : { type: 'done' }
-                    return
-                  }
-                  case 'error': {
-                    yield {
-                      type: 'error',
-                      error: new Error(
-                        json.error?.message
-                          ? `Claude provider error: ${json.error.message}`
-                          : 'Claude provider stream error',
-                      ),
-                    }
-                    return
-                  }
-                  default:
-                    break
+              }
+              if (dataLines.length === 0) continue
+              const data = dataLines.join('\n')
+              if (!data) continue
+              let json: AnthropicSseEvent
+              try {
+                json = JSON.parse(data) as AnthropicSseEvent
+              } catch {
+                // Tolerate non-JSON SSE payloads (keep-alives, provider quirks).
+                continue
+              }
+              switch (json.type) {
+                case 'content_block_delta': {
+                  const text = json.delta?.text
+                  if (text) yield { type: 'delta', text }
+                  break
                 }
+                case 'message_delta': {
+                  // stop_reason arrives here, before message_stop.
+                  if (json.delta?.stop_reason) stopReason = json.delta.stop_reason
+                  break
+                }
+                case 'message_stop': {
+                  sawDone = true
+                  yield stopReason ? { type: 'done', stopReason } : { type: 'done' }
+                  return
+                }
+                case 'error': {
+                  yield {
+                    type: 'error',
+                    error: new Error(
+                      json.error?.message
+                        ? `Claude provider error: ${json.error.message}`
+                        : 'Claude provider stream error',
+                    ),
+                  }
+                  return
+                }
+                default:
+                  break
               }
             }
           }

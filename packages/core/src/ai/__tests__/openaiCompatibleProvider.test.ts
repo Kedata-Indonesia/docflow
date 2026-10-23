@@ -174,4 +174,18 @@ describe('openaiCompatibleProvider', () => {
 
     expect(fetchSignal?.aborted).toBe(true)
   })
+
+  it('parses CRLF line endings and multi-line data fields', async () => {
+    const chunk = "data: {\r\ndata:   \"choices\": [{\r\ndata:     \"delta\": { \"content\": \"multi\" }\r\ndata:   }]\r\ndata: }\r\n\r\ndata: [DONE]\r\n\r\n"
+    const fetchMock = vi.fn().mockResolvedValue(sseResponse([chunk]))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const events = await collect(
+      openaiCompatibleProvider(baseConfig).complete({ prompt: 'x' }),
+    )
+    expect(events).toEqual([
+      { type: 'delta', text: 'multi' },
+      { type: 'done' },
+    ])
+  })
 })

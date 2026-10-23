@@ -93,29 +93,34 @@ export function openaiCompatibleProvider(config: OpenAICompatibleConfig): AIProv
             const { done, value } = await reader.read()
             if (done) break
             buffer += decoder.decode(value, { stream: true })
+            buffer = buffer.replace(/\r\n/g, '\n')
 
             // SSE events are separated by a blank line.
             let sep: number
             while ((sep = buffer.indexOf('\n\n')) >= 0) {
               const block = buffer.slice(0, sep)
               buffer = buffer.slice(sep + 2)
+              const dataLines: string[] = []
               for (const line of block.split('\n')) {
-                if (!line.startsWith('data:')) continue
-                const data = line.slice('data:'.length).trim()
-                if (data === '[DONE]') {
-                  sawDone = true
-                  yield { type: 'done' }
-                  return
+                if (line.startsWith('data:')) {
+                  dataLines.push(line.slice('data:'.length).trim())
                 }
-                try {
-                  const json = JSON.parse(data) as {
-                    choices?: Array<{ delta?: { content?: string }; finish_reason?: string }>
-                  }
-                  const text = json.choices?.[0]?.delta?.content
-                  if (text) yield { type: 'delta', text }
-                } catch {
-                  // Tolerate non-JSON SSE payloads (keep-alives, provider quirks).
+              }
+              if (dataLines.length === 0) continue
+              const data = dataLines.join('\n')
+              if (data === '[DONE]') {
+                sawDone = true
+                yield { type: 'done' }
+                return
+              }
+              try {
+                const json = JSON.parse(data) as {
+                  choices?: Array<{ delta?: { content?: string }; finish_reason?: string }>
                 }
+                const text = json.choices?.[0]?.delta?.content
+                if (text) yield { type: 'delta', text }
+              } catch {
+                // Tolerate non-JSON SSE payloads (keep-alives, provider quirks).
               }
             }
           }

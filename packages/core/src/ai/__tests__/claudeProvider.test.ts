@@ -176,4 +176,16 @@ describe('claudeProvider', () => {
 
     expect(fetchSignal?.aborted).toBe(true)
   })
+
+  it('parses CRLF line endings and multi-line data fields', async () => {
+    const chunk = "data: {\r\ndata:   \"type\": \"content_block_delta\",\r\ndata:   \"delta\": { \"type\": \"text_delta\", \"text\": \"multiline\" }\r\ndata: }\r\n\r\ndata: {\"type\":\"message_stop\"}\r\n\r\n"
+    const fetchMock = vi.fn().mockResolvedValue(sseResponse([chunk]))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const events = await collect(claudeProvider(baseConfig).complete({ prompt: 'x' }))
+    expect(events).toEqual([
+      { type: 'delta', text: 'multiline' },
+      { type: 'done' },
+    ])
+  })
 })
