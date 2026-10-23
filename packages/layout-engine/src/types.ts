@@ -39,12 +39,6 @@ export interface LayoutOptions {
     right: number
   }
   /**
-   * Maximum characters per page, used as a secondary cutoff alongside the
-   * height-based limit.  Computed dynamically from font metrics, margins,
-   * and page dimensions so it adapts to font-size / orientation changes.
-   */
-  maxCharsPerPage?: number
-  /**
    * Node types measured with `keepTogether` (issue #249). Defaults to
    * `DEFAULT_KEEP_TOGETHER_TYPES`; pass `[]` to return to plain splitting.
    */

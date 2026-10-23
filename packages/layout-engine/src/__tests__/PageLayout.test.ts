@@ -121,23 +121,32 @@ describe('PageLayout', () => {
     layout.destroy()
   })
 
-  it('observes container resize', () => {
+  it('does not clone the DOM when no block needs splitting (#377)', async () => {
     container = createMockContainer(`
       <div data-node-type="paragraph" data-from="0" data-to="5">Hello</div>
     `)
+    document.querySelectorAll('[data-layout-shadow]').forEach((el) => el.remove())
 
     const layout = new PageLayout(container, { pageHeight: 100 }, 0)
-    const spy = vi.fn()
-    globalThis.ResizeObserver = class {
-      observe() {
-        spy()
-      }
-      disconnect() {}
-      unobserve() {}
-    } as unknown as typeof ResizeObserver
+    await layout.layout()
 
-    layout.observe(container)
-    expect(spy).toHaveBeenCalled()
+    expect(document.querySelector('[data-layout-shadow]')).toBeNull()
+    layout.destroy()
+  })
+
+  it('builds the measurement clone when a block needs splitting (#377)', async () => {
+    container = createMockContainer(
+      `<div data-node-type="paragraph" data-from="0" data-to="40">${'word '.repeat(8)}</div>`,
+    )
+    document.querySelectorAll('[data-layout-shadow]').forEach((el) => el.remove())
+    const block = container.firstElementChild as HTMLElement
+    block.getBoundingClientRect = () =>
+      ({ top: 0, bottom: 500, left: 0, right: 100, width: 100, height: 500 }) as DOMRect
+
+    const layout = new PageLayout(container, { pageHeight: 100 }, 0)
+    await layout.layout()
+
+    expect(document.querySelector('[data-layout-shadow]')).not.toBeNull()
     layout.destroy()
   })
 

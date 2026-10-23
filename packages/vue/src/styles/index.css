@@ -1512,6 +1512,12 @@
   bottom: calc(100% + 6px) !important;
 }
 
+.dark .virtual-page-overlay {
+  --vp-page-bg: #0a0f1e;
+  --vp-gap-bg: #02040a;
+  --vp-border: #1e293b;
+}
+
 .dark .rm-options-dropdown {
   background-color: #1e293b !important;
   border-color: #334155 !important;

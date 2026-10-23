@@ -21,7 +21,6 @@ export class PageLayout {
   private readonly breaker: PageBreaker
   private readonly debounceMs: number
   private shadowRoot: HTMLElement | null = null
-  private resizeObserver: ResizeObserver | null = null
   private debounceTimer: ReturnType<typeof setTimeout> | null = null
   private lastDocHash = ''
   private lastBlockHashes = new Map<number, string>()
@@ -45,7 +44,6 @@ export class PageLayout {
       pageHeight: options.pageHeight,
       pageWidth: options.pageWidth ?? 0,
       margins: options.margins ?? { top: 0, bottom: 0, left: 0, right: 0 },
-      maxCharsPerPage: options.maxCharsPerPage ?? 0,
       keepTogetherTypes: options.keepTogetherTypes ?? DEFAULT_KEEP_TOGETHER_TYPES,
     }
     this.debounceMs = debounceMs
@@ -131,22 +129,12 @@ export class PageLayout {
     })
   }
 
-  observe(container: HTMLElement): void {
-    this.resizeObserver?.disconnect()
-    this.resizeObserver = new ResizeObserver(() => {
-      this.layout()
-    })
-    this.resizeObserver.observe(container)
-  }
-
   destroy(): void {
     if (this.debounceTimer) {
       clearTimeout(this.debounceTimer)
       this.debounceTimer = null
     }
     this.pendingResolvers = []
-    this.resizeObserver?.disconnect()
-    this.resizeObserver = null
     if (this.shadowRoot?.parentNode) {
       this.shadowRoot.parentNode.removeChild(this.shadowRoot)
     }
@@ -180,14 +168,13 @@ export class PageLayout {
       return this.lastResult
     }
 
-    this.prepareShadowLayout()
     const blocks = this.measureBlocks(this.element)
     const availableHeight = this.availableHeight()
     const newBlockHashes = this.computeBlockHashes()
 
     // Always run full page computation (fast — integer arithmetic),
     // but track which pages changed for potential incremental merging.
-    const allPages = this.breaker.computePages(blocks, availableHeight, this.options.maxCharsPerPage)
+    const allPages = this.breaker.computePages(blocks, availableHeight)
 
     // Incremental merge: if only tail pages changed, reuse head pages
     // from the previous result to minimize downstream DOM churn.
@@ -289,7 +276,11 @@ export class PageLayout {
     return this.options.pageHeight - top - bottom
   }
 
-  private prepareShadowLayout(): void {
+  /**
+   * Build the off-screen copy lazily: a layout pass that never splits a block
+   * (every debounced keystroke) must not clone the document DOM.
+   */
+  private ensureShadowLayout(): void {
     if (!this.shadowRoot) {
       const shadow = document.createElement('div')
       shadow.setAttribute('data-layout-shadow', 'true')
@@ -329,6 +320,7 @@ export class PageLayout {
 
   private measureTextOffset(block: BlockInfo, offset: number): number | null {
     if (offset <= 0) return 0
+    this.ensureShadowLayout()
     const root = this.shadowRoot ?? this.element
     const el = root.querySelector(`[data-from="${block.from}"]`)
     if (!el) return null

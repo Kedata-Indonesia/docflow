@@ -10,7 +10,7 @@ export interface SplitResult {
 export class PageBreaker {
   constructor(private measureTextBlock: MeasureTextBlock = () => null) {}
 
-  computePages(blocks: BlockInfo[], pageHeight: number, maxCharsPerPage?: number): Page[] {
+  computePages(blocks: BlockInfo[], pageHeight: number): Page[] {
     const pages: Page[] = []
     let currentBlocks: BlockInfo[] = []
     let currentFrom = 0
@@ -92,17 +92,10 @@ export class PageBreaker {
         blockSpan = gap + (block.bottom - block.top) + (block.marginBottom ?? 0)
       }
 
-      // ── Check if block fits (height + optional char-count limit) ────
+      // ── Check if block fits ─────────────────────────────────────────────
       const fitsInPage = usedHeight + blockSpan <= pageHeight
 
-      // Secondary check: character-count limit
-      let exceedsCharLimit = false
-      if (maxCharsPerPage && fitsInPage) {
-        const charsWithBlock = (currentTo - currentFrom) + (block.to - block.from)
-        exceedsCharLimit = charsWithBlock > maxCharsPerPage
-      }
-
-      if (fitsInPage && !exceedsCharLimit) {
+      if (fitsInPage) {
         currentBlocks.push(block)
         currentTo = block.to
         usedHeight += blockSpan
