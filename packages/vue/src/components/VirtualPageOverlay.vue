@@ -89,8 +89,9 @@ function resolveFooter(template: string, pageIndex: number): string {
 .virtual-page-overlay {
   position: absolute;
   top: 0;
-  left: 50%;
-  transform: translateX(-50%);
+  /* The parent is exactly the paper width; centering here shifted every page
+     right by half a page because the overlay itself has zero width. */
+  left: 0;
   pointer-events: none;
   z-index: 0;
 }
