@@ -6,7 +6,17 @@ import type { DocsEditorPlugin, ImageUploadHandler } from '@kedata-indonesia/doc
 // This enables Tailwind + ProseMirror styles inside the Shadow DOM.
 import shadowStyles from './shadow.css?inline'
 
+// The Vue wrapper is a real custom element: it must be registered before it can
+// be constructed. `new VueCustomElement()` throws "Illegal constructor" in every
+// browser (and in happy-dom), so the wrapper is mounted through an internal tag.
+const INNER_TAG = 'docflow-editor-inner'
 const VueDocsEditorElement = defineCustomElement(DocsEditor)
+
+function ensureInnerElementDefined() {
+  if (typeof customElements !== 'undefined' && !customElements.get(INNER_TAG)) {
+    customElements.define(INNER_TAG, VueDocsEditorElement)
+  }
+}
 
 export class DocsEditorElement extends HTMLElement {
   static observedAttributes = ['room', 'theme', 'editable', 'content', 'websocket-url', 'debug']
@@ -45,7 +55,12 @@ export class DocsEditorElement extends HTMLElement {
   connectedCallback() {
     if (typeof window === 'undefined' || typeof document === 'undefined') return
 
-    this._shadowRoot = this.attachShadow({ mode: 'open' })
+    // Reuse the shadow root across reconnects. The browser keeps the shadow root
+    // attached to the host after it is removed from the document, and calling
+    // attachShadow() a second time throws NotSupportedError — which leaves a
+    // blank, unhydrated element for hosts that move or re-parent it.
+    this._shadowRoot ??= this.shadowRoot ?? this.attachShadow({ mode: 'open' })
+    this._shadowRoot.replaceChildren()
 
     // Inject editor styles into the shadow root so Tailwind utilities,
     // ProseMirror overrides, and page layout styles work inside Shadow DOM.
@@ -54,15 +69,23 @@ export class DocsEditorElement extends HTMLElement {
     this._shadowRoot.appendChild(styleEl)
 
     const props = this._buildProps()
-    const vueElement = new VueDocsEditorElement(props)
+    const vueElement = this._createEditorElement(props)
     this._vueElement = vueElement
     this._shadowRoot.appendChild(vueElement)
+  }
+
+  /** Test seam: subclasses can mount a stand-in instead of the real Vue element. */
+  protected _createEditorElement(props: Record<string, unknown>): HTMLElement {
+    ensureInnerElementDefined()
+    const element = document.createElement(INNER_TAG)
+    Object.assign(element, props)
+    return element
   }
 
   disconnectedCallback() {
     this._vueElement?.remove()
     this._vueElement = undefined
-    this._shadowRoot = undefined
+    // Keep _shadowRoot: it stays attached to the host, so it is reused on reconnect.
   }
 
   attributeChangedCallback(_name: string, oldValue: string | null, newValue: string | null) {

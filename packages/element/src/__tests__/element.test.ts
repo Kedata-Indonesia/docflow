@@ -43,6 +43,57 @@ describe('DocsEditorElement', () => {
     expect(buildProps(missing).debug).toBe(false)
   })
 
+  it('reconnects without re-creating the shadow root', () => {
+    // Regression test for #369: the browser keeps the shadow root attached to
+    // the host after removal, so a second attachShadow() throws NotSupportedError.
+    class DocsEditorReconnectElement extends DocsEditorElement {
+      // happy-dom cannot construct the real Vue custom element directly, so mount
+      // a stand-in; the reconnect behaviour under test lives in the base class.
+      protected override _createEditorElement(): HTMLElement {
+        return document.createElement('div')
+      }
+    }
+    customElements.define('docs-editor-reconnect-test', DocsEditorReconnectElement)
+
+    const element = document.createElement(
+      'docs-editor-reconnect-test',
+    ) as DocsEditorReconnectElement
+
+    document.body.append(element)
+    const shadowRoot = element.shadowRoot
+    expect(shadowRoot).not.toBeNull()
+    expect(shadowRoot?.children).toHaveLength(2)
+
+    element.remove()
+    expect(() => document.body.append(element)).not.toThrow()
+
+    expect(element.shadowRoot).toBe(shadowRoot)
+    expect(shadowRoot?.querySelector('style')).not.toBeNull()
+    expect(shadowRoot?.children).toHaveLength(2)
+
+    element.remove()
+  })
+
+  it('mounts the real Vue editor through the internal tag', async () => {
+    // Regression test for the wrapper's mount path: constructing the Vue custom
+    // element with `new` throws "Illegal constructor" because it is unregistered.
+    class DocsEditorRealElement extends DocsEditorElement {}
+    customElements.define('docs-editor-real-test', DocsEditorRealElement)
+
+    const element = document.createElement('docs-editor-real-test') as DocsEditorRealElement
+    document.body.append(element)
+    await new Promise((resolve) => setTimeout(resolve, 50))
+
+    expect(element.shadowRoot?.querySelector('docflow-editor-inner')).not.toBeNull()
+
+    element.remove()
+    document.body.append(element)
+    await new Promise((resolve) => setTimeout(resolve, 50))
+
+    expect(element.shadowRoot?.querySelector('docflow-editor-inner')).not.toBeNull()
+    element.remove()
+  })
+
   it('registerDocsEditor defines the element in a mock registry', () => {
     const registry = createMockRegistry()
     registerDocsEditor('docs-editor', registry)
