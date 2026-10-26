@@ -46,6 +46,13 @@ export interface CollaborationOptions {
    * contributes local offline edits via the normal Yjs update exchange.
    */
   offline?: boolean
+  /**
+   * Issue #162 — optional custom mirror key for y-indexeddb persistence.
+   * Defaults to `docflow-<room>`. Hosts can scope this per user/tenant
+   * (e.g. `docflow-<room>-<userId>`) to prevent cross-identity disclosure
+   * on shared browser profiles.
+   */
+  mirrorKey?: string
 }
 
 export interface CollaborationSetup {
@@ -59,6 +66,11 @@ export interface CollaborationSetup {
    * use it as a seed source.
    */
   persistence?: IndexeddbPersistence
+  /**
+   * Issue #162 — purge the offline mirror data from IndexedDB (`persistence.clearData()`).
+   * Useful on logout, account switch, role downgrade, or when clearing local data.
+   */
+  purgeOfflineMirror: () => Promise<void>
   /**
    * Issue #117 — resolves after BOTH the offline mirror (if `offline`) AND
    * the provider's first sync (if `websocket`) have completed. Hosts MUST
@@ -144,7 +156,67 @@ export function createCollaboration(options: CollaborationOptions): Collaboratio
   // normal Yjs merge on reconnect.
   let persistence: IndexeddbPersistence | undefined
   if (options.offline) {
-    persistence = new IndexeddbPersistence(`docflow-${options.room}`, ydoc)
+    const dbName = options.mirrorKey ?? `docflow-${options.room}`
+    // Issue #162 — quota guard: consult navigator.storage.estimate() before attaching
+    // and handle quota warnings/errors gracefully.
+    if (typeof navigator !== 'undefined' && navigator.storage && navigator.storage.estimate) {
+      navigator.storage.estimate().then((estimate) => {
+        if (estimate.quota && estimate.usage && estimate.quota > 0) {
+          const usageRatio = estimate.usage / estimate.quota
+          if (usageRatio > 0.9) {
+            console.warn(
+              `[docflow] Storage quota is near capacity (${Math.round(usageRatio * 100)}% used). ` +
+                `Offline mirror "${dbName}" may fail with QuotaExceededError if storage fills up.`,
+            )
+          }
+        }
+      }).catch(() => {
+        // Ignore estimate errors in restricted or non-standard environments
+      })
+    }
+
+    try {
+      persistence = new IndexeddbPersistence(dbName, ydoc)
+      persistence.on('error', (event: unknown) => {
+        console.warn('[docflow] IndexedDB persistence error:', event)
+      })
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'QuotaExceededError') {
+        console.warn('[docflow] Storage quota exceeded when initializing offline mirror:', err)
+      } else {
+        console.warn('[docflow] Failed to initialize offline mirror:', err)
+      }
+    }
+  }
+
+  const purgeOfflineMirror = async (): Promise<void> => {
+    if (persistence) {
+      try {
+        await persistence.clearData()
+      } catch (err) {
+        // Fallback deleteDB if persistence wasn't fully initialized or clearData failed
+        console.warn('[docflow] clearData failed, falling back to deleteDatabase:', err)
+        const dbName = options.mirrorKey ?? `docflow-${options.room}`
+        if (typeof indexedDB !== 'undefined' && indexedDB.deleteDatabase) {
+          await new Promise<void>((resolve, reject) => {
+            const req = indexedDB.deleteDatabase(dbName)
+            req.onsuccess = () => resolve()
+            req.onerror = () => reject(req.error)
+            req.onblocked = () => resolve()
+          })
+        }
+      }
+    } else {
+      const dbName = options.mirrorKey ?? `docflow-${options.room}`
+      if (typeof indexedDB !== 'undefined' && indexedDB.deleteDatabase) {
+        await new Promise<void>((resolve, reject) => {
+          const req = indexedDB.deleteDatabase(dbName)
+          req.onsuccess = () => resolve()
+          req.onerror = () => reject(req.error)
+          req.onblocked = () => resolve()
+        })
+      }
+    }
   }
   let provider: WebrtcProvider | WebsocketProvider | null = null
 
@@ -276,7 +348,7 @@ export function createCollaboration(options: CollaborationOptions): Collaboratio
     ydoc.destroy()
   }
 
-  return { ydoc, provider, awareness, persistence, whenReady, destroy, setLocalCursorEnabled }
+  return { ydoc, provider, awareness, persistence, whenReady, destroy, setLocalCursorEnabled, purgeOfflineMirror }
 }
 
 /**

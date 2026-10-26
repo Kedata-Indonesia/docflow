@@ -62,6 +62,7 @@ function setupFor(ydoc: Y.Doc, awareness: Awareness): CollaborationSetup {
     whenReady: Promise.resolve(),
     destroy: () => undefined,
     setLocalCursorEnabled: () => undefined,
+    purgeOfflineMirror: async () => undefined,
   }
 }
 

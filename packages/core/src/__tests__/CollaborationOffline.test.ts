@@ -1,5 +1,5 @@
 import 'fake-indexeddb/auto'
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import * as Y from 'yjs'
 import { createCollaboration } from '../Collaboration.js'
 
@@ -98,6 +98,112 @@ describe('createCollaboration — offline mirror (Phase 9 OF1)', () => {
     const after = (await listDatabases()).filter((db) => db.name?.startsWith('docflow-'))
     expect(after.length).toBe(before.length)
     expect(after.some((db) => db.name === 'docflow-offline-absent')).toBe(false)
+  })
+
+  it('purgeOfflineMirror deletes the DB and a fresh mount starts empty', async () => {
+    const collab1 = createCollaboration({ room: 'purge-test', user, offline: true })
+    const paragraph = new Y.XmlElement('paragraph')
+    paragraph.insert(0, [new Y.XmlText('purge me')])
+    collab1.ydoc.getXmlFragment('default').insert(0, [paragraph])
+    await collab1.persistence!.whenSynced
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    await collab1.purgeOfflineMirror()
+    collab1.destroy()
+
+    const collab2 = createCollaboration({ room: 'purge-test', user, offline: true })
+    await collab2.persistence!.whenSynced
+    expect(fragmentText(collab2.ydoc)).not.toContain('purge me')
+    collab2.destroy()
+  })
+
+  it('mirrorKey scopes the IndexedDB cache per user/tenant so different identities do not inherit state', async () => {
+    const user1Collab = createCollaboration({
+      room: 'shared-room',
+      user: { name: 'Alice', color: '#ff0000' },
+      offline: true,
+      mirrorKey: 'docflow-shared-room-alice',
+    })
+    const paragraph = new Y.XmlElement('paragraph')
+    paragraph.insert(0, [new Y.XmlText('alice secret')])
+    user1Collab.ydoc.getXmlFragment('default').insert(0, [paragraph])
+    await user1Collab.persistence!.whenSynced
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    user1Collab.destroy()
+
+    // Bob opens the same room with his own mirrorKey
+    const user2Collab = createCollaboration({
+      room: 'shared-room',
+      user: { name: 'Bob', color: '#00ff00' },
+      offline: true,
+      mirrorKey: 'docflow-shared-room-bob',
+    })
+    await user2Collab.persistence!.whenSynced
+    expect(fragmentText(user2Collab.ydoc)).not.toContain('alice secret')
+    user2Collab.destroy()
+  })
+
+  it('quota-exceeded / storage estimate path warns gracefully', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    // Mock navigator.storage.estimate to simulate >90% usage
+    const origStorage = navigator.storage
+    Object.defineProperty(navigator, 'storage', {
+      value: {
+        estimate: async () => ({ usage: 95, quota: 100 }),
+      },
+      configurable: true,
+    })
+
+    const collab = createCollaboration({ room: 'quota-test', user, offline: true })
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Storage quota is near capacity'),
+    )
+
+    if (origStorage) {
+      Object.defineProperty(navigator, 'storage', {
+        value: origStorage,
+        configurable: true,
+      })
+    }
+    warnSpy.mockRestore()
+    collab.destroy()
+  })
+
+  it('downgrade regression: purged or un-cached user does not re-merge old cached state', async () => {
+    const room = 'downgrade-room'
+    const collab1 = createCollaboration({
+      room,
+      user: { name: 'Editor', color: '#ff0000' },
+      offline: true,
+      mirrorKey: 'docflow-downgrade-user1',
+    })
+    const paragraph = new Y.XmlElement('paragraph')
+    paragraph.insert(0, [new Y.XmlText('pre-downgrade edit')])
+    collab1.ydoc.getXmlFragment('default').insert(0, [paragraph])
+    await collab1.persistence!.whenSynced
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    collab1.destroy()
+
+    // Host purges mirror upon role downgrade to viewer
+    const collab2 = createCollaboration({
+      room,
+      user: { name: 'Viewer', color: '#00ff00' },
+      offline: true,
+      mirrorKey: 'docflow-downgrade-user1',
+    })
+    await collab2.purgeOfflineMirror()
+    collab2.destroy()
+
+    const collab3 = createCollaboration({
+      room,
+      user: { name: 'Viewer', color: '#00ff00' },
+      offline: true,
+      mirrorKey: 'docflow-downgrade-user1',
+    })
+    await collab3.persistence!.whenSynced
+    expect(fragmentText(collab3.ydoc)).not.toContain('pre-downgrade edit')
+    collab3.destroy()
   })
 })
 
