@@ -64,6 +64,8 @@ Library-only change; use DevTools → Application → IndexedDB.
 |---|---|
 | `packages/core/src/offlineMirror.ts` (new) | key resolution, purge/delete, quota warnings |
 | `packages/core/src/Collaboration.ts` | new options, attach via helper, `mirrorDatabase`, setup purge |
+| `packages/core/src/collaborationProviders.ts` (new) | provider/signaling wiring + websocket sync gate (extracted) |
+| `packages/core/src/collaborationAwareness.ts` (new) | `AwarenessState` + snapshot mapping (extracted) |
 | `packages/core/src/index.ts` | public exports |
 | `packages/vue/src/composables/useEditor.ts` | watcher key includes offline scope |
 | `packages/core/src/__tests__/offlineMirrorLifecycle.test.ts` (new) | 9 lifecycle tests |

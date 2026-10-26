@@ -103,6 +103,8 @@ offline discards unsynced edits — stated in the guide.
 |---|---|
 | `packages/core/src/offlineMirror.ts` (new) | key resolution, attach helper, purge/delete with blocked + timeout, quota pre-flight, quota-exceeded listener, typed warning emitter |
 | `packages/core/src/Collaboration.ts` | options, attach through the helper, `mirrorDatabase`, `purgeOfflineMirror` method, dispose on destroy |
+| `packages/core/src/collaborationProviders.ts` (new) | provider construction + signaling defaults + websocket first-sync gate, extracted to keep `Collaboration.ts` under 300 lines |
+| `packages/core/src/collaborationAwareness.ts` (new) | awareness snapshot mapping (`AwarenessState`) extracted from `Collaboration.ts` |
 | `packages/core/src/index.ts` | export `purgeOfflineMirror`, `resolveMirrorKey`, types |
 | `packages/vue/src/composables/useEditor.ts` | watcher key includes `offline` + `mirrorKey` |
 | `packages/core/src/__tests__/offlineMirrorLifecycle.test.ts` (new) | 9 lifecycle tests |

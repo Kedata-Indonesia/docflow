@@ -3,9 +3,13 @@ import { Collaboration } from '@tiptap/extension-collaboration'
 import { yCursorPlugin } from '@tiptap/y-tiptap'
 import { Awareness } from 'y-protocols/awareness'
 import type { IndexeddbPersistence } from 'y-indexeddb'
-import { WebrtcProvider } from 'y-webrtc'
-import { WebsocketProvider } from 'y-websocket'
 import * as Y from 'yjs'
+import { createAwarenessStates, type AwarenessState } from './collaborationAwareness.js'
+import {
+  createCollaborationProvider,
+  whenProviderSynced,
+  type CollaborationProvider,
+} from './collaborationProviders.js'
 import {
   attachOfflineMirror,
   deleteMirrorDatabase,
@@ -15,20 +19,8 @@ import {
   type PurgeOfflineMirrorResult,
 } from './offlineMirror.js'
 
-export interface AwarenessState {
-  clientId: number
-  user: { name: string; color: string }
-  cursor?: { from: number; to: number } | null
-  /**
-   * Phase 9 PR2 — *present* flag. False when the local user has navigated
-   * away from the editor route (the Yjs provider is still alive but the
-   * host has gated cursor emission off, per the §6 *\"TOC sidebar orphan
-   * wiring\"* / REST-heartbeat scope notes). Peers see this instantly
-   * via the awareness `change` event — far faster than the 15s REST
-   * heartbeat fallback. Defaults to true when the user is in the editor.
-   */
-  present: boolean
-}
+export type { AwarenessState } from './collaborationAwareness.js'
+export { resolveSignalingUrls } from './collaborationProviders.js'
 
 export interface CollaborationOptions {
   room: string
@@ -78,7 +70,7 @@ export interface CollaborationOptions {
 
 export interface CollaborationSetup {
   ydoc: Y.Doc
-  provider: WebrtcProvider | WebsocketProvider | null
+  provider: CollaborationProvider | null
   awareness: Awareness
   /**
    * Phase 9 OF1 — y-indexeddb persistence instance, present only when
@@ -120,59 +112,6 @@ export interface CollaborationSetup {
   setLocalCursorEnabled: (enabled: boolean) => void
 }
 
-/** Local-only signaling default. Public signaling servers were removed in
- * Phase 2 — the library must never contact external infrastructure on its own. */
-const LOCAL_SIGNALING = ['ws://localhost:4444']
-
-let warnedLocalSignaling = false
-
-/**
- * Resolve webrtc signaling servers. Without an explicit `signaling` config the
- * provider is local-only (localhost + same-browser BroadcastChannel); warn once
- * so production self-host installs know to run their own signaling server or
- * use `provider: 'websocket'` instead.
- */
-export function resolveSignalingUrls(signaling?: string[]): string[] {
-  if (signaling && signaling.length > 0) return signaling
-  if (!warnedLocalSignaling) {
-    warnedLocalSignaling = true
-    console.warn(
-      '[docflow] webrtc provider has no `signaling` configured — falling back to ' +
-        'localhost-only sync (ws://localhost:4444 + same-browser tabs). For production ' +
-        'self-host, run your own signaling server and pass `signaling`, or use ' +
-        '`provider: "websocket"` with your own websocketUrl.',
-    )
-  }
-  return LOCAL_SIGNALING
-}
-
-interface AwarenessRawState {
-  user?: { name: string; color: string }
-  cursor?: { from: number; to: number } | null
-  /** Phase 9 PR2 — see AwarenessState.present. Defaults to true when not
-   *  explicitly set (legacy states that only carry `user` + `cursor`). */
-  present?: boolean
-}
-
-const LOCAL_PRESENT_DEFAULT = true
-
-function createAwarenessStates(awareness: Awareness): AwarenessState[] {
-  const states: AwarenessState[] = []
-  awareness.getStates().forEach((state: Record<string, unknown>, clientId: number) => {
-    const raw = state as AwarenessRawState
-    states.push({
-      clientId,
-      user: raw.user ?? { name: '', color: '' },
-      cursor: raw.cursor ?? null,
-      // `present` defaults to true for backwards compat (legacy states
-      // don't set it) and for the local user (always considered present
-      // until PR2 toggles it off).
-      present: raw.present ?? LOCAL_PRESENT_DEFAULT,
-    })
-  })
-  return states
-}
-
 export function createCollaboration(options: CollaborationOptions): CollaborationSetup {
   const ydoc = new Y.Doc()
   if (options.initialStorageState) {
@@ -192,18 +131,7 @@ export function createCollaboration(options: CollaborationOptions): Collaboratio
       })
     : undefined
   const persistence = offlineMirror?.persistence
-  let provider: WebrtcProvider | WebsocketProvider | null = null
-
-  if (options.provider === 'webrtc') {
-    provider = new WebrtcProvider(options.room, ydoc, {
-      signaling: resolveSignalingUrls(options.signaling),
-    })
-  } else if (options.provider === 'websocket') {
-    if (!options.websocketUrl) {
-      throw new Error('[Collaboration] websocketUrl is required when provider is "websocket"')
-    }
-    provider = new WebsocketProvider(options.websocketUrl, options.room, ydoc)
-  }
+  const provider = createCollaborationProvider(ydoc, options)
 
   const awareness = provider?.awareness ?? new Awareness(ydoc)
   awareness.setLocalStateField('user', options.user)
@@ -223,23 +151,12 @@ export function createCollaboration(options: CollaborationOptions): Collaboratio
     if (!enabled) {
       awareness.setLocalStateField('cursor', null)
     }
-    // Publish the gate itself as its own awareness field so a host can read
-    // the current value via `isLocalCursorEnabled()` without keeping a
-    // parallel copy. We do NOT touch `present` here — the present flag stays
-    // true for the editor's lifetime and only flips to false on `destroy()`
-    // (which calls `awareness.setLocalState(null)`). Previously this also
-    // set `present = enabled`, which caused the peer's top-bar avatar to
-    // flash off whenever the local user switched browser tabs (the
-    // visibilitychange handler in EditorView calls
-    // `setLocalCursorEnabled(false)` as a cursor-publish perf gate). The
-    // flash was a regression in the two-writer scenario: writer B switches
-    // tabs to look at writer A's editor → B's own tab becomes hidden →
-    // B publishes `present=false` → A's `presentPeers` filter drops B's
-    // avatar → "the collaborator only shown in a flash then disappears."
-    // The real "user left the doc" signal is the editor unmount (route
-    // change) → `destroy()` → WS close → server-side awareness cleanup;
-    // that path already propagates the leave within one round-trip (no
-    // REST-heartbeat lag — the PR2 design goal).
+    // Publish the gate as its own awareness field so `isLocalCursorEnabled()`
+    // can read it without a parallel copy. `present` is intentionally NOT
+    // tied to this gate: tab visibility changes call this on every hidden
+    // tab, and flipping `present` here made peers' avatars flash off (Phase 9
+    // PR2 regression). The real "left the doc" signal is unmount →
+    // `destroy()` → `setLocalState(null)`, which propagates in one round-trip.
     awareness.setLocalStateField('emitCursor', enabled)
   }
   awareness.setLocalStateField('present', true)
@@ -271,35 +188,8 @@ export function createCollaboration(options: CollaborationOptions): Collaboratio
   if (offlineMirror) {
     readyParts.push(offlineMirror.whenSettled)
   }
-  if (provider && options.provider === 'websocket') {
-    const ws = provider as WebsocketProvider & {
-      once: (event: string, cb: (state: boolean) => void) => void
-      synced: boolean
-    }
-    readyParts.push(
-      new Promise<void>((resolve) => {
-        // The y-websocket provider emits `sync` when its `synced` state
-        // transitions to true. The provider auto-connects on construction,
-        // so by the time the host awaits `whenReady` the first sync may
-        // have already completed — `once('sync')` would miss it. Check
-        // `synced` synchronously, listen for both `sync` and `synced`
-        // (some versions emit only one), and add a hard timeout so the
-        // editor never hangs forever on a wedged connection.
-        let settled = false
-        const done = () => {
-          if (settled) return
-          settled = true
-          resolve()
-        }
-        if (ws.synced) {
-          done()
-          return
-        }
-        ws.once('sync', done)
-        ws.once('synced', done)
-        setTimeout(done, 5000)
-      }),
-    )
+  if (provider) {
+    readyParts.push(whenProviderSynced(provider))
   }
   const whenReady = readyParts.length === 0
     ? Promise.resolve()
