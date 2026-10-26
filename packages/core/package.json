@@ -45,7 +45,7 @@
     "y-indexeddb": "^9.0.12",
     "y-protocols": "^1.0.7",
     "y-webrtc": "^10.3.0",
-    "y-websocket": "^2.0.4 || ^3.1.0",
+    "y-websocket": "^3.1.0",
     "yjs": "^13.6.33"
   },
   "peerDependencies": {
@@ -56,7 +56,7 @@
     "@tiptap/y-tiptap": "^3.0.10",
     "tiptap-pagination-plus": "3.1.0",
     "y-webrtc": "^10.3.0",
-    "y-websocket": "^2.0.4 || ^3.1.0",
+    "y-websocket": "^3.1.0",
     "yjs": "^13.6.33"
   },
   "devDependencies": {
