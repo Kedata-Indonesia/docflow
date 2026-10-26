@@ -22,6 +22,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Offline mirror lifecycle (issue #162):** `offline: true` now has a way out.
+  `purgeOfflineMirror({ room, mirrorKey? })` deletes the IndexedDB database
+  without needing a live editor (logout, account switch, role downgrade, access
+  revoked), and `CollaborationSetup.purgeOfflineMirror()` does the same after
+  closing the live connection. `mirrorKey` lets hosts scope the mirror per
+  user/tenant instead of sharing `docflow-<room>` across every identity in the
+  browser profile. Purging reports `deleted | blocked | unavailable | error`
+  and never hangs on a blocked delete. The mirror now emits typed
+  `quota-high` / `quota-exceeded` / `mirror-unavailable` warnings through
+  `onOfflineWarning` (console fallback), so unbounded growth is visible instead
+  of silent. Policy and examples are in
+  [`COLLAB_INTEGRATION.md`](./docs/guides/COLLAB_INTEGRATION.md#offline-mirror-luring--lifecycle-issue-162).
+  _([#162](https://github.com/Kedata-Indonesia/docflow/issues/162))_
+
 - **Removable imported CSL styles (issue #361):** the style picker can now delete
   a style the user imported. A remove control appears next to the Citation Style
   dropdown whenever the active style is one of the user's own; the bundled four

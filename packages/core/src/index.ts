@@ -61,6 +61,14 @@ export {
   type AwarenessState,
 } from './Collaboration.js'
 export {
+  purgeOfflineMirror,
+  resolveMirrorKey,
+  type OfflineMirrorPurgeStatus,
+  type OfflineMirrorWarning,
+  type PurgeOfflineMirrorOptions,
+  type PurgeOfflineMirrorResult,
+} from './offlineMirror.js'
+export {
   SubdocumentProvider,
   type SubdocState,
   type SubdocumentProviderOptions,

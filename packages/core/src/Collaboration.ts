@@ -2,10 +2,18 @@ import { Extension, type AnyExtension } from '@tiptap/core'
 import { Collaboration } from '@tiptap/extension-collaboration'
 import { yCursorPlugin } from '@tiptap/y-tiptap'
 import { Awareness } from 'y-protocols/awareness'
-import { IndexeddbPersistence } from 'y-indexeddb'
+import type { IndexeddbPersistence } from 'y-indexeddb'
 import { WebrtcProvider } from 'y-webrtc'
 import { WebsocketProvider } from 'y-websocket'
 import * as Y from 'yjs'
+import {
+  attachOfflineMirror,
+  deleteMirrorDatabase,
+  resolveMirrorKey,
+  type OfflineMirrorHandle,
+  type OfflineMirrorWarning,
+  type PurgeOfflineMirrorResult,
+} from './offlineMirror.js'
 
 export interface AwarenessState {
   clientId: number
@@ -46,6 +54,26 @@ export interface CollaborationOptions {
    * contributes local offline edits via the normal Yjs update exchange.
    */
   offline?: boolean
+  /**
+   * Issue #162 — IndexedDB database name for the offline mirror. Defaults to
+   * `docflow-<room>`, which every identity on the same browser profile
+   * shares. Hosts that support account switching SHOULD scope this per
+   * user/tenant (e.g. `docflow-<tenant>-<userId>-<room>`) and purge on
+   * logout / role downgrade.
+   */
+  mirrorKey?: string
+  /**
+   * Issue #162 — typed offline-mirror warnings (`quota-high`,
+   * `quota-exceeded`, `mirror-unavailable`). Without a handler the library
+   * logs once per code via `console.warn`.
+   */
+  onOfflineWarning?: (warning: OfflineMirrorWarning) => void
+  /**
+   * Issue #162 — fraction of the origin storage quota at which a
+   * `quota-high` warning fires. Default 0.9. Advisory only: it never blocks
+   * attach or hydration.
+   */
+  quotaWarnRatio?: number
 }
 
 export interface CollaborationSetup {
@@ -59,6 +87,19 @@ export interface CollaborationSetup {
    * use it as a seed source.
    */
   persistence?: IndexeddbPersistence
+  /**
+   * Issue #162 — the IndexedDB database backing the mirror. `undefined` when
+   * `offline` is false. Use it in "clear local data" UI.
+   */
+  mirrorDatabase?: string
+  /**
+   * Issue #162 — close the live mirror connection and delete its database.
+   * Destructive: call only after local edits reached the server (logout,
+   * account switch, downgrade to viewer, access revoked). Optional so custom
+   * `CollaborationSetup` objects stay valid; `createCollaboration` always
+   * provides it.
+   */
+  purgeOfflineMirror?: () => Promise<PurgeOfflineMirrorResult>
   /**
    * Issue #117 — resolves after BOTH the offline mirror (if `offline`) AND
    * the provider's first sync (if `websocket`) have completed. Hosts MUST
@@ -139,13 +180,18 @@ export function createCollaboration(options: CollaborationOptions): Collaboratio
   }
   // Phase 9 OF1 — opt-in offline mirror. y-indexeddb loads any previously
   // persisted state into the doc and writes every local update back to
-  // IndexedDB (`docflow-<room>`). It never seeds: the server still owns
-  // initial state; the mirror only carries local offline edits into the
-  // normal Yjs merge on reconnect.
-  let persistence: IndexeddbPersistence | undefined
-  if (options.offline) {
-    persistence = new IndexeddbPersistence(`docflow-${options.room}`, ydoc)
-  }
+  // IndexedDB (`docflow-<room>` by default). It never seeds: the server still
+  // owns initial state; the mirror only carries local offline edits into the
+  // normal Yjs merge on reconnect. Issue #162 moved the lifecycle (key
+  // resolution, purge, quota warnings) into `offlineMirror.ts`.
+  const offlineMirror: OfflineMirrorHandle | undefined = options.offline
+    ? attachOfflineMirror(ydoc, {
+        database: resolveMirrorKey(options.room, options.mirrorKey),
+        quotaWarnRatio: options.quotaWarnRatio,
+        onWarning: options.onOfflineWarning,
+      })
+    : undefined
+  const persistence = offlineMirror?.persistence
   let provider: WebrtcProvider | WebsocketProvider | null = null
 
   if (options.provider === 'webrtc') {
@@ -222,13 +268,8 @@ export function createCollaboration(options: CollaborationOptions): Collaboratio
   // mirror contributes offline edits via the normal Yjs merge on the WS
   // sync; we just delay the editor's view until that exchange has settled.
   const readyParts: Promise<void>[] = []
-  if (persistence) {
-    readyParts.push(
-      persistence.whenSynced.then(
-        () => undefined,
-        () => undefined,
-      ),
-    )
+  if (offlineMirror) {
+    readyParts.push(offlineMirror.whenSettled)
   }
   if (provider && options.provider === 'websocket') {
     const ws = provider as WebsocketProvider & {
@@ -264,6 +305,18 @@ export function createCollaboration(options: CollaborationOptions): Collaboratio
     ? Promise.resolve()
     : Promise.all(readyParts).then(() => undefined)
 
+  // Issue #162 — destructive, host-initiated mirror purge. Closes the live
+  // connection first so the delete is not blocked by our own handle, then
+  // removes the database. Mirrors are per-room/per-key, not per-identity.
+  const purgeOfflineMirror = async (): Promise<PurgeOfflineMirrorResult> => {
+    const database = offlineMirror?.database ?? resolveMirrorKey(options.room, options.mirrorKey)
+    if (persistence) {
+      await persistence.destroy().catch(() => undefined)
+    }
+    offlineMirror?.dispose()
+    return deleteMirrorDatabase(database)
+  }
+
   const destroy = () => {
     if (awarenessHandler) {
       awareness.off('change', awarenessHandler)
@@ -272,11 +325,22 @@ export function createCollaboration(options: CollaborationOptions): Collaboratio
     ;(provider as { destroy?: () => void } | null)?.destroy?.()
     ;(awareness as { destroy?: () => void }).destroy?.()
     // Destroy the offline mirror before the doc so pending writes settle.
-    void persistence?.destroy()
+    void persistence?.destroy().catch(() => undefined)
+    offlineMirror?.dispose()
     ydoc.destroy()
   }
 
-  return { ydoc, provider, awareness, persistence, whenReady, destroy, setLocalCursorEnabled }
+  return {
+    ydoc,
+    provider,
+    awareness,
+    persistence,
+    mirrorDatabase: offlineMirror?.database,
+    purgeOfflineMirror,
+    whenReady,
+    destroy,
+    setLocalCursorEnabled,
+  }
 }
 
 /**

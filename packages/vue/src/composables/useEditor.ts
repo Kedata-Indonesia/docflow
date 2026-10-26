@@ -89,7 +89,15 @@ export function useEditor(options: UseEditorOptions): UseEditorReturn {
       // drive a re-init. Narrowing this way also avoids stringifying the
       // provider object below.
       if (!('room' in collab)) return null
-      return { room: collab.room, provider: collab.provider ?? null }
+      // Issue #162: `mirrorKey`/`offline` participate in the key too — an
+      // account switch that re-scopes the IndexedDB mirror must rebuild the
+      // editor instead of silently reusing the previous identity's cache.
+      return {
+        room: collab.room,
+        provider: collab.provider ?? null,
+        offline: collab.offline ?? false,
+        mirrorKey: collab.mirrorKey ?? null,
+      }
     },
     async (newVal, oldVal) => {
       if (JSON.stringify(newVal) !== JSON.stringify(oldVal)) {
