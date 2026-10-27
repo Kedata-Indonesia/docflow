@@ -1,102 +1,35 @@
 # Dependabot configuration.
 #
-# Version updates only — this file configures the weekly sweep. Security updates
-# are a repository setting, not an entry here: they were enabled on 2026-10-19
-# (Settings -> Code security -> Dependabot security updates), which is what makes
-# Dependabot open a fix pull request for every alert that has an available patch.
-# Before that switch was flipped an advisory produced an alert and nothing else —
-# the gap the audit behind #165/#166 fell into. If those PRs ever get too broad,
-# the documented alternative is to leave the switch off and filter with
-# auto-triage rules instead.
+# Scope: **npm security updates** plus a **weekly GitHub Actions bump**. There is
+# deliberately no npm entry under `updates`.
 #
-# A single `npm` entry at the root is deliberate. This is a pnpm workspace with
-# one lockfile (`pnpm-lock.yaml`) at the root, so `directory: "/"` already covers
-# every manifest under `packages/*` and `examples/*`. Splitting it into
-# per-package entries would overlap directories — which Dependabot rejects — and
-# would raise duplicate pull requests for the same dependency.
+# Why the npm version sweep was removed (2026-10-27, after the 2026-10-26 batch
+# #423-#428 all went red):
+#
+# - Dependabot's pnpm updater rewrites the lockfile without deduping, so every
+#   bump failed `pnpm dedupe --check` at the first gate — lint, typecheck and the
+#   tests never ran — and each pull request needed a manual `pnpm dedupe` plus a
+#   push. There is no post-update hook for pnpm, so that repair cannot be
+#   automated inside Dependabot.
+# - It cannot judge a library's published surface: #425 rewrote core's
+#   `y-websocket` range from `^2.0.4 || ^3.1.0` to `^3.1.0`, reverting #283
+#   ("support y-websocket 2 and 3"), while labelled `chore(deps)`.
+# - Every merge publishes: CI patch-bumps changed packages on each push to `main`.
+#
+# Security updates are a repository setting, not an entry here — enabled
+# 2026-10-19 (Settings -> Code security -> Dependabot security updates). That
+# switch stays on and does not need an entry in this file: it opens a fix pull
+# request for every alert with an available patch. CI also runs
+# `pnpm audit --prod --audit-level=high`, so an advisory does not depend on a bot
+# pull request being opened.
+#
+# If automated version currency is wanted again, use Renovate rather than
+# re-adding this block: `postUpdateOptions: ["pnpmDedupe"]` runs the dedupe as
+# part of the update, and `rangeStrategy: "widen"` extends a range instead of
+# replacing it. Majors then arrive as planned work, which is what they are.
 version: 2
 
 updates:
-  - package-ecosystem: "npm"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "08:00"
-      timezone: "Asia/Jakarta"
-    # Grouped updates need about four slots a week; the rest of the headroom is
-    # for the production dependencies that are deliberately not grouped (11 of
-    # them, measured over the workspace manifests) so they are not queued forever.
-    open-pull-requests-limit: 10
-    # Published packages are libraries, and with the default (`auto`) Dependabot
-    # widens the allowed range for a library manifest — which lets a consumer
-    # resolve a version this repository never tested. `increase` moves the declared
-    # floor instead. It is also the candidate fix for the `prosemirror-model`
-    # NoChangeError that turned the whole weekly run red on 2026-10-19: a bump
-    # inside the existing range leaves the pnpm file updater with nothing to write.
-    versioning-strategy: "increase"
-    labels:
-      - "dependencies"
-    commit-message:
-      prefix: "chore(deps)"
-      prefix-development: "chore(deps-dev)"
-    groups:
-      # Editor stacks are bumped together on purpose: a split bump inside the
-      # TipTap/ProseMirror family is exactly what split `prosemirror-transform`
-      # into two copies and turned three tests red while #165 was being worked on.
-      tiptap:
-        patterns:
-          - "@tiptap/*"
-      prosemirror:
-        patterns:
-          - "prosemirror-*"
-      # `vue` and its runtime packages only. `@vue/test-utils` and `vue-tsc` also
-      # match the patterns below but are build tooling: because the first
-      # matching group wins, they are excluded here so they land in `dev-tooling`
-      # and cannot ride along with a runtime `vue` bump.
-      vue:
-        patterns:
-          - "vue"
-          - "@vue/*"
-          - "vue-*"
-        exclude-patterns:
-          - "@vue/test-utils"
-          - "vue-tsc"
-      # Tooling that never ships: batch it so release-relevant bumps stay visible
-      # as individual pull requests.
-      dev-tooling:
-        patterns:
-          - "*"
-        dependency-type: "development"
-        update-types:
-          - "minor"
-          - "patch"
-    # Majors arrive as individual pull requests by default: a red one is a signal
-    # that the bump needs real work, not noise to be silenced. (`@tiptap/*` was
-    # ignored while its v3 migration was pending; that entry came out with #234.)
-    #
-    # Three majors are suppressed on purpose, each because its signal has already
-    # been read:
-    #
-    # - vite: #239 showed vite 8 cannot pass `e2e` here — the playground's own
-    #   `vite build` exits 1 while the toolchain around it is still on vite 5 — so
-    #   the weekly batch was spending a slot re-proposing a blocked major instead
-    #   of reporting something new. Drop this entry when the vite/vitest migration
-    #   is picked up (it is not tracked by an issue yet).
-    # - tsup: already ignored on 18 Oct by an `@dependabot ignore this major version`
-    #   command, which stores the rule on GitHub's side and leaves no trace in this
-    #   file. It is repeated here so the configuration has one readable source of
-    #   truth; the server-side copy can be retired with a `@dependabot unignore tsup`
-    #   comment on a Dependabot pull request (the range below is copied verbatim
-    #   from the live job definition).
-    # - tailwindcss is no longer listed: the package moved to v4 (#215), so there is
-    #   no blocked major left to suppress.
-    ignore:
-      - dependency-name: "vite"
-        update-types: ["version-update:semver-major"]
-      - dependency-name: "tsup"
-        versions: [">= 9.a, < 10"]
-
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:

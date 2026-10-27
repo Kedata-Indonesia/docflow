@@ -36,8 +36,11 @@ overrides:
   # Transitive security patches — see issue #165.
   # prosemirror-view < 1.42.3: GHSA-c8x8-7fp4-3x9w (XSS in paste handling).
   prosemirror-view: ^1.42.3
-  # markdown-it < 14.3.1: GHSA-253c-mchw-3w2r (quadratic linkify path blocks the event loop).
-  markdown-it: ^14.3.1
+  # markdown-it < 14.3.3: GHSA-gfr2-rv44-r23c (quadratic-time rendering of a
+  # multi-line link reference definition); < 14.3.1: GHSA-253c-mchw-3w2r
+  # (quadratic linkify path blocks the event loop). `tiptap-markdown@0.9.0` pins
+  # 14.3.2 exactly, so the override is the only way to patch that path.
+  markdown-it: ^14.3.3
   # source-map-js < 1.2.2: GHSA-68fv-2mgg-jv7q (event-loop DoS via section offsets).
   source-map-js: ^1.2.2
   # Keep a single prosemirror-transform instance. Two copies (1.12.0 + 1.12.2)
