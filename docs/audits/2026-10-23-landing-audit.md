@@ -1,7 +1,11 @@
 # Audit Report — docflow-landing
 
-**Run:** 2026-10-23 · **Commit:** `3bf75e3` (main) · **Platform:** gh · **Scope:** whole repo (Nuxt 4 static single-page site)
+**Run:** 2026-10-23 · **Commit:** `docflow-landing@3bf75e3` (main) · **Platform:** gh · **Scope:** whole repo (Nuxt 4 static single-page site)
 **Standard used:** WCAG 2.2 AA, Core Web Vitals (p75 targets), Google search/social metadata, OWASP secure-headers baseline, tasteskill v2 house gates (`design-taste-frontend`).
+**Mirrored from:** `Kedata-Indonesia/docflow-landing`, file `AUDIT_REPORT.md` (private repo). Paths and issue numbers in this report belong to that repo — every `#NN` below means `docflow-landing#NN`, never an issue in this one.
+**Reviewer:** the landing repo's audit run, `ponytail-audit`.
+**Load assumed:** one static page, one visitor per tab; 390 px mobile and 1440 px desktop viewports.
+**Status:** snapshot of `docflow-landing`, not of this tree. Track the work in that repo's issues; do not edit this report after merge.
 
 ## 1. Scope & policy
 
@@ -11,7 +15,7 @@
 | Confidence floor | certain / likely (every finding has a `file:line` or a live HTTP response) |
 | Issue cap | 12 |
 | Labels | `bug`, `a11y`, `performance`, `seo`, `security`, `tech-debt`, `enhancement` |
-| Already tracked | #23 (landing redesign tracker) owns all pure house-style gate failures |
+| Already tracked | `docflow-landing#23` (landing redesign tracker) owns all pure house-style gate failures |
 
 ## 2. Scanners run
 
@@ -32,7 +36,7 @@
 > render-blocking" was measured against the throwaway Python server, which sends uncompressed bytes.
 > On the production image (nginx, gzip) the same page measured **FCP 2.40 s / LCP 3.80 s** before the
 > change. The render-blocking third-party stylesheet was real; the size of its cost was overstated.
-> See the PR for #34 for the before/after numbers on identical servers.
+> See the PR for `docflow-landing#34` for the before/after numbers on identical servers.
 
 | ID | Category | Sev | Conf | Evidence | Impact | Fix |
 |----|----------|-----|------|----------|--------|-----|
@@ -52,7 +56,7 @@
 ### Positives measured (do not regress)
 
 - Lighthouse **SEO 100**, **best-practices 100**, **a11y 98**; CLS **0** and TBT 10 ms.
-- Contrast failures from `docs/DESIGN-AUDIT.md` are gone; em dashes are 0 in `app/` and in the build.
+- Contrast failures from the landing repo's `DESIGN-AUDIT.md` are gone; em dashes are 0 in `app/` and in the build.
 - i18n key parity EN/ID **253/253**; hero headline 1 line at 1440/768, 2 lines at 390.
 - Tablist in `PaperStack` and `HowItWorks` has real `aria-selected`, roving `tabindex` and arrow-key handling; reduced motion is honoured; skip link + `<main>` landmark present.
 - Bundle is sane: entry CSS 7.1 KB br, JS ~101 KB br, HTML 14.6 KB br.
@@ -61,28 +65,28 @@
 
 | Finding | Existing issue |
 |---|---|
-| 17 hairlines, 24 outlined boxes, 5 resting shadows, 4 icon-card rows, 14 px body, 1 real picture, 3 typefaces / 12 sizes | #23 (baseline section + Step 4 gates) |
-| mobile `side-scroll` at 390 px = the code block scrolling in its own box | #23 / PR #25 (defended) |
-| Indonesian anchor slugs on the English page (`#fitur`…) | #23 (preservation set) |
+| 17 hairlines, 24 outlined boxes, 5 resting shadows, 4 icon-card rows, 14 px body, 1 real picture, 3 typefaces / 12 sizes | `docflow-landing#23` (baseline section + Step 4 gates) |
+| mobile `side-scroll` at 390 px = the code block scrolling in its own box | `docflow-landing#23` / `docflow-landing#25` (defended) |
+| Indonesian anchor slugs on the English page (`#fitur`…) | `docflow-landing#23` (preservation set) |
 
-Gate trend since #23's baseline: lint 37 FAIL / 6 WARN → **23 FAIL / 4 WARN**; inspect 12 FAIL / 4 WARN → **6 FAIL / 5 WARN** (contrast, headline-lines, covered-text now pass).
+Gate trend since `docflow-landing#23`'s baseline: lint 37 FAIL / 6 WARN → **23 FAIL / 4 WARN**; inspect 12 FAIL / 4 WARN → **6 FAIL / 5 WARN** (contrast, headline-lines, covered-text now pass).
 
 ## 5. Filed issues
 
 | Issue | Finding | Labels |
 |---|---|---|
-| #31 | F1 GitHub chip accessible name | `a11y`, `bug` |
-| #32 | F2 `article[role=tabpanel]` | `a11y`, `bug` |
-| #33 | F3 footer heading order | `a11y`, `bug` |
-| #34 | F4 self-host the fonts | `performance` |
-| #35 | F5 wordmark as SVG | `performance` |
-| #36 | F6 soft 404 | `seo`, `bug` |
-| #37 | F7 social/canonical metadata | `seo` |
-| #38 | F8 Indonesian page not indexable | `seo`, `enhancement` |
-| #39 | F9 baseline response headers | `security` |
-| #40 | F10 GA4 before consent | `security` |
-| #41 | F11 dead lint/typecheck + no CI | `tech-debt` |
-| #42 | F12 contradicting hero claims | `enhancement` |
+| `docflow-landing#31` | F1 GitHub chip accessible name | `a11y`, `bug` |
+| `docflow-landing#32` | F2 `article[role=tabpanel]` | `a11y`, `bug` |
+| `docflow-landing#33` | F3 footer heading order | `a11y`, `bug` |
+| `docflow-landing#34` | F4 self-host the fonts | `performance` |
+| `docflow-landing#35` | F5 wordmark as SVG | `performance` |
+| `docflow-landing#36` | F6 soft 404 | `seo`, `bug` |
+| `docflow-landing#37` | F7 social/canonical metadata | `seo` |
+| `docflow-landing#38` | F8 Indonesian page not indexable | `seo`, `enhancement` |
+| `docflow-landing#39` | F9 baseline response headers | `security` |
+| `docflow-landing#40` | F10 GA4 before consent | `security` |
+| `docflow-landing#41` | F11 dead lint/typecheck + no CI | `tech-debt` |
+| `docflow-landing#42` | F12 contradicting hero claims | `enhancement` |
 
 All 12 are assigned to @eppofahmi. Labels `a11y`, `performance`, `seo`, `security`, `tech-debt` were created in this run.
 
@@ -91,7 +95,7 @@ All 12 are assigned to @eppofahmi. Labels `a11y`, `performance`, `seo`, `securit
 | ID | Item | Why kept out |
 |---|---|---|
 | W1 | unused JS 93 KB (Nuxt payload on a single static page) | hydration is required here; low user-visible gain |
-| W2 | longest paragraph ≈ 110 characters per line | design nit; covered by the #23 typography lever |
+| W2 | longest paragraph ≈ 110 characters per line | design nit; covered by the `docflow-landing#23` typography lever |
 | W3 | `sitemap.xml` has no `lastmod` | marginal for a one-URL site |
 | W4 | favicon is a single 240 px PNG (no 180 px apple-touch, no SVG, no 32/16) | cosmetic on every modern browser |
 | W5 | `Dockerfile` has no `HEALTHCHECK` and nginx runs as root; HTML is served `cf-cache-status: DYNAMIC` with no cache header | deploy hardening, not user-visible |
@@ -101,5 +105,5 @@ All 12 are assigned to @eppofahmi. Labels `a11y`, `performance`, `seo`, `securit
 
 - **12 above-threshold findings**: 3 a11y, 2 performance, 3 SEO, 2 security, 1 quality-gate, 1 content.
 - **The three that matter most**: the soft 404 on production (F6), the render-blocking Google Fonts that hold mobile LCP at 5 s (F4), and the fact that both quality scripts and CI are missing so nothing catches either (F11).
-- **House-style debt is real but shrinking** and already owned by #23 — do not open parallel tickets for it.
+- **House-style debt is real but shrinking** and already owned by `docflow-landing#23` — do not open parallel tickets for it.
 - Next: triage the filed issues, then act via the stack skills and open one PR per concern against `dev`.

@@ -14,7 +14,7 @@ behaves today.
 | Date | Report | Scope | Findings |
 |---|---|---|---|
 | 2026-10-24 | [2026-10-24-landing-feedback.md](./2026-10-24-landing-feedback.md) | External reviewer feedback (Scarlett) on docflow.kedata.cloud landing copy & conversion, pre-launch | 6 points, 1 open decision ($X pricing) |
-| 2026-10-23 | [2026-10-23-landing-audit.md](./2026-10-23-landing-audit.md) | docflow-landing site repo (`docflow.kedata.cloud`): a11y, performance, SEO, headers, house gates at `3bf75e3` | tracked in that repo's audit tracker |
+| 2026-10-23 | [2026-10-23-landing-audit.md](./2026-10-23-landing-audit.md) | docflow-landing site repo (`docflow.kedata.cloud`): a11y, performance, SEO, headers, house gates at `docflow-landing@3bf75e3` | 12, filed as `docflow-landing#31`–`#42` |
 | 2026-10-23 | [2026-10-23-audit-followup.md](./2026-10-23-audit-followup.md) | Re-audit at `67b76b0`: carried-over findings + new export/AI/a11y issues | 14 carried over, 5 new |
 | 2026-10-22 | [2026-10-22-code-audit.md](./2026-10-22-code-audit.md) | Whole library (`packages/*`): correctness, safety, scale, tests, speed, lean | 14 (3 must fix) |
 | 2026-10-20 | [2026-10-20-a11y-button-audit.md](./2026-10-20-a11y-button-audit.md) | Accessible names of toolbar buttons (issue #170) | — |

@@ -1,8 +1,10 @@
 # Landing Page Feedback — docflow.kedata.cloud
 
-Date received: 2026-10-24 (pre-launch; Cloud launch is November 4)
-Source: Scarlett (`lumi-83@ilands.app`)
-Scope: landing page content & conversion, not code architecture.
+**Date received:** 2026-10-24 (pre-launch; Cloud launch is November 4)
+**Source:** Scarlett, external reviewer (address withheld — this repo is public)
+**Scope:** landing page content & conversion, not code architecture.
+**Mirrored from:** `Kedata-Indonesia/docflow-landing`, file `LANDING-FEEDBACK.md`; the reviewer's address is redacted here.
+**Status:** external input, not a snapshot of this tree — read it as a request, not as evidence of behaviour at a commit.
 
 ## The 6 key points
 
