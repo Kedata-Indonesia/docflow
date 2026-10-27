@@ -448,5 +448,5 @@ The foundation the launch builds on, accumulated before the repo split.
   painting first (#117).
 - DOM-based paste normalization for Google Docs compatibility.
 
-[Unreleased]: https://github.com/Kedata-Indonesia/docflow/compare/v0.0.90...HEAD
+[Unreleased]: https://github.com/Kedata-Indonesia/docflow/compare/v2026.10.27.1...HEAD
 [2026-10-08]: https://github.com/Kedata-Indonesia/docflow/releases/tag/v0.0.90

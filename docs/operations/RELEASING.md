@@ -27,37 +27,43 @@ or PR (`(#123)`) so readers can follow the trail.
 
 ## GitHub Releases
 
-Releases are cut from `main` and tagged so consumers can pin a point in time.
-A `v*` tag also becomes a GitHub Release automatically — with label-grouped
-notes and the demo GIF attached — so treat every release as a small launch.
+**A push to `main` that ships a package also tags that commit `vYYYY.MM.DD.N`.**
 
-1. Make sure `[Unreleased]` is up to date, then move its entries under a new
-   dated heading (`## [YYYY-MM-DD]`) and commit.
-2. Create and push an annotated tag. A `v*` tag runs the publish workflow without
-   the automatic patch-bump, so use the version you intend to ship:
+You do not cut that tag. The publish workflow does, after npm accepts the
+packages (`.github/workflows/publish.yml`, the `release` job):
 
-   ```bash
-   git tag -a v0.0.86 -m "v0.0.86"
-   git push origin v0.0.86
-   ```
+- The date is **Asia/Jakarta**. `N` starts at 1 and increments when that day
+  already has a release, so two publishes on the same day do not collide.
+- The tag points at the commit that was published, not at whatever `main` has
+  moved to since.
+- It opens a GitHub Release for that tag: notes generated from
+  [`.github/release.yml`](../../.github/release.yml) (grouped by label), a
+  changelog pointer, and `docs/assets/docflow-demo.gif`.
+- A push that changes no package publishes nothing and creates no tag. Docs,
+  tests, and CI-only commits stay off the Releases page.
+- The tag marks a point in time, not one package version. The six packages
+  version independently, so the Release body is the place to read what shipped.
 
-3. The workflow takes it from there: once the packages reach npm, its `release`
-   job creates the Release for the tag — notes generated from
-   [`.github/release.yml`](../../.github/release.yml) (grouped by label), a
-   changelog pointer prepended, and `docs/assets/docflow-demo.gif` attached. The
-   step is idempotent, so re-running the workflow on an announced tag is a no-op.
+A hand-cut `v*` tag still works, and skips the automatic patch-bump. Use it
+only when you intend to ship the versions already in the tree:
 
-   GitHub reads `.github/release.yml` from the **default branch**, so make sure it
-   is merged before the first `v*` tag — otherwise the notes come out ungrouped.
+```bash
+git tag -a v0.0.86 -m "v0.0.86"
+git push origin v0.0.86
+```
 
-   A maintainer can still **edit** the Release afterwards to add a human summary
-   or extra assets. To create one manually (e.g. for a tag that predates the
-   automation), attach the GIF the same way:
+The `release` job is idempotent: re-running it on a tag that already has a
+Release is a no-op. GitHub reads `.github/release.yml` from the **default
+branch**, so a label change has to be on `main` before the next tag or the
+notes come out ungrouped.
 
-   ```bash
-   gh release create v0.0.86 --generate-notes \
-     "docs/assets/docflow-demo.gif#Demo GIF"
-   ```
+A maintainer can still **edit** the Release afterwards to add a human summary.
+To create one for a tag that predates the automation:
+
+```bash
+gh release create v0.0.86 --generate-notes \
+  "docs/assets/docflow-demo.gif#Demo GIF"
+```
 
 > **Never** tag or publish from a local, unpushed branch. The workflow verifies
 > the tree before it publishes.

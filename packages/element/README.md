@@ -1,6 +1,6 @@
 # @kedataindo/docflow-element
 
-`<docs-editor>` Web Component for [DocFlow](https://github.com/Kedata-Indonesia/docflow) — the open-source editor engine for document-style apps with true A4 pagination, real-time collaboration, and layout-aware AI hooks.
+`<docs-editor>` Web Component for [DocFlow](https://github.com/Kedata-Indonesia/docflow) — an open-source rich text editor with true A4 pagination, real-time collaboration, and layout-aware AI hooks.
 
 Framework-agnostic: works in any HTML page, React, Angular, Svelte, or plain JS. Wraps the Vue component in a shadow-DOM custom element.
 

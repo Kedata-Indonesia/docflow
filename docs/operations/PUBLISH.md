@@ -45,11 +45,11 @@ Non-negotiables:
   adopting goes out as a prerelease on the `next` dist-tag
   (`npm i @kedataindo/docflow-core@next`) and is promoted to `latest` only after
   the app that consumes it has been verified against it.
-- **A release should be traceable.** `git tag` ↔ the npm version ↔ the GitHub
-  Release notes have to tell one story. That link is loose today: tags are only
-  cut for deliberate releases, so three tags cover 100+ published versions.
-  Tightening it — a tag and generated notes per release — belongs to the
-  Changesets move described below.
+- **A release should be traceable.** Every push to `main` that publishes a
+  package also pushes a date tag (`vYYYY.MM.DD.N`, Asia/Jakarta) on the published
+  commit and opens a GitHub Release with generated notes. A hand-cut `v*` tag
+  still announces itself. The date tag marks a point in time, not one package
+  version — the packages version independently.
 - **Deprecation is announced before removal.** A public export that is going away
   is marked `@deprecated` in the types with the replacement named, and is removed
   no earlier than the next major.
@@ -108,7 +108,9 @@ ls packages/*/dist/
 Publishing runs via GitHub Actions (`.github/workflows/publish.yml`) to the
 **public npm registry only**. It is triggered by:
 
-- **push to `main`** — verify + auto-bump + build + publish, fully unattended
+- **push to `main`** — verify + auto-bump + build + publish, then a GitHub
+  Release on a date tag (`vYYYY.MM.DD.N`) when a package actually shipped.
+  Fully unattended.
 - **push of a `v*` tag** — same flow, minus the auto-bump (tag = explicit release);
   the tag also gets a GitHub Release with the demo GIF attached (see
   [RELEASING.md](./RELEASING.md))

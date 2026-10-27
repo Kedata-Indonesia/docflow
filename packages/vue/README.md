@@ -1,6 +1,6 @@
 # @kedataindo/docflow-vue
 
-Vue 3 component + composables for [DocFlow](https://github.com/Kedata-Indonesia/docflow) — the open-source editor engine for document-style apps with true A4 pagination, real-time collaboration, and layout-aware AI hooks.
+Vue 3 component for [DocFlow](https://github.com/Kedata-Indonesia/docflow) — an open-source rich text editor with true A4 pagination, real-time collaboration, and layout-aware AI hooks.
 
 Ships a complete Google-Docs-like UI: toolbar, bubble/slash menus, rulers, sidebars, dark mode. Wires `@kedataindo/docflow-core` and the pagination engine together.
 
@@ -29,7 +29,7 @@ const content = {
 </template>
 ```
 
-For a custom UI, use the `useEditor` composable with `EditorToolbar` / `BubbleMenu` — see the [API reference](https://github.com/Kedata-Indonesia/docflow#useeditor-vue---custom-ui).
+For a custom UI, use the `useEditor` composable with `EditorToolbar` / `BubbleMenu` — see the [API reference](https://github.com/Kedata-Indonesia/docflow/blob/main/docs/reference/API.md#useeditor-vue---custom-ui).
 
 ## Documentation
 

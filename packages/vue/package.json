@@ -1,5 +1,17 @@
 {
   "name": "@kedata-indonesia/docflow-vue",
+  "description": "Vue 3 open-source rich text editor with true page layout, footnotes, citations, and real-time collaboration.",
+  "keywords": [
+    "rich-text-editor",
+    "text-editor",
+    "wysiwyg",
+    "vue",
+    "vue3",
+    "document-editor",
+    "pagination",
+    "tiptap",
+    "yjs"
+  ],
   "license": "Apache-2.0",
   "version": "0.0.169",
   "type": "module",

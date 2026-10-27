@@ -1,5 +1,13 @@
 {
   "name": "@kedata-indonesia/docflow-layout-engine",
+  "description": "Pagination engine for a rich text editor: A4 page breaks, headers, and footers.",
+  "keywords": [
+    "pagination",
+    "page-break",
+    "rich-text-editor",
+    "document-editor",
+    "wysiwyg"
+  ],
   "license": "Apache-2.0",
   "version": "0.0.119",
   "type": "module",

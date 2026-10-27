@@ -1,5 +1,15 @@
 {
   "name": "@kedata-indonesia/docflow-plugins",
+  "description": "Plugins for the DocFlow open-source rich text editor: tables, footnotes, citations, comments, and page breaks.",
+  "keywords": [
+    "rich-text-editor",
+    "text-editor",
+    "wysiwyg",
+    "footnotes",
+    "citations",
+    "tiptap",
+    "docflow"
+  ],
   "license": "Apache-2.0",
   "version": "0.0.127",
   "type": "module",

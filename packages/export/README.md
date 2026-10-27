@@ -1,6 +1,6 @@
 # @kedataindo/docflow-export
 
-Document export for [DocFlow](https://github.com/Kedata-Indonesia/docflow) — DOCX, ODT, RTF, Markdown, and print-ready HTML from ProseMirror JSON.
+Document export for [DocFlow](https://github.com/Kedata-Indonesia/docflow), an open-source rich text editor — DOCX, ODT, RTF, Markdown, and print-ready HTML from ProseMirror JSON.
 
 > **Status:** not published on npm yet — `npm install @kedataindo/docflow-export`
 > returns 404 until the next tagged release. Build it from source in the meantime:

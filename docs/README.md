@@ -3,7 +3,7 @@
 > **Status:** Living · **Last reviewed:** 2026-10-22 · **Audience:** integrators, operators, maintainers
 >
 > This page is the map. If a document is not linked from here, it is either historical
-> (`product/`, `plans/`) or generated (the API tables in the root README).
+> (`product/`, `plans/`) or generated (the tables in [reference/API.md](./reference/API.md)).
 
 This folder is the **living documentation** for the DocFlow library packages. It is
 written for the people who embed the editor, run it, ship it, and change it. The
@@ -26,11 +26,12 @@ SaaS stack is marked **historical** below.
 | Add real-time collaboration with my own auth | [guides/COLLAB_INTEGRATION.md](./guides/COLLAB_INTEGRATION.md) | Living |
 | Wire AI drafting/completion through my own backend | [guides/EMBEDDING_AI.md](./guides/EMBEDDING_AI.md) | Living |
 | Check which AI provider/base URLs work | [guides/AI_PROVIDERS.md](./guides/AI_PROVIDERS.md) | Living |
+| Look up `<DocsEditor>` props and events | [reference/API.md](./reference/API.md) | Living — generated |
 | Know which ports my host must implement | [reference/LIBRARY_CONTRACT.md](./reference/LIBRARY_CONTRACT.md) | **Living — source of truth** |
 | Deploy the host application (Docker, nginx, DB, AI proxy) | [operations/DEPLOYMENT.md](./operations/DEPLOYMENT.md) | Host-repo runbook |
 | Self-host the AI stack for the host app | [operations/SELF_HOSTED_AI.md](./operations/SELF_HOSTED_AI.md) | Host-repo runbook |
 | Publish the packages to npm | [operations/PUBLISH.md](./operations/PUBLISH.md) | Living |
-| Cut a release / write release notes | [operations/RELEASING.md](./operations/RELEASING.md) | Living |
+| See why a push to `main` is tagged `vYYYY.MM.DD.N` | [operations/RELEASING.md](./operations/RELEASING.md) | Living |
 | Contribute or review a change | [../CONTRIBUTING.md](../CONTRIBUTING.md) + [../CODE_OF_CONDUCT.md](../CODE_OF_CONDUCT.md) | Living |
 | Ask/answer questions, join the community | [COMMUNITY.md](./COMMUNITY.md) | Living |
 | See what the product is meant to be | [product/PRD.md](./product/PRD.md), [product/ARCHITECTURE.md](./product/ARCHITECTURE.md) | Baseline / historical |
@@ -59,6 +60,7 @@ docs/
 │   ├── AI_PROVIDERS.md
 │   └── INTEGRATION_SKILLS.md
 ├── reference/                ← contracts and invariants
+│   ├── API.md                (generated props / emits — do not hand-edit the tables)
 │   └── LIBRARY_CONTRACT.md   (the library/app boundary — the single source of truth)
 ├── operations/               ← run it and ship it
 │   ├── DEPLOYMENT.md
@@ -87,7 +89,7 @@ Four kinds of documents live here. The kind decides how you edit it.
 1. **The code and its tests** in `packages/*`.
 2. [reference/LIBRARY_CONTRACT.md](./reference/LIBRARY_CONTRACT.md) for the library/app
    boundary and every injection port.
-3. The generated API tables in [../README.md](../README.md) — do not hand-edit; they come
+3. The generated API tables in [reference/API.md](./reference/API.md) — do not hand-edit; they come
    from `packages/vue/src/components/docsEditorContracts.ts`.
 4. [../CHANGELOG.md](../CHANGELOG.md) for what changed and when.
 5. This folder's guides for how to use the above.
@@ -107,8 +109,8 @@ pnpm typecheck
 pnpm lint
 pnpm test:unit          # vitest, all packages
 pnpm test:e2e           # playwright (needs a browser + the demo build)
-pnpm docs:api           # regenerate the README props/emits tables
-pnpm docs:api:check     # CI gate: README tables are not stale
+pnpm docs:api           # regenerate the props/emits tables in reference/API.md
+pnpm docs:api:check     # CI gate: those tables are not stale
 pnpm docs:check         # CI gate: no broken links in the living docs
 ```
 

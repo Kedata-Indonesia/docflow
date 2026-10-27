@@ -79,7 +79,7 @@ pnpm typecheck     # tsc / vue-tsc --noEmit (noUnusedLocals is on — dead bindi
 pnpm test:unit     # vitest
 pnpm test:coverage # vitest + per-package coverage thresholds (what CI runs)
 pnpm test:e2e      # Playwright, runs in CI (needs `pnpm build` locally)
-pnpm docs:api:check # generated README API tables up to date (CI enforces it)
+pnpm docs:api:check # generated API tables in docs/reference/API.md (CI enforces it)
 pnpm docs:check    # living docs: no broken links (CI enforces it)
 pnpm build         # for affected packages
 ```
@@ -214,7 +214,7 @@ first try.
 |--------|---------|
 | `main` | Default and only long-lived branch. Protected — all changes land via PR. |
 
-Releases are cut from `main` by pushing a version tag (`v*`), which triggers the publish workflow. See [docs/operations/PUBLISH.md](./docs/operations/PUBLISH.md).
+A push to `main` that ships a package also tags that commit `vYYYY.MM.DD.N` and opens a GitHub Release. You do not cut that tag. See [docs/operations/RELEASING.md](./docs/operations/RELEASING.md).
 
 ## Reporting issues
 
