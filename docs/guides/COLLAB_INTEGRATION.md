@@ -17,6 +17,7 @@ Dokumen ini menjelaskan cara memasang fitur **real-time collaboration** DocsEdit
   - [Session Cookie](#session-cookie)
   - [API Key](#api-key)
 - [Persistence (Opsional)](#persistence-opsional)
+- [Offline Mirror (Luring) — Lifecycle](#offline-mirror-luring--lifecycle-issue-162)
 - [Security Checklist](#security-checklist)
 - [Contoh Integrasi Lengkap](#contoh-integrasi-lengkap)
 
@@ -422,6 +423,93 @@ setPersistence({
   },
 })
 ```
+
+---
+
+## Offline Mirror (Luring) — Lifecycle (issue #162)
+
+`offline: true` membuat `y-indexeddb` menyimpan salinan Y.Doc ke IndexedDB. Salinan itu
+**tidak pernah dihapus otomatis** oleh library — `destroy()` hanya menutup koneksi. Kalau
+host tidak pernah mem-purge, isi dokumen tetap ada di browser walau user sudah logout,
+turun role, atau dicabut aksesnya.
+
+### Kapan wajib purge
+
+| Momen | Kenapa |
+|---|---|
+| Logout | Salinan lokal tidak boleh hidup lebih lama dari sesi. |
+| Ganti akun di browser yang sama | Key default `docflow-<room>` dipakai bersama semua identitas. |
+| Downgrade `writer` → `viewer`/`commenter` | Cache lama masih bisa ikut ter-merge pada mount berikutnya. |
+| Akses dicabut / user di-remove | Enforcement role hanya di HTTP + WS, bukan di IndexedDB. |
+| Tombol "hapus data lokal" | Permintaan eksplisit user untuk reclaim ruang. |
+
+> ⚠️ **Purge bersifat destruktif.** Panggil hanya setelah edit lokal terkirim ke server
+> (mis. setelah logout/sync sukses). Kalau user sedang offline dengan edit yang belum
+> ter-ack, purge akan membuang edit tersebut.
+
+### API
+
+```ts
+import { purgeOfflineMirror } from '@kedata-indonesia/docflow-core'
+
+// Bisa dipanggil tanpa instance editor (kasus logout).
+const result = await purgeOfflineMirror({
+  room: docId,
+  mirrorKey: `docflow-${tenantId}-${userId}-${docId}`,
+})
+
+if (result.status === 'blocked') {
+  // Masih ada tab/koneksi lain yang menahan DB — coba lagi setelah unmount.
+}
+```
+
+`status` yang mungkin: `'deleted' | 'blocked' | 'unavailable' | 'error'`.
+- `blocked` — koneksi lain menahan database melewati `timeoutMs` (default 2000ms). Tab
+  lain yang memakai `y-indexeddb` otomatis menutup koneksinya saat delete, tetapi buffer
+  offline tab tersebut ikut hilang.
+- `unavailable` — IndexedDB tidak tersedia (SSR / storage dimatikan).
+- `error` — detail ada di `result.error`.
+
+Kalau editor masih hidup, pakai method di setup (menutup koneksi dulu):
+
+```ts
+await editor.collab?.purgeOfflineMirror?.()
+```
+
+### Scope key per user/tenant
+
+Default `docflow-<room>` kompatibel dengan versi lama, tetapi **dibagi semua identitas**
+pada browser profile yang sama. Untuk aplikasi dengan multi-akun, set `mirrorKey`
+eksplisit dan pakai nilai yang sama saat purge:
+
+```vue
+<DocsEditor
+  :collaboration="{
+    room: docId,
+    provider: 'websocket',
+    websocketUrl,
+    user: { name, color },
+    offline: true,
+    mirrorKey: `docflow-${tenantId}-${userId}-${docId}`,
+    onOfflineWarning: (warning) => {
+      if (warning.code === 'quota-high') showStorageBanner(warning)
+    },
+  }"
+/>
+```
+
+### Quota
+
+Library mengirim `OfflineMirrorWarning` bertipe:
+
+| `code` | Kapan | Tindakan host |
+|---|---|---|
+| `quota-high` | `navigator.storage.estimate()` ≥ `quotaWarnRatio` (default 0.9) saat attach | Tawarkan "hapus data lokal" / purge mirror yang tidak terpakai. |
+| `quota-exceeded` | Ada write IndexedDB ditolak `QuotaExceededError` | Beri tahu user bahwa edit offline mungkin tidak tersimpan. |
+| `mirror-unavailable` | Database gagal dibuka (private mode / storage diblokir) | Matikan indikator "offline siap" dan andalkan koneksi server. |
+
+Tanpa `onOfflineWarning`, warning dicetak sekali per kode lewat `console.warn`. Peringatan
+ini bersifat advisory: mirror tetap di-attach dan `whenReady` tidak diblokir.
 
 ---
 

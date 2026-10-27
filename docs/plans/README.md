@@ -38,6 +38,7 @@ the product does today*. The code, the [CHANGELOG](../../CHANGELOG.md), and the
 | Plan | Kind |
 |---|---|
 | [phase-1-collab-persistence.md](./phase-1-collab-persistence.md) | Implementation plan — Yjs persistence |
+| [offline-mirror-lifecycle-162.md](./offline-mirror-lifecycle-162.md) | Implementation plan — offline mirror purge + quota guard (issue #162) |
 | [phase-3-apps-web-split.md](./phase-3-apps-web-split.md) | Implementation plan — split the host app out of the monorepo |
 | [phase-4-self-hosted-assets-storage.md](./phase-4-self-hosted-assets-storage.md) | Implementation plan — image/file storage adapters |
 | [phase-8-deployment-packaging.md](./phase-8-deployment-packaging.md) | Implementation plan — on-prem packaging (host repo) |
