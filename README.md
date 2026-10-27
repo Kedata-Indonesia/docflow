@@ -5,8 +5,8 @@ Open-source rich text editor with true page layout (A4/A5, page breaks) and real
 <p align="center">
   <a href="./LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-green" alt="License: Apache-2.0"></a>
   <a href="https://www.npmjs.com/package/@kedataindo/docflow-core"><img src="https://img.shields.io/npm/v/@kedataindo/docflow-core" alt="npm version"></a>
-  <a href="https://www.npmjs.com/package/@kedataindo/docflow-core"><img src="https://img.shields.io/npm/dm/@kedataindo/docflow-core" alt="npm downloads"></a>
-  <a href="https://github.com/Kedata-Indonesia/docflow/actions/workflows/publish.yml"><img src="https://github.com/Kedata-Indonesia/docflow/actions/workflows/publish.yml/badge.svg" alt="CI"></a>
+  <a href="https://www.npmjs.com/package/@kedataindo/docflow-core"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/Kedata-Indonesia/docflow/badges/npm-downloads.json" alt="npm downloads"></a>
+  <a href="https://github.com/Kedata-Indonesia/docflow/actions/workflows/ci.yml"><img src="https://github.com/Kedata-Indonesia/docflow/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <img src="https://img.shields.io/badge/built%20on-TipTap%20%2B%20Yjs%20%2B%20Vue-blueviolet" alt="Built on TipTap + Yjs + Vue">
 </p>
 

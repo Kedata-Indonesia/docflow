@@ -1,0 +1,72 @@
+name: Downloads badge
+
+# Feeds the README's npm-downloads badge.
+#
+# Why an endpoint badge instead of `img.shields.io/npm/dm/...`: the npm aggregate
+# endpoints (`/downloads/point/last-week|last-month`) served a stale window — on
+# 2026-10-27 they still reported 2026-06-25..07-01, which ends 17 days *before*
+# the package's first publish (2026-07-18T22:30Z). The sum over a window that
+# predates the package is 0, so shields rendered "downloads: 0/month" while the
+# live `/downloads/range/` endpoint reported ~5.2k for the real last 30 days.
+#
+# This job sums `/downloads/range/` and publishes the result as shields endpoint
+# JSON on the `badges` branch, which `README.md` points at. `badges` is
+# bot-owned on purpose: `main` is protected and a badge number is not worth a
+# pull request every day. The branch is created by the first run.
+on:
+  schedule:
+    # Daily at 03:17 UTC. Off the hour on purpose — GitHub delays runs queued at
+    # :00, and the numbers only change once a day.
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    # Seed the branch as soon as this workflow lands, so the badge is not broken
+    # until the first scheduled run.
+    paths: ['.github/workflows/downloads-badge.yml']
+
+permissions:
+  contents: write
+
+concurrency:
+  group: downloads-badge
+  cancel-in-progress: true
+
+jobs:
+  badge:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sum the last 30 days for docflow-core
+        run: |
+          set -euo pipefail
+          pkg='@kedataindo%2Fdocflow-core'
+          end=$(date -u +%F)
+          start=$(date -u -d '30 days ago' +%F)
+          total=$(curl -fsS "https://api.npmjs.org/downloads/range/$start:$end/$pkg" \
+            | jq -e '.downloads | map(.downloads) | add // 0')
+          if   [ "$total" -ge 1000000 ]; then message=$(awk -v n="$total" 'BEGIN { printf "%.1fM", n / 1000000 }')
+          elif [ "$total" -ge 1000 ];    then message=$(awk -v n="$total" 'BEGIN { printf "%.1fk", n / 1000 }')
+          else message=$total
+          fi
+          mkdir -p out
+          printf '{"schemaVersion":1,"label":"downloads","message":"%s/month","color":"blue"}\n' \
+            "$message" > out/npm-downloads.json
+          echo "30d total: $total -> $message/month"
+          cat out/npm-downloads.json
+
+      - name: Publish to the badges branch
+        working-directory: out
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          git init -q
+          git checkout -q -b badges
+          git add npm-downloads.json
+          git -c user.name='github-actions[bot]' \
+              -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+              commit -q -m 'chore(badges): update npm downloads'
+          # Force is safe here: `badges` holds one generated file and nothing
+          # else, so a rewrite cannot lose anyone's work.
+          git push -q --force \
+            "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" badges
