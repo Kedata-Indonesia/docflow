@@ -32,6 +32,14 @@ on:
       - main
     tags:
       - 'v*'
+    # A docs-only push publishes nothing (the `release` comment below says as
+    # much), yet the run still paid for install + build and, since #433, tried to
+    # cut a tag for it. Path filters are not evaluated for tag pushes, so a `v*`
+    # release still runs. Anything that touches a package, a script or a workflow
+    # is outside this filter and runs as before.
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
   workflow_dispatch:
 
 permissions:
@@ -52,6 +60,11 @@ concurrency:
 
 jobs:
   publish:
+    # Empty when the push changed no publishable package (docs/scripts-only, or a
+    # re-run with nothing left to bump). `release` reads this so it cannot cut a
+    # tag for a run that shipped nothing — which is what run 40494893695 did.
+    outputs:
+      bumped: ${{ steps.bump.outputs.bumped }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -408,8 +421,9 @@ jobs:
   # attached (docs/operations/RELEASING.md).
   release:
     if: >-
-      (github.event_name == 'push' && github.ref == 'refs/heads/main')
-      || startsWith(github.ref, 'refs/tags/v')
+      startsWith(github.ref, 'refs/tags/v')
+      || (github.event_name == 'push' && github.ref == 'refs/heads/main'
+      && needs.publish.outputs.bumped != '')
     needs: publish
     runs-on: ubuntu-latest
     permissions:
@@ -424,6 +438,12 @@ jobs:
         env:
           # `contents: write` lets this token push the date tag and cut the Release.
           GH_TOKEN: ${{ github.token }}
+          # `git tag -a` creates an annotated tag object, which needs a committer
+          # identity — the checkout has none (run 40494893695 died with
+          # "Committer identity unknown", exit 128). Env vars keep it scoped to
+          # this step instead of writing global git config on the runner.
+          GIT_COMMITTER_NAME: github-actions[bot]
+          GIT_COMMITTER_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
         run: |
           set -euo pipefail
 

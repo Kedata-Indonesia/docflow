@@ -2,15 +2,16 @@
   "name": "@kedata-indonesia/docflow-core",
   "description": "Headless open-source rich text editor with A4 pagination, Yjs collaboration, and a plugin system. TipTap and ProseMirror. Not a code editor.",
   "keywords": [
-    "rich-text-editor",
-    "text-editor",
-    "wysiwyg",
+    "paginated-editor",
+    "page-break",
+    "a4",
     "document-editor",
-    "pagination",
     "tiptap",
     "prosemirror",
     "yjs",
-    "collaboration"
+    "collaboration",
+    "rich-text-editor",
+    "wysiwyg"
   ],
   "license": "Apache-2.0",
   "version": "0.0.116",

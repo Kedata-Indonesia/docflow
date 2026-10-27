@@ -348,3 +348,58 @@ test('the rewritten artifact is verified before anything is published', () => {
   const publish = code.indexOf('pnpm publish')
   assert.ok(gate > -1 && publish > -1 && gate < publish, 'the check must run before the first publish')
 })
+
+
+// --- Announcing only what was actually published -----------------------------
+//
+// #433 taught the release job to cut a date tag on every push to `main`. Two
+// things went wrong with that on 2026-10-27:
+//
+// 1. The annotated tag needs a committer identity, and the checkout has none —
+//    runs 40492559720, 40493607198 and 40494893695 all failed with "Committer
+//    identity unknown" (exit 128) *after* a successful publish, so main looked
+//    red while npm was fine.
+// 2. The job ran for a README-only merge (b67b035) that published nothing, even
+//    though the job's own comment says "docs-only pushes ... announce nothing".
+
+test('the date tag carries a committer identity (runs 40492559720..40494893695)', () => {
+  const body = stepBody(RELEASE_STEP)
+  assert.match(
+    body,
+    /GIT_COMMITTER_EMAIL:\s*\S+@\S+/,
+    '`git tag -a` writes an annotated tag object and dies with "Committer identity unknown" without one',
+  )
+  assert.match(
+    body,
+    /GIT_COMMITTER_NAME:\s*\S+/,
+    'git needs a name as well as an email to create the tag',
+  )
+})
+
+test('the release is gated on the publish job having bumped something', () => {
+  const job = yaml.slice(yaml.indexOf('\n  release:'))
+  assert.match(
+    job,
+    /needs\.publish\.outputs\.bumped\s*!=\s*''/,
+    'without the gate, a push that published nothing still cuts a tag (README-only merge b67b035)',
+  )
+  assert.match(
+    yaml,
+    /outputs:\s*\n\s*bumped:\s*\$\{\{\s*steps\.bump\.outputs\.bumped\s*\}\}/,
+    'the publish job must expose the bump output the gate reads',
+  )
+})
+
+test('a docs-only push does not run the release pipeline at all', () => {
+  const trigger = yaml.slice(yaml.indexOf('\non:'), yaml.indexOf('\npermissions:'))
+  assert.match(
+    trigger,
+    /paths-ignore:[\s\S]*?\*\*\/\*\.md/,
+    'a README-only merge should not pay for install/build or risk a tag',
+  )
+  assert.match(
+    trigger,
+    /tags:\s*\n\s*- 'v\*'/,
+    'path filters are not evaluated for tag pushes, but the tag trigger must stay',
+  )
+})
