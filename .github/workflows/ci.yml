@@ -77,7 +77,7 @@ jobs:
       - name: Release-script unit tests
         run: pnpm test:scripts
 
-      # The README API tables are generated from the public component contract.
+      # The API tables in docs/reference/API.md are generated from the public component contract.
       - name: Verify generated API docs are up to date
         run: pnpm docs:api:check
 

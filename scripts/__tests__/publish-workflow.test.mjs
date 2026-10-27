@@ -171,16 +171,21 @@ test('commit-back verifies the bump is on main instead of trusting the merge', (
   )
 })
 
-const RELEASE_STEP = 'Create GitHub Release for the tag'
+const RELEASE_STEP = 'Create GitHub Release'
 
-test('a tag push cuts a GitHub Release — and only a tag push', () => {
+test('a publish announces a GitHub Release — a date tag on main, the v* tag otherwise', () => {
   const at = yaml.indexOf('\n  release:')
   assert.notEqual(at, -1, 'the release job is missing from publish.yml')
   const job = yaml.slice(at)
   assert.match(
     job,
-    /if:\s*startsWith\(github\.ref, 'refs\/tags\/v'\)/,
-    'the release must be tag-guarded so a push to main stays quiet',
+    /github\.ref == 'refs\/heads\/main'/,
+    'a push to main must announce what it just published, or the Releases page stops at the last hand-cut tag',
+  )
+  assert.match(
+    job,
+    /startsWith\(github\.ref, 'refs\/tags\/v'\)/,
+    'a v* tag must still announce itself',
   )
   assert.match(
     job,
@@ -190,7 +195,7 @@ test('a tag push cuts a GitHub Release — and only a tag push', () => {
   assert.match(
     job,
     /permissions:\s*\n\s*contents:\s*write/,
-    'the release job needs `contents: write` to cut a Release',
+    'the release job needs `contents: write` to cut a Release and push its tag',
   )
 })
 
@@ -220,6 +225,28 @@ test('the release step is idempotent and holds a write token', () => {
   assert.notEqual(create, -1, 'the release must actually be created')
   assert.ok(guard < create, 'the existence check must run before creating')
   assert.match(body, /GH_TOKEN/, 'creating a Release needs a write-scoped token')
+})
+
+test('a main push tags the published commit, not a moving branch tip', () => {
+  const body = stepBody(RELEASE_STEP)
+  assert.match(
+    body,
+    /git checkout --detach "\$\{GITHUB_SHA\}"/,
+    'the release must announce the commit the publish job pinned, not whatever main points at when this job starts',
+  )
+  assert.match(
+    body,
+    /git tag -a "\$TAG"/,
+    'a main push must create its own tag — nothing else announces it',
+  )
+  const tag = body.indexOf('git tag -a "$TAG"')
+  const push = body.indexOf('git push')
+  const create = body.indexOf('gh release create')
+  assert.ok(
+    tag !== -1 && push !== -1 && create !== -1 && tag < push && push < create,
+    'the tag must be pushed before the Release is created',
+  )
+  assert.match(body, /v\$\{DATE\}\.\$\{N\}/, 'date tags must not collide with the hand-cut v0.0.x series')
 })
 
 

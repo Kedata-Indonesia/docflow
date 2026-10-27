@@ -1,5 +1,15 @@
 {
   "name": "@kedata-indonesia/docflow-export",
+  "description": "Export a DocFlow rich text document to DOCX, ODT, RTF, Markdown, and print-ready HTML.",
+  "keywords": [
+    "docx",
+    "odt",
+    "rtf",
+    "markdown",
+    "rich-text-editor",
+    "prosemirror",
+    "export"
+  ],
   "license": "Apache-2.0",
   "version": "0.0.20",
   "type": "module",

@@ -99,8 +99,9 @@ jobs:
       - name: Release-script unit tests
         run: pnpm test:scripts
 
-      # The README API tables are generated from the public component contract;
-      # a stale README must never reach npm. Regenerate with `pnpm docs:api`.
+      # The API tables in docs/reference/API.md are generated from the public
+      # component contract. A stale table must never reach npm. Regenerate with
+      # `pnpm docs:api`.
       - name: Verify generated API docs are up to date
         run: pnpm docs:api:check
 
@@ -398,32 +399,55 @@ jobs:
           echo "::notice title=Release bump awaiting review::${OPEN_PR} — npm is ahead of main until it is merged (docs/operations/PUBLISH.md)."
           exit 0
 
-  # A `v*` tag is the deliberate "ship it" marker. The publish job above has
-  # already sent the packages to npm, so this job only announces the release:
-  # generated notes (grouped by label in `.github/release.yml`) with the demo
-  # GIF attached, so the announcement is self-contained (docs/operations/RELEASING.md).
-  # Runs only for tags — never for a push to `main`, which is noise.
+  # Announce what the publish job just shipped. A `v*` tag keeps its own
+  # name. A push to `main` gets a date tag (`vYYYY.MM.DD.N`) on the published
+  # commit — never on a moving branch tip — so the Releases page tracks npm
+  # instead of stopping at the last hand-cut tag (v0.0.90 covered 100+ published
+  # versions). Docs-only pushes publish nothing and announce nothing.
+  # Notes are grouped by label in `.github/release.yml`; the demo GIF is
+  # attached (docs/operations/RELEASING.md).
   release:
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: >-
+      (github.event_name == 'push' && github.ref == 'refs/heads/main')
+      || startsWith(github.ref, 'refs/tags/v')
     needs: publish
     runs-on: ubuntu-latest
-    # Least privilege: this job only writes a Release, so it needs no more than
-    # `contents: write` (the workflow-level grant also carries package/PR scopes).
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v7
         with:
-          # The tag's own tree (and its GIF) must be what gets announced.
           fetch-depth: 0
+          persist-credentials: false
 
-      - name: Create GitHub Release for the tag
+      - name: Create GitHub Release
         env:
-          # `contents: write` at the workflow level lets this token cut releases.
+          # `contents: write` lets this token push the date tag and cut the Release.
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG="${GITHUB_REF_NAME}"
+
+          if [ "${GITHUB_REF}" = "refs/heads/main" ]; then
+            # The publish job pins itself to the tip it actually shipped. A later
+            # push can move `main` while this job is queued, so announce that pin
+            # — not whatever `main` points at now.
+            git fetch --quiet origin "${GITHUB_SHA}"
+            git checkout --detach "${GITHUB_SHA}"
+            DATE=$(TZ=Asia/Jakarta date +%Y.%m.%d)
+            N=1
+            TAG="v${DATE}.${N}"
+            while git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null \
+              || gh release view "$TAG" >/dev/null 2>&1; do
+              N=$((N + 1))
+              TAG="v${DATE}.${N}"
+            done
+            # An annotated tag on the published commit, not on a branch tip.
+            git tag -a "$TAG" -m "DocFlow ${TAG}"
+            git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" \
+              "refs/tags/${TAG}"
+          else
+            TAG="${GITHUB_REF_NAME}"
+          fi
 
           # A re-run (or a retried publish) must never fail on an announced tag.
           if gh release view "$TAG" >/dev/null 2>&1; then

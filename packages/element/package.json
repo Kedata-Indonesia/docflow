@@ -1,5 +1,15 @@
 {
   "name": "@kedata-indonesia/docflow-element",
+  "description": "Web Component open-source rich text editor. Embed a paginated WYSIWYG document editor in any framework.",
+  "keywords": [
+    "rich-text-editor",
+    "text-editor",
+    "wysiwyg",
+    "web-component",
+    "document-editor",
+    "pagination",
+    "tiptap"
+  ],
   "license": "Apache-2.0",
   "version": "0.0.168",
   "type": "module",

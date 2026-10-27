@@ -1,14 +1,15 @@
 #!/usr/bin/env node
 /**
- * Generates the `<DocsEditor>` props / emits tables in README.md from the single
- * source of truth: `packages/vue/src/components/docsEditorContracts.ts`.
+ * Generates the `<DocsEditor>` props / emits tables in docs/reference/API.md
+ * from the single source of truth:
+ * `packages/vue/src/components/docsEditorContracts.ts`.
  *
  * The tables live between HTML comment markers, so regenerating is idempotent
- * and never touches the rest of the README.
+ * and never touches the rest of the file.
  *
  * Usage:
  *   node scripts/generate-api-docs.mjs          # rewrite the marked blocks
- *   node scripts/generate-api-docs.mjs --check  # fail if README is stale (CI)
+ *   node scripts/generate-api-docs.mjs --check  # fail if the API doc is stale (CI)
  */
 import { readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
@@ -17,7 +18,7 @@ import ts from 'typescript'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const CONTRACT = join(ROOT, 'packages/vue/src/components/docsEditorContracts.ts')
-const README = join(ROOT, 'README.md')
+const README = join(ROOT, 'docs/reference/API.md')
 
 /** Types that would otherwise leak internals into the README. */
 const TYPE_LABELS = {
@@ -173,7 +174,7 @@ function replaceBlock(markdown, { begin, end }, body) {
   const start = markdown.indexOf(begin)
   const stop = markdown.indexOf(end)
   if (start === -1 || stop === -1 || stop < start) {
-    throw new Error(`marker not found in README.md: ${begin} … ${end}`)
+    throw new Error(`marker not found in docs/reference/API.md: ${begin} … ${end}`)
   }
   return `${markdown.slice(0, start + begin.length)}\n${body}\n${markdown.slice(stop)}`
 }
@@ -185,16 +186,16 @@ next = replaceBlock(next, MARKERS.emits, renderEmits(contract))
 
 if (process.argv.includes('--check')) {
   if (next === current) {
-    console.log(`README.md up to date (${contract.props.length} props, ${contract.emits.length} emits)`)
+    console.log(`docs/reference/API.md up to date (${contract.props.length} props, ${contract.emits.length} emits)`)
     process.exit(0)
   }
-  console.error('README.md is stale — run: pnpm docs:api')
+  console.error('docs/reference/API.md is stale — run: pnpm docs:api')
   process.exit(1)
 }
 
 if (next === current) {
-  console.log(`README.md already up to date (${contract.props.length} props, ${contract.emits.length} emits)`)
+  console.log(`docs/reference/API.md already up to date (${contract.props.length} props, ${contract.emits.length} emits)`)
 } else {
   writeFileSync(README, next)
-  console.log(`README.md updated (${contract.props.length} props, ${contract.emits.length} emits)`)
+  console.log(`docs/reference/API.md updated (${contract.props.length} props, ${contract.emits.length} emits)`)
 }

@@ -1,6 +1,6 @@
 # DocFlow
 
-**The open-source editor engine for document-style apps** — true A4 pagination, real-time collaboration, and layout-aware AI. The libraries are free to embed under Apache-2.0; the deployable application and the Cloud platform are licensed.
+Open-source rich text editor with true page layout (A4/A5, page breaks) and real-time collaboration. TipTap/ProseMirror + Vue 3 + Yjs. Apache-2.0.
 
 <p align="center">
   <a href="./LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-green" alt="License: Apache-2.0"></a>
@@ -12,79 +12,24 @@
 
 <p align="center">
   <a href="https://docflow-app.kedata.cloud"><b>Live demo</b></a> ·
-  <a href="./docs/README.md"><b>Docs</b></a>
+  <a href="https://docflow.kedata.cloud"><b>Website</b></a> ·
+  <a href="./docs/README.md"><b>Docs</b></a> ·
+  <a href="./docs/reference/API.md"><b>API</b></a>
 </p>
 
 <p align="center">
-  <img src="./docs/assets/docflow-demo.gif" alt="DocFlow demo — A4 pagination with auto page breaks, live {page}/{total} footers, collaborator presence avatars, and the export menu" width="900">
+  <img src="./docs/assets/docflow-demo.gif" alt="DocFlow — paginated rich text editor with page breaks, page numbers, and collaborator presence" width="900">
 </p>
 
-Built on [TipTap](https://tiptap.dev) / [ProseMirror](https://prosemirror.net) with a page pagination engine and Yjs-based collaboration.
+Also a Web Component and a headless core, if you are not on Vue.
 
-> This repository holds the **library packages** only. The deployable application
-> (web UI + API server) is **proprietary** and is not published here — see the
-> [live demo](https://docflow-app.kedata.cloud).
+> This repository is the **library packages** only (`@kedataindo/docflow-*`). The deployable app and the Cloud platform are licensed separately — try them in the [live demo](https://docflow-app.kedata.cloud).
 
----
-
-## Why DocFlow?
-
-- **True page layout** — auto page-breaks, headers/footers with `{page}`/`{total}`, A4/Letter/Legal. TipTap offers this only via the paid Pages Pro extension; CKEditor gates it behind a premium plugin; OnlyOffice is heavyweight and AGPL.
-- **Apache-2.0 license** — the libraries are safe for commercial embedding and self-hosting, with no copyleft anxiety and no premium gates on the core. The core stays Apache-2.0 forever.
-- **Real-time collaboration built in** — Yjs CRDT out of the box, self-hostable. An alternative to TipTap Collab / Liveblocks without per-seat lock-in.
-- **Layout-aware AI** — AI drafts that respect A4 structure (e.g. prompt → paginated Indonesian formal letter) via the built-in `aiStream` / `aiDraft` ports.
-- **Built in Indonesia** — Bahasa-friendly, PDPA-friendly self-hosting.
-
-### Comparison
-
-| | DocFlow | TipTap | CKEditor 5 | OnlyOffice |
-|---|---------|--------|------------|------------|
-| Footnotes (page-anchored) | ✅ Built-in | 💰 Pages (Pro extension) | 💰 Premium — and grouped as endnotes, *not* per page | ✅ Full suite |
-| Citation styles (CSL) | ✅ Built-in (APA · MLA · Chicago), citeproc | ❌ Not included | ❌ Not included | 🔌 Zotero / Mendeley plugin |
-| Self-updating reference list & bibliography | ✅ Built-in (cited-only list + all-saved bibliography) | ❌ Not included | ❌ Not included | 🔌 Zotero / Mendeley plugin |
-| A4 pagination / page breaks | ✅ Built-in | 💰 Pages (Pro extension) | 💰 Premium plugin | ✅ Full suite (heavy) |
-| Headers / footers with page numbers | ✅ Built-in | 💰 Pages (Pro extension) | 💰 Premium plugin | ✅ |
-| Real-time collaboration | ✅ Yjs, self-hostable | Hocuspocus (OSS backend); Collab cloud is paid | 💰 Premium | ✅ |
-| License | Apache-2.0 (libraries); app + Cloud are licensed | MIT (core); Pro extensions require a paid plan | GPL / commercial | **AGPL** |
-| Embeddable npm packages | ✅ | ✅ | ✅ | iframe / heavy |
-| Layout-aware AI hooks | ✅ Ports included | 💰 Content AI (paid add-on) | 💰 AI Assistant (paid add-on) | AI plugin exists; no layout-aware hooks |
-
-*Honest take: if you don't need pages, use TipTap. If you need Word-style documents inside your own app — footnotes, citations, and bibliographies included — that's us. For a full office suite with a server, OnlyOffice is the closer fit; for an embeddable engine, it's between DocFlow and TipTap.*
-
-## Who is this for?
-
-| You build | DocFlow gives you |
-|-----------|-------------------|
-| Contract editors, report generators, CMS document features | Drop-in paginated editor, self-hosted collab, no per-seat fees |
-| Surat / HR / school document systems (agencies) | A4 layout + Bahasa UI in the free libraries; letter templates ship with the licensed application |
-| Internal document systems (enterprise, banks, SOEs, gov) | Self-hostable, PDPA-friendly, air-gapped deployment |
-| Legaltech / edtech / HR vertical apps | Compliance-friendly embedding with DOCX export |
-
----
-
-## Quick Start
-
-### Installation
-
-Packages are published publicly on **npm** under the `@kedataindo` scope — no auth, no `.npmrc`, just install:
+## Install
 
 ```bash
 npm install @kedataindo/docflow-vue @kedataindo/docflow-plugins
 ```
-
-> The core barrel imports the collaboration providers (`y-webrtc`,
-> `y-websocket`) at load time. They are regular dependencies, so they install
-> with the package — no extra step — but they are only instantiated once
-> `collaboration` is enabled.
-
-> `@kedataindo/docflow-vue` keeps its runtime dependencies external so your app
-> shares a single TipTap/ProseMirror instance: `vue`, `@tiptap/core` and
-> `prosemirror-model` are peer dependencies. npm 7+ installs peers automatically;
-> with pnpm, add them explicitly if `auto-install-peers` is disabled.
-
----
-
-### Vue 3
 
 ```vue
 <script setup lang="ts">
@@ -96,486 +41,48 @@ const content = {
   type: 'doc',
   content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Hello world!' }] }],
 }
-
-function handleUpdate(json: object) {
-  console.log('content updated', json)
-}
 </script>
 
 <template>
-  <DocsEditor
-    :model-value="content"
-    :plugins="defaultPlugins"
-    @update:model-value="handleUpdate"
-  />
+  <DocsEditor :model-value="content" :plugins="defaultPlugins" />
 </template>
 ```
 
-### Web Component (any framework)
+Web Component, headless, and collaboration: [integration guide](./docs/guides/INTEGRATION.md).
 
-```bash
-npm install @kedataindo/docflow-element @kedataindo/docflow-plugins
-```
+## Why DocFlow?
 
-```html
-<script type="module">
-  import { registerDocsEditor } from '@kedataindo/docflow-element'
-  import { defaultPlugins } from '@kedataindo/docflow-plugins'
+Page layout, footnotes, and citations are in the Apache-2.0 libraries. TipTap and CKEditor charge for them. OnlyOffice has them, and is AGPL and heavy.
 
-  registerDocsEditor() // defines <docs-editor>; auto-registration is intentionally off
+| | DocFlow | TipTap | CKEditor 5 | OnlyOffice |
+|---|---------|--------|------------|------------|
+| Footnotes (page-anchored) | Built-in | Pages (paid) | Premium, and grouped as endnotes | Full suite |
+| Citations + bibliography (CSL) | Built-in (APA, MLA, Chicago) | Not included | Not included | Zotero / Mendeley plugin |
+| A4 pagination, headers, footers | Built-in | Pages (paid) | Premium plugin | Full suite |
+| Real-time collaboration | Yjs, self-hostable | Hocuspocus is OSS; Collab cloud is paid | Premium | Yes |
+| License | Apache-2.0 libraries; app + Cloud are licensed | MIT core; Pro is paid | GPL / commercial | **AGPL** |
+| Embed | npm packages | npm packages | npm packages | iframe |
+| Layout-aware AI | Hooks included; you bring the model | Paid add-on | Paid add-on | No layout-aware hooks |
 
-  // module scripts are deferred, so the element below is already in the DOM
-  document.querySelector('docs-editor').plugins = defaultPlugins
-</script>
-
-<docs-editor
-  room="my-doc"
-  content='{"type":"doc","content":[]}'
-></docs-editor>
-```
-
-### Vanilla JS / Headless
-
-```bash
-npm install @kedataindo/docflow-core @kedataindo/docflow-plugins
-```
-
-```ts
-import { createEditor } from '@kedataindo/docflow-core'
-import { defaultPlugins } from '@kedataindo/docflow-plugins'
-
-const editor = createEditor({
-  target: document.getElementById('editor-root')!,
-  plugins: defaultPlugins,
-  content: { type: 'doc', content: [] },
-  onUpdate: (json) => console.log(json),
-})
-```
-
----
+If you don't need pages, use TipTap. If you need a code editor, use Monaco or CodeMirror. If you need a full office suite with a server, OnlyOffice is the closer fit.
 
 ## Packages
 
-| Package | Description | Integration |
-|---------|-------------|-------------|
-| `@kedataindo/docflow-core` | Headless editor factory + plugin system | Any framework |
-| `@kedataindo/docflow-vue` | Vue 3 component + composables | Vue apps |
-| `@kedataindo/docflow-element` | Web Component (`<docs-editor>`) | Any HTML/JS |
-| `@kedataindo/docflow-plugins` | Built-in plugins (table, image, link, etc.) | Shared |
-| `@kedataindo/docflow-layout-engine` | Page split / pagination engine | Internal |
-| `@kedataindo/docflow-export` | DOCX / ODT / RTF / Markdown export | Any framework |
-
----
-
-## Features
-
-### Rich Text
-
-| Style | Shortcut |
-|-------|----------|
-| Bold | `Cmd/Ctrl + B` |
-| Italic | `Cmd/Ctrl + I` |
-| Underline | `Cmd/Ctrl + U` |
-| Heading 1-3 | `Cmd/Ctrl + Alt + 1-3` |
-| Bullet list | `Cmd/Ctrl + Shift + 8` |
-| Ordered list | `Cmd/Ctrl + Shift + 7` |
-| Blockquote | `Cmd/Ctrl + Shift + B` |
-| Code block | `Cmd/Ctrl + Alt + C` |
-| Undo / Redo | `Cmd/Ctrl + Z` / `Cmd/Ctrl + Shift + Z` |
-
-### Page Layout
-
-- **Auto page break** — content is automatically split into A4 pages
-- **Manual page break** — insert a page break from the toolbar
-- **Page size** — A4, Letter, Legal, or custom
-- **Header / Footer** — supports the `{page}` and `{total}` variables
-- **Dark mode** — built-in theme toggle
-
-### Real-time Collaboration
-
-Powered by Yjs (CRDT).
-
-```vue
-<script setup lang="ts">
-import { DocsEditor } from '@kedataindo/docflow-vue'
-import { defaultPlugins } from '@kedataindo/docflow-plugins'
-
-const collaboration = {
-  room: 'my-document-room',
-  provider: 'webrtc',
-  user: { name: 'Alice', color: '#3b82f6' },
-}
-</script>
-
-<template>
-  <DocsEditor :plugins="defaultPlugins" :collaboration="collaboration" />
-</template>
-```
-
-| Provider | Setup | Use Case |
-|----------|-------|----------|
-| `webrtc` | Zero-config, P2P | Prototyping, small teams |
-| `websocket` | Requires a server (Hocuspocus) | Production, persistence |
-
-### AI Hooks
-
-DocFlow ships injection ports (`aiStream`, `aiDraft`) so the host app can plug in layout-aware AI — drafts that respect A4 structure instead of dumping a wall of text. See `docs/reference/LIBRARY_CONTRACT.md`.
-
----
-
-## Plugin System
-
-### Built-in plugins
-
-```ts
-import { defaultPlugins } from '@kedataindo/docflow-plugins'
-```
-
-Includes: bold, italic, underline, strike, heading, bulletList, orderedList, taskList, blockquote, codeBlock, link, image, table, textAlign, placeholder, pageBreak.
-
-### Custom plugin
-
-```ts
-import { definePlugin } from '@kedataindo/docflow-core'
-import { Extension } from '@tiptap/core'
-
-const MyPlugin = definePlugin({
-  id: 'my-feature',
-  tiptapExtensions: [Extension.create({ name: 'myFeature' })],
-  toolbar: [
-    { id: 'my-action', iconComponent: 'Bold', label: 'My Action', action: 'toggleBold' },
-  ],
-  commands: {
-    toggleBold: (editor) => editor.chain().focus().toggleBold().run(),
-  },
-  hooks: {
-    onInit: (editor) => console.log('Plugin initialized', editor),
-    onDestroy: (editor) => console.log('Plugin destroyed'),
-  },
-})
-```
-
----
-
-## API Reference
-
-### `<DocsEditor>` Props
-
-<!-- api:props:begin -->
-| Prop | Type | Default | Description |
-|------|------|---------|-------------|
-| `modelValue` | `object \| string` | `—` | Document content: a ProseMirror JSON document or a tabbed document. Two-way via `v-model` — writes after mount replace the document (snapshot restore, switching documents). Edits emit on a ~300 ms trailing debounce, flushed on blur and unmount; discrete changes (header/footer, commands) still emit immediately. Echoes of the editor's own emission are ignored, and collaboration mode ignores host writes because Yjs owns the document there. |
-| `plugins` | `DocsEditorPlugin[]` | `[]` | Active plugins — usually `defaultPlugins` from `@kedataindo/docflow-plugins`. |
-| `editable` | `boolean` | `true` | Let the user edit the document. Reactive after mount: toggling it calls `editor.setEditable()` instead of requiring a remount. |
-| `mode` | `DocumentMode` | `—` | Document mode (issues #27/#28): `editing` (default) · `suggesting` (edits become suggestions) · `viewing` (read-only). Supersedes `editable` when set; `editable === false` maps to `viewing`. Reactive — switching does not remount. |
-| `theme` | `DocsTheme` | `—` | Editor theme. `light`/`dark` scopes the theme to this editor instance: the `dark` class is applied to the editor root (never to the host page), so it also works inside Shadow DOM. Omit it for the auto document-level theme (localStorage / prefers-color-scheme). |
-| `canReviewSuggestions` | `boolean` | `true` | Whether the track-changes review UI may accept/reject suggestions (issues #27/#28). Defaults to `true`; hosts pass `false` for viewer roles. |
-| `collaboration` | `CollaborationOptions \| CollaborationSetup` | `—` | Collaboration config (`room`, `provider`, `user`) — the host owns the transport. |
-| `pageSize` | `string` | `'a4'` | Page size id (`a4`, `f4`, `letter`, `legal`, `a5`). Reactive after mount: changing it re-lays out the paper instead of requiring a remount. |
-| `pageless` | `boolean` | `false` | Continuous mode: disables pagination so the document flows without page breaks. |
-| `zoom` | `number` | `100` | Rendered zoom of the page surface, in percent (50–200, default 100). Reactive: the paper and its content scale visually while the layout (and therefore pagination) stays at 100 %. Disabled/pinned to 100 while `virtualPages` is on. |
-| `virtualPages` | `boolean` | `false` | Enable virtual page overlay (experimental). When true, only visible pages are rendered in DOM instead of all pages. Uses PageLayout for measurement + viewport-based visibility tracking. |
-| `title` | `string` | `'Untitled Document'` | Document title shown in the header bar. |
-| `collaborators` | `Collaborator[]` | `[]` | Other users shown as the presence avatar stack in the header. |
-| `starred` | `boolean` | `false` | Star toggle state shown in the header bar. |
-| `connectionState` | `ConnectionState` | `'connected'` | Connection indicator rendered in the status bar. |
-| `userName` | `string` | `''` | Display name of the current user. |
-| `userAvatar` | `string` | `''` | Avatar fallback (initials) for the current user. |
-| `locale` | `Locale` | `—` | UI language for the editor chrome (`en` or `id`). |
-| `documentMeta` | `DocumentMeta` | `—` | Document metadata (id, owner, timestamps, counts) shown in the Details dialog. |
-| `shareUrl` | `string` | `''` | Link used by the share-via-email dialog. |
-| `onImageUpload` | `ImageUploadHandler` | `—` | Async handler for pasted/dropped images; returns the stored `src`. The host owns storage. |
-| `citation` | `CitationPort` | `—` | Citations port: CSL-JSON sources + active style, and optionally extra CSL styles (`styles`) the host supplies itself — a hosted/institutional style then appears in the reference sidebar's picker next to the four the library bundles, with no change to the library. The host supplies the data. |
-| `aiStream` | `AIStreamFn` | `—` | Streaming AI handler — the host calls its own LLM. |
-| `aiDraft` | `AIDraftFn` | `—` | Draft-generation handler used by the AI sidebar — the host calls its own LLM. |
-| `debug` | `boolean` | `false` | Enable the debug overlay (CPU + RAM monitor) pinned to the bottom-right corner of the viewport. Pure debug view — never touches document state. Defaults to `false`, so production consumers are unaffected. Read once at mount: the monitor is created together with the editor, so changing this prop later requires a remount (`:key`). |
-| `comments` | `CommentItem[]` | `[]` | Comment threads. The library stays free of REST; the host feeds the threads + handles the events. |
-| `selectedTextSnippet` | `string` | `''` | Currently-selected text snippet. |
-| `selectedTextIndex` | `number` | `—` | Currently-selected start position. |
-| `snapshots` | `DocumentSnapshot[]` | `[]` | Version history. The host feeds the version list + handles save/restore/preview events (it owns the REST surface). |
-| `activePreviewIndex` | `number \| null` | `null` | Index of the snapshot currently previewed in the history sidebar. |
-| `orientation` | `'portrait' \| 'landscape'` | `'portrait'` | Page orientation: 'portrait' or 'landscape'. Persisted by the host. |
-| `margins` | `{ top: number; bottom: number; left: number; right: number }` | `{ top: 94, bottom: 94, left: 94, right: 94 }` | Page margins in points. Persisted by the host. |
-| `headerMarginCm` | `number` | `0.5` | Distance from the paper edge to the header/footer content, in cm. |
-| `footerMarginCm` | `number` | `0.5` | Distance from the bottom paper edge to the footer content, in cm. |
-| `unimplementedActions` | `Array<string \| { action: string; reason?: string }>` | `[]` | Actions this host does not implement. Dimmed (still visible), `aria-disabled="true"`, `reason` becomes the tooltip. (issue #153) |
-| `confirmDestructive` | `ConfirmDestructiveFn` | `—` | Confirmation for destructive actions inside the library (delete a reference source, delete a comment thread). When supplied, the host's dialog decides and the library's built-in dialog is never rendered. Resolve `true` to proceed, `false`/reject to cancel. |
-<!-- api:props:end -->
-
-### Events
-
-<!-- api:emits:begin -->
-| Event | Payload | Description |
-|-------|---------|-------------|
-| `update:modelValue` | `value: object` | Document content changed (`v-model`). |
-| `update:title` | `title: string` | Document title changed. |
-| `update:pageSize` | `pageSize: string` | Page size changed. |
-| `update:orientation` | `orientation: 'portrait' \| 'landscape'` | Page orientation changed. |
-| `update:margins` | `margins: { top: number; bottom: number; left: number; right: number }` | Page margins changed (points). |
-| `update:header-footer-margins` | `margins: { headerMarginCm: number; footerMarginCm: number }` | Header/footer margin offsets changed (cm). |
-| `update:pageless` | `pageless: boolean` | Pageless (continuous) mode was toggled. |
-| `update:zoom` | `zoom: number` | The page-surface zoom changed (percent). |
-| `update:mode` | `mode: DocumentMode` | Document mode changed (issues #27/#28). |
-| `update:pageCount` | `pageCount: number` | The rendered page count changed. |
-| `update:locale` | `locale: Locale` | UI language changed. |
-| `citation-sources-change` | `sources: CslItemData[]` | The citation source list changed. |
-| `update:citation-style` | `style: string` | The active CSL style changed. |
-| `citation-style-imported` | `style: CslStyleInfo` | A `.csl` style was imported and registered for this session. Hosts that want it after a reload persist this object and re-supply it through `citation.styles` on the next mount. |
-| `citation-style-removed` | `styleId: string` | An imported style was removed. Hosts drop it from whatever they persist (the per-document style list) so it does not come back on the next mount. |
-| `toggle-star` | — | The star toggle was clicked. |
-| `back` | — | The back button was clicked. |
-| `share` | — | The share button was clicked. |
-| `menu-click` | `menu: string` | A header menu entry was activated; `menu` holds the action id. |
-| `export` | `format: 'markdown' \| 'html' \| 'html-zip' \| 'txt' \| 'docx' \| 'pdf' \| 'odt' \| 'rtf'` | The user requested an export in the given `format`. |
-| `ready` | `docsEditor: DocsEditor` | The editor instance is ready. |
-| `add-comment` | `content: string, anchorText?: string, anchorIndex?: number` | The user submitted a new comment thread. |
-| `add-reply` | `threadId: string, content: string` | The user replied to a comment thread. |
-| `resolve-comment` | `threadId: string` | The user resolved a comment thread. |
-| `delete-comment` | `threadId: string` | The user asked to delete an orphaned comment thread. |
-| `save-snapshot` | `name: string` | The user saved a version snapshot. |
-| `restore-snapshot` | `versionIndex: number` | The user restored the snapshot at `versionIndex`. |
-| `preview-snapshot` | `snapshot: DocumentSnapshot \| null` | The user previewed a snapshot (or cleared the preview with `null`). |
-<!-- api:emits:end -->
-
-### Slots
-
-| Slot | Description | Slot props |
-|------|-------------|------------|
-| `#header-actions` | Custom buttons in the header bar | — |
-| `#overflow-actions` | Extra items in the header overflow menu | `close()` |
-| `#user-menu` | Custom content in the user menu | `close()` |
-
-> Props and events above are **generated** from
-> `packages/vue/src/components/docsEditorContracts.ts` — the single source of truth.
-> After changing that contract run `pnpm docs:api` to regenerate
-> (`pnpm docs:api:check` fails when the README is stale).
-
-### Web Component Attributes
-
-```html
-<docs-editor
-  room="doc-123"
-  theme="light|dark"
-  editable="true|false"
-  content='{"type":"doc","content":[]}'
-  websocket-url="wss://..."
-  debug="true|false"
-></docs-editor>
-```
-
-`theme` is optional. When set, it is scoped to that element (the `dark` class goes on
-the editor root, not the host page), so it works inside Shadow DOM and multiple
-embeds stay independent. Without it the editor follows the document-level auto
-theme (`localStorage` / `prefers-color-scheme`).
-
-JS properties on the element: `plugins`, `onImageUpload` (everything else is an
-attribute — see `observedAttributes` in `DocsEditorElement`).
-
-### Headless Core API
-
-```ts
-import { createEditor } from '@kedataindo/docflow-core'
-
-const editor = createEditor({
-  target: document.getElementById('root')!,
-  content: { type: 'doc', content: [] },
-  plugins: [],
-  editable: true,
-  onUpdate: (json) => { /* persist */ },
-  collaboration: { /* ... */ },
-  paginationOptions: { /* pageHeight, pageWidth, margins */ },
-})
-
-editor.getJSON()
-editor.getHTML()
-editor.destroy()
-editor.use(plugin)
-editor.pluginActions
-```
-
-### useEditor (Vue - custom UI)
-
-```vue
-<script setup lang="ts">
-import { useEditor, EditorToolbar, BubbleMenu } from '@kedataindo/docflow-vue'
-import { defaultPlugins } from '@kedataindo/docflow-plugins'
-
-const { editorRef, editor, pluginActions, isReady } = useEditor({
-  content: { type: 'doc', content: [] },
-  plugins: defaultPlugins,
-  onUpdate: (json) => console.log(json),
-})
-</script>
-
-<template>
-  <EditorToolbar :actions="pluginActions" :editor="editor" />
-  <BubbleMenu :editor="editor" :actions="pluginActions" />
-  <div ref="editorRef" />
-</template>
-```
-
----
-
-## Open-core model
-
-The editor engine is **free and open-source (Apache-2.0) — forever**. Everything published in
-this repository can be embedded and self-hosted without a licence; that is the whole point of the
-Apache-2.0 grant.
-
-The **deployable application** (web UI + API server — dashboard, collaboration, AI) and the
-**hosted Cloud platform** are separate, **proprietary products**. They are licensed, not free,
-and they are not part of this repository.
-
-- **Cloud platform** — managed collaboration and layout-aware AI
-- **Self-hosted edition** — the application, licensed for on-premise and air-gapped deployment
-- **Enterprise & services** — SLAs, custom integration, and support
-
-For licensing enquiries: [info@kedata.online](mailto:info@kedata.online).
-
-## Community
-
-- [GitHub Discussions](https://github.com/Kedata-Indonesia/docflow/discussions) — questions, RFCs, and **showcase** what you built
-- [Issues](https://github.com/Kedata-Indonesia/docflow/issues) — bugs and feature requests
-- Live demo: https://docflow-app.kedata.cloud
-
-Full channel list and our code of conduct: [docs/COMMUNITY.md](./docs/COMMUNITY.md).
-
-## Contributing
-
-Contributions are welcome — bug reports, RFC discussions, and pull requests. `main` is protected: fork the repo, create a branch, and open a PR. Please read [CONTRIBUTING.md](./CONTRIBUTING.md) for the dev setup, verification steps, and PR expectations, and open an issue first for anything non-trivial so we can align on direction.
-
-### Pull requests: one complete, release-ready change
-
-Every PR must be **self-contained and ready to release to `main`**. Include
-everything the change needs — code, tests, docs, and any version or dependency
-updates — in the **same PR**. Do not open a small PR whose value only lands once
-a later PR merges: no stacked PRs, no "merge this, then that", nothing that needs
-a follow-up in order to ship.
-
-`main` is the release branch — merging a PR publishes the packages it touched
-(see [Releasing](#releasing)) — so **only merge when the change is ready**. If a
-change cannot be delivered end-to-end in one PR, don't open it: open an issue
-and align on scope first.
-
-This applies equally to humans and AI agents.
-
-## Development
-
-```bash
-git clone git@github.com:Kedata-Indonesia/docflow.git
-cd docflow
-pnpm install
-pnpm build
-pnpm typecheck        # TypeScript
-pnpm test:unit        # Unit test
-pnpm lint             # ESLint
-```
-
-> The deployable application (web UI + API server) and its Docker stack are proprietary
-> and are not part of this repository.
-
-### Playground
-
-`examples/playground` is a small backend-free Vite app that mounts `<DocsEditor>`
-**through the public API only** (`defaultPlugins`, props, events). Use it to review
-UI changes, compare branches, or copy a working setup.
-
-It is tracked in this repo, so a fresh clone can run it directly:
-
-```bash
-pnpm install
-
-pnpm build && pnpm dev                       # dist mode — http://localhost:5200
-# edit packages/* with HMR instead of rebuilding:
-pnpm dev:source
-```
-
-Regenerate the README demo GIF from a running playground with
-`node scripts/record-demo.mjs` (writes `docs/assets/docflow-demo.gif`).
-
-It owns its fixtures (documents, comment threads, versions, collaborators) in
-memory — no server, no database, nothing published. To reset a locally modified
-harness back to the committed version, run `pnpm playground:restore --force`.
-
-### Docker
-
-The self-hosted Docker stack (server + web app + MongoDB) is proprietary and is not part of
-this repository. This package repository only builds and publishes the
-`@kedataindo/docflow-*` libraries.
-
-### Project Structure
-
-How the packages fit together — everything in the `LIB` box is published from this repository:
-
-```mermaid
-flowchart TB
-    HOST["Your application<br/>docflow-app, or anything you build"]
-
-    subgraph LIB["this repository — packages/* · Apache-2.0"]
-        direction TB
-        UI["@kedataindo/docflow-vue<br/>Vue 3 components + composables"]
-        EL["@kedataindo/docflow-element<br/>Web Component"]
-        CORE["@kedataindo/docflow-core<br/>headless editor + plugin system"]
-        SIB["@kedataindo/docflow-layout-engine · -plugins · -export"]
-    end
-
-    UP["TipTap · ProseMirror · Yjs<br/>upstream foundations — MIT"]
-    PORTS["injection ports, provided by the host<br/>storage · auth · aiStream / aiDraft · collaboration"]
-
-    HOST --> UI
-    HOST --> EL
-    UI --> CORE
-    EL --> CORE
-    CORE --> SIB
-    CORE --> UP
-    HOST -.-> PORTS
-    PORTS -.-> CORE
-```
-
-```
-docflow/
-├── packages/
-│   ├── core/              @kedataindo/docflow-core
-│   ├── vue/               @kedataindo/docflow-vue
-│   ├── element/           @kedataindo/docflow-element
-│   ├── plugins/           @kedataindo/docflow-plugins
-│   ├── layout-engine/     @kedataindo/docflow-layout-engine
-│   └── export/            @kedataindo/docflow-export
-├── examples/
-│   └── playground/        backend-free demo app (tracked, not published)
-└── docs/                  living documentation — start at docs/README.md
-    ├── guides/            integration, collaboration, AI
-    ├── reference/         library contract (the library/app boundary)
-    ├── operations/        deploy, publish, release
-    ├── product/           PRD, architecture, historical roadmap
-    ├── plans/             frozen execution plans
-    └── audits/            dated reviews
-```
-
-## Releasing
-
-Packages are published **automatically when `main` is updated**: a push (e.g. a merged PR) verifies, patch-bumps the packages it touched — plus their dependents — builds, and publishes them to the public **npm** registry under `@kedataindo/docflow-*` (the in-repo source scope stays `@kedata-indonesia`). The bump is committed back to `main` automatically, so merging is all it takes. A `v*` tag runs the same flow without the auto-bump. See [docs/operations/PUBLISH.md](./docs/operations/PUBLISH.md) for the full guide.
-
-```bash
-# Merge your change into main — that's it.
-git push
-# → CI verifies, patch-bumps what changed, publishes, and commits the bump back
-```
-
----
-
-## License
-
-**Apache-2.0** — see [`LICENSE`](./LICENSE) at the repo root. The core editor stays Apache-2.0 forever.
-
-Bundled third-party components (TipTap, Yjs, Hocuspocus, Vue, etc.)
-keep their original MIT (or other) licenses — see [`NOTICE`](./NOTICE)
-for the full list and per-component pointers.
-
-For questions (Indonesian / English): **info@kedata.online**.
-
----
-
-<p align="center">
-  Made with ♥ by <a href="https://kedata.cloud">Kedata</a> in Indonesia
-</p>
+| Package | What it is |
+|---------|------------|
+| `@kedataindo/docflow-vue` | Vue 3 component. Start here. |
+| `@kedataindo/docflow-element` | `<docs-editor>` Web Component |
+| `@kedataindo/docflow-core` | Headless editor + plugin system |
+| `@kedataindo/docflow-plugins` | Tables, images, footnotes, citations, page breaks |
+| `@kedataindo/docflow-export` | DOCX, ODT, RTF, Markdown |
+| `@kedataindo/docflow-layout-engine` | Pagination. You normally don't install this. |
+
+## Docs
+
+- [API reference](./docs/reference/API.md) — props, events, slots, plugins
+- [Integration](./docs/guides/INTEGRATION.md) · [Collaboration](./docs/guides/COLLAB_INTEGRATION.md) · [AI hooks](./docs/guides/EMBEDDING_AI.md)
+- [Contributing](./CONTRIBUTING.md) · [Security](./SECURITY.md) · [Discussions](https://github.com/Kedata-Indonesia/docflow/discussions)
+
+**Apache-2.0** — see [LICENSE](./LICENSE). Third-party pieces keep their own licenses — see [NOTICE](./NOTICE). Questions: [info@kedata.online](mailto:info@kedata.online).
+
+<p align="center">Made with ♥ by <a href="https://kedata.cloud">Kedata</a> in Indonesia</p>

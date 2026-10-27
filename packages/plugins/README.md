@@ -1,6 +1,6 @@
 # @kedataindo/docflow-plugins
 
-Built-in plugins for [DocFlow](https://github.com/Kedata-Indonesia/docflow) — the open-source editor engine for document-style apps.
+Built-in plugins for [DocFlow](https://github.com/Kedata-Indonesia/docflow), an open-source rich text editor — tables, footnotes, citations, comments, and page breaks.
 
 ## Install
 
@@ -23,7 +23,7 @@ The citations plugin adds three nodes — `CitationNode` (inline), `ReferenceLis
 
 A second entrypoint, `@kedataindo/docflow-plugins/citations`, provides the citations & references engine (DOI/CrossRef + BibTeX/RIS import, CSL styles).
 
-Write your own with `definePlugin` from `@kedataindo/docflow-core` — see the [plugin system docs](https://github.com/Kedata-Indonesia/docflow#plugin-system).
+Write your own with `definePlugin` from `@kedataindo/docflow-core` — see the [plugin system docs](https://github.com/Kedata-Indonesia/docflow/blob/main/docs/reference/API.md#plugin-system).
 
 ## Documentation
 

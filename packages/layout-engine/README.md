@@ -1,6 +1,6 @@
 # @kedataindo/docflow-layout-engine
 
-Page split / pagination engine for [DocFlow](https://github.com/Kedata-Indonesia/docflow) — the piece that gives the editor true A4/Letter/Legal page layout: automatic page breaks, headers/footers with `{page}`/`{total}`, and print-accurate rendering.
+Pagination engine for [DocFlow](https://github.com/Kedata-Indonesia/docflow), an open-source rich text editor. This is the piece that gives the editor true A4/Letter/Legal page layout: automatic page breaks, headers/footers with `{page}`/`{total}`, and print-accurate rendering.
 
 > **Internal package.** You normally don't install this directly — it's wired in by `@kedataindo/docflow-vue` / `@kedataindo/docflow-element`. Published for completeness.
 
