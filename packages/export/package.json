@@ -6,9 +6,11 @@
     "odt",
     "rtf",
     "markdown",
-    "rich-text-editor",
+    "docx-export",
+    "odt-export",
+    "document-conversion",
     "prosemirror",
-    "export"
+    "rich-text-editor"
   ],
   "license": "Apache-2.0",
   "version": "0.0.20",
