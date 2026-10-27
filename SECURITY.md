@@ -66,8 +66,10 @@ Out of scope here:
 
 ## Hardening we already do
 
-- dependencies are watched weekly by Dependabot, and security advisories are
-  raised as pull requests the moment they land;
+- dependencies are watched by Dependabot security updates, and an advisory with a
+  published fix is raised as a pull request the moment it lands; CI also runs
+  `pnpm audit --prod --audit-level=high` on every pull request, so advisories do
+  not depend on a bot pull request being opened;
 - the editor never fetches remote styles or assets at runtime — CSL styles ship
   in the package;
 - the browser never holds LLM/API credentials in the library's default

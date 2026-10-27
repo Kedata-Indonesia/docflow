@@ -43,6 +43,14 @@ jobs:
       - name: Lockfile has no fixable duplicate instances
         run: pnpm dedupe --check
 
+      # Security does not depend on Dependabot opening a pull request: the npm
+      # version sweep is off (see .github/dependabot.yml), so this is the net.
+      # Production dependencies only — dev tooling ships to nobody. An advisory
+      # with no published fix is muted through `pnpm.auditConfig.ignoreCves` in
+      # the root package.json, with the reason recorded next to it.
+      - name: No high-severity advisories in production dependencies
+        run: pnpm audit --prod --audit-level=high
+
       # Never let a change that fails its own checks reach `main`.
       - name: Lint
         run: pnpm lint

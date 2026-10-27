@@ -20,6 +20,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Security
+
+- **`markdown-it` floor raised to 14.3.3 (GHSA-gfr2-rv44-r23c):** the advisory
+  (quadratic-time rendering of a multi-line link reference definition) reaches
+  both markdown paths we ship — `packages/export` through `prosemirror-markdown`
+  and `packages/plugins` through `tiptap-markdown`. `tiptap-markdown@0.9.0` pins
+  `markdown-it@14.3.2` exactly, so the override floor in
+  [`pnpm-workspace.yaml`](./pnpm-workspace.yaml) is what patches that path. CI now
+  runs `pnpm audit --prod --audit-level=high`, so the next advisory of this class
+  fails a pull request instead of waiting for a version sweep.
+
 ### Added
 
 - **Offline mirror lifecycle (issue #162):** `offline: true` now has a way out.
