@@ -13,7 +13,7 @@
     "wysiwyg"
   ],
   "license": "Apache-2.0",
-  "version": "0.0.120",
+  "version": "0.0.121",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
