@@ -14,7 +14,7 @@
     "rich-text-editor"
   ],
   "license": "Apache-2.0",
-  "version": "0.0.129",
+  "version": "0.0.130",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
