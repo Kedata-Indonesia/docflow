@@ -1,124 +1,69 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { ref } from 'vue'
 import {
   DocsEditor,
   HOST_OWNED_ACTIONS,
   toAIStreamFn,
   type AIProvider,
   type AIStreamFn,
-  type Collaborator,
-  type CommentItem,
-  type ConnectionState,
-  type DocumentSnapshot,
-  type DocumentMode,
-  type Locale,
-  normalizeZoom,
 } from '@kedata-indonesia/docflow-vue'
 import { defaultPlugins } from '@kedata-indonesia/docflow-plugins'
-import type { CslStyleInfo } from '@kedata-indonesia/docflow-core'
 import EventLog from './EventLog.vue'
 import ReviewPanel from './ReviewPanel.vue'
 import AiPlayground from './AiPlayground.vue'
 import KbPicker from './KbPicker.vue'
-import {
-  PRESETS,
-  SAMPLE_COLLABORATORS,
-  SAMPLE_COMMENTS,
-  SAMPLE_SNAPSHOTS,
-  SAMPLE_SOURCES,
-  SAMPLE_INJECTED_STYLE,
-  type PresetId,
-} from './sampleData'
-import type { LogEntry } from './types'
+import { useEventLog } from './composables/useEventLog'
+import { usePersistedZoom } from './composables/usePersistedZoom'
+import { useDocumentSession } from './composables/useDocumentSession'
+import { useCommentThreads } from './composables/useCommentThreads'
+import { useDocumentSnapshots } from './composables/useDocumentSnapshots'
+import { useCitationLibrary } from './composables/useCitationLibrary'
 
 /**
  * The playground plays the role of the host app: it owns the document, the
  * comment threads, the versions and the collaborators, and it reacts to the
  * events the editor emits. The library itself never fetches anything.
+ *
+ * The host state lives in `composables/*`; this file only wires it to the
+ * review rail and to `<DocsEditor>`.
  */
 
 // --- host-owned state -------------------------------------------------------
-const presetId = ref<PresetId>('letter')
-const content = ref<object>(PRESETS.letter.doc)
-const title = ref(PRESETS.letter.title)
+const { events, log, clear: clearEvents } = useEventLog()
+const { zoom } = usePersistedZoom()
+
+const {
+  presetId,
+  content,
+  title,
+  pageSize,
+  orientation,
+  margins,
+  headerMarginCm,
+  footerMarginCm,
+  pageless,
+  virtualPages,
+  editable,
+  mode,
+  debug,
+  locale,
+  userName,
+  connectionState,
+  collaborators,
+  pageCount,
+  documentMeta,
+  onContentUpdate,
+  onHeaderFooterMargins,
+} = useDocumentSession({ log })
+
+const { comments, addComment, addReply, resolveComment, deleteComment, addSampleComment } =
+  useCommentThreads({ userName, log })
+const { snapshots, saveSnapshot, addSampleSnapshot } = useDocumentSnapshots({ userName, log })
+const { citation, onStyleImported } = useCitationLibrary({ log })
+
 // Left rail (review controls + event log) collapsed state.
 const railCollapsed = ref(false)
-const pageSize = ref('a4')
-const orientation = ref<'portrait' | 'landscape'>('portrait')
-const margins = ref({ top: 94, bottom: 94, left: 94, right: 94 })
-const headerMarginCm = ref(0.5)
-const footerMarginCm = ref(0.5)
-const pageless = ref(false)
-const virtualPages = ref(false)
-const ZOOM_STORAGE_KEY = 'docflow.playground.zoom'
-const zoom = ref(
-  (() => {
-    try {
-      return normalizeZoom(Number(localStorage.getItem(ZOOM_STORAGE_KEY)) || 100)
-    } catch {
-      return 100
-    }
-  })(),
-)
-watch(zoom, (value) => {
-  try {
-    localStorage.setItem(ZOOM_STORAGE_KEY, String(value))
-  } catch {
-    // ignore private-mode storage failures
-  }
-})
-const editable = ref(true)
-const mode = ref<DocumentMode>('editing')
-const debug = ref(false)
-const locale = ref<Locale>('en')
-const userName = ref('Reviewer DocFlow')
-const connectionState = ref<ConnectionState>('connected')
-const collaborators = ref<Collaborator[]>(SAMPLE_COLLABORATORS)
-const comments = ref<CommentItem[]>(SAMPLE_COMMENTS)
-const snapshots = ref<DocumentSnapshot[]>(SAMPLE_SNAPSHOTS)
-const pageCount = ref(1)
 
-// Citation port — seeds the reference library. We deliberately do NOT set
-// `onSourceRequest`, so `DocsEditor` keeps the built-in picker flow (toolbar
-// Citation → sidebar in picker mode). The `#references-sidebar` slot below
-// replaces the built-in sidebar's UI with a custom knowledge-base picker.
-//
-// `styles` demonstrates the host-injection path of #180: a style the library
-// does not bundle, supplied by the app that embeds the editor. It shows up in
-// the reference sidebar's style picker next to APA/MLA/Chicago.
-//
-// Issue #251 — imported `.csl` styles are persisted here, the same way a real
-// host would: `citation-style-imported` stores the style object in
-// localStorage, and it is fed back through `citation.styles` on the next mount.
-const IMPORTED_STYLE_KEY = 'docflow.playground.imported-csl-style'
-
-function loadImportedStyle(): CslStyleInfo[] {
-  try {
-    const raw = window.localStorage.getItem(IMPORTED_STYLE_KEY)
-    if (!raw) return []
-    const parsed = JSON.parse(raw) as CslStyleInfo
-    return parsed?.id && parsed?.xml ? [parsed] : []
-  } catch {
-    return []
-  }
-}
-
-const importedStyles = ref<CslStyleInfo[]>(loadImportedStyle())
-const citation = computed(() => ({
-  sources: SAMPLE_SOURCES,
-  style: 'chicago-notes-bibliography',
-  styles: [SAMPLE_INJECTED_STYLE, ...importedStyles.value],
-}))
-
-function onCitationStyleImported(style: CslStyleInfo) {
-  importedStyles.value = [style]
-  try {
-    window.localStorage.setItem(IMPORTED_STYLE_KEY, JSON.stringify(style))
-  } catch {
-    // Private mode / storage full — the style still works for this session.
-  }
-  log('citation-style-imported', `${style.name} (${style.id})`)
-}
 // Playground-only: when on, inject a custom references sidebar via the
 // `#references-sidebar` slot (#22). Off = the library's built-in sidebar.
 const customReferencesSidebar = ref(false)
@@ -137,20 +82,9 @@ const aiStream: AIStreamFn = (req, signal) => {
   }
   return toAIStreamFn(provider)(req, signal)
 }
-function onAiProvider(provider: AIProvider | null) {
+
+function onAiProvider(provider: AIProvider | null): void {
   aiProvider.value = provider
-}
-
-// --- event log --------------------------------------------------------------
-const events = ref<LogEntry[]>([])
-let eventSeq = 0
-/** Monotonic fixture ids — `Date.now()` collides on rapid clicks. */
-let commentSeq = 0
-
-function log(name: string, detail?: string | number, hostOwned = false): void {
-  eventSeq += 1
-  const text = detail === undefined ? '' : String(detail)
-  events.value = [{ id: eventSeq, name, detail: text, hostOwned }, ...events.value].slice(0, 50)
 }
 
 // --- host-owned action logging (issue #153) ----------------------------------
@@ -174,126 +108,8 @@ function onToggleStar(): void {
   log('toggle-star', undefined, HOST_OWNED_ACTIONS.includes('add-to-starred'))
 }
 
-/** Captured once: `Date.now()` inside the computed would drift on every recompute. */
-const fixtureNow = Date.now()
-
-const documentMeta = computed(() => ({
-  id: 'playground-doc-1',
-  title: title.value,
-  owner: { userId: 'user-1', name: userName.value, email: 'reviewer@example.com' },
-  createdAt: fixtureNow - 86_400_000,
-  updatedAt: fixtureNow,
-  wordCount: 0,
-  charCount: 0,
-  pageCount: pageCount.value,
-  folderName: 'Playground',
-}))
-
-// --- editor events ----------------------------------------------------------
-watch(presetId, (id) => {
-  content.value = PRESETS[id].doc
-  title.value = PRESETS[id].title
-  log('preset', id)
-})
-
-/**
- * `update:modelValue` carries a `TabbedDoc` (`{ type, activeTabId, tabs }`), so
- * the node count has to come from the tabs, not from a top-level `content`.
- */
-function countNodes(value: object): number {
-  const tabs = (value as { tabs?: Array<{ content?: { content?: unknown[] } }> }).tabs
-  if (!tabs) return 0
-  return tabs.reduce((total, tab) => total + (tab.content?.content?.length ?? 0), 0)
-}
-
-function onContentUpdate(value: object): void {
-  content.value = value
-  log('update:modelValue', `${countNodes(value)} node`)
-}
-
-function onAddComment(text: string, anchorText?: string, anchorIndex?: number): void {
-  commentSeq += 1
-  comments.value = [
-    {
-      id: `thread-${commentSeq}`,
-      authorId: 'user-1',
-      authorName: userName.value,
-      authorColor: '#059669',
-      content: text,
-      anchorText,
-      anchorIndex,
-      createdAt: Date.now(),
-      replies: [],
-    },
-    ...comments.value,
-  ]
-  log('add-comment', text)
-}
-
-function onAddReply(threadId: string, text: string): void {
-  commentSeq += 1
-  const replyId = `reply-${commentSeq}`
-  comments.value = comments.value.map((thread) =>
-    thread.id === threadId
-      ? {
-          ...thread,
-          replies: [
-            ...thread.replies,
-            {
-              id: replyId,
-              authorId: 'user-1',
-              authorName: userName.value,
-              authorColor: '#059669',
-              content: text,
-              createdAt: Date.now(),
-            },
-          ],
-        }
-      : thread,
-  )
-  log('add-reply', threadId)
-}
-
-function onResolveComment(threadId: string): void {
-  comments.value = comments.value.map((thread) =>
-    thread.id === threadId ? { ...thread, resolved: true, resolvedBy: userName.value } : thread,
-  )
-  log('resolve-comment', threadId)
-}
-
-function onDeleteComment(threadId: string): void {
-  comments.value = comments.value.filter((thread) => thread.id !== threadId)
-  log('delete-comment', threadId)
-}
-
-function onSaveSnapshot(name: string): void {
-  const nextIndex = snapshots.value.reduce((max, item) => Math.max(max, item.versionIndex), 0) + 1
-  snapshots.value = [
-    {
-      versionId: `ver-${nextIndex}`,
-      versionIndex: nextIndex,
-      title: name,
-      contentPreview: 'Snapshot created from the playground.',
-      modifiedBy: userName.value,
-      timestamp: Date.now(),
-    },
-    ...snapshots.value,
-  ]
-  log('save-snapshot', name)
-}
-
-function onHeaderFooterMargins(value: { headerMarginCm: number; footerMarginCm: number }): void {
-  headerMarginCm.value = value.headerMarginCm
-  footerMarginCm.value = value.footerMarginCm
-  log('update:header-footer-margins', `${value.headerMarginCm} / ${value.footerMarginCm} cm`)
-}
-
-function addSampleComment(): void {
-  onAddComment('Sample note from the playground panel.', title.value)
-}
-
-function addSampleSnapshot(): void {
-  onSaveSnapshot(`Playground version ${snapshots.value.length + 1}`)
+function onAddSampleComment(): void {
+  addSampleComment(title.value)
 }
 
 /**
@@ -334,13 +150,13 @@ function onReady(docsEditor: { editor: unknown; pluginActions?: unknown }): void
         v-model:custom-references-sidebar="customReferencesSidebar"
         :comment-count="comments.length"
         :snapshot-count="snapshots.length"
-        @add-comment-sample="addSampleComment"
+        @add-comment-sample="onAddSampleComment"
         @add-snapshot-sample="addSampleSnapshot"
       />
 
       <AiPlayground @provider="onAiProvider" />
 
-      <EventLog :events="events" @clear="events = []" />
+      <EventLog :events="events" @clear="clearEvents" />
     </aside>
 
     <button
@@ -402,18 +218,18 @@ function onReady(docsEditor: { editor: unknown; pluginActions?: unknown }): void
         @update:zoom="zoom = $event; log('update:zoom', `${$event}%`)"
         @update:page-count="pageCount = $event; log('update:pageCount', $event)"
         @update:locale="locale = $event; log('update:locale', $event)"
-        @citation-style-imported="onCitationStyleImported"
+        @citation-style-imported="onStyleImported"
         @menu-click="onMenuClick"
         @export="onExport"
         @ready="onReady"
         @share="onShare"
         @back="log('back')"
         @toggle-star="onToggleStar"
-        @add-comment="onAddComment"
-        @add-reply="onAddReply"
-        @resolve-comment="onResolveComment"
-        @delete-comment="onDeleteComment"
-        @save-snapshot="onSaveSnapshot"
+        @add-comment="addComment"
+        @add-reply="addReply"
+        @resolve-comment="resolveComment"
+        @delete-comment="deleteComment"
+        @save-snapshot="saveSnapshot"
         @restore-snapshot="log('restore-snapshot', $event)"
         @preview-snapshot="log('preview-snapshot', $event ? $event.versionId : 'clear')"
       >

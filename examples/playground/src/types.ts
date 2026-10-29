@@ -1,3 +1,6 @@
+/** Signature of the event-log writer shared by the playground composables. */
+export type LogFn = (name: string, detail?: string | number, hostOwned?: boolean) => void
+
 /** One line in the playground event log. */
 export interface LogEntry {
   id: number

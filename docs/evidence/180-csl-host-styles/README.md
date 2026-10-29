@@ -21,7 +21,7 @@ validasi terhadap konstanta `CSL_STYLES`, dan sidebar Referensi menyimpan daftar
 ## Bukti di demo (playground, mode source, `:5200`)
 
 `examples/playground/src/App.vue` sekarang meng-inject satu gaya contoh
-(`harvard-demo`, didefinisikan di `sampleData.ts`) lewat port — persis seperti
+(`harvard-demo`, didefinisikan di `fixtures/citations.ts`) lewat port — persis seperti
 host nyata. Hasil terukur di browser Chrome headless:
 
 ```

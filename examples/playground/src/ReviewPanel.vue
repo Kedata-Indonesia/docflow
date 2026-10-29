@@ -3,7 +3,7 @@ import { ref } from 'vue'
 import type { ConnectionState, Locale } from '@kedata-indonesia/docflow-vue'
 import type { DocumentMode } from '@kedata-indonesia/docflow-vue'
 import { ZOOM_PRESETS } from '@kedata-indonesia/docflow-vue'
-import { PAGE_SIZE_OPTIONS, type PresetId } from './sampleData'
+import { PAGE_SIZE_OPTIONS, type PresetId } from './fixtures/presets'
 
 /**
  * Review surface for the playground. Every control maps 1:1 to a public

@@ -6,11 +6,12 @@ changes without the host app (auth, Mongo, REST, deployment).
 
 ```
 examples/playground/
-├── src/App.vue         # mounts <DocsEditor>, wires every public prop + event
-├── src/ReviewPanel.vue # live controls for the public props
-├── src/EventLog.vue    # shows which events the editor emits
-├── src/sampleData.ts   # sample documents, comments, versions, collaborators
-└── vite.config.ts      # dist mode (default) + source mode (HMR over packages/*)
+├── src/App.vue              # wires the composables to <DocsEditor> + review rail
+├── src/composables/         # host-state slices: session, comments, versions, citations, log, zoom
+├── src/fixtures/            # ProseMirror docs, presets, collaboration + citation data
+├── src/ReviewPanel.vue      # live controls for the public props
+├── src/EventLog.vue         # shows which events the editor emits
+└── vite.config.ts           # dist mode (default) + source mode (HMR over packages/*)
 ```
 
 ## Run it
