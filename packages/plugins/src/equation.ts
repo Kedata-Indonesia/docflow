@@ -19,9 +19,9 @@ import { insertDisplayNode } from './equation/transactions.js'
  * `equation/transactions.ts`.
  */
 
-export type { EquationStorage } from './equation/transactions.js'
-export { renderEquation, updateEquationNumbers } from './equation/render.js'
 export { EquationState } from './equation/state.js'
+export type { EquationStorage } from './equation/state.js'
+export { renderEquation, updateEquationNumbers } from './equation/render.js'
 
 export const equationPlugin = definePlugin({
   id: 'equation',

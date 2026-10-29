@@ -1,12 +1,8 @@
 import { Node, mergeAttributes } from '@tiptap/core'
 import type { NodeViewRenderer } from '@tiptap/core'
 import type { Node as PMNode } from '@tiptap/pm/model'
-import {
-  deleteEquation,
-  focusEditor,
-  setEditingPos,
-  setLatex,
-} from './transactions.js'
+import { setEditingPos } from './state.js'
+import { deleteEquation, focusEditor, setLatex } from './transactions.js'
 import { readLatex, renderEquation } from './render.js'
 
 /**

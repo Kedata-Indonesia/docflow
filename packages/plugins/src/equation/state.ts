@@ -1,7 +1,19 @@
-import { Extension } from '@tiptap/core'
+import { Extension, type Editor } from '@tiptap/core'
 import { Plugin } from '@tiptap/pm/state'
 import { updateEquationNumbers } from './render.js'
-import type { EquationStorage } from './transactions.js'
+
+/** Shared transient edit state (one equation at a time). */
+export interface EquationStorage {
+  editingPos: number | null
+}
+
+/** Tell the toolbar/other views which equation is currently open for editing. */
+export function setEditingPos(editor: Editor, pos: number | null): void {
+  const storage = (editor.storage as unknown as Record<string, unknown>).equation as
+    | EquationStorage
+    | undefined
+  if (storage) storage.editingPos = pos
+}
 
 /**
  * Owns `editor.storage.equation`. Kept separate from the nodes so C2 can read

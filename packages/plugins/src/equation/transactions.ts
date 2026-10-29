@@ -7,11 +7,6 @@
 import type { Editor } from '@tiptap/core'
 import type { Node as PMNode } from '@tiptap/pm/model'
 
-/** Shared transient edit state (one equation at a time). */
-export interface EquationStorage {
-  editingPos: number | null
-}
-
 export function insertDisplayNode(
   editor: Editor,
   numbered: boolean,
@@ -55,12 +50,4 @@ export function setLatex(editor: Editor, pos: number, node: PMNode, latex: strin
   view.dispatch(view.state.tr.setNodeMarkup(pos, undefined, { ...current.attrs, latex }))
   focusEditor(editor)
   return true
-}
-
-/** Tell the toolbar/other views which equation is currently open for editing. */
-export function setEditingPos(editor: Editor, pos: number | null): void {
-  const storage = (editor.storage as unknown as Record<string, unknown>).equation as
-    | EquationStorage
-    | undefined
-  if (storage) storage.editingPos = pos
 }
