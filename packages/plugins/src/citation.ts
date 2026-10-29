@@ -27,9 +27,26 @@ export const citationPlugin = definePlugin({
   id: 'citation',
   tiptapExtensions: [CitationEngineExtension, CitationNode, ReferenceListNode, BibliographyNode],
   toolbar: [
-    { id: 'insert-citation', label: 'Citation', action: 'insertCitation', iconComponent: 'Quote' },
-    { id: 'insert-reference-list', label: 'Reference list', labelKey: 'header.referenceList', action: 'insertReferenceList', iconComponent: 'List' },
-    { id: 'insert-bibliography', label: 'Bibliography', labelKey: 'header.bibliography', action: 'insertBibliography', iconComponent: 'FileText' },
+    {
+      id: 'insert-citation',
+      label: 'Citation',
+      action: 'insertCitation',
+      iconComponent: 'Quote',
+    },
+    {
+      id: 'insert-reference-list',
+      label: 'Reference list',
+      labelKey: 'header.referenceList',
+      action: 'insertReferenceList',
+      iconComponent: 'List',
+    },
+    {
+      id: 'insert-bibliography',
+      label: 'Bibliography',
+      labelKey: 'header.bibliography',
+      action: 'insertBibliography',
+      iconComponent: 'FileText',
+    },
   ],
   slashCommands: [
     { name: 'Citation', command: 'insertCitation' },
@@ -42,12 +59,15 @@ export const citationPlugin = definePlugin({
     onInit(editor) {
       const citation = editorContext(editor)?.citation
       if (!citation) return // inert without the injected port — like onImageUpload
-      const sources = typeof citation.sources === 'function' ? citation.sources() : citation.sources
+      const sources =
+        typeof citation.sources === 'function' ? citation.sources() : citation.sources
       const engine = new CiteEngine({ sources, style: citation.style, styles: citation.styles })
-      ;(editor.storage as unknown as { citationEngine: CitationStorage }).citationEngine.engine = engine
+      const storage = editor.storage as unknown as { citationEngine: CitationStorage }
+      storage.citationEngine.engine = engine
     },
     onDestroy(editor) {
-      ;(editor.storage as unknown as { citationEngine: CitationStorage }).citationEngine.engine = null
+      const storage = editor.storage as unknown as { citationEngine: CitationStorage }
+      storage.citationEngine.engine = null
     },
   },
 })

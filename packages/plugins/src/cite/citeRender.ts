@@ -53,9 +53,9 @@ export interface RenderedCitations {
  */
 export function renderCitations(input: RenderCitationsInput): RenderedCitations {
   const { styleInfo, sources, clusters, order } = input
-  const engine = createCslEngine(styleInfo.xml, (id: string) => (
-    sources.get(id) as Record<string, unknown> | undefined
-  ))
+  const engine = createCslEngine(styleInfo.xml, (id: string) =>
+    sources.get(id) as Record<string, unknown> | undefined,
+  )
 
   const rendered = new Map<string, string>()
   const pre: Array<[string, number]> = []

@@ -3,7 +3,7 @@ import type { Editor } from '@tiptap/core'
 import type { Node as PMNode } from '@tiptap/pm/model'
 import type { CitationPort } from '@kedata-indonesia/docflow-core'
 import type { CiteEngine } from '../citeEngine.js'
-import { nextCitationId, type CitationAttrs } from '../citeEngine.js'
+import { nextCitationId, type CitationAttrs, type CitationCluster } from '../citeEngine.js'
 
 interface EditorContextStorage {
   citation?: CitationPort
@@ -65,8 +65,8 @@ function repairDuplicateCitationIds(editor: Editor): void {
 }
 
 /** Citation nodes + citation-backed footnotes, in document order. */
-function collectOrderedClusters(editor: Editor): Array<{ citationId: string; attrs: CitationAttrs }> {
-  const ordered: Array<{ citationId: string; attrs: CitationAttrs }> = []
+function collectOrderedClusters(editor: Editor): CitationCluster[] {
+  const ordered: CitationCluster[] = []
 
   editor.state.doc.descendants((node: PMNode, pos: number) => {
     if (node.type.name === 'citation' || (node.type.name === 'footnote' && node.attrs.sourceId)) {
