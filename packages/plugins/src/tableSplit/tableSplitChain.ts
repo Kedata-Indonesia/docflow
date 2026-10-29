@@ -50,7 +50,9 @@ export function buildSplitChain(
   const rightRows = rightTable.childCount
   if (leftRows + rightRows !== expectedRows) {
     throw new Error(
-      `[tablePageSplitPlugin] row-count invariant violated: expected ${expectedRows}, got ${leftRows} + ${rightRows} = ${leftRows + rightRows}`,
+      '[tablePageSplitPlugin] row-count invariant violated: ' +
+        `expected ${expectedRows}, got ${leftRows} + ${rightRows} ` +
+        `= ${leftRows + rightRows}`,
     )
   }
 
