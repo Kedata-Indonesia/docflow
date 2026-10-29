@@ -1,38 +1,26 @@
 import { PageLayout, type EditorLike } from './PageLayout'
-import type { LayoutResult, PageSize } from './types'
-import { getPageSize } from './types'
+import {
+  resolveOverlayConfig,
+  resolvePageSize,
+  sameMargins,
+  samePageSize,
+  type PageOverlayConfig,
+  type PageOverlayData,
+  type ResolvedOverlayConfig,
+  type VisiblePage,
+} from './pageOverlayConfig'
+import type { LayoutResult } from './types'
+import { computeVisiblePages, sameVisiblePages } from './visibleWindow'
 
-export interface PageOverlayConfig {
-  pageSize: PageSize | string
-  margins?: { top: number; bottom: number; left: number; right: number }
-  pageGap?: number
-  headerLeft?: string
-  headerRight?: string
-  footerLeft?: string
-  footerRight?: string
-}
+export type {
+  PageOverlayConfig,
+  PageOverlayData,
+  ResolvedOverlayConfig,
+  VisiblePage,
+} from './pageOverlayConfig'
 
-export interface VisiblePage {
-  index: number
-  top: number
-  height: number
-}
-
-export interface PageOverlayData {
-  totalPages: number
-  visiblePages: VisiblePage[]
-  config: Required<PageOverlayConfig> & { pageSize: PageSize }
-}
-
-/** Ids can be reused, so compare the resolved geometry rather than the reference. */
-const samePageSize = (a: PageSize, b: PageSize): boolean =>
-  a.id === b.id && a.pageWidth === b.pageWidth && a.pageHeight === b.pageHeight
-
-const sameMargins = (
-  a: { top: number; bottom: number; left: number; right: number },
-  b: { top: number; bottom: number; left: number; right: number },
-): boolean =>
-  a.top === b.top && a.bottom === b.bottom && a.left === b.left && a.right === b.right
+/** Throttle handed to `PageLayout` (ms) — layout is measured at most this often. */
+const LAYOUT_THROTTLE_MS = 150
 
 /**
  * Manages virtualized page overlays for a ProseMirror editor.
@@ -45,6 +33,9 @@ const sameMargins = (
  *   const overlay = new VirtualPageOverlay(editor, config, scrollEl, bufferPages?)
  *   overlay.layout().then(data => render(data))
  *   // On scroll: overlay.updateVisible().then(data => render(data))
+ *
+ * Config resolution lives in `./pageOverlayConfig` and the visible-window math in
+ * `./visibleWindow`, so this class only owns the lifecycle.
  */
 export class VirtualPageOverlay {
   pageLayout: PageLayout
@@ -54,7 +45,7 @@ export class VirtualPageOverlay {
    */
   onVisibleChange?: (data: PageOverlayData) => void
 
-  private config: Required<PageOverlayConfig> & { pageSize: PageSize }
+  private config: ResolvedOverlayConfig
   private scrollEl: HTMLElement
   private editorEl: HTMLElement
   private bufferPages: number
@@ -71,29 +62,11 @@ export class VirtualPageOverlay {
     scrollEl: HTMLElement,
     bufferPages = 2,
   ) {
-    const ps = typeof config.pageSize === 'string'
-      ? (getPageSize(config.pageSize) ?? { id: 'a4', name: 'A4', pageWidth: 794, pageHeight: 1123 })
-      : config.pageSize
-
-    this.config = {
-      pageSize: ps,
-      margins: config.margins ?? { top: 20, bottom: 20, left: 50, right: 50 },
-      pageGap: config.pageGap ?? 50,
-      headerLeft: config.headerLeft ?? '',
-      headerRight: config.headerRight ?? '',
-      footerLeft: config.footerLeft ?? '',
-      footerRight: config.footerRight ?? '',
-    }
-
+    this.config = resolveOverlayConfig(config)
     this.scrollEl = scrollEl
     this.bufferPages = bufferPages
     this.editorEl = editor instanceof HTMLElement ? editor : editor.dom
-
-    this.pageLayout = new PageLayout(editor, {
-      pageHeight: ps.pageHeight,
-      pageWidth: ps.pageWidth,
-      margins: this.config.margins,
-    }, 150)
+    this.pageLayout = this.createPageLayout(this.editorEl)
   }
 
   /** Run or re-run layout measurement. Resolves with current page data. */
@@ -142,9 +115,7 @@ export class VirtualPageOverlay {
     const previousMargins = this.config.margins
 
     if (config.pageSize !== undefined) {
-      this.config.pageSize = typeof config.pageSize === 'string'
-        ? (getPageSize(config.pageSize) ?? this.config.pageSize)
-        : config.pageSize
+      this.config.pageSize = resolvePageSize(config.pageSize, this.config.pageSize)
     }
     if (config.margins) {
       this.config.margins = { ...this.config.margins, ...config.margins }
@@ -157,11 +128,7 @@ export class VirtualPageOverlay {
     const marginsChanged = !sameMargins(this.config.margins, previousMargins)
     if (sizeChanged || marginsChanged) {
       this.pageLayout.destroy()
-      this.pageLayout = new PageLayout(this.editorEl, {
-        pageHeight: this.config.pageSize.pageHeight,
-        pageWidth: this.config.pageSize.pageWidth,
-        margins: this.config.margins,
-      }, 150)
+      this.pageLayout = this.createPageLayout(this.editorEl)
     }
 
     if (config.pageGap !== undefined) this.config.pageGap = config.pageGap
@@ -174,6 +141,19 @@ export class VirtualPageOverlay {
   }
 
   // ── Private ────────────────────────────────────────────────────────────
+
+  /** `PageLayout` bakes page size and margins in, so a rebuild means a new instance. */
+  private createPageLayout(editor: EditorLike | HTMLElement): PageLayout {
+    return new PageLayout(
+      editor,
+      {
+        pageHeight: this.config.pageSize.pageHeight,
+        pageWidth: this.config.pageSize.pageWidth,
+        margins: this.config.margins,
+      },
+      LAYOUT_THROTTLE_MS,
+    )
+  }
 
   private onScroll(): void {
     if (this.rafId) return
@@ -198,34 +178,21 @@ export class VirtualPageOverlay {
   private computeData(): PageOverlayData {
     const pages = this.lastResult?.pages ?? []
     const totalPages = pages.length || 1
-    const ph = this.config.pageSize.pageHeight + this.config.pageGap
-
-    const viewportTop = this.scrollEl.scrollTop
-    const viewportBottom = viewportTop + this.scrollEl.clientHeight
-
-    const visible: VisiblePage[] = []
-    const startPage = Math.max(0, Math.floor(viewportTop / ph) - this.bufferPages)
-    const endPage = Math.min(totalPages, Math.ceil(viewportBottom / ph) + this.bufferPages)
-
-    for (let i = startPage; i < endPage; i++) {
-      visible.push({
-        index: i,
-        top: i * ph,
-        height: ph,
-      })
-    }
+    const visiblePages = computeVisiblePages({
+      totalPages,
+      pageHeight: this.config.pageSize.pageHeight,
+      pageGap: this.config.pageGap,
+      bufferPages: this.bufferPages,
+      scrollTop: this.scrollEl.scrollTop,
+      viewportHeight: this.scrollEl.clientHeight,
+    })
 
     const changed =
-      totalPages !== this.lastTotalPages ||
-      visible.length !== this.lastVisible.length ||
-      visible.some((page, index) => {
-        const previous = this.lastVisible[index]
-        return !previous || previous.index !== page.index || previous.top !== page.top || previous.height !== page.height
-      })
+      totalPages !== this.lastTotalPages || !sameVisiblePages(visiblePages, this.lastVisible)
 
-    this.lastVisible = visible
+    this.lastVisible = visiblePages
     this.lastTotalPages = totalPages
-    const result = { totalPages, visiblePages: visible, config: this.config }
+    const result = { totalPages, visiblePages, config: this.config }
     if (changed) this.onVisibleChange?.(result)
     return result
   }
