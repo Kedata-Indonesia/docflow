@@ -25,9 +25,12 @@ export function boundedContext(
   from: number,
   to: number,
 ): { before: string; after: string } {
+  const docEnd = state.doc.content.size
+  const contextStart = Math.max(0, from - CONTEXT_CHARS)
+  const contextEnd = Math.min(docEnd, to + CONTEXT_CHARS)
   return {
-    before: state.doc.textBetween(Math.max(0, from - CONTEXT_CHARS), from, '\n', ' '),
-    after: state.doc.textBetween(to, Math.min(state.doc.content.size, to + CONTEXT_CHARS), '\n', ' '),
+    before: state.doc.textBetween(contextStart, from, '\n', ' '),
+    after: state.doc.textBetween(to, contextEnd, '\n', ' '),
   }
 }
 

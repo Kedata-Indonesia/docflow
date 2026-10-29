@@ -48,7 +48,10 @@ export function createAIWidgets(editor: Editor): AIWidgets {
     wrap.appendChild(input)
     // Focus after the decoration mounts.
     setTimeout(() => input.focus(), 0)
-    promptWidget = { dom: wrap, stopEvent: (event) => event.target instanceof Node && wrap.contains(event.target) }
+    promptWidget = {
+      dom: wrap,
+      stopEvent: (event) => event.target instanceof Node && wrap.contains(event.target),
+    }
     return promptWidget
   }
 
