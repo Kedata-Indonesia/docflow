@@ -1,98 +1,23 @@
-// The triple-slash reference is required so consumers that compile this
-// source via path aliases (e.g. apps/web vue-tsc) pick up the ambient
-// `declare module 'citeproc'` in ./types/citeproc.d.ts. The plugins package's
-// own tsconfig include also covers it, but cross-package typecheck does not.
-// eslint-disable-next-line @typescript-eslint/triple-slash-reference -- citeproc ambient types must load before the import for path-aliased consumers
-/// <reference path="./types/citeproc.d.ts" />
-import CSL from 'citeproc'
 import type { CslItemData, CslStyleInfo } from '@kedata-indonesia/docflow-core'
-import { CSL_STYLES, CSL_LOCALE_EN_US, DEFAULT_CSL_STYLE } from './csl/index.js'
+import { buildClusterSignature, renderCitations } from './cite/citeRender.js'
+import { StyleRegistry } from './cite/citeStyleRegistry.js'
+import type {
+  ChangeListener,
+  CitationAttrs,
+  CitationCluster,
+  CiteEngineOptions,
+} from './cite/citeTypes.js'
 
 export type { CslStyleInfo }
-
-/**
- * Merge the bundled styles with the ones a host injected (issue #180) — the
- * single place that decides what this engine can render with.
- *
- * Bundled styles stay available unless the host overrides one by id, so a host
- * that passes nothing (or an empty array) behaves exactly as before and nothing
- * has to be fetched at runtime for the defaults to work offline.
- *
- * A malformed entry fails loudly here rather than inside citeproc, where the
- * error would arrive as an empty citation with no clue which style caused it.
- */
-export function resolveCslStyles(extra?: CslStyleInfo[]): Record<string, CslStyleInfo> {
-  const merged: Record<string, CslStyleInfo> = { ...CSL_STYLES }
-  for (const style of extra ?? []) {
-    const id = typeof style?.id === 'string' ? style.id.trim() : ''
-    if (!id || typeof style?.xml !== 'string' || style.xml.trim() === '') {
-      throw new Error(
-        'resolveCslStyles: every style needs a non-empty id and CSL xml (got ' +
-          `id=${JSON.stringify(style?.id)}, xml=${style?.xml === undefined ? 'undefined' : `${
-            typeof style.xml === 'string' ? style.xml.length : typeof style.xml
-          } chars`})`,
-      )
-    }
-    merged[id] = { ...style, id }
-  }
-  return merged
-}
-
-export type CitationMode = 'normal' | 'author-only' | 'suppress-author'
-
-/**
- * Structured citation attributes stored on citation/footnote nodes. Nodes
- * store references only — every rendered string is derived by the engine
- * from CSL-JSON sources + the active CSL style (phase-6 plan §2 decision 1).
- */
-export interface CitationAttrs {
-  sourceId: string | null
-  locator?: string
-  label?: string
-  mode?: CitationMode
-  prefix?: string
-  suffix?: string
-}
-
-export interface CiteEngineOptions {
-  sources?: CslItemData[]
-  style?: string
-  /**
-   * Extra CSL styles for this engine (issue #180). A style whose `id` matches a
-   * bundled one **overrides** it; every other id is added alongside the four
-   * defaults. Omitting this keeps the previous behaviour exactly (offline
-   * bundled styles), and an unknown `style` id always falls back to
-   * `DEFAULT_CSL_STYLE` instead of throwing.
-   */
-  styles?: CslStyleInfo[]
-}
-
-export interface CitationCluster {
-  citationId: string
-  attrs: CitationAttrs
-}
-
-type ChangeListener = () => void
-
-let clusterSeq = 0
-
-/** Stable, unique-enough id for a citation cluster instance in a document. */
-export function nextCitationId(): string {
-  clusterSeq += 1
-  return `cite-${Date.now().toString(36)}-${clusterSeq.toString(36)}`
-}
-
-/**
- * citeproc-js emits a small, fixed set of formatting tags (<i>, <sup>,
- * <span style="font-variant:small-caps;">, plus its <div class="csl-entry">
- * bibliography wrapper). Allow exactly those, escape everything else —
- * source metadata is user input and must never become active markup.
- */
-const CITEPROC_TAG = /^<\/?(i|b|em|strong|sup|sub|span|nobr)( style="font-variant: ?small-caps;?")?\/?>$|^<div class="csl-entry">$|^<\/div>$/
-
-export function sanitizeCiteprocHtml(html: string): string {
-  return html.replace(/<[^>]*>/g, (tag) => (CITEPROC_TAG.test(tag) ? tag : tag.replace(/</g, '&lt;').replace(/>/g, '&gt;')))
-}
+export { resolveCslStyles } from './cite/citeStyles.js'
+export { sanitizeCiteprocHtml } from './cite/citeHtml.js'
+export { nextCitationId } from './cite/citeClusterId.js'
+export type {
+  CitationAttrs,
+  CitationCluster,
+  CitationMode,
+  CiteEngineOptions,
+} from './cite/citeTypes.js'
 
 /**
  * Document-scoped citation engine. Wraps citeproc-js: holds the CSL-JSON
@@ -102,13 +27,14 @@ export function sanitizeCiteprocHtml(html: string): string {
  * truth (phase-6 plan §2 decision 2).
  *
  * The engine is plain TS — no editor/DOM imports — so it is unit-testable
- * headlessly and reusable from any host.
+ * headlessly and reusable from any host. Rendering lives in
+ * `cite/citeRender.ts`, the style bookkeeping in `cite/citeStyleRegistry.ts`,
+ * validation + citeproc construction in `cite/citeStyles.ts`.
  */
 export class CiteEngine {
   private sources = new Map<string, CslItemData>()
-  private style: string
   /** Bundled styles + whatever the host injected (issue #180). */
-  private styles: Record<string, CslStyleInfo>
+  private readonly registry: StyleRegistry
   private clusters = new Map<string, CitationAttrs>()
   private order: string[] = []
   private rendered = new Map<string, string>()
@@ -117,28 +43,25 @@ export class CiteEngine {
   /** All saved sources, including uncited ones (new `bibliography` semantics). */
   private bibliography: string[] = []
   private listeners = new Set<ChangeListener>()
+  private lastSignature = ''
 
   constructor(options: CiteEngineOptions = {}) {
-    this.styles = resolveCslStyles(options.styles)
-    // An unknown id falls back to the default rather than throwing: the style
-    // can arrive from a persisted document written by a host that had more
-    // styles than this one does.
-    this.style = options.style && this.styles[options.style] ? options.style : DEFAULT_CSL_STYLE
+    this.registry = new StyleRegistry({ styles: options.styles, style: options.style })
     this.updateSources(options.sources ?? [], false)
   }
 
   getStyle(): string {
-    return this.style
+    return this.registry.id
   }
 
   /** Every style this engine can render with, bundled + host-injected. */
   getAvailableStyles(): CslStyleInfo[] {
-    return Object.values(this.styles).sort((a, b) => a.id.localeCompare(b.id))
+    return this.registry.list()
   }
 
   /** 'note' styles (Chicago notes-bib) cite via footnotes; 'in-text' cite inline. */
   isNoteStyle(): boolean {
-    return this.styles[this.style]?.category === 'note'
+    return this.registry.isNote
   }
 
   getSource(id: string): CslItemData | undefined {
@@ -159,82 +82,31 @@ export class CiteEngine {
 
   /** Live style switch: reload the CSL, recompute everything, repaint (6A-7). */
   setStyle(styleId: string): void {
-    if (!this.styles[styleId] || styleId === this.style) return
-    this.style = styleId
+    if (!this.registry.setActive(styleId)) return
     this.recompute()
     this.emitChange()
   }
 
   /**
    * Register a CSL style at runtime (issue #251) — the import-file path. The XML
-   * is validated by citeproc *before* the registry is touched, so a malformed
-   * file can never break an open document: the registry, the active style and
-   * the rendered output stay exactly as they were.
+   * is validated *before* the registry is touched, so a malformed file can never
+   * break an open document (see `StyleRegistry.register`).
    *
-   * An id that already exists **replaces** that entry, the same rule as
-   * `CitationPort.styles` / `CiteEngineOptions.styles` (issue #180). Returns the
-   * normalized style (trimmed id, name fallback, category default).
+   * Replacing the active style repaints now; any other registration only
+   * notifies listeners (the picker refreshes through the Vue layer).
    */
   registerStyle(style: CslStyleInfo): CslStyleInfo {
-    const id = typeof style?.id === 'string' ? style.id.trim() : ''
-    if (!id || typeof style?.xml !== 'string' || style.xml.trim() === '') {
-      throw new Error(
-        'registerStyle: every style needs a non-empty id and CSL xml (got ' +
-          `id=${JSON.stringify(style?.id)}, xml=${style?.xml === undefined ? 'undefined' : `${
-            typeof style.xml === 'string' ? style.xml.length : typeof style.xml
-          } chars`})`,
-      )
-    }
-    const normalized: CslStyleInfo = {
-      id,
-      name: typeof style.name === 'string' && style.name.trim() ? style.name.trim() : id,
-      category: style.category === 'note' ? 'note' : 'in-text',
-      xml: style.xml,
-    }
-    // Fail before mutating: citeproc is the authority on whether this XML is a
-    // usable CSL style. Throwing here leaves the registry and the active style
-    // untouched, so an invalid import cannot blank an open document.
-    try {
-      new CSL.Engine(
-        { retrieveLocale: () => CSL_LOCALE_EN_US, retrieveItem: () => undefined },
-        normalized.xml,
-        'en-US',
-      )
-    } catch (error) {
-      const detail = error instanceof Error ? error.message : String(error)
-      throw new Error(
-        `registerStyle: citeproc could not parse the CSL for ${JSON.stringify(id)}: ${detail}`,
-      )
-    }
-    this.styles[id] = normalized
-    // Replacing the active style must repaint now; any other registration only
-    // notifies listeners (the picker refreshes through the Vue layer).
-    if (id === this.style) this.recompute()
+    const normalized = this.registry.register(style)
+    if (normalized.id === this.registry.id) this.recompute()
     this.emitChange()
     return normalized
   }
 
-  /**
-   * Remove a style registered at runtime (issue #361) — the counterpart of
-   * `registerStyle`, for the `.csl` import path. Returns whether the registry
-   * changed.
-   *
-   * Bundled styles cannot be removed: they are the offline fallback every
-   * document can name, and the engine has to keep rendering them. Removing the
-   * active style falls back to `DEFAULT_CSL_STYLE` and repaints, so the
-   * document never keeps pointing at a style that is gone.
-   */
+  /** Remove a runtime-registered style (issue #361). See `StyleRegistry.remove`. */
   removeStyle(id: string): boolean {
-    const styleId = typeof id === 'string' ? id.trim() : ''
-    if (!styleId) return false
-    if (Object.prototype.hasOwnProperty.call(CSL_STYLES, styleId)) return false
-    if (!Object.prototype.hasOwnProperty.call(this.styles, styleId)) return false
-
-    delete this.styles[styleId]
-    if (this.style === styleId) {
-      this.style = DEFAULT_CSL_STYLE
-      this.recompute()
-    }
+    const result = this.registry.remove(id)
+    if (result === 'unchanged') return false
+    if (result === 'removed-active') this.recompute()
     this.emitChange()
     return true
   }
@@ -258,12 +130,7 @@ export class CiteEngine {
    * recomputes only when the ordered signature actually changed.
    */
   syncCitations(ordered: CitationCluster[]): boolean {
-    const signature = ordered
-      .map((c) => {
-        const a = c.attrs
-        return `${c.citationId}|${a.sourceId ?? ''}|${a.locator ?? ''}|${a.label ?? ''}|${a.mode ?? ''}|${a.prefix ?? ''}|${a.suffix ?? ''}`
-      })
-      .join('\n')
+    const signature = buildClusterSignature(ordered)
     if (signature === this.lastSignature) return false
     this.lastSignature = signature
     this.clusters = new Map(ordered.map((c) => [c.citationId, c.attrs]))
@@ -272,8 +139,6 @@ export class CiteEngine {
     this.emitChange()
     return true
   }
-
-  private lastSignature = ''
 
   /** Last computed in-text/note text for a cluster ('' when unknown/missing). */
   renderCluster(citationId: string): string {
@@ -294,82 +159,16 @@ export class CiteEngine {
     for (const cb of this.listeners) cb()
   }
 
-  /**
-   * Rebuild a fresh CSL.Engine and replay all clusters in document order.
-   * citeproc is stateful (ibid., subsequent-short forms), so a full ordered
-   * replay is the only reliable way to keep every cluster consistent after
-   * any edit — the same derived-view pattern used for pagination/collab.
-   */
+  /** Replay the document through a fresh engine and swap in the result. */
   private recompute(): void {
-    const styleInfo = this.styles[this.style]
-    const engine = new CSL.Engine(
-      {
-        retrieveLocale: () => CSL_LOCALE_EN_US,
-        retrieveItem: (id: string) => this.sources.get(id) as Record<string, unknown> | undefined,
-      },
-      styleInfo.xml,
-      'en-US',
-    )
-
-    const next = new Map<string, string>()
-    const pre: Array<[string, number]> = []
-    let noteIndex = 0
-    for (const citationId of this.order) {
-      const attrs = this.clusters.get(citationId)
-      if (!attrs?.sourceId || !this.sources.has(attrs.sourceId)) {
-        next.set(citationId, '')
-        continue
-      }
-      noteIndex += 1
-      try {
-        const [, result] = engine.processCitationCluster(
-          {
-            citationID: citationId,
-            citationItems: [
-              {
-                id: attrs.sourceId,
-                locator: attrs.locator || undefined,
-                label: attrs.label || undefined,
-                prefix: attrs.prefix || undefined,
-                suffix: attrs.suffix || undefined,
-                'suppress-author': attrs.mode === 'suppress-author' || undefined,
-                'author-only': attrs.mode === 'author-only' || undefined,
-              },
-            ],
-            properties: { noteIndex: styleInfo.category === 'note' ? noteIndex : 0 },
-          },
-          pre,
-          [],
-        )
-        pre.push([citationId, noteIndex])
-        // The result lists EVERY cluster whose rendering changed — including
-        // earlier ones flipped by ibid./short-form logic. Apply them all.
-        for (const [, text, id] of result ?? []) {
-          next.set(id, sanitizeCiteprocHtml(text))
-        }
-        if (!next.has(citationId)) next.set(citationId, '')
-      } catch {
-        // A malformed source must never break the whole document render.
-        next.set(citationId, '')
-      }
-    }
-    this.rendered = next
-
-    try {
-      // Cited-only set first (the old bibliography semantics → referenceList).
-      const cited = engine.makeBibliography()
-      this.referenceList = cited ? cited[1].map((entry) => sanitizeCiteprocHtml(entry).trim()) : []
-
-      // Register every saved source so uncited items also land in the
-      // bibliography (issue #252). `updateItems` is part of citeproc's API.
-      if (typeof engine.updateItems === 'function') {
-        engine.updateItems(this.getSourceIds())
-      }
-      const all = engine.makeBibliography()
-      this.bibliography = all ? all[1].map((entry) => sanitizeCiteprocHtml(entry).trim()) : []
-    } catch {
-      this.referenceList = []
-      this.bibliography = []
-    }
+    const result = renderCitations({
+      styleInfo: this.registry.info,
+      sources: this.sources,
+      clusters: this.clusters,
+      order: this.order,
+    })
+    this.rendered = result.rendered
+    this.referenceList = result.referenceList
+    this.bibliography = result.bibliography
   }
 }
