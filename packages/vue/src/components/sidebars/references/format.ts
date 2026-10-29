@@ -68,9 +68,15 @@ export function emptyForm(): ReferenceFormState {
   }
 }
 
+/** CSL dates are either `date-parts` or a free-form `raw`/`literal` string. */
+function yearFromText(value: string | undefined): string {
+  return value?.match(/(?:^|\D)(\d{4})(?:\D|$)/)?.[1] ?? ''
+}
+
 export function yearOf(source: CslItemData): string {
-  const parts = source.issued?.['date-parts']?.[0]
-  return parts?.[0] ? String(parts[0]) : ''
+  const year = source.issued?.['date-parts']?.[0]?.[0]
+  if (year) return String(year)
+  return yearFromText(source.issued?.raw) || yearFromText(source.issued?.literal)
 }
 
 export function authorLabel(source: CslItemData, t: Translate): string {
@@ -87,21 +93,27 @@ export function typeLabel(type: string, t: Translate): string {
   return translated === key ? type : translated
 }
 
+/** Fold case and collapse runs of whitespace so a sloppy query still matches. */
+function normalizeForSearch(value: string): string {
+  return value.trim().toLowerCase().replace(/\s+/g, ' ')
+}
+
 /** Case-insensitive match across the fields a user actually recognises. */
 export function matchesQuery(source: CslItemData, query: string): boolean {
-  const q = query.trim().toLowerCase()
+  const q = normalizeForSearch(query)
   if (!q) return true
-  const haystack = [
-    source.title,
-    source['container-title'],
-    source.publisher,
-    source.DOI,
-    source.URL,
-    ...(source.author ?? []).map((a) => `${a.family ?? ''} ${a.given ?? ''} ${a.literal ?? ''}`),
-  ]
-    .filter(Boolean)
-    .join(' ')
-    .toLowerCase()
+  const haystack = normalizeForSearch(
+    [
+      source.title,
+      source['container-title'],
+      source.publisher,
+      source.DOI,
+      source.URL,
+      ...(source.author ?? []).map((a) => `${a.family ?? ''} ${a.given ?? ''} ${a.literal ?? ''}`),
+    ]
+      .filter(Boolean)
+      .join(' '),
+  )
   return haystack.includes(q)
 }
 
