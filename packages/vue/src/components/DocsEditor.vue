@@ -13,27 +13,25 @@ import { useSuggestions } from '../composables/useSuggestions.js'
 import { useEditCommands } from '../composables/useEditCommands.js'
 import { useDocsEditorMenu } from '../composables/useDocsEditorMenu.js'
 import { useTableMenu } from '../composables/useTableMenu.js'
-import VirtualPageOverlay from './VirtualPageOverlay.vue'
-import { computed, ref, watch } from 'vue'
+import { useDocsEditorLocale } from '../composables/useDocsEditorLocale.js'
+import { useDocsEditorMode, useDocsEditorSuggestSync } from '../composables/useDocsEditorMode.js'
 import SlashMenuVue from './SlashMenu.vue'
-import HeaderBar from './HeaderBar.vue'
-import EditorToolbar from './EditorToolbar.vue'
 import BubbleMenu from './BubbleMenu.vue'
 import TableMenu from './TableMenu.vue'
 import StatusBar from './StatusBar.vue'
 import RulerBar from './RulerBar.vue'
-import VerticalRuler from './VerticalRuler.vue'
 import TOCSidebar from './sidebars/TOCSidebar.vue'
 import DocsEditorSidebars from './DocsEditorSidebars.vue'
 import DocsEditorDialogs from './DocsEditorDialogs.vue'
+import DocsEditorPaper from './docsEditor/DocsEditorPaper.vue'
+import DocsEditorTopBar from './docsEditor/DocsEditorTopBar.vue'
 import FindReplaceDialog from './FindReplaceDialog.vue'
-import { Menu, Minimize2 } from 'lucide-vue-next'
-import { provideLocale } from '../composables/useLocale.js'
+import { Menu } from 'lucide-vue-next'
 import { provideTheme } from '../composables/useTheme.js'
 import { docsEditorPropDefaults, type DocsEditorEmits, type DocsEditorProps } from './docsEditorContracts.js'
 import type { ReferencesSidebarSlotProps } from '../types.js'
 import type { HeaderFooterValues } from '../composables/useDocumentModel.js'
-import type { DocumentMode } from '@kedata-indonesia/docflow-core'
+import { computed, ref } from 'vue'
 
 const props = withDefaults(defineProps<DocsEditorProps>(), docsEditorPropDefaults)
 
@@ -45,20 +43,10 @@ const emit = defineEmits<DocsEditorEmits>()
 const theme = provideTheme(() => props.theme)
 
 // Provide locale context for all editor chrome components.
-const { locale: currentLocale, setLocale, t } = provideLocale(props.locale)
-
-watch(
+const { t } = useDocsEditorLocale(
   () => props.locale,
-  (next) => {
-    if (next && next !== currentLocale.value) {
-      setLocale(next)
-    }
-  },
+  (locale) => emit('update:locale', locale),
 )
-
-watch(currentLocale, (next) => {
-  emit('update:locale', next)
-})
 
 // ─── Page surface: size / orientation / margins → layout + pagination ────────
 const {
@@ -75,28 +63,15 @@ const {
   getStartInlineFooterEdit: () => startInlineFooterEdit,
 }, theme)
 
-// ─── Editor session: document model → editor → citations → bubble / link ─────
-// Document mode (#27/#28). Controlled: an explicit `mode` prop wins. Uncontrolled:
-// the View ▸ Document mode menu drives internal state, so the menu works even
-// when the host does not bind `v-model:mode`. `editable === false` maps to
-// `viewing` for backwards compatibility.
-const internalMode = ref<DocumentMode>('editing')
-const documentMode = computed<DocumentMode>(
-  () => props.mode ?? (props.editable === false ? 'viewing' : internalMode.value),
-)
-const effectiveEditable = computed(() =>
-  documentMode.value === 'viewing' ? false : (props.editable ?? true),
-)
-// Insert ▸ Bibliography is only meaningful when the citation plugin (which
-// registers the node + insertBibliography command) is part of the plugin set.
-const hasCitationPlugin = computed(
-  () => props.plugins?.some((plugin) => plugin.id === 'citation') ?? false,
-)
-const setDocumentMode = (mode: DocumentMode) => {
-  internalMode.value = mode
-  emit('update:mode', mode)
-}
+// ─── Document mode (#27/#28) ─────────────────────────────────────────────────
+const { documentMode, effectiveEditable, hasCitationPlugin, setDocumentMode } = useDocsEditorMode({
+  getMode: () => props.mode,
+  getEditable: () => props.editable,
+  getPlugins: () => props.plugins,
+  emitMode: (mode) => emit('update:mode', mode),
+})
 
+// ─── Editor session: document model → editor → citations → bubble / link ─────
 const {
   initialDoc, persistCurrentDoc, updateCounts, saveTimer, slashCommands, wordCount, charCount, savingStatus,
   lastSaved, activeSidebar, showRuler, focusMode, scrollContainerRef, handleScroll, toggleSidebar, handlePrint,
@@ -130,6 +105,14 @@ const {
   }),
 })
 
+// Push the mode + author into the suggestChanges plugin once the editor exists.
+useDocsEditorSuggestSync({
+  isReady,
+  getDocumentMode: () => documentMode.value,
+  getEditor: () => editor.value,
+  getUserName: () => props.userName,
+})
+
 const pageCount = ref(1)
 const currentPage = ref(1)
 
@@ -154,6 +137,17 @@ const { pageLeft: rulerPageLeft, pageWidth: rulerPageWidth } = useRulerSync({
   watchSource: () => `${zoom.value}:${pageSizeId.value}:${orientation.value}:${isPageless.value}`,
 })
 
+/**
+ * Element refs handed to the page surface. A plain bundle object: refs passed
+ * directly from a template are unwrapped, which would leave the child with
+ * `null` instead of the shared `Ref` the composables above read.
+ */
+const paperRefs = {
+  scroll: scrollContainerRef,
+  surface: zoomSurfaceRef,
+  editor: editorRef,
+}
+
 // Document details must reflect the document currently open in the editor.
 // Word/char/page counts already live in the editor (the same values the status
 // bar uses); the host-supplied meta still provides title/owner/folder/dates.
@@ -165,17 +159,6 @@ const detailsMeta = computed(() => {
     charCount: charCount.value,
     pageCount: pageCount.value,
   }
-})
-
-// Push the mode + author into the suggestChanges plugin (issues #27/#28). The
-// plugin is inert in `editing` mode, so this is a no-op for existing hosts.
-watch([isReady, documentMode], ([ready, mode]) => {
-  if (!ready) return
-  editor.value?.commands.setDocumentMode?.(mode)
-})
-watch([isReady, () => props.userName], ([ready, name]) => {
-  if (!ready) return
-  editor.value?.commands.setSuggestionAuthor?.({ name: name ?? null })
 })
 
 // Host-supplied `#references-sidebar` slot (issue #22). Evaluated inline in the
@@ -317,19 +300,23 @@ void [openHeaderFormatModal, openPageNumberModal]
     class="docs-editor flex h-screen w-full flex-col overflow-hidden bg-slate-50 transition-colors dark:bg-[#02040a]"
     :class="{ dark: isDark }"
   >
-    <HeaderBar
-      v-if="!focusMode"
-      :title="title" :editable="editable" :collaborators="collaborators" :starred="starred" :user-name="userName" :user-avatar="userAvatar"
-      :pageless="isPageless" :outline-open="activeSidebar === 'toc'" :show-ruler="showRuler" :focus-mode="focusMode" :mode="documentMode"
-      :has-citation-plugin="hasCitationPlugin"
+    <DocsEditorTopBar
+      v-model:focus-mode="focusMode"
+      :title="title" :editable="editable" :collaborators="collaborators" :starred="starred"
+      :user-name="userName" :user-avatar="userAvatar"
+      :pageless="isPageless" :outline-open="activeSidebar === 'toc'" :show-ruler="showRuler"
+      :mode="documentMode" :has-citation-plugin="hasCitationPlugin"
       :unimplemented-actions="unimplementedActions"
-      @menu-click="menuClick" @back="$emit('back')" @update:title="$emit('update:title', $event)" @toggle-star="$emit('toggle-star')"
-      @export="$emit('export', $event)" @share="$emit('share')"><template #actions><slot name="header-actions" /></template><template #overflow-actions="slotProps"><slot name="overflow-actions" v-bind="slotProps" /></template><template #user-menu="slotProps"><slot name="user-menu" v-bind="slotProps" /></template></HeaderBar>
-    <EditorToolbar
-      v-if="!focusMode"
-      :actions="pluginActions" :plugins="plugins" :editor="editor" :active-sidebar="activeSidebar"
-      :zoom="zoom" :zoom-disabled="zoomDisabled"
-      @toggle-sidebar="toggleSidebar" @print="handlePrint" @update:zoom="setZoom" />
+      :actions="pluginActions" :plugins="plugins" :editor="editor"
+      :active-sidebar="activeSidebar" :zoom="zoom" :zoom-disabled="zoomDisabled"
+      @menu-click="menuClick" @back="$emit('back')" @update:title="$emit('update:title', $event)"
+      @toggle-star="$emit('toggle-star')" @export="$emit('export', $event)" @share="$emit('share')"
+      @toggle-sidebar="toggleSidebar" @print="handlePrint" @update:zoom="setZoom"
+    >
+      <template #header-actions><slot name="header-actions" /></template>
+      <template #overflow-actions="slotProps"><slot name="overflow-actions" v-bind="slotProps" /></template>
+      <template #user-menu="slotProps"><slot name="user-menu" v-bind="slotProps" /></template>
+    </DocsEditorTopBar>
     <div v-if="showRuler && !focusMode" ref="rulerRef" class="w-full flex-shrink-0">
       <RulerBar
         :layout-options="resolvedLayoutOptions"
@@ -339,15 +326,6 @@ void [openHeaderFormatModal, openPageNumberModal]
         @update:margins="applyRulerMargins"
       />
     </div>
-    <!-- Floating exit button shown only while focus mode is active -->
-    <button
-      v-if="focusMode" type="button"
-      class="fixed right-4 top-4 z-50 flex h-11 w-11 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-md transition-colors hover:bg-slate-100 dark:border-white/10 dark:bg-[#0e1525] dark:text-slate-300 dark:hover:bg-white/5"
-      :title="t('header.focusMode')" :aria-label="t('header.focusMode')"
-      @click="focusMode = false"
-    >
-      <Minimize2 class="h-5 w-5" />
-    </button>
     <BubbleMenu :visible="showBubbleMenu" :actions="pluginActions" :position="bubblePosition" :editor="editor" />
     <TableMenu :editor="editor" :position="showTableMenu ? tableMenuPosition : null" />
     <SlashMenuVue :editor="editor" :commands="slashCommands" />
@@ -369,27 +347,16 @@ void [openHeaderFormatModal, openPageNumberModal]
         <Menu class="h-5 w-5" />
       </button>
 
-      <div ref="scrollContainerRef" class="docs-editor-scroll relative flex flex-1 overflow-auto px-4 py-6 bg-slate-100 dark:bg-[#02040a]" @scroll="handleScroll">
-        <VerticalRuler v-if="showRuler && !focusMode" :layout-options="resolvedLayoutOptions" :zoom="zoom" />
-        <div class="flex flex-1 flex-col items-center gap-4 w-full relative">
-          <div class="docs-editor-zoom w-full" data-testid="docs-editor-zoom" :style="zoomOuterStyle">
-            <div
-              ref="zoomSurfaceRef"
-              class="docs-editor-zoom__inner relative w-full"
-              :style="[zoomInnerStyle, { maxWidth: paperMaxWidth }]"
-            >
-              <!-- Virtual Page Overlay (experimental) — renders only visible pages,
-                   absolutely positioned over the editor, behind content (z-index: 0) -->
-              <VirtualPageOverlay v-if="useVirtual" :data="virtualData" :is-ready="virtualReady" />
-              <!-- Loading Indicator Overlay -->
-              <div v-if="!isReady" class="absolute inset-0 z-10 flex flex-col items-center justify-center bg-white dark:bg-[#0e1525]/60 backdrop-blur-[2px] gap-3 rounded-lg" :aria-label="t('editor.loadingDocument')"></div>
-
-              <!-- Editor -->
-              <div ref="editorRef" class="docs-editor__paper outline-none text-slate-800 dark:text-[#e2e8f0]" :class="{ 'opacity-40': !isReady }" />
-            </div>
-          </div>
-        </div>
-      </div>
+      <DocsEditorPaper
+        :element-refs="paperRefs"
+        :outer-style="zoomOuterStyle" :inner-style="zoomInnerStyle"
+        :paper-max-width="paperMaxWidth"
+        :show-ruler="showRuler" :focus-mode="focusMode"
+        :layout-options="resolvedLayoutOptions" :zoom="zoom"
+        :use-virtual="useVirtual" :virtual-data="virtualData" :virtual-ready="virtualReady"
+        :is-ready="isReady"
+        @scroll="handleScroll"
+      />
 
       <!-- Right-hand sidebar stack: references / comments / history / AI chat.
            The child gates each sidebar with a v-if, so the rendered node list
@@ -459,13 +426,3 @@ void [openHeaderFormatModal, openPageNumberModal]
     />
   </div>
 </template>
-
-<style scoped>
-.docs-editor__paper {
-  background-color: #ffffff !important;
-  border-radius: 4px;
-}
-:global(.dark) .docs-editor__paper {
-  background-color: #1e293b !important;
-}
-</style>

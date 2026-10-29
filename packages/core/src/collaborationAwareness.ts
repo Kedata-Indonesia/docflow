@@ -5,12 +5,13 @@ export interface AwarenessState {
   user: { name: string; color: string }
   cursor?: { from: number; to: number } | null
   /**
-   * Phase 9 PR2 — *present* flag. False when the local user has navigated
-   * away from the editor route (the Yjs provider is still alive but the
-   * host has gated cursor emission off, per the §6 *"TOC sidebar orphan
-   * wiring"* / REST-heartbeat scope notes). Peers see this instantly
-   * via the awareness `change` event — far faster than the 15s REST
-   * heartbeat fallback. Defaults to true when the user is in the editor.
+   * Phase 9 PR2 — presence marker.
+   *
+   * It is `true` for every peer that still holds an awareness state, and a
+   * peer that leaves disappears from the list entirely (`destroy()` →
+   * `setLocalState(null)`), so this never reads `false` in practice. Kept for
+   * backwards compatibility with consumers that read it — treat "state is
+   * absent from the array" as the real leave signal.
    */
   present: boolean
 }

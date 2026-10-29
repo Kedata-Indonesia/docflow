@@ -1,46 +1,31 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import {
-  BookOpen,
-  X,
-  Search,
-  Plus,
-  Pencil,
-  Trash2,
-  Quote,
-  ChevronLeft,
-  ChevronDown,
-  Globe,
-  FileUp,
-} from 'lucide-vue-next'
-import {
-  BIBLIOGRAPHY_FILE_ACCEPT,
-  detectBibliographyFormat,
-  type BibliographyFormat,
-  type CslItemData,
-  type CslName,
-} from '@kedata-indonesia/docflow-core'
+import { BookOpen, X, Search, Plus } from 'lucide-vue-next'
+import type { BibliographyFormat, CslItemData } from '@kedata-indonesia/docflow-core'
 import { useLocale } from '../../composables/useLocale.js'
-import { FIELD_INPUT, FIELD_LABEL } from '../../styles/classes.js'
 import type { ConfirmDestructiveFn } from '../../types.js'
 import ConfirmDialog from '../ConfirmDialog.vue'
+import ReferenceForm from './references/ReferenceForm.vue'
+import ReferenceImportPanel from './references/ReferenceImportPanel.vue'
+import ReferenceListItem from './references/ReferenceListItem.vue'
+import ReferenceStylePicker from './references/ReferenceStylePicker.vue'
+import { matchesQuery, type ReferenceStyleOption } from './references/format.js'
 
 /**
  * Reference manager — a backend-agnostic UI shell (Phase 6B-3). It owns no
  * data and no editor access: sources + the active style come in as props,
  * every mutation goes out as an event. Hosts (apps/web with the REST API,
  * apps/demo in-memory) wire the events to their persistence.
+ *
+ * The dense panels live next door so this file stays the composition root:
+ * `references/ReferenceStylePicker.vue` (style select/import/remove),
+ * `references/ReferenceListItem.vue` (row), `references/ReferenceForm.vue`
+ * (create/edit) and `references/ReferenceImportPanel.vue` (host-gated import).
+ * Pure helpers and the shared option type live in `references/format.ts`.
  */
 
-export interface ReferenceStyleOption {
-  id: string
-  name: string
-  /**
-   * Issue #361 — true for styles the user imported, which they may remove. The
-   * bundled four are the offline fallback and stay put.
-   */
-  removable?: boolean
-}
+/** Kept exported from here so existing import sites stay valid. */
+export type { ReferenceStyleOption } from './references/format.js'
 
 const props = withDefaults(
   defineProps<{
@@ -95,174 +80,36 @@ const emit = defineEmits<{
 
 const { t } = useLocale()
 
-/**
- * Issue #361 — the remove control appears only for the style currently in use,
- * and only when the user imported it (the bundled four are never removable).
- */
-const activeStyleRemovable = computed(
-  () => props.availableStyles?.find((style) => style.id === props.activeStyle)?.removable === true,
-)
-
 // ─── List / search ──────────────────────────────────────────────────────────
 
 const searchQuery = ref('')
 
-const sourceTypes = [
-  'book',
-  'article-journal',
-  'chapter',
-  'webpage',
-  'report',
-  'thesis',
-  'document',
-] as const
-
-function authorLabel(source: CslItemData): string {
-  const authors = source.author ?? []
-  if (authors.length === 0) return t('sidebars.references.anonymous')
-  const first = authors[0]
-  const name = first.family ?? first.literal ?? ''
-  return authors.length > 1 ? `${name} ${t('sidebars.references.etAl')}` : name
-}
-
-function yearOf(source: CslItemData): string {
-  const parts = source.issued?.['date-parts']?.[0]
-  return parts?.[0] ? String(parts[0]) : ''
-}
-
-function typeLabel(type: string): string {
-  const key = `sidebars.references.types.${type}`
-  const translated = t(key)
-  return translated === key ? type : translated
-}
-
-const filteredSources = computed(() => {
-  const q = searchQuery.value.trim().toLowerCase()
-  if (!q) return props.sources
-  return props.sources.filter((s) => {
-    const haystack = [
-      s.title,
-      s['container-title'],
-      s.publisher,
-      s.DOI,
-      s.URL,
-      ...(s.author ?? []).map((a) => `${a.family ?? ''} ${a.given ?? ''} ${a.literal ?? ''}`),
-    ]
-      .filter(Boolean)
-      .join(' ')
-      .toLowerCase()
-    return haystack.includes(q)
-  })
-})
+const filteredSources = computed(() =>
+  props.sources.filter((source) => matchesQuery(source, searchQuery.value)),
+)
 
 // ─── Form (create / edit) ───────────────────────────────────────────────────
 
 const mode = ref<'list' | 'form'>('list')
-const editingId = ref<string | null>(null)
-
-interface AuthorRow { family: string; given: string }
-
-const formType = ref<string>('book')
-const formTitle = ref('')
-const formAuthors = ref<AuthorRow[]>([{ family: '', given: '' }])
-const formYear = ref('')
-const formPublisher = ref('')
-const formPublisherPlace = ref('')
-const formContainerTitle = ref('')
-const formVolume = ref('')
-const formIssue = ref('')
-const formPage = ref('')
-const formDOI = ref('')
-const formURL = ref('')
-
-function resetForm() {
-  formType.value = 'book'
-  formTitle.value = ''
-  formAuthors.value = [{ family: '', given: '' }]
-  formYear.value = ''
-  formPublisher.value = ''
-  formPublisherPlace.value = ''
-  formContainerTitle.value = ''
-  formVolume.value = ''
-  formIssue.value = ''
-  formPage.value = ''
-  formDOI.value = ''
-  formURL.value = ''
-}
+/** `null` while creating; the form keys off the id so it remounts per source. */
+const editingSource = ref<CslItemData | null>(null)
 
 function openCreate() {
-  editingId.value = null
-  resetForm()
+  editingSource.value = null
   mode.value = 'form'
 }
 
 function openEdit(source: CslItemData) {
-  editingId.value = source.id
-  formType.value = source.type || 'book'
-  formTitle.value = source.title ?? ''
-  formAuthors.value = (source.author ?? [])
-    .filter((a) => !a.literal)
-    .map((a) => ({ family: a.family ?? '', given: a.given ?? '' }))
-  const literal = (source.author ?? []).find((a) => a.literal)
-  if (formAuthors.value.length === 0) {
-    formAuthors.value = [{ family: literal?.literal ?? '', given: '' }]
-  }
-  formYear.value = yearOf(source)
-  formPublisher.value = source.publisher ?? ''
-  formPublisherPlace.value = source['publisher-place'] ?? ''
-  formContainerTitle.value = source['container-title'] ?? ''
-  formVolume.value = source.volume ?? ''
-  formIssue.value = source.issue ?? ''
-  formPage.value = source.page ?? ''
-  formDOI.value = source.DOI ?? ''
-  formURL.value = source.URL ?? ''
+  editingSource.value = source
   mode.value = 'form'
 }
 
-function addAuthor() {
-  formAuthors.value.push({ family: '', given: '' })
+function closeForm() {
+  mode.value = 'list'
 }
 
-function removeAuthor(index: number) {
-  formAuthors.value.splice(index, 1)
-  if (formAuthors.value.length === 0) formAuthors.value.push({ family: '', given: '' })
-}
-
-const showPublisherFields = computed(() => ['book', 'chapter', 'report', 'thesis', 'document'].includes(formType.value))
-const showContainerFields = computed(() => ['article-journal', 'chapter'].includes(formType.value))
-const showLocatorFields = computed(() => ['article-journal', 'chapter'].includes(formType.value))
-const showUrlField = computed(() => ['webpage', 'report'].includes(formType.value))
-
-const formValid = computed(() => formTitle.value.trim().length > 0)
-
-function buildSource(): CslItemData {
-  const authors: CslName[] = formAuthors.value
-    .filter((a) => a.family.trim() || a.given.trim())
-    .map((a) => ({ family: a.family.trim(), given: a.given.trim() }))
-  const year = parseInt(formYear.value, 10)
-
-  const source: CslItemData = {
-    id: editingId.value ?? crypto.randomUUID(),
-    type: formType.value,
-    title: formTitle.value.trim(),
-  }
-  if (authors.length > 0) source.author = authors
-  if (Number.isFinite(year)) source.issued = { 'date-parts': [[year]] }
-  if (formPublisher.value.trim()) source.publisher = formPublisher.value.trim()
-  if (formPublisherPlace.value.trim()) source['publisher-place'] = formPublisherPlace.value.trim()
-  if (formContainerTitle.value.trim()) source['container-title'] = formContainerTitle.value.trim()
-  if (formVolume.value.trim()) source.volume = formVolume.value.trim()
-  if (formIssue.value.trim()) source.issue = formIssue.value.trim()
-  if (formPage.value.trim()) source.page = formPage.value.trim()
-  if (formDOI.value.trim()) source.DOI = formDOI.value.trim()
-  if (formURL.value.trim()) source.URL = formURL.value.trim()
-  return source
-}
-
-function submitForm() {
-  if (!formValid.value) return
-  const source = buildSource()
-  if (editingId.value) {
+function saveForm(source: CslItemData) {
+  if (editingSource.value) {
     emit('update', source)
   } else {
     emit('create', source)
@@ -302,66 +149,6 @@ function onRemoveConfirmed() {
   pendingRemoval.value = null
   if (source) emit('remove', source.id)
 }
-
-// ─── Import (Phase 6C) ──────────────────────────────────────────────────────
-
-const importOpen = ref(false)
-const doiInput = ref('')
-const referenceFileInput = ref<HTMLInputElement | null>(null)
-const fileError = ref('')
-
-function submitDoiImport() {
-  const doi = doiInput.value.trim()
-  if (!doi || props.importing) return
-  emit('import-doi', doi)
-  doiInput.value = ''
-}
-
-function pickReferenceFile() {
-  if (props.importing) return
-  referenceFileInput.value?.click()
-}
-
-async function handleReferenceFileChange(event: Event) {
-  const input = event.target as HTMLInputElement
-  const file = input.files?.[0]
-  input.value = '' // allow re-picking the same file
-  if (!file) return
-
-  // Issue #353 — detect the format instead of assuming BibTeX/RIS: a `.json`
-  // file used to be sent to the host labelled `bibtex`.
-  const text = await file.text()
-  const format = detectBibliographyFormat(file.name, text)
-  if (!format) {
-    fileError.value = t('sidebars.references.import.unsupportedFile')
-    return
-  }
-  fileError.value = ''
-  emit('import-bibliography', { format, text })
-}
-
-// Issue #251 — a `.csl` style file is parsed + registered by the library (no
-// host port), so this control lives with the style picker, not in the
-// host-gated Import footer above.
-const styleFileInput = ref<HTMLInputElement | null>(null)
-
-function pickStyleFile() {
-  styleFileInput.value?.click()
-}
-
-async function handleStyleFileChange(event: Event) {
-  const input = event.target as HTMLInputElement
-  const file = input.files?.[0]
-  input.value = '' // allow re-picking the same file
-  if (!file) return
-  try {
-    const text = await file.text()
-    emit('import-style', { text, filename: file.name })
-  } catch {
-    // An unreadable file is not a valid style; let the composable report it.
-    emit('import-style', { text: '', filename: file.name })
-  }
-}
 </script>
 
 <template>
@@ -387,64 +174,15 @@ async function handleStyleFileChange(event: Event) {
 
     <!-- ═══ LIST MODE ═══ -->
     <template v-if="mode === 'list'">
-      <!-- Citation style selector -->
-      <div class="border-b border-slate-100 px-4 pb-3 pt-3 dark:border-white/5">
-        <label class="mb-1.5 block text-[9px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">
-          {{ t('sidebars.references.citationStyle') }}
-        </label>
-        <div class="flex items-center gap-2">
-          <select
-            data-testid="citation-style-select"
-            :value="activeStyle"
-            class="min-w-0 flex-1 rounded-xl border border-slate-200/80 bg-slate-50 px-3 py-2 text-xs text-slate-700 transition-all focus:outline-none focus:ring-1 focus:ring-cyan-500/50 dark:border-white/10 dark:bg-slate-900/40 dark:text-slate-200"
-            @change="emit('update:style', ($event.target as HTMLSelectElement).value)"
-          >
-            <option v-for="style in availableStyles" :key="style.id" :value="style.id">{{ style.name }}</option>
-          </select>
-          <!-- Issue #361 — remove the imported style that is currently active.
-               Bundled styles never offer this. -->
-          <button
-            v-if="activeStyleRemovable"
-            type="button"
-            data-testid="citation-style-remove-button"
-            class="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-400 transition-colors hover:border-red-300 hover:bg-red-50 hover:text-red-500 dark:border-white/10 dark:hover:border-red-500/40 dark:hover:bg-red-500/10"
-            :title="t('sidebars.references.removeStyle')"
-            :aria-label="t('sidebars.references.removeStyle')"
-            @click="emit('remove-style', activeStyle)"
-          >
-            <Trash2 class="h-3.5 w-3.5" />
-          </button>
-        </div>
-        <!-- Issue #251 — import a CSL style; parsed + registered by the library,
-             so it is not gated on the host's reference-import ports. -->
-        <button
-          type="button"
-          data-testid="citation-style-import-button"
-          class="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-slate-300 px-3 py-1.5 text-[10px] font-semibold text-slate-500 transition-colors hover:border-slate-400 hover:text-slate-700 dark:border-white/15 dark:text-slate-400 dark:hover:border-white/30 dark:hover:text-slate-200"
-          :title="t('sidebars.references.styleImport.title')"
-          :aria-label="t('sidebars.references.styleImport.title')"
-          @click="pickStyleFile"
-        >
-          <FileUp class="h-3.5 w-3.5" />
-          {{ t('sidebars.references.styleImport.pick') }}
-        </button>
-        <input
-          ref="styleFileInput"
-          data-testid="citation-style-import-input"
-          type="file"
-          accept=".csl,.bst,.ens,application/xml,text/xml"
-          class="hidden"
-          @change="handleStyleFileChange"
-        >
-        <p
-          v-if="styleImportMessage"
-          data-testid="citation-style-import-message"
-          role="status"
-          class="mt-2 text-[10px] leading-relaxed text-slate-500 dark:text-slate-400"
-        >
-          {{ styleImportMessage }}
-        </p>
-      </div>
+      <!-- Citation style selector (select / import / remove) -->
+      <ReferenceStylePicker
+        :active-style="activeStyle"
+        :available-styles="availableStyles"
+        :style-import-message="styleImportMessage"
+        @update:style="emit('update:style', $event)"
+        @remove-style="emit('remove-style', $event)"
+        @import-style="emit('import-style', $event)"
+      />
 
       <!-- Search + add -->
       <div class="flex items-center gap-2 px-4 pb-2 pt-3">
@@ -501,327 +239,37 @@ async function handleStyleFileChange(event: Event) {
 
         <!-- Issue #386 — survives removing a source row, so focus can land here. -->
         <div v-else data-confirm-fallback class="space-y-2 font-sans">
-          <div
+          <ReferenceListItem
             v-for="source in filteredSources"
             :key="source.id"
-            class="group rounded-xl border border-slate-200/80 bg-slate-50/60 p-3 transition-all hover:border-slate-300 dark:border-white/10 dark:bg-white/[0.02] dark:hover:border-white/20"
-          >
-            <div class="min-w-0 flex-1">
-              <p class="truncate text-xs font-semibold text-slate-800 dark:text-slate-200" :title="source.title">
-                {{ source.title }}
-              </p>
-              <p class="mt-0.5 truncate text-[10px] text-slate-500 dark:text-slate-400">
-                {{ authorLabel(source) }}<span v-if="yearOf(source)"> ({{ yearOf(source) }})</span>
-                <span v-if="source['container-title']"> · {{ source['container-title'] }}</span>
-                <span v-else-if="source.publisher"> · {{ source.publisher }}</span>
-              </p>
-              <span class="mt-1.5 inline-block rounded bg-slate-200/70 px-1.5 py-0.5 text-[9px] font-mono uppercase tracking-wide text-slate-500 dark:bg-white/10 dark:text-slate-400">
-                {{ typeLabel(source.type) }}
-              </span>
-            </div>
-            <div class="mt-2.5 flex items-center gap-1.5">
-              <button
-                type="button"
-                class="flex flex-1 items-center justify-center gap-1 rounded-lg px-2 py-1.5 text-[10px] font-semibold transition-colors"
-                :class="pickerMode
-                  ? 'bg-blue-600 text-white hover:bg-blue-700'
-                  : 'bg-slate-200/80 text-slate-700 hover:bg-blue-600 hover:text-white dark:bg-white/10 dark:text-slate-300 dark:hover:bg-blue-600'"
-                @click="emit('insert', source.id)"
-              >
-                <Quote class="h-3 w-3" /> {{ t('sidebars.references.cite') }}
-              </button>
-              <button
-                type="button"
-                class="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-200 hover:text-slate-600 dark:hover:bg-white/10 dark:hover:text-white"
-                :title="t('sidebars.references.edit')"
-                :aria-label="t('sidebars.references.edit')"
-                @click="openEdit(source)"
-              >
-                <Pencil class="h-3.5 w-3.5" />
-              </button>
-              <button
-                type="button"
-                class="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10"
-                :title="t('sidebars.references.delete')"
-                :aria-label="t('sidebars.references.delete')"
-                @click="handleRemove(source)"
-              >
-                <Trash2 class="h-3.5 w-3.5" />
-              </button>
-            </div>
-          </div>
+            :source="source"
+            :picker-mode="pickerMode"
+            @insert="emit('insert', $event)"
+            @edit="openEdit"
+            @remove="handleRemove"
+          />
         </div>
       </div>
 
       <!-- Import (Phase 6C) — collapsible footer; only when the host
            implements the import ports -->
-      <div v-if="canImport" class="border-t border-slate-200 dark:border-white/5">
-        <button
-          type="button"
-          data-testid="import-toggle"
-          class="flex w-full items-center justify-between px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest text-slate-400 transition-colors hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
-          @click="importOpen = !importOpen"
-        >
-          <span>{{ t('sidebars.references.import.title') }}</span>
-          <ChevronDown class="h-3.5 w-3.5 transition-transform" :class="importOpen ? 'rotate-180' : ''" />
-        </button>
-
-        <div v-if="importOpen" class="space-y-3 px-4 pb-4">
-          <!-- DOI -->
-          <div>
-            <label :class="FIELD_LABEL">
-              {{ t('sidebars.references.import.fromDoi') }}
-            </label>
-            <div class="flex items-center gap-1.5">
-              <input
-                v-model="doiInput"
-                type="text"
-                :placeholder="t('sidebars.references.import.doiPlaceholder')"
-                class="min-w-0 flex-1 rounded-lg border border-slate-200/80 bg-slate-50 px-2.5 py-1.5 text-xs dark:border-white/10 dark:bg-slate-900/40 dark:text-slate-200"
-                @keydown.enter="submitDoiImport"
-              >
-              <button
-                type="button"
-                :disabled="importing || !doiInput.trim()"
-                class="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-blue-600 text-white transition-colors hover:bg-blue-700 disabled:opacity-40"
-                :title="t('sidebars.references.import.importDoi')"
-                :aria-label="t('sidebars.references.import.importDoi')"
-                @click="submitDoiImport"
-              >
-                <Globe class="h-3.5 w-3.5" />
-              </button>
-            </div>
-          </div>
-
-          <!-- Reference file (BibTeX, RIS, EndNote, CSL-JSON, YAML, XML) -->
-          <div>
-            <label :class="FIELD_LABEL">
-              {{ t('sidebars.references.import.fromFile') }}
-            </label>
-            <button
-              type="button"
-              :disabled="importing"
-              class="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-slate-300 px-3 py-2 text-[11px] font-semibold text-slate-500 transition-colors hover:border-blue-400 hover:text-blue-600 disabled:opacity-40 dark:border-white/15 dark:text-slate-400 dark:hover:border-blue-500 dark:hover:text-blue-400"
-              @click="pickReferenceFile"
-            >
-              <FileUp class="h-3.5 w-3.5" />
-              {{ importing ? t('sidebars.references.import.importing') : t('sidebars.references.import.pickFile') }}
-            </button>
-            <input
-              ref="referenceFileInput"
-              data-testid="import-file-input"
-              type="file"
-              :accept="BIBLIOGRAPHY_FILE_ACCEPT"
-              class="hidden"
-              @change="handleReferenceFileChange"
-            >
-            <p
-              v-if="fileError"
-              data-testid="import-file-error"
-              class="mt-1.5 text-[10px] leading-relaxed text-red-500 dark:text-red-400"
-            >
-              {{ fileError }}
-            </p>
-          </div>
-
-          <!-- Result message -->
-          <p v-if="importMessage" class="text-[10px] leading-relaxed text-slate-500 dark:text-slate-400">
-            {{ importMessage }}
-          </p>
-        </div>
-      </div>
+      <ReferenceImportPanel
+        v-if="canImport"
+        :importing="importing"
+        :import-message="importMessage"
+        @import-doi="emit('import-doi', $event)"
+        @import-bibliography="emit('import-bibliography', $event)"
+      />
     </template>
 
     <!-- ═══ FORM MODE ═══ -->
-    <template v-else>
-      <div class="flex items-center gap-2 border-b border-slate-100 px-4 py-3 dark:border-white/5">
-        <button
-          type="button"
-          class="rounded-lg p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-white/5 dark:hover:text-white"
-          :title="t('sidebars.references.back')"
-          :aria-label="t('sidebars.references.back')"
-          @click="mode = 'list'"
-        >
-          <ChevronLeft class="h-4 w-4" />
-        </button>
-        <h4 class="text-xs font-bold text-slate-700 dark:text-slate-300">
-          {{ editingId ? t('sidebars.references.editSource') : t('sidebars.references.addSource') }}
-        </h4>
-      </div>
-
-      <div class="custom-scrollbar flex-1 overflow-y-auto p-4">
-        <form class="space-y-3.5" @submit.prevent="submitForm">
-          <!-- Type -->
-          <div>
-            <label :class="FIELD_LABEL">{{ t('sidebars.references.form.type') }}</label>
-            <select
-              v-model="formType"
-              :class="FIELD_INPUT"
-            >
-              <option v-for="type in sourceTypes" :key="type" :value="type">{{ typeLabel(type) }}</option>
-            </select>
-          </div>
-
-          <!-- Title -->
-          <div>
-            <label :class="FIELD_LABEL">{{ t('sidebars.references.form.title') }} *</label>
-            <input
-              v-model="formTitle"
-              type="text"
-              required
-              :class="FIELD_INPUT"
-            >
-          </div>
-
-          <!-- Authors -->
-          <div>
-            <label :class="FIELD_LABEL">{{ t('sidebars.references.form.authors') }}</label>
-            <div class="space-y-2">
-              <div v-for="(author, index) in formAuthors" :key="index" class="flex items-center gap-1.5">
-                <input
-                  v-model="author.family"
-                  type="text"
-                  :placeholder="t('sidebars.references.form.familyName')"
-                  class="w-1/2 rounded-lg border border-slate-200/80 bg-slate-50 px-2.5 py-1.5 text-xs dark:border-white/10 dark:bg-slate-900/40 dark:text-slate-200"
-                >
-                <input
-                  v-model="author.given"
-                  type="text"
-                  :placeholder="t('sidebars.references.form.givenName')"
-                  class="w-1/2 rounded-lg border border-slate-200/80 bg-slate-50 px-2.5 py-1.5 text-xs dark:border-white/10 dark:bg-slate-900/40 dark:text-slate-200"
-                >
-                <button
-                  type="button"
-                  class="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10"
-                  :aria-label="t('a11y.removeAuthor')"
-                  @click="removeAuthor(index)"
-                >
-                  <X class="h-3.5 w-3.5" />
-                </button>
-              </div>
-            </div>
-            <button
-              type="button"
-              class="mt-1.5 flex items-center gap-1 text-[10px] font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400"
-              @click="addAuthor"
-            >
-              <Plus class="h-3 w-3" /> {{ t('sidebars.references.form.addAuthor') }}
-            </button>
-          </div>
-
-          <!-- Year -->
-          <div>
-            <label :class="FIELD_LABEL">{{ t('sidebars.references.form.year') }}</label>
-            <input
-              v-model="formYear"
-              type="number"
-              min="0"
-              :class="FIELD_INPUT"
-            >
-          </div>
-
-          <!-- Container (journal / book title for chapters) -->
-          <div v-if="showContainerFields">
-            <label :class="FIELD_LABEL">
-              {{ formType === 'chapter' ? t('sidebars.references.form.bookTitle') : t('sidebars.references.form.journal') }}
-            </label>
-            <input
-              v-model="formContainerTitle"
-              type="text"
-              :class="FIELD_INPUT"
-            >
-          </div>
-
-          <!-- Publisher -->
-          <div v-if="showPublisherFields" class="grid grid-cols-2 gap-2">
-            <div>
-              <label :class="FIELD_LABEL">{{ t('sidebars.references.form.publisher') }}</label>
-              <input
-                v-model="formPublisher"
-                type="text"
-                :class="FIELD_INPUT"
-              >
-            </div>
-            <div>
-              <label :class="FIELD_LABEL">{{ t('sidebars.references.form.publisherPlace') }}</label>
-              <input
-                v-model="formPublisherPlace"
-                type="text"
-                :class="FIELD_INPUT"
-              >
-            </div>
-          </div>
-
-          <!-- Volume / issue / pages -->
-          <div v-if="showLocatorFields" class="grid grid-cols-3 gap-2">
-            <div>
-              <label :class="FIELD_LABEL">{{ t('sidebars.references.form.volume') }}</label>
-              <input
-                v-model="formVolume"
-                type="text"
-                :class="FIELD_INPUT"
-              >
-            </div>
-            <div>
-              <label :class="FIELD_LABEL">{{ t('sidebars.references.form.issue') }}</label>
-              <input
-                v-model="formIssue"
-                type="text"
-                :class="FIELD_INPUT"
-              >
-            </div>
-            <div>
-              <label :class="FIELD_LABEL">{{ t('sidebars.references.form.pages') }}</label>
-              <input
-                v-model="formPage"
-                type="text"
-                :class="FIELD_INPUT"
-              >
-            </div>
-          </div>
-
-          <!-- DOI -->
-          <div v-if="formType === 'article-journal'">
-            <label :class="FIELD_LABEL">DOI</label>
-            <input
-              v-model="formDOI"
-              type="text"
-              placeholder="10.xxxx/xxxxx"
-              :class="FIELD_INPUT"
-            >
-          </div>
-
-          <!-- URL -->
-          <div v-if="showUrlField">
-            <label :class="FIELD_LABEL">URL</label>
-            <input
-              v-model="formURL"
-              type="url"
-              placeholder="https://…"
-              :class="FIELD_INPUT"
-            >
-          </div>
-
-          <!-- Actions -->
-          <div class="flex items-center gap-2 pt-1.5">
-            <button
-              type="submit"
-              :disabled="!formValid"
-              class="flex-1 rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white shadow transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              {{ editingId ? t('sidebars.references.form.save') : t('sidebars.references.form.create') }}
-            </button>
-            <button
-              type="button"
-              class="rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50 dark:border-white/10 dark:text-slate-300 dark:hover:bg-white/5"
-              @click="mode = 'list'"
-            >
-              {{ t('sidebars.references.form.cancel') }}
-            </button>
-          </div>
-        </form>
-      </div>
-    </template>
+    <ReferenceForm
+      v-else
+      :key="editingSource?.id ?? 'new'"
+      :source="editingSource"
+      @save="saveForm"
+      @cancel="closeForm"
+    />
 
     <!-- Issue #359 — destructive confirmation, in-app instead of window.confirm. -->
     <ConfirmDialog

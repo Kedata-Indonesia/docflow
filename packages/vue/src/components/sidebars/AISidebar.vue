@@ -1,53 +1,46 @@
 <script setup lang="ts">
-import { ref, computed, watch, onUnmounted, nextTick, toRaw } from 'vue'
-import { Sparkles, Send, Copy, Check, ArrowDownToLine, AlignLeft, BadgeCheck, Wand2, Globe, X, User, PencilLine, Quote, Loader2, Square, TriangleAlert } from 'lucide-vue-next'
+import { computed, nextTick, onUnmounted, ref } from 'vue'
+import { Sparkles, X } from 'lucide-vue-next'
 import type { Editor } from '@tiptap/core'
-import { Slice, Fragment } from 'prosemirror-model'
-import type { AIActionRequest, AIStreamFn, AIDraftCitation, AIDraftEvent, AIDraftFn } from '@kedata-indonesia/docflow-core'
-import { getCitationEngine, insertMarkdownBlock, scrollEditorToPos } from '@kedata-indonesia/docflow-plugins'
+import type { AIDraftFn, AIStreamFn } from '@kedata-indonesia/docflow-core'
 import { useLocale } from '../../composables/useLocale.js'
 import { readEditorContext } from '../../composables/editorContext.js'
-import { buildContentArray, stripMarkers } from './markerGrammar.js'
+import AIQuickActions from './ai/AIQuickActions.vue'
+import AIPromptForm from './ai/AIPromptForm.vue'
+import AITurnBubble from './ai/AITurnBubble.vue'
+import { canInsert, insertTurn } from './ai/insertTurn.js'
+import { toRawEditor } from './ai/pmEditor.js'
+import { buildQuickActions } from './ai/quickActions.js'
+import { useAIConversation } from './ai/useAIConversation.js'
+import { useAISelection } from './ai/useAISelection.js'
+import type { ChatTurn, MacroSpec, QuickAction } from './ai/types.js'
 
 /**
  * Doc-aware AI chat sidebar (Phase 7D) + cited-drafting (Phase 7E-4).
  *
- * No more direct `/api/ai/copilot` fetch (the library-boundary leak), no
+ * No direct `/api/ai/copilot` fetch (the library-boundary leak), no
  * whole-document payload, no non-streaming read. Everything goes through the
  * host-injected `aiStream` / `aiDraft` transports (editor → server → LLM),
  * assistant replies stream token-by-token, and "Insert" lands in the document
  * as a single ProseMirror transaction so it flows through Yjs like a human edit.
  *
- * 7E-4: a "Draft with citations" quick action toggles draft mode; the prompt
- * is sent to `/api/ai/draft` via `aiDraft`, which streams text carrying `[n]`
+ * 7E-4: a "Draft with citations" quick action toggles draft mode; the prompt is
+ * sent to `/api/ai/draft` via `aiDraft`, which streams text carrying `[n]`
  * markers and a terminal `done` event with a `{ ref, sourceId, label }` table.
- * Insert maps markers through the table to Phase 6 citation nodes and dispatch
- * ONE `view.dispatch(tr.replace(...))` (the §2 decision 6 — N markers must
- * NOT become N transactions / N Yjs history entries). The model output is
- * untrusted — only markers that resolve through the server-owned table become
- * citations; unresolved markers are stripped from the inserted text.
+ * Insert maps markers through the table to Phase 6 citation nodes and dispatches
+ * ONE transaction (N markers must NOT become N Yjs history entries). The model
+ * output is untrusted — only markers that resolve through the server-owned table
+ * become citations; unresolved markers are stripped from the inserted text.
  *
- * Boundary: `aiStream` / `aiDraft` are declared library ports on
- * `EditorOptions` — see docs/reference/LIBRARY_CONTRACT.md §2.1 and
- * docs/plans/PLUGGABLE_AI_PROVIDER.md. The library never names an AI endpoint;
- * hosts inject transports (`toAIStreamFn(openaiCompatibleProvider({...}))` or
- * a custom function).
+ * Boundary: `aiStream` / `aiDraft` are declared library ports on `EditorOptions`
+ * — see docs/reference/LIBRARY_CONTRACT.md §2.1 and
+ * docs/plans/PLUGGABLE_AI_PROVIDER.md. The library never names an AI endpoint.
+ *
+ * This file is the composition root; the transport plumbing lives in
+ * `ai/useAIConversation.ts` + `ai/streamTurn.ts`, marker→node insertion in
+ * `ai/insertTurn.ts`, selection awareness in `ai/useAISelection.ts`, and the
+ * three panes in `ai/AI{QuickActions,TurnBubble,PromptForm}.vue`.
  */
-
-interface ChatTurn {
-  role: 'user' | 'assistant'
-  text: string
-  streaming?: boolean
-  error?: boolean
-  /** Failure detail, kept SEPARATE from `text` so a mid-stream failure never
-   *  discards the partial answer the user already saw. */
-  errorText?: string
-  /** Which transport produced the turn — a draft that errors still carries
-   *  unresolved `[n]` markers, so its Insert stays disabled. */
-  kind?: 'chat' | 'draft'
-  /** 7E-4: the citation table for a draft turn (set on the `done` event). */
-  citations?: AIDraftCitation[]
-}
 
 const props = defineProps<{
   editor?: Editor | null
@@ -63,123 +56,43 @@ const emit = defineEmits<{
 
 const { t } = useLocale()
 
-/**
- * ProseMirror internals must never go through Vue's deep reactivity: a
- * proxied Editor yields proxied node/mark TYPES, breaking identity checks
- * (doc.eq → "Applying a mismatched transaction" on dispatch). Use this for
- * anything that touches state/view/storage.
- */
-function pmEditor(): Editor | null {
-  return props.editor ? toRaw(props.editor) : null
-}
+const { currentSelection, boundedContext, handleTransaction } = useAISelection(
+  () => props.editor,
+)
 
-const turns = ref<ChatTurn[]>([])
-const promptInput = ref('')
-const isStreaming = ref(false)
-const copiedIndex = ref<number | null>(null)
-const insertedIndex = ref<number | null>(null)
+/** The scroll container of the conversation list (read by the composable). */
 const turnsEl = ref<HTMLElement | null>(null)
-
-let abort: AbortController | null = null
 
 /** The injected transport — prop first, editorContext port as fallback. */
 const resolvedAiStream = computed<AIStreamFn | undefined>(() => {
   if (props.aiStream) return props.aiStream
-  return readEditorContext(pmEditor())?.aiStream
+  return readEditorContext(toRawEditor(props.editor))?.aiStream
 })
 
 /** 7E-4: the host-injected draft transport (yields `AIDraftEvent`s). */
 const resolvedAiDraft = computed<AIDraftFn | undefined>(() => {
   if (props.aiDraft) return props.aiDraft
-  return readEditorContext(pmEditor())?.aiDraft
+  return readEditorContext(toRawEditor(props.editor))?.aiDraft
 })
 
-/** 7E-4: when true, the submit form drives `sendDraft` (→ /api/ai/draft) instead of chat. */
+const {
+  turns,
+  isStreaming,
+  copiedIndex,
+  insertedIndex,
+  send,
+  sendDraft,
+  handleCopy,
+  markInserted,
+  handleStop,
+  abortCurrent,
+} = useAIConversation({ aiStream: resolvedAiStream, aiDraft: resolvedAiDraft, turnsEl })
+
+/** 7E-4: when true, the submit form drives `sendDraft` instead of chat. */
 const draftMode = ref(false)
+const promptInput = ref('')
 
-// ─── Selection awareness (macros that need one) ──────────────────────────────
-
-const selectionTick = ref(0)
-function handleTransaction() {
-  selectionTick.value++
-}
-
-watch(
-  () => props.editor,
-  (newEditor, oldEditor) => {
-    if (oldEditor) toRaw(oldEditor).off('transaction', handleTransaction)
-    if (newEditor) toRaw(newEditor).on('transaction', handleTransaction)
-  },
-  { immediate: true },
-)
-
-const currentSelection = computed(() => {
-  void selectionTick.value
-  const state = pmEditor()?.state
-  if (!state || state.selection.empty) return null
-  const { from, to } = state.selection
-  return { from, to, text: state.doc.textBetween(from, to, '\n', ' ') }
-})
-
-/** Bounded context around the selection (or cursor) — never the whole doc. */
-function boundedContext(): { before: string; after: string } | undefined {
-  const state = pmEditor()?.state
-  if (!state) return undefined
-  const { from, to } = state.selection
-  const CAP = 1500
-  return {
-    before: state.doc.textBetween(Math.max(0, from - CAP), from, '\n', ' '),
-    after: state.doc.textBetween(to, Math.min(state.doc.content.size, to + CAP), '\n', ' '),
-  }
-}
-
-// ─── Streaming ────────────────────────────────────────────────────────────────
-
-async function scrollToBottom() {
-  await nextTick()
-  if (turnsEl.value) turnsEl.value.scrollTop = turnsEl.value.scrollHeight
-}
-
-async function send(req: AIActionRequest, userLabel: string) {
-  const stream = resolvedAiStream.value
-  if (!stream || isStreaming.value) return
-
-  abort?.abort()
-  abort = new AbortController()
-  isStreaming.value = true
-
-  turns.value.push({ role: 'user', text: userLabel })
-  turns.value.push({ role: 'assistant', text: '', streaming: true, kind: 'chat' })
-  // Mutate through turns.value[i] — a local reference to the raw object would
-  // bypass Vue's reactivity (the proxy wraps on access, not on the original).
-  const assistantIdx = turns.value.length - 1
-  await scrollToBottom()
-
-  try {
-    for await (const chunk of stream(req, abort.signal)) {
-      turns.value[assistantIdx].text += chunk
-      scrollToBottom()
-    }
-    if (!turns.value[assistantIdx].text) {
-      // Empty answer is a soft failure: keep it out of `text` so the insert
-      // button stays meaningless, and surface it via the error note instead.
-      turns.value[assistantIdx].error = true
-      turns.value[assistantIdx].errorText = t('sidebars.ai.emptyResponse')
-    }
-  } catch (err) {
-    if (!abort.signal.aborted) {
-      // Keep whatever streamed in `text` (the user saw it); the failure rides
-      // alongside it in `errorText` rather than overwriting the answer.
-      turns.value[assistantIdx].error = true
-      turns.value[assistantIdx].errorText = err instanceof Error ? err.message : String(err)
-    }
-  } finally {
-    turns.value[assistantIdx].streaming = false
-    isStreaming.value = false
-    abort = null
-    scrollToBottom()
-  }
-}
+const quickActions = computed(() => buildQuickActions(t, Boolean(resolvedAiDraft.value)))
 
 function handleSubmit() {
   const prompt = promptInput.value.trim()
@@ -187,11 +100,11 @@ function handleSubmit() {
   promptInput.value = ''
   if (draftMode.value) {
     // 7E-4: draft → /api/ai/draft (no selection/action; §3.4 wire is leaner).
-    sendDraft({ prompt, context: boundedContext() }, prompt)
+    void sendDraft({ prompt, context: boundedContext() }, prompt)
     return
   }
   const selection = currentSelection.value
-  send(
+  void send(
     {
       action: 'chat',
       prompt,
@@ -202,84 +115,11 @@ function handleSubmit() {
   )
 }
 
-/**
- * 7E-4: drive the host-injected `aiDraft` transport (→ POST /api/ai/draft).
- * Yields `AIDraftEvent`s: `delta` (append text), `done` (set the citation
- * table — enables Insert), `error` (mark the turn errored, clear citations —
- * the bug-hunter carry-forward: Insert stays disabled on `error`).
- */
-async function sendDraft(req: { prompt: string; context?: { before: string; after: string } }, userLabel: string) {
-  const stream = resolvedAiDraft.value
-  if (!stream || isStreaming.value) return
-
-  abort?.abort()
-  abort = new AbortController()
-  isStreaming.value = true
-
-  turns.value.push({ role: 'user', text: userLabel })
-  turns.value.push({ role: 'assistant', text: '', streaming: true, kind: 'draft' })
-  const assistantIdx = turns.value.length - 1
-  await scrollToBottom()
-
-  try {
-    for await (const event of stream(req, abort.signal) as AsyncIterable<AIDraftEvent>) {
-      if (event.type === 'delta') {
-        turns.value[assistantIdx].text += event.text
-        scrollToBottom()
-      } else if (event.type === 'done') {
-        // The citation table arrived — enables Insert (the load-bearing §3.4
-        // wire: the table is the only source for sourceId; markers flow through
-        // it). Empty table = 0-results path; Insert still works (plain text).
-        turns.value[assistantIdx].citations = event.citations
-      } else if (event.type === 'error') {
-        // Keep the partial text (the user saw it); the failure rides alongside
-        // it. Clear citations: `kind === 'draft'` keeps Insert disabled so the
-        // unresolved `[n]` markers can never leak (the bug-hunter forward).
-        turns.value[assistantIdx].error = true
-        turns.value[assistantIdx].errorText = event.message
-        turns.value[assistantIdx].citations = undefined
-      }
-    }
-    if (!turns.value[assistantIdx].text && !turns.value[assistantIdx].error) {
-      turns.value[assistantIdx].error = true
-      turns.value[assistantIdx].errorText = t('sidebars.ai.emptyResponse')
-    }
-  } catch (err) {
-    if (!abort.signal.aborted) {
-      turns.value[assistantIdx].error = true
-      turns.value[assistantIdx].errorText = err instanceof Error ? err.message : String(err)
-      turns.value[assistantIdx].citations = undefined
-    }
-  } finally {
-    turns.value[assistantIdx].streaming = false
-    isStreaming.value = false
-    abort = null
-    scrollToBottom()
-  }
-}
-
-/** 7E-4: toggle draft mode on/off via the "Draft with citations" quick action. */
-function toggleDraftMode() {
-  draftMode.value = !draftMode.value
-  // Focus the prompt textarea so the user can immediately type the draft request.
-  nextTick(() => {
-    const ta = document.querySelector<HTMLTextAreaElement>('.ai-sidebar textarea')
-    ta?.focus()
-  })
-}
-
-// ─── Quick macros ─────────────────────────────────────────────────────────────
-
-function runMacro(macro: {
-  label: string
-  action?: AIActionRequest['action']
-  prompt?: string
-  needsSelection?: boolean
-}) {
+function runMacro(macro: MacroSpec) {
   if (isStreaming.value || !macro.action) return
   const selection = currentSelection.value
   if (macro.needsSelection && !selection) return
-  send(
+  void send(
     {
       action: macro.action,
       ...(selection ? { selection: selection.text } : {}),
@@ -290,171 +130,49 @@ function runMacro(macro: {
   )
 }
 
-/** 7D-2: chat-driven edit — routed through the 7B preview/transaction path,
- *  so the change is previewed in the editor and applied as ONE transaction. */
+/** 7D-2: chat-driven edit — routed through the preview/transaction path. */
 function improveSelection() {
   if (!currentSelection.value) return
   // `aiTransform` is registered by the aiPlugin; keep the optional call so a
   // host that injects an aiStream port without loading that plugin is a no-op.
-  const commands = pmEditor()?.commands as unknown as
+  const commands = toRawEditor(props.editor)?.commands as unknown as
     | { aiTransform?: (options: { action: 'rewrite' }) => boolean }
     | undefined
   commands?.aiTransform?.({ action: 'rewrite' })
 }
 
-interface QuickAction {
-  label: string
-  icon: typeof Sparkles
-  color: string
-  action?: AIActionRequest['action']
-  prompt?: string
-  needsSelection?: boolean
-  improve?: boolean
-  draft?: boolean
-  disabled?: boolean
-}
-
-const quickActions = computed<QuickAction[]>(() => [
-  { label: t('sidebars.ai.summarize'), icon: AlignLeft, color: 'text-cyan-500', action: 'summarize', needsSelection: true },
-  { label: t('sidebars.ai.fixGrammar'), icon: BadgeCheck, color: 'text-emerald-500', action: 'grammar', needsSelection: true },
-  { label: t('sidebars.ai.continue'), icon: Wand2, color: 'text-amber-500', action: 'generate', prompt: 'Continue writing naturally from where the text ends, matching the existing style.' },
-  { label: t('sidebars.ai.toSpanish'), icon: Globe, color: 'text-cyan-500', action: 'translate', prompt: 'translate to Spanish', needsSelection: true },
-  { label: t('sidebars.ai.improveSelection'), icon: PencilLine, color: 'text-violet-500', improve: true, needsSelection: true },
-  // 7E-4: "Draft with citations" toggles draft mode (no immediate action).
-  // Only enabled when the host injected aiDraft; disabled otherwise.
-  { label: t('sidebars.ai.draft'), icon: Quote, color: 'text-cyan-500', draft: true, disabled: !resolvedAiDraft.value },
-])
-
-// ─── Turn actions ─────────────────────────────────────────────────────────────
-
-function handleCopy(turn: ChatTurn, index: number) {
-  if (!turn.text) return
-  navigator.clipboard.writeText(turn.text)
-  copiedIndex.value = index
-  setTimeout(() => (copiedIndex.value = null), 2000)
-}
-
-/** Shared insert-feedback flash (the `inserted` check-mark on the button). */
-function markInserted(index: number) {
-  insertedIndex.value = index
-  setTimeout(() => {
-    if (insertedIndex.value === index) insertedIndex.value = null
-  }, 2000)
-}
-
-/**
- * Whether a turn's answer can be inserted. A **draft** that errored may still
- * carry unresolved `[n]` markers (no citation table arrived), so inserting it
- * would leak them — Insert stays disabled there. A **chat** turn that failed
- * after emitting partial text is safe to insert (the user already sees it).
- */
-function canInsert(turn: ChatTurn): boolean {
-  if (!turn.text) return false
-  return !(turn.error && turn.kind === 'draft')
-}
-
-/**
- * UNIFIED insert (7E-4) — ONE substantive `view.dispatch` per turn regardless
- * of branch (the §2 decision 6 — never N dispatches for N markers):
- *
- *   1. Plain-text path (preserves 7D behavior for chat turns AND for draft
- *      turns whose `done` arrived with `citations: []` — 0-results): a single
- *      `tr.insertText(turn.text, from, to)` dispatch.
- *   2. Citation content-array path (draft turn with ≥1 citation): build ONE
- *      content array via `buildContentArray` (text spans interleaved with
- *      `buildCitationNodes` specs — the helper owns the note-vs-inline
- *      branching so this file does NOT duplicate it) and dispatch ONE
- *      `view.dispatch(state.tr.replace(from, to, slice))`. (ProseMirror
- *      `Transaction` has no `insertContent` helper — that's a TipTap chain
- *      command that dispatches per call; the raw-PM primitive that lands the
- *      same effect in ONE dispatch is `tr.replace` with a closed slice of
- *      inline nodes.) The `CitationEngineExtension.onUpdate` walk fires on
- *      this single dispatch → `onSourcesChange` → the host's snapshot persist
- *      → peers render via Phase 6 snapshot (no new rendering path; not bypassed).
- *   3. No-engine fallback for a cited draft: strip the markers (so a draft
- *      with `[n]` but no citation engine inserts clean text, no leak) and
- *      fall back to the plain-text path.
- *
- * Uses the transaction API directly — chain().focus() can dispatch a mismatched
- * transaction when the editor isn't focused (same lesson as the footnote insert
- * in DocsEditor). `view.focus()` afterward may fire a cosmetic zero-step tr
- * (scroll/focus) — it does NOT expand Yjs history or push to collab, so the
- * "ONE history entry" invariant holds (the content-array insert is one step). */
-function handleInsert(turn: ChatTurn, index: number) {
-  const ed = pmEditor()
-  if (!ed) {
-    // No editor to insert into — say so instead of failing silently (#147).
-    turn.error = true
-    turn.errorText = t('sidebars.ai.insertFailed')
+function onQuickAction(action: QuickAction) {
+  if (action.improve) {
+    improveSelection()
     return
   }
-  if (!canInsert(turn)) return
-  const { state, view } = ed
-  const { from, to } = state.selection
-
-  if (!turn.citations || turn.citations.length === 0) {
-    // Markdown-aware path: parse the streamed text as BLOCK markdown (tables,
-    // lists, headings, bold, code…) and insert it as real nodes via a direct
-    // `view.dispatch` (NOT `editor.commands` — the Markdown extension's
-    // `insertContentAt` override forces `inline:true`, which would drop the
-    // leading paragraph and mangle a table). Falls back to `insertText` when
-    // the Markdown extension isn't registered (preserves 7D plain-text Insert).
-    insertMarkdownBlock(ed, view, from, to, turn.text)
-    focusInsertionEnd(ed)
-    markInserted(index)
+  if (action.draft) {
+    toggleDraftMode()
     return
   }
-
-  const engine = getCitationEngine(ed)
-  if (!engine) {
-    // No citation engine — strip markers, then insert as block markdown so a
-    // draft with `[n]` markers but no engine still renders headings/lists/
-    // tables rather than leaking literal `##` / `|` characters.
-    insertMarkdownBlock(ed, view, from, to, stripMarkers(turn.text))
-    focusInsertionEnd(ed)
-    markInserted(index)
-    return
-  }
-
-  // Citation content-array path — ONE substantive dispatch (§2 decision 6).
-  const tableByRef = new Map(turn.citations.map((c) => [c.ref, c]))
-  const array = buildContentArray(turn.text, tableByRef, engine)
-  const schema = state.schema
-  const nodes = array
-    .map((part) => {
-      if (typeof part === 'string') return schema.text(part)
-      return schema.nodeFromJSON(part)
-    })
-    .filter((n): n is NonNullable<typeof n> => Boolean(n))
-  const slice = new Slice(Fragment.from(nodes), 0, 0)
-  view.dispatch(state.tr.replace(from, to, slice))
-  focusInsertionEnd(ed)
-  markInserted(index)
+  runMacro(action)
 }
 
-/**
- * Bring the caret — just moved to the end of the inserted content — into view.
- * Focus alone left the inserted text off-screen when the editor's last caret
- * was outside the viewport, which read as "Insert did nothing" (#147).
- */
-function focusInsertionEnd(ed: Editor) {
-  scrollEditorToPos(ed, ed.state.selection.from)
+/** 7E-4: toggle draft mode and focus the prompt so the user can type at once. */
+function toggleDraftMode() {
+  draftMode.value = !draftMode.value
+  void nextTick(() => {
+    const textarea = document.querySelector<HTMLTextAreaElement>('.ai-sidebar textarea')
+    textarea?.focus()
+  })
 }
 
-/** Stop the in-flight turn (the partial text, if any, is kept). */
-function handleStop() {
-  abort?.abort()
+function onInsert(turn: ChatTurn, index: number) {
+  insertTurn(toRawEditor(props.editor), turn, () => markInserted(index), t)
 }
 
 function handleClose() {
-  abort?.abort()
-  isStreaming.value = false
+  abortCurrent()
   emit('close')
 }
 
 onUnmounted(() => {
-  abort?.abort()
-  pmEditor()?.off('transaction', handleTransaction)
+  toRawEditor(props.editor)?.off('transaction', handleTransaction)
 })
 </script>
 
@@ -485,28 +203,13 @@ onUnmounted(() => {
     </div>
 
     <template v-else>
-      <div class="space-y-2 border-b border-slate-200 p-4 dark:border-white/5">
-        <span class="block font-mono text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">{{ t('sidebars.ai.quickMacros') }}</span>
-        <div class="grid grid-cols-2 gap-2">
-          <button
-            v-for="qa in quickActions"
-            :key="qa.label"
-            type="button"
-            :disabled="isStreaming || (qa.needsSelection && !currentSelection) || ('disabled' in qa && qa.disabled)"
-            :title="qa.needsSelection && !currentSelection ? t('sidebars.ai.selectTextFirst') : qa.label"
-            :class="[
-              'flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-left text-[11px] font-bold transition-colors disabled:opacity-40',
-              'draft' in qa && qa.draft && draftMode
-                ? 'border-cyan-500 bg-cyan-500/10 text-cyan-700 dark:border-cyan-400/50 dark:bg-cyan-500/15 dark:text-cyan-300'
-                : 'border-slate-200 bg-slate-50 text-slate-700 hover:border-cyan-500/50 dark:border-white/10 dark:bg-white/[0.02] dark:text-slate-300 dark:hover:border-cyan-500/30',
-            ]"
-            @click="qa.improve ? improveSelection() : ('draft' in qa && qa.draft) ? toggleDraftMode() : runMacro(qa as Parameters<typeof runMacro>[0])"
-          >
-            <component :is="qa.icon" class="h-3 w-3" :class="qa.color" />
-            <span>{{ qa.label }}</span>
-          </button>
-        </div>
-      </div>
+      <AIQuickActions
+        :actions="quickActions"
+        :streaming="isStreaming"
+        :has-selection="Boolean(currentSelection)"
+        :draft-mode="draftMode"
+        @select="onQuickAction"
+      />
 
       <!-- Conversation -->
       <div ref="turnsEl" class="flex-1 space-y-3 overflow-y-auto p-4">
@@ -515,121 +218,25 @@ onUnmounted(() => {
           <p class="text-[10px]">{{ t('sidebars.ai.noDraft') }}</p>
         </div>
 
-        <div
-          v-for="(turn, i) in turns"
-          :key="i"
-          class="flex flex-col gap-1"
-          :class="turn.role === 'user' ? 'items-end' : 'items-start'"
-        >
-          <span class="flex items-center gap-1 font-mono text-[9px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">
-            <User v-if="turn.role === 'user'" class="h-2.5 w-2.5" />
-            <Sparkles v-else class="h-2.5 w-2.5 text-cyan-400" />
-            {{ turn.role === 'user' ? t('sidebars.ai.you') : t('sidebars.ai.assistant') }}
-          </span>
-          <!-- Waiting for the first token: show a real loading cue instead of an
-               empty bubble (the caret alone reads as “broken”). -->
-          <div
-            v-if="turn.role === 'assistant' && turn.streaming && !turn.text && !turn.error"
-            class="flex items-center gap-2 rounded-xl bg-slate-100 px-3 py-2 text-xs text-slate-500 dark:bg-white/[0.04] dark:text-slate-400"
-          >
-            <Loader2 class="h-3.5 w-3.5 animate-spin text-cyan-500" />
-            <span>{{ t('sidebars.ai.thinking') }}</span>
-          </div>
-          <!-- Answer bubble (partial or final). Failures are NOT painted over the
-               text — the error note below carries them, so any partial answer the
-               user already saw keeps its normal styling. -->
-          <div
-            v-else-if="turn.text"
-            class="max-w-full whitespace-pre-wrap rounded-xl px-3 py-2 text-xs leading-relaxed"
-            :class="
-              turn.role === 'user'
-                ? 'bg-cyan-500/10 text-slate-700 dark:bg-cyan-500/15 dark:text-slate-200'
-                : 'bg-slate-100 text-slate-700 dark:bg-white/[0.04] dark:text-slate-300'
-            "
-          >{{ turn.text }}<span v-if="turn.streaming" class="animate-pulse text-cyan-500">▌</span></div>
-
-          <!-- Failure note — kept separate from the answer above. -->
-          <div
-            v-if="turn.role === 'assistant' && turn.error"
-            class="flex max-w-full flex-col gap-0.5 rounded-xl bg-red-50 px-3 py-2 text-[11px] leading-relaxed dark:bg-red-500/10"
-          >
-            <span class="flex items-center gap-1.5 font-semibold text-red-700 dark:text-red-300">
-              <TriangleAlert class="h-3 w-3" /> {{ t('sidebars.ai.aiError') }}
-            </span>
-            <span v-if="turn.errorText" class="text-red-600/90 dark:text-red-300/90">{{ turn.errorText }}</span>
-            <span class="text-red-500/80 dark:text-red-300/70">{{ t('sidebars.ai.errorHint') }}</span>
-          </div>
-
-          <!-- 7E-4: citation chips under a draft turn (rendered after `done`). -->
-          <div
-            v-if="turn.role === 'assistant' && turn.citations && turn.citations.length > 0"
-            class="flex flex-wrap gap-1 pl-1"
-          >
-            <span
-              v-for="c in turn.citations"
-              :key="c.ref"
-              class="inline-flex items-center gap-1 rounded-full border border-cyan-500/30 bg-cyan-500/5 px-2 py-0.5 text-[10px] font-semibold text-cyan-700 dark:border-cyan-400/30 dark:bg-cyan-500/10 dark:text-cyan-300"
-            >
-              <Quote class="h-2.5 w-2.5" />{{ c.label }}
-            </span>
-          </div>
-
-          <div
-            v-if="turn.role === 'assistant' && !turn.streaming && (turn.text || turn.error)"
-            class="flex gap-1.5"
-          >
-            <button
-              v-if="turn.text"
-              type="button"
-              class="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold text-slate-600 transition-all hover:bg-slate-50 dark:border-white/10 dark:bg-white/[0.02] dark:text-slate-300 dark:hover:bg-white/5"
-              @click="handleCopy(turn, i)"
-            >
-              <component :is="copiedIndex === i ? Check : Copy" class="h-3 w-3" :class="copiedIndex === i ? 'text-emerald-500' : ''" />
-              <span>{{ copiedIndex === i ? t('sidebars.ai.copied') : t('sidebars.ai.copy') }}</span>
-            </button>
-            <button
-              v-if="canInsert(turn)"
-              type="button"
-              class="flex items-center gap-1 rounded-lg bg-cyan-500 px-2 py-1 text-[10px] font-bold text-black shadow-cyan transition-all hover:bg-cyan-400"
-              @click="handleInsert(turn, i)"
-            >
-              <component :is="insertedIndex === i ? Check : ArrowDownToLine" class="h-3 w-3" />
-              <span>{{ insertedIndex === i ? t('sidebars.ai.inserted') : t('sidebars.ai.insert') }}</span>
-            </button>
-          </div>
-        </div>
+        <AITurnBubble
+          v-for="(turn, index) in turns"
+          :key="index"
+          :turn="turn"
+          :copied="copiedIndex === index"
+          :inserted="insertedIndex === index"
+          :insertable="canInsert(turn)"
+          @copy="handleCopy(turn, index)"
+          @insert="onInsert(turn, index)"
+        />
       </div>
 
-      <div class="border-t border-slate-200 bg-slate-50 p-4 dark:border-white/5 dark:bg-[#0a0f1e]/80">
-        <form class="space-y-2" @submit.prevent="handleSubmit">
-          <textarea
-            v-model="promptInput"
-            rows="2"
-            :disabled="isStreaming"
-            :placeholder="draftMode ? t('sidebars.ai.draftPlaceholder') : t('sidebars.ai.promptPlaceholder')"
-            class="w-full min-h-[55px] resize-none rounded-xl border border-slate-200 bg-white p-2.5 text-xs text-slate-800 transition-all focus:border-cyan-500/50 focus:shadow-cyan focus:outline-none disabled:opacity-60 dark:border-white/10 dark:bg-white/[0.02] dark:text-slate-100 dark:focus:border-cyan-500/30"
-            @keydown.enter.exact.prevent="handleSubmit"
-          />
-          <div class="flex justify-end">
-            <button
-              v-if="isStreaming"
-              type="button"
-              class="flex items-center gap-1 rounded-lg border border-slate-300 px-3.5 py-2 text-xs font-bold text-slate-600 transition-all hover:bg-slate-100 dark:border-white/15 dark:text-slate-300 dark:hover:bg-white/5"
-              @click="handleStop"
-            >
-              <Square class="h-3.5 w-3.5" /> {{ t('sidebars.ai.stop') }}
-            </button>
-            <button
-              v-else
-              type="submit"
-              :disabled="!promptInput.trim()"
-              class="flex items-center gap-1 rounded-lg bg-cyan-500 px-3.5 py-2 text-xs font-bold text-black shadow-cyan transition-all hover:bg-cyan-400 disabled:opacity-40"
-            >
-              <Send class="h-3.5 w-3.5" /> {{ draftMode ? t('sidebars.ai.promptDraft') : t('sidebars.ai.promptAI') }}
-            </button>
-          </div>
-        </form>
-      </div>
+      <AIPromptForm
+        v-model="promptInput"
+        :streaming="isStreaming"
+        :draft-mode="draftMode"
+        @submit="handleSubmit"
+        @stop="handleStop"
+      />
     </template>
   </div>
 </template>

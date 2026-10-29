@@ -137,6 +137,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- **`collaborationExtensions` no longer leaks a live provider (issue #372):**
+  the function used to accept plain `CollaborationOptions`, build a
+  `CollaborationSetup` internally, and return only the TipTap extensions — the
+  Y.Doc, awareness instance and room connection had no handle left to
+  `destroy()`, so every mount leaked a socket and bypassed the `whenReady`
+  sync gate. It now requires a `CollaborationSetup` (every internal caller
+  already passed one); pass the setup you keep so you can destroy it.
+  _([#372](https://github.com/Kedata-Indonesia/docflow/issues/372))_
+
+- **First-sync gate releases its timer and listeners:** `whenProviderSynced`
+  scheduled a 5 s fallback that was never cleared after a successful sync,
+  pinning Node/test event loops and keeping `sync`/`synced` listeners alive for
+  later reconnects. The wait now tears down both on settle, and the timeout is
+  configurable via `CollaborationOptions.syncTimeoutMs` (default 5000 ms).
+  _([#117](https://github.com/Kedata-Indonesia/docflow/issues/117))_
+
 - **Host `modelValue` writes reach the editor after mount (issue #370):**
   `v-model` was one-way in practice — the prop was read once at setup and
   passed to `createEditor`, so snapshot restore, document switching, and the
@@ -261,6 +277,280 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   _([#163](https://github.com/Kedata-Indonesia/docflow/issues/163))_
 
 ### Changed
+
+- **Locale tables split by namespace (no consumer change):**
+  `locales/en.ts` and `locales/id.ts` dropped from 636 lines each to ~30-line
+  composers. Every UI namespace now lives in `locales/<lang>/<namespace>.ts`
+  (`common`, `header`, `editor`, `sidebars`, `dashboard`, …), the largest being
+  180 lines. Import paths (`locales/en.js`, `messages`, `getLocaleMessages`) are
+  unchanged, and a new `__tests__/locales.test.ts` fails when a key exists in
+  only one language or ships an empty string.
+
+- **AI sidebar split into modules (no consumer change):**
+  `AISidebar.vue` dropped from 635 lines to a ~240-line composition root. The
+  transport plumbing lives in `sidebars/ai/{useAIConversation,streamTurn}.ts`,
+  marker→citation insertion in `ai/insertTurn.ts`, selection awareness in
+  `ai/useAISelection.ts`, and the panes in
+  `ai/{AIQuickActions,AITurnBubble,AIPromptForm}.vue`. Props (`editor`,
+  `aiStream`, `aiDraft`), the `close` emit and every rendered selector are
+  unchanged — including the single-transaction insert invariant.
+
+- **Offline mirror split into modules (no consumer change):**
+  `packages/core/src/offlineMirror.ts` kept only the attach lifecycle and now
+  re-exports the rest from `offlineMirrorKey.ts` (database naming),
+  `offlineMirrorWarnings.ts` (typed warnings + console fallback),
+  `offlineMirrorQuota.ts` (pre-flight estimate + rejection watcher),
+  `offlineMirrorPurge.ts` (host-initiated delete) and `offlineMirrorErrors.ts`.
+  `./offlineMirror.js` remains the single import site, so every public type and
+  function is unchanged.
+
+- **Reference sidebar split into panels (no consumer change):**
+  `ReferencesSidebar.vue` dropped from 835 lines to a ~280-line composition
+  root. The style picker, source row, create/edit form and import footer are now
+  `sidebars/references/{ReferenceStylePicker,ReferenceListItem,ReferenceForm,
+  ReferenceImportPanel}.vue`, with the CSL-JSON ↔ form mapping and search helper
+  in `sidebars/references/format.ts`. Props, emits, `data-testid` hooks and the
+  rendered DOM are unchanged.
+
+- **Collaboration wiring split into modules (no consumer change):**
+  `packages/core/src/Collaboration.ts` dropped from ~300 lines to an
+  orchestrator. Types moved to `collaborationTypes.ts`, the TipTap extensions
+  to `collaborationCursor.ts`, the `emitCursor` gate to
+  `collaborationCursorGate.ts`, and transport + first-sync gating stay in
+  `collaborationProviders.ts`. Everything remains re-exported from
+  `Collaboration.ts`, so imports and the package entry point are unchanged.
+
+- **AI plugin split into modules (no consumer change):**
+  `packages/plugins/src/ai.ts` dropped from 533 lines to a ~50-line manifest.
+  `ai/extension.ts` keeps `AIExtension` (storage, the five commands, the
+  `@tiptap/core` command augmentation, lifecycle), `ai/plugin.ts` builds the
+  ProseMirror plugin (decorations + accept/reject keys), `ai/pluginState.ts` owns
+  `aiPluginKey` and the preview reducer, `ai/widgets.ts` the /ai prompt and ghost
+  widgets, `ai/stream.ts` the transport port and stream loop, `ai/types.ts` the
+  state types. `./ai.js` still exports `aiPlugin`, `AIExtension`, `getAIPreview`,
+  `aiPluginKey` and `AIPreviewState`, so nothing changes for consumers.
+
+- **Equation plugin split into modules (no consumer change):**
+  `packages/plugins/src/equation.ts` dropped from 597 lines to a ~80-line
+  manifest. The inline and display node views now live in
+  `equation/{inlineNode,displayNode}.ts`, KaTeX rendering in
+  `equation/render.ts`, shared document mutations in `equation/transactions.ts`
+  and the numbering storage/plugin in `equation/state.ts`. All public exports
+  (`equationPlugin`, `EquationState`, both node extensions, `renderEquation`,
+  `EquationStorage`) are unchanged.
+
+- **Header bar split into modules (no consumer change):**
+  `HeaderBar.vue` dropped from 669 lines to a ~260-line composition root that
+  only keeps props, emits, the menu tree and the action dispatcher. The title
+  row (rename, star, mode badge) is `header/HeaderTitle.vue`, the menu bar
+  `header/HeaderMenuBar.vue` with one dropdown per open menu in
+  `header/HeaderMenuPanel.vue` (which now owns sub-menu hover state, so it
+  resets when the menu remounts), the avatar stack
+  `header/CollaboratorStack.vue`, and the account/overflow menus
+  `header/HeaderUserMenu.vue` and `header/HeaderMoreMenu.vue`. Each dropdown owns
+  its own open state and outside-click/Escape handling instead of one shared
+  `closeMenus` in the parent; `header/unimplemented.ts` holds the host-owned
+  classification from #153 and `header/initials.ts` the avatar initials. Props,
+  emits, slots (`actions`, `user-menu`, `overflow-actions`), `data-testid` hooks
+  and the rendered DOM are unchanged.
+
+- **Inline header/footer editor split into modules (no consumer change):**
+  `composables/useHeaderEdit.ts` dropped from 475 lines to a ~220-line
+  orchestrator that still owns the session lifecycle. The overlay markup and
+  its Options bar/controls are `headerEditBar.ts`, contenteditable block →
+  `<br>` normalization (>1 line would collapse, #319) is `headerEditHtml.ts`,
+  slot resolution plus page numbering is `headerEditTarget.ts`, the
+  first/even/default value mapping is `headerEditValues.ts`, and listener/overlay
+  teardown is `headerEditSession.ts`. Sanitization order (#51) and `SlotSide`,
+  `UseHeaderEditOptions` exports are unchanged.
+
+- **Suggest-changes plugin split into modules (no consumer change):**
+  `packages/plugins/src/suggestChanges.ts` dropped from 531 lines to a
+  ~180-line extension manifest (storage, plugin wiring, commands, plugin
+  definition). The mark names, state and plugin key live in
+  `suggest/suggestTypes.ts`, the three marks in `suggest/suggestMarks.ts`, run
+  ids and range scanning in `suggest/suggestRuns.ts`, P1 user-input capture
+  (typing/paste/backspace) in `suggest/suggestCapture.ts`, P3 bold/italic →
+  format proposals in `suggest/suggestFormatChanges.ts`, `getSuggestions` in
+  `suggest/suggestQueries.ts` and accept/reject in `suggest/suggestResolve.ts`.
+  Every public export (`SUGGESTION_*`, the marks, `suggestChangesKey`,
+  `getSuggestions`, the accept/reject helpers, `setDocumentMode`,
+  `setSuggestionAuthor`, `suggestChangesPlugin`) still resolves through
+  `./suggestChanges.js`.
+
+- **Smart elements split one file per chip (no consumer change):**
+  `packages/plugins/src/smartElements.ts` dropped from 519 lines to a ~50-line
+  plugin manifest. Each chip now has its own module in `chips/`
+  (`dateChip`, `peopleChip`, `fileChip`, `dropdownChip`, `locationChip`),
+  shared attribute helpers and the node-view shell live in
+  `chips/chipShared.ts`, and the `insert*Chip` commands plus the slash entries
+  in `chips/chipCommands.ts`. Node names, attributes, rendered DOM/classes and
+  the `smartElementsPlugin` export are unchanged; the five nodes are still
+  re-exported from `./smartElements.js`.
+
+- **Table page-split plugin split into modules (no consumer change):**
+  `packages/plugins/src/tablePageSplit.ts` dropped from 510 lines to a
+  ~100-line plugin manifest (deferred-pass wiring, `PLUGIN_KEY` meta skip,
+  `pendingRun` coalescing, `tablePageSplitPlugin`). Measurement moved to
+  `tableSplit/tableSplitMeasure.ts`, split-row/head-budget/cursor helpers to
+  `tableSplit/tableSplitRows.ts`, the recursive chunk builder to
+  `tableSplit/tableSplitChain.ts` (row-count invariant still throws), the
+  deferred pass to `tableSplit/tableSplitPass.ts`, and shared constants/types
+  to `tableSplit/tableSplitTypes.ts`. Behaviour is unchanged: same
+  `tablePageSplit` `head` attr, same `PAGE_COUNT_META_KEY` skip, same
+  `addToHistory: false` split transaction.
+
+- **Docs editor split into chrome + page surface (no consumer change):**
+  `components/DocsEditor.vue` dropped from 462 lines to a composition root that
+  only keeps the composable wiring. The chrome above the page (header bar,
+  toolbar, floating exit-focus button, with the
+  `header-actions`/`overflow-actions`/`user-menu` slots forwarded) is now
+  `docsEditor/DocsEditorTopBar.vue`; the scroll container, zoom wrapper,
+  virtual-page overlay, loading overlay and ProseMirror mount point are
+  `docsEditor/DocsEditorPaper.vue` (the `.docs-editor__paper` styles moved with
+  it). The surface receives its element refs as a plain bundle
+  (`docsEditor/docsEditorPaperTypes.ts`) because Vue unwraps refs passed straight
+  from a template, which would hand the child `null`. Locale provide/watch moved
+  to `useDocsEditorLocale.ts` and document-mode state to `useDocsEditorMode.ts`,
+  with the suggestChanges mode/author sync in `useDocsEditorSuggestSync` (created
+  after the session, so a watch source can never read an uninitialized ref).
+  Selectors (`.docs-editor-scroll`, `.docs-editor__paper`,
+  `data-testid="docs-editor-zoom"`), zoom/ruler behaviour and every binding the
+  tests reach through `wrapper.vm` are unchanged.
+
+- **Manual column resize split into modules (no consumer change):**
+  `packages/core/src/ManualColumnResize.ts` dropped from 405 lines to an ~85-line
+  extension manifest that only creates the plugin, wires the capture-phase
+  listeners and tears them down. Pointer hit-testing (colspan-aware logical
+  columns, #55) and the drag snapshot live in
+  `manualColumnResize/columnGeometry.ts`, width measurement in
+  `columnMeasure.ts`, the DOM writer + `domObserver` gate in `columnDom.ts`, the
+  drag loop (redistributive vs last-column clamp, #116) in `dragSession.ts`, the
+  colwidth transaction in `persistColwidths.ts`, the `docflow-active-border-line`
+  hint in `resizeLine.ts`/`hoverIndicator.ts` and the table position lookup in
+  `tablePosition.ts`. The export path and the "register before the table plugin"
+  ordering are unchanged. New `__tests__/manualColumnResize.test.ts` (11 tests)
+  pins merged-cell hit-testing, width measurement/fallback, the last-column
+  clamp and the DOM writer; the mousedown listener is now also removed on
+  `destroy` instead of leaking with the view.
+
+- **Citation engine + plugin split into modules (no consumer change):**
+  `packages/plugins/src/citeEngine.ts` (375 → 174) stays the public
+  `CiteEngine` facade and now owns only state bookkeeping and listeners, with
+  the rendering replay in `cite/citeRender.ts` (`renderCitations`,
+  `buildClusterSignature`), style validation + citeproc construction in
+  `cite/citeStyles.ts`, the style registry (`register`/`remove`/`setActive`,
+  bundled-style protection, active-style fallback) in
+  `cite/citeStyleRegistry.ts`, the tag allow-list in `cite/citeHtml.ts`, the
+  cluster id counter in `cite/citeClusterId.ts` and the shared attribute types
+  in `cite/citeTypes.ts`. `citation.ts` (365 → 53) is now a manifest: the
+  per-editor engine plus the document↔engine sync (duplicate-id repair,
+  ordered recompute, footnote `content` persistence) live in
+  `citation/citationStorage.ts`, the inline node view in
+  `citation/citationNode.ts` and the insert/style commands in
+  `citation/citationCommands.ts`. Every previous export
+  (`citeEngine.js`: `CiteEngine`, `resolveCslStyles`, `sanitizeCiteprocHtml`,
+  `nextCitationId`, `CslStyleInfo`, `CitationAttrs`, `CitationCluster`,
+  `CitationMode`, `CiteEngineOptions`; `citation.js`: `citationPlugin`,
+  `CitationNode`, `CitationEngineExtension`, `getCitationEngine`,
+  `buildCitationNodes`, `CitationStorage`) still resolves from the same path,
+  and the validation error strings (including which style id failed) are
+  unchanged. New `__tests__/citeRender.test.ts` pins the memoization signature
+  and the cited-only/uncited bibliography split.
+
+- **`PageLayout` split into modules (no consumer change):**
+  `packages/layout-engine/src/PageLayout.ts` (368 → 183) keeps the class and
+  its public surface (`EditorLike`, `measureBlocks`, `layout`, `observe`,
+  `destroy`, default 150 ms debounce) but now only orchestrates a run. DOM →
+  block conversion (position fallbacks, `canSplit`, keep-together, CSS margins)
+  lives in `layout/layoutBlockMeasure.ts`, the cache fingerprints in
+  `layout/layoutFingerprint.ts`, the off-screen clone in `layout/layoutShadow.ts`,
+  the Range-based split measurement in `layout/layoutTextOffset.ts` and the
+  head-page reuse rule in `layout/incrementalPages.ts`. Behaviour is unchanged:
+  fast path on an unchanged document/size, one shadow refresh per fingerprint,
+  and page objects are still reused by reference when only the tail changed, so
+  downstream redraws stay minimal. New `__tests__/layoutInternals.test.ts`
+  (8 tests) pins the fingerprint keys and the merge rule (tail change reuse,
+  resize invalidation, moved boundary, appended block, first run).
+
+- **`VirtualPageOverlay` split into config and window modules (no consumer
+  change):** `packages/layout-engine/src/VirtualPageOverlay.ts` (232 → 199)
+  keeps the class and its public surface (`layout`, `observe`, `disconnect`,
+  `getData`, `updateConfig`, `onVisibleChange`, default 2-page buffer) but now
+  only owns the lifecycle. Config defaults and resolution moved to
+  `pageOverlayConfig.ts` (`PageOverlayConfig`, `VisiblePage`, `PageOverlayData`,
+  `ResolvedOverlayConfig`, `resolvePageSize`, `resolveOverlayConfig`,
+  `samePageSize`, `sameMargins`), and the visible-window math to
+  `visibleWindow.ts` (`computeVisiblePages`, `sameVisiblePages`, now pure and
+  DOM-free). Both modules are re-exported from `./VirtualPageOverlay`, so
+  `dist/index.d.ts` keeps every export name consumers already import.
+
+- **`toc` plugin split into modules (no consumer change):**
+  `packages/plugins/src/toc.ts` (348 → 152) still holds the node and extension
+  definitions, the command declaration and the plugin manifest, and exports the
+  same names (`tocPlugin`, `TocNode`, `TocEntryNode`, `TocPageNumNode`,
+  `collectHeadings`, `regenerateToc`). Heading collection and the layout-derived
+  page-number resolver moved to `toc/headingCollect.ts`, entry generation and
+  the single-transaction refresh to `toc/tocContent.ts`, and the NodeView chrome
+  (caption, refresh button, click-to-jump) to `toc/tocNodeView.ts`. Rendered
+  markup, `data-toc*` selectors and the H1–H3-only rule are unchanged.
+
+- **`useCitations` split into modules (no consumer change):**
+  `packages/vue/src/composables/useCitations.ts` (341 → 200) stays the
+  composition root — picker state, library CRUD, style switching and the
+  `CitationPort` handed to the editor — and still exports the same names
+  (`useCitations`, `BUNDLED_REFERENCE_STYLES`, `CitationsEmit`,
+  `CitationStyleOption`, `UseCitationsOptions`). The contract types and the
+  bundled-style list moved to `citationTypes.ts`, DOI/bibliography import into
+  `citationImporters.ts`, and the `.csl` import path into
+  `citationStyleImport.ts`. Emitted events, the picker fallback and the
+  `console.error` on a malformed style are unchanged.
+
+- **`useFootnotes` split into DOM, layout and jump helpers (no consumer
+  change):** `packages/vue/src/composables/useFootnotes.ts` (329 → 214) keeps
+  the watchers, the debounce/retry timers and the per-page numbering loop, and
+  still exports `useFootnotes`, `updateFootnotes` and `scheduleFootnotes`. The
+  footnote markup (editable body vs citeproc body, container, numbered row)
+  moved to `footnoteDom.ts`, the break-area measurement and page grouping to
+  `footnoteLayout.ts`, and the `<sup>` click-to-jump to `footnoteJump.ts`. The
+  pagination retry (#19), the continuous numbering and the `#71` sanitize
+  fallback behave exactly as before.
+
+- **`useEditCommands` split into actions, clipboard and keyboard (no consumer
+  change):** `packages/vue/src/composables/useEditCommands.ts` (335 → 139) keeps
+  the command map and the `runMenuEditorCommand` / `runPluginMenuAction` /
+  `insertPageNumber` helpers, and still exports `useEditCommands` plus
+  `EDIT_FORMAT_MENU_ACTIONS` (now defined in `editFormatActions.ts`, so the
+  `menuActions.drift` parity test keeps guarding the same list). Selection
+  serialization, cut/copy/paste/paste-plain and the Delete-selection rule moved
+  to `editClipboard.ts`; the document-level `keydown`/`paste` listeners (⌘⇧V,
+  ⌘⇧H, Escape-to-leave-focus-mode, image-only paste capture) moved to
+  `editKeyboard.ts` with the same mount/unmount pairing. Menu classification,
+  emitted events and the `console.error` fallbacks are unchanged.
+
+- **`Indent` extension split into level and dispatch modules (no consumer
+  change):** `packages/core/src/Indent.ts` (341 → 118) keeps the command
+  declaration and both extensions (`IndentExtension` at priority 50,
+  `IndentBackspaceExtension` at 150) and re-exports the same public names
+  (`clampIndentLevel`, `indentLevelOf`, `INDENT_STEP_PX`, `INDENT_MAX_LEVEL`,
+  `INDENT_STYLE_VAR`, `INDENT_STEP_VAR`). The attribute contract — constants,
+  `parseIndentLevel` (with the `margin-left` fallback), `renderIndentAttributes`
+  — moved to `indent/indentLevel.ts`, and the Tab/Shift-Tab resolution order
+  (code block whitespace → list nesting → block indent), the block shifts and
+  the Backspace-at-block-start outdent to `indent/indentBlocks.ts`. Clamping,
+  the `data-indent` round-trip and the priority ordering are unchanged.
+
+- **`createEditor` split into types, content migration and editor factory (no
+  consumer change):** `packages/core/src/Editor.ts` (365 → 106) is now a facade:
+  it still exports `createEditor`, `migrateContent`, `EditorOptions`,
+  `DocsEditor` and the paste-normalization helpers, and keeps the
+  `createEditor` lifecycle (collab ownership, plugin `onInit`/`onDestroy`,
+  `use()` rebuild with selection restore, debug monitor). The option/result
+  interfaces moved to `editor/editorTypes.ts`, the legacy `bibliography` →
+  `referenceList` / `page` unwrapping to `editor/migrateContent.ts`, and the
+  TipTap instance factory (StarterKit opt-outs, `InlineCode` without input
+  rules, extension order, collab extensions, `transformPastedHTML`) to
+  `editor/createTiptapEditor.ts`. No new name is re-exported from the package.
 
 - **Debounced `update:modelValue` (issue #374):** typing now coalesces into a
   single trailing emit (~300 ms) instead of emitting a rebuilt tabbed document

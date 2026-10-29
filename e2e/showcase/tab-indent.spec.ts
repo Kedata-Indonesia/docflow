@@ -168,11 +168,11 @@ test.describe('Tab indentation (#189)', () => {
     await page.keyboard.type('Menu indent')
 
     const openAlignIndent = async (): Promise<void> => {
+      // Memilih item menu menutup seluruh menu bar, jadi sub-panel harus dibuka
+      // ulang dari "Format" setiap kali (jangan andalkan trigger masih terlihat).
+      await page.locator('nav button', { hasText: 'Format' }).first().click()
       const trigger = page.locator('nav button', { hasText: 'Align & indent' }).first()
-      if (!(await trigger.isVisible())) {
-        await page.locator('nav button', { hasText: 'Format' }).first().click()
-        await expect(trigger).toBeVisible()
-      }
+      await expect(trigger).toBeVisible()
       // The sub-panel opens on mouseenter; dispatch it directly so the check
       // does not race the dropdown transition.
       await trigger.dispatchEvent('mouseenter')
