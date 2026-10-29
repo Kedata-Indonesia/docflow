@@ -177,10 +177,17 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="ai-sidebar flex h-full w-80 flex-shrink-0 flex-col border-l border-slate-200 bg-white/80 text-slate-800 backdrop-blur-xl transition-all dark:border-white/5 dark:bg-[#0a0f1e]/85 dark:text-slate-100">
+  <div
+    class="ai-sidebar flex h-full w-80 flex-shrink-0 flex-col border-l border-slate-200
+      bg-white/80 text-slate-800 backdrop-blur-xl transition-all dark:border-white/5
+      dark:bg-[#0a0f1e]/85 dark:text-slate-100"
+  >
     <div class="flex items-start justify-between border-b border-slate-200 p-4 dark:border-white/5">
       <div>
-        <h3 class="flex items-center gap-1.5 font-mono text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
+        <h3
+          class="flex items-center gap-1.5 font-mono text-xs font-bold uppercase
+            tracking-widest text-slate-500 dark:text-slate-400"
+        >
           <Sparkles class="h-4 w-4 animate-pulse text-cyan-400" /> {{ t('sidebars.ai.title') }}
         </h3>
         <p class="mt-1.5 text-[10px] leading-relaxed text-slate-400 dark:text-slate-500">
@@ -189,7 +196,8 @@ onUnmounted(() => {
       </div>
       <button
         type="button"
-        class="rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-white/5 dark:hover:text-slate-200"
+        class="rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-100
+          hover:text-slate-600 dark:hover:bg-white/5 dark:hover:text-slate-200"
         :aria-label="t('sidebars.ai.close')"
         @click="handleClose"
       >
@@ -197,7 +205,10 @@ onUnmounted(() => {
       </button>
     </div>
 
-    <div v-if="!resolvedAiStream" class="flex flex-1 flex-col items-center justify-center p-6 text-center text-slate-400 dark:text-slate-500">
+    <div
+      v-if="!resolvedAiStream"
+      class="flex flex-1 flex-col items-center justify-center p-6 text-center text-slate-400 dark:text-slate-500"
+    >
       <Sparkles class="mb-2 h-6 w-6 text-cyan-500 opacity-30" />
       <p class="text-xs">{{ t('sidebars.ai.notConfigured') }}</p>
     </div>
@@ -213,7 +224,10 @@ onUnmounted(() => {
 
       <!-- Conversation -->
       <div ref="turnsEl" class="flex-1 space-y-3 overflow-y-auto p-4">
-        <div v-if="turns.length === 0" class="flex h-full flex-col items-center justify-center p-4 text-center text-slate-400 dark:text-slate-500">
+        <div
+          v-if="turns.length === 0"
+          class="flex h-full flex-col items-center justify-center p-4 text-center text-slate-400 dark:text-slate-500"
+        >
           <Sparkles class="mb-2 h-6 w-6 text-cyan-500 opacity-30" />
           <p class="text-[10px]">{{ t('sidebars.ai.noDraft') }}</p>
         </div>

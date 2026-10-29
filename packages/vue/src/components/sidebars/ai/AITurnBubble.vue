@@ -37,7 +37,10 @@ const { t } = useLocale()
 
 <template>
   <div class="flex flex-col gap-1" :class="props.turn.role === 'user' ? 'items-end' : 'items-start'">
-    <span class="flex items-center gap-1 font-mono text-[9px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">
+    <span
+      class="flex items-center gap-1 font-mono text-[9px] font-bold uppercase tracking-widest
+        text-slate-400 dark:text-slate-500"
+    >
       <User v-if="props.turn.role === 'user'" class="h-2.5 w-2.5" />
       <Sparkles v-else class="h-2.5 w-2.5 text-cyan-400" />
       {{ props.turn.role === 'user' ? t('sidebars.ai.you') : t('sidebars.ai.assistant') }}
@@ -46,7 +49,8 @@ const { t } = useLocale()
          empty bubble (the caret alone reads as “broken”). -->
     <div
       v-if="props.turn.role === 'assistant' && props.turn.streaming && !props.turn.text && !props.turn.error"
-      class="flex items-center gap-2 rounded-xl bg-slate-100 px-3 py-2 text-xs text-slate-500 dark:bg-white/[0.04] dark:text-slate-400"
+      class="flex items-center gap-2 rounded-xl bg-slate-100 px-3 py-2 text-xs
+        text-slate-500 dark:bg-white/[0.04] dark:text-slate-400"
     >
       <Loader2 class="h-3.5 w-3.5 animate-spin text-cyan-500" />
       <span>{{ t('sidebars.ai.thinking') }}</span>
@@ -67,7 +71,8 @@ const { t } = useLocale()
     <!-- Failure note — kept separate from the answer above. -->
     <div
       v-if="props.turn.role === 'assistant' && props.turn.error"
-      class="flex max-w-full flex-col gap-0.5 rounded-xl bg-red-50 px-3 py-2 text-[11px] leading-relaxed dark:bg-red-500/10"
+      class="flex max-w-full flex-col gap-0.5 rounded-xl bg-red-50 px-3 py-2 text-[11px]
+        leading-relaxed dark:bg-red-500/10"
     >
       <span class="flex items-center gap-1.5 font-semibold text-red-700 dark:text-red-300">
         <TriangleAlert class="h-3 w-3" /> {{ t('sidebars.ai.aiError') }}
@@ -84,7 +89,9 @@ const { t } = useLocale()
       <span
         v-for="citation in props.turn.citations"
         :key="citation.ref"
-        class="inline-flex items-center gap-1 rounded-full border border-cyan-500/30 bg-cyan-500/5 px-2 py-0.5 text-[10px] font-semibold text-cyan-700 dark:border-cyan-400/30 dark:bg-cyan-500/10 dark:text-cyan-300"
+        class="inline-flex items-center gap-1 rounded-full border border-cyan-500/30 bg-cyan-500/5
+          px-2 py-0.5 text-[10px] font-semibold text-cyan-700 dark:border-cyan-400/30
+          dark:bg-cyan-500/10 dark:text-cyan-300"
       >
         <Quote class="h-2.5 w-2.5" />{{ citation.label }}
       </span>
@@ -97,7 +104,9 @@ const { t } = useLocale()
       <button
         v-if="props.turn.text"
         type="button"
-        class="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold text-slate-600 transition-all hover:bg-slate-50 dark:border-white/10 dark:bg-white/[0.02] dark:text-slate-300 dark:hover:bg-white/5"
+        class="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1
+          text-[10px] font-semibold text-slate-600 transition-all hover:bg-slate-50
+          dark:border-white/10 dark:bg-white/[0.02] dark:text-slate-300 dark:hover:bg-white/5"
         @click="emit('copy')"
       >
         <component :is="copied ? Check : Copy" class="h-3 w-3" :class="copied ? 'text-emerald-500' : ''" />
@@ -106,7 +115,8 @@ const { t } = useLocale()
       <button
         v-if="insertable"
         type="button"
-        class="flex items-center gap-1 rounded-lg bg-cyan-500 px-2 py-1 text-[10px] font-bold text-black shadow-cyan transition-all hover:bg-cyan-400"
+        class="flex items-center gap-1 rounded-lg bg-cyan-500 px-2 py-1 text-[10px] font-bold
+          text-black shadow-cyan transition-all hover:bg-cyan-400"
         @click="emit('insert')"
       >
         <component :is="inserted ? Check : ArrowDownToLine" class="h-3 w-3" />
