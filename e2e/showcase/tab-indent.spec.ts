@@ -167,24 +167,31 @@ test.describe('Tab indentation (#189)', () => {
     await paper.click()
     await page.keyboard.type('Menu indent')
 
+    // Choosing an item closes the whole menu bar, so the panel is reopened from
+    // "Format" every time. Regression guard for #461: the panel stays visible
+    // during its leave transition, so an `isVisible()` shortcut here skipped the
+    // reopen and clicked an item that was already unmounting — a no-op that
+    // looked like a broken Outdent.
     const openAlignIndent = async (): Promise<void> => {
-      // Memilih item menu menutup seluruh menu bar, jadi sub-panel harus dibuka
-      // ulang dari "Format" setiap kali (jangan andalkan trigger masih terlihat).
+      // Wait for the previous panel's leave transition to finish; otherwise the
+      // locator can resolve to the panel that is unmounting (see #461).
+      await expect(page.locator('[data-testid="header-menu-panel"]')).toHaveCount(0)
       await page.locator('nav button', { hasText: 'Format' }).first().click()
       const trigger = page.locator('nav button', { hasText: 'Align & indent' }).first()
       await expect(trigger).toBeVisible()
-      // The sub-panel opens on mouseenter; dispatch it directly so the check
-      // does not race the dropdown transition.
-      await trigger.dispatchEvent('mouseenter')
+      // A previous open leaves the pointer inside the (now unmounted) sub-panel,
+      // so reset the hover chain before hovering the trigger again.
+      await page.mouse.move(4, 4)
+      await trigger.hover()
       await expect(page.locator('nav button', { hasText: 'Increase indent' }).first()).toBeVisible()
     }
 
     await openAlignIndent()
-    await page.locator('nav button', { hasText: 'Increase indent' }).first().dispatchEvent('click')
+    await page.locator('nav button', { hasText: 'Increase indent' }).first().click()
     await expect(paper.locator('p[data-indent="1"]')).toHaveCount(1)
 
     await openAlignIndent()
-    await page.locator('nav button', { hasText: 'Decrease indent' }).first().dispatchEvent('click')
+    await page.locator('nav button', { hasText: 'Decrease indent' }).first().click()
     await expect(paper.locator('p[data-indent]')).toHaveCount(0)
   })
 })
